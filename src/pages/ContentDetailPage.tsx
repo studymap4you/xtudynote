@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   addDoc,
@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
+import { recordStudentDownload } from "@/lib/studentDownloads";
 import { PublicShell } from "@/components/PublicShell";
 import type { ContentDocument } from "@/types/content";
 import "@/pages/pages.css";
@@ -84,6 +85,14 @@ export function ContentDetailPage() {
     return () => unsub();
   }, [id]);
 
+  const displayTitle = useMemo(() => {
+    if (!content) return "";
+    if ((content.type ?? "share") === "homework" && content.homeworkCode) {
+      return `${content.homeworkCode} · ${content.subject}`;
+    }
+    return content.subject;
+  }, [content]);
+
   const isUploader =
     !!profile && content && profile.accountStatus === "active" && profile.uid === content.authorId;
 
@@ -130,12 +139,20 @@ export function ContentDetailPage() {
       return;
     }
     await downloadStoragePathsSequentially(paths);
+    if (profile?.role === "student" && id) {
+      await recordStudentDownload({
+        studentId: firebaseUser.uid,
+        contentId: id,
+        title: displayTitle || content.subject,
+        storagePaths: paths,
+      });
+    }
   }
 
   if (!id) {
     return (
       <PublicShell>
-        <main className="admin-layout">
+        <main className="admin-layout admin-layout--light">
           <p>잘못된 경로입니다.</p>
         </main>
       </PublicShell>
@@ -145,7 +162,7 @@ export function ContentDetailPage() {
   if (loadError || !content) {
     return (
       <PublicShell>
-        <main className="admin-layout">
+        <main className="admin-layout admin-layout--light">
           <p className="auth-error">{loadError ?? "불러오는 중…"}</p>
           <Link to="/library" className="btn btn--ghost btn--stack">
             라이브러리로
@@ -157,9 +174,9 @@ export function ContentDetailPage() {
 
   return (
     <PublicShell>
-      <main className="admin-layout content-detail">
+      <main className="admin-layout content-detail admin-layout--light">
         <div className="admin-layout__title-row">
-          <h1>{content.subject}</h1>
+          <h1>{displayTitle}</h1>
           <span className="ui-ko">{content.learningTopic}</span>
         </div>
         <p className="content-detail__intro">{content.introduction}</p>
@@ -182,7 +199,7 @@ export function ContentDetailPage() {
           )}
         </div>
 
-        <section className="panel content-detail__qa">
+        <section className="panel panel--light content-detail__qa">
           <div className="panel__head">
             <div>
               <h2 className="panel__title">Q&amp;A</h2>

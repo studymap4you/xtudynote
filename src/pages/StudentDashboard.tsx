@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { AddMaterialButton } from "@/components/AddMaterialButton";
+import { StudentLearningVault } from "@/components/StudentLearningVault";
 import "@/pages/pages.css";
 
 export function StudentDashboard() {
@@ -21,20 +23,20 @@ export function StudentDashboard() {
         <section className="panel">
           <div className="panel__head">
             <div>
-              <h2 className="panel__title">Today&apos;s learning</h2>
+              <h2 className="panel__title">자료 등록 신청</h2>
               <span className="ui-ko" style={{ fontSize: "0.8rem" }}>
-                오늘의 학습
+                마스터 검수 후 등록
               </span>
             </div>
             <span className="panel__badge panel__badge--ok">Student</span>
           </div>
-          <p className="materials-placeholder">
-            <span className="ui-en">Upcoming sessions and tasks will appear here.</span>
-            <span className="ui-ko" style={{ display: "block", marginTop: "0.5rem" }}>
-              예정된 학습 세션·과제가 여기에 표시됩니다.
-            </span>
-          </p>
+          <div className="badge-row" style={{ flexWrap: "wrap" }}>
+            <AddMaterialButton />
+          </div>
         </section>
+
+        <StudentLearningVault />
+
         <section className="panel">
           <div className="panel__head">
             <div>

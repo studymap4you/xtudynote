@@ -2,11 +2,18 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
-export function PublicShell({ children }: { children: React.ReactNode }) {
+export function PublicShell({
+  children,
+  light = true,
+}: {
+  children: React.ReactNode;
+  /** Library·상세·과제 검색 등 라이트 테마 (기본 true) */
+  light?: boolean;
+}) {
   const { firebaseUser } = useAuth();
 
   return (
-    <div className="app-shell">
+    <div className={light ? "app-shell app-shell--light" : "app-shell"}>
       <header className="top-nav">
         <Link to="/" className="top-nav__brand">
           XtudyNote

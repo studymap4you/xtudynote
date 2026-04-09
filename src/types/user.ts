@@ -14,6 +14,8 @@ export interface UserProfile {
   verificationSubmittedAt?: number;
   createdAt: number;
   displayName?: string;
-  /** 승인된 선생님 계좌 정보 (유료 정산 등) */
-  bankAccount?: string;
+  /** 승인된 선생님 정산 계좌 (세분화) */
+  bankName?: string;
+  bankAccountNumber?: string;
+  accountHolder?: string;
 }

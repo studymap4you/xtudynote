@@ -123,7 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             verificationSubmittedAt,
             createdAt: createdRaw?.toMillis?.() ?? Date.now(),
             displayName: d.displayName as string | undefined,
-            bankAccount: d.bankAccount as string | undefined,
+            bankName: d.bankName as string | undefined,
+            bankAccountNumber: d.bankAccountNumber as string | undefined,
+            accountHolder: d.accountHolder as string | undefined,
           };
           setProfile(p);
           setLoading(false);
@@ -198,7 +200,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verificationSubmittedAt,
       createdAt: (d.createdAt as { toMillis?: () => number })?.toMillis?.() ?? Date.now(),
       displayName: d.displayName as string | undefined,
-      bankAccount: d.bankAccount as string | undefined,
+      bankName: d.bankName as string | undefined,
+      bankAccountNumber: d.bankAccountNumber as string | undefined,
+      accountHolder: d.accountHolder as string | undefined,
     });
   }, []);
 

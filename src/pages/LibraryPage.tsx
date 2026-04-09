@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
+import { recordStudentDownload } from "@/lib/studentDownloads";
 import { PublicShell } from "@/components/PublicShell";
 import type { ContentType } from "@/types/content";
 import "@/pages/pages.css";
@@ -23,6 +24,7 @@ type LibraryRow = {
   identifier: string;
   learningTopic: string;
   type: ContentType;
+  homeworkCode: string | null;
   createdAtLabel: string;
   allFilePaths: string[];
 };
@@ -46,8 +48,37 @@ function formatCreatedAt(raw: unknown): string {
   return "—";
 }
 
+function TypeBadge({ type }: { type: ContentType }) {
+  if (type === "share") {
+    return (
+      <span className="content-type-badge content-type-badge--share">
+        공유
+      </span>
+    );
+  }
+  if (type === "paid") {
+    return (
+      <span className="content-type-badge content-type-badge--paid">
+        유료
+      </span>
+    );
+  }
+  return (
+    <span className="content-type-badge content-type-badge--homework">
+      과제
+    </span>
+  );
+}
+
+function listTitle(row: LibraryRow): string {
+  if (row.type === "homework" && row.homeworkCode) {
+    return `${row.homeworkCode} · ${row.subject}`;
+  }
+  return row.subject;
+}
+
 export function LibraryPage() {
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, profile } = useAuth();
   const [rows, setRows] = useState<LibraryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +92,7 @@ export function LibraryPage() {
     const q = query(
       collection(db, "contents"),
       where("status", "==", "approved"),
-      where("type", "in", ["share", "paid"]),
+      where("type", "in", ["share", "paid", "homework"]),
       orderBy("createdAt", "desc")
     );
     const unsub = onSnapshot(
@@ -72,12 +103,14 @@ export function LibraryPage() {
           const x = d.data();
           const lm = (x.learningMaterialFilePaths as string[]) ?? [];
           const rf = (x.referenceMaterialFilePaths as string[]) ?? [];
+          const t = (x.type as ContentType) ?? "share";
           list.push({
             id: d.id,
             subject: String(x.subject ?? ""),
             identifier: String(x.identifier ?? ""),
             learningTopic: String(x.learningTopic ?? ""),
-            type: (x.type as ContentType) ?? "share",
+            type: t,
+            homeworkCode: x.homeworkCode != null ? String(x.homeworkCode) : null,
             createdAtLabel: formatCreatedAt(x.createdAt),
             allFilePaths: [...lm, ...rf],
           });
@@ -112,24 +145,29 @@ export function LibraryPage() {
     [rows, selected]
   );
 
-  const pathsToDownload = useMemo(() => {
-    const paths: string[] = [];
-    selectedRows.forEach((r) => paths.push(...r.allFilePaths));
-    return paths;
-  }, [selectedRows]);
-
   async function handleDownloadSelected() {
     if (!firebaseUser) {
       window.alert("파일 다운로드는 로그인 후 이용할 수 있습니다.");
       return;
     }
-    if (pathsToDownload.length === 0) {
+    if (selectedRows.length === 0 || !selectedRows.some((r) => r.allFilePaths.length > 0)) {
       window.alert("다운로드할 파일이 있는 자료를 선택해 주세요.");
       return;
     }
     setDownloading(true);
     try {
-      await downloadStoragePathsSequentially(pathsToDownload);
+      for (const row of selectedRows) {
+        if (row.allFilePaths.length === 0) continue;
+        await downloadStoragePathsSequentially(row.allFilePaths);
+        if (profile?.role === "student") {
+          await recordStudentDownload({
+            studentId: firebaseUser.uid,
+            contentId: row.id,
+            title: listTitle(row),
+            storagePaths: row.allFilePaths,
+          });
+        }
+      }
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "다운로드에 실패했습니다.");
     } finally {
@@ -139,10 +177,10 @@ export function LibraryPage() {
 
   return (
     <PublicShell>
-      <main className="admin-layout library-page">
+      <main className="admin-layout library-page admin-layout--light">
         <div className="admin-layout__title-row">
           <h1>Library</h1>
-          <span className="ui-ko">승인된 공유·유료 자료 (과제 제외)</span>
+          <span className="ui-ko">승인된 자료 · 공유 / 유료 / 과제</span>
         </div>
 
         <div className="library-toolbar">
@@ -186,14 +224,14 @@ export function LibraryPage() {
         </div>
 
         {!firebaseUser && (
-          <p className="library-guest-hint auth-error" role="status">
+          <p className="library-guest-hint library-guest-hint--light" role="status">
             비회원은 목록을 볼 수 있으나, 파일 다운로드는 로그인이 필요합니다.
           </p>
         )}
 
         {error && <p className="auth-error">{error}</p>}
         {loading ? (
-          <div className="route-loading">
+          <div className="route-loading route-loading--light">
             <div className="route-loading__spinner" />
             <p>
               <span className="ui-en">Loading…</span>
@@ -205,17 +243,20 @@ export function LibraryPage() {
         ) : view === "card" ? (
           <div className="library-cards">
             {rows.length === 0 ? (
-              <p style={{ color: "var(--text-muted)" }}>표시할 자료가 없습니다.</p>
+              <p style={{ color: "var(--light-text-muted, #6b7280)" }}>표시할 자료가 없습니다.</p>
             ) : (
               rows.map((r) => (
-                <article key={r.id} className="library-card">
+                <article key={r.id} className="library-card library-card--light">
                   <label className="library-card__check">
                     <input
                       type="checkbox"
                       checked={!!selected[r.id]}
                       onChange={() => toggle(r.id)}
                     />
-                    <span className="library-card__title">{r.subject}</span>
+                    <span className="library-card__badges">
+                      <TypeBadge type={r.type} />
+                    </span>
+                    <span className="library-card__title">{listTitle(r)}</span>
                   </label>
                   <p className="library-card__meta">{r.learningTopic}</p>
                   <p className="library-card__meta-sub">{r.createdAtLabel}</p>
@@ -229,11 +270,12 @@ export function LibraryPage() {
           </div>
         ) : (
           <div className="admin-table-wrap">
-            <table className="admin-table admin-table--contents">
+            <table className="admin-table admin-table--light admin-table--contents">
               <thead>
                 <tr>
                   <th aria-label="select" />
-                  <th>과목</th>
+                  <th>유형</th>
+                  <th>제목</th>
                   <th>주제</th>
                   <th>등록</th>
                   <th>상세</th>
@@ -242,7 +284,7 @@ export function LibraryPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ color: "var(--text-muted)" }}>
+                    <td colSpan={6} style={{ color: "var(--light-text-muted, #6b7280)" }}>
                       표시할 자료가 없습니다.
                     </td>
                   </tr>
@@ -252,7 +294,10 @@ export function LibraryPage() {
                       <td>
                         <input type="checkbox" checked={!!selected[r.id]} onChange={() => toggle(r.id)} />
                       </td>
-                      <td>{r.subject}</td>
+                      <td>
+                        <TypeBadge type={r.type} />
+                      </td>
+                      <td>{listTitle(r)}</td>
                       <td>{r.learningTopic}</td>
                       <td>{r.createdAtLabel}</td>
                       <td>

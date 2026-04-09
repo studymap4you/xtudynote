@@ -12,6 +12,8 @@ import { HomeworkSearchPage } from "@/pages/HomeworkSearchPage";
 import { HomeworkStudentPage } from "@/pages/HomeworkStudentPage";
 import { TeacherHomeworkPage } from "@/pages/teacher/TeacherHomeworkPage";
 import { HomeworkFeedbackPage } from "@/pages/teacher/HomeworkFeedbackPage";
+import { TeacherStatsPage } from "@/pages/teacher/TeacherStatsPage";
+import { MaterialRegisterPage } from "@/pages/MaterialRegisterPage";
 import { ProtectedRoute, SuperAdminRoute } from "@/components/ProtectedRoute";
 
 export default function App() {
@@ -69,6 +71,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <HomeworkFeedbackPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/stats"
+        element={
+          <ProtectedRoute>
+            <TeacherStatsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/material/register"
+        element={
+          <ProtectedRoute>
+            <MaterialRegisterPage />
           </ProtectedRoute>
         }
       />

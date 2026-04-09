@@ -32,7 +32,11 @@ service cloud.firestore {
     }
     function isApprovedLibraryContent() {
       return resource.data.status == 'approved'
-        && (resource.data.type == 'share' || resource.data.type == 'paid');
+        && (
+          resource.data.type == 'share'
+          || resource.data.type == 'paid'
+          || resource.data.type == 'homework'
+        );
     }
     function isAuthor() {
       return signedIn() && resource.data.authorId == request.auth.uid;
@@ -79,7 +83,8 @@ service cloud.firestore {
               .hasOnly(['displayName', 'verificationFileUrls', 'verificationSubmittedAt'])
             || (
               userData(userId).role == 'teacher'
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bankAccount'])
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['bankName', 'bankAccountNumber', 'accountHolder'])
             )
           )
         );
@@ -168,6 +173,31 @@ service cloud.firestore {
         );
 
       allow delete: if isActiveSuperAdmin();
+    }
+
+    match /student_downloads/{docId} {
+      allow read, delete: if signedIn() && resource.data.studentId == request.auth.uid;
+      allow create, update: if signedIn()
+        && request.resource.data.studentId == request.auth.uid
+        && docId == request.auth.uid + '_' + request.resource.data.contentId;
+    }
+
+    match /material_requests/{reqId} {
+      allow create: if isActiveStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.keys().hasAll(['studentId', 'title', 'note', 'createdAt']);
+      allow read: if signedIn() && (
+        resource.data.studentId == request.auth.uid
+        || isActiveSuperAdmin()
+      );
+    }
+
+    match /sales_records/{saleId} {
+      allow read: if signedIn() && (
+        isActiveSuperAdmin()
+        || resource.data.teacherId == request.auth.uid
+      );
+      allow create, update, delete: if isActiveSuperAdmin();
     }
   }
 }

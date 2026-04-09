@@ -149,7 +149,7 @@ export function HomeworkStudentPage() {
   if (!code) {
     return (
       <PublicShell>
-        <main className="admin-layout">
+        <main className="admin-layout admin-layout--light">
           <p>과제 번호가 없습니다.</p>
         </main>
       </PublicShell>
@@ -158,7 +158,7 @@ export function HomeworkStudentPage() {
 
   return (
     <PublicShell>
-      <main className="admin-layout homework-student">
+      <main className="admin-layout homework-student admin-layout--light">
         <div className="admin-layout__title-row">
           <h1>과제</h1>
           <span className="ui-ko">코드 {code}</span>

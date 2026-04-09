@@ -42,6 +42,22 @@
         { "fieldPath": "contentId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "student_downloads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "lastDownloadedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sales_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "teacherId", "order": "ASCENDING" },
+        { "fieldPath": "soldAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

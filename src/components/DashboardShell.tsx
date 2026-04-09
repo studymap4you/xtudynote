@@ -2,11 +2,18 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({
+  children,
+  light,
+}: {
+  children: React.ReactNode;
+  /** 통계·자료 등록 등 라이트 본문 (대시보드 홈은 기본 다크 유지) */
+  light?: boolean;
+}) {
   const { firebaseUser, logOut, isSuperAdmin } = useAuth();
 
   return (
-    <div className="app-shell">
+    <div className={light ? "app-shell app-shell--light" : "app-shell"}>
       <header className="top-nav">
         <Link to="/dashboard" className="top-nav__brand">
           XtudyNote

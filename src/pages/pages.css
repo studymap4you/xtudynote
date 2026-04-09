@@ -1131,3 +1131,225 @@
   flex-direction: column;
   gap: 0.75rem;
 }
+
+/* —— Light surfaces (Library·상세·통계·과제 검색 등) —— */
+:root {
+  --light-bg: #f3f4f6;
+  --light-surface: #ffffff;
+  --light-border: #e5e7eb;
+  --light-text: #111827;
+  --light-text-muted: #4b5563;
+  --light-accent-ok: #047857;
+}
+
+.app-shell--light {
+  min-height: 100%;
+  background: var(--light-bg);
+  color: var(--light-text);
+}
+.app-shell--light .top-nav {
+  background: var(--light-surface);
+  border-bottom-color: var(--light-border);
+  backdrop-filter: none;
+}
+.app-shell--light .top-nav__brand {
+  color: var(--light-text);
+}
+.app-shell--light .top-nav__brand:hover {
+  color: #2563eb;
+}
+.app-shell--light .top-nav__email {
+  color: var(--light-text-muted);
+}
+.app-shell--light .btn {
+  border-color: var(--light-border);
+  background: #f9fafb;
+  color: var(--light-text);
+}
+.app-shell--light .btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+.app-shell--light .btn--ghost {
+  background: transparent;
+}
+.app-shell--light .btn--primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+.app-shell--light .btn--primary:hover {
+  background: #4778e6;
+}
+.app-shell--light .btn--danger {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(220, 38, 38, 0.35);
+  color: #b91c1c;
+}
+.app-shell--light .btn--danger:hover {
+  background: rgba(248, 113, 113, 0.2);
+}
+
+.admin-layout--light {
+  flex: 1;
+  padding: 1.5rem 1.5rem 2.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+  color: var(--light-text);
+}
+.admin-layout--light .admin-layout__title-row h1 {
+  color: var(--light-text);
+}
+.admin-layout--light .ui-ko {
+  color: var(--light-text-muted);
+}
+.admin-layout--light .ui-en {
+  color: var(--light-text);
+}
+
+.panel--light,
+.admin-layout--light .panel {
+  background: var(--light-surface);
+  border: 1px solid var(--light-border);
+  color: var(--light-text);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+}
+.panel--light .panel__title,
+.admin-layout--light .panel__title {
+  color: var(--light-text);
+}
+.content-detail.panel--light .content-detail__qa-answer,
+.panel--light .content-detail__qa-answer {
+  color: #1e40af;
+}
+
+.admin-table--light {
+  color: var(--light-text);
+}
+.admin-table--light th,
+.admin-table--light td {
+  border-color: var(--light-border);
+  color: var(--light-text);
+}
+.admin-table--light thead {
+  background: #f9fafb;
+}
+
+.library-card--light {
+  background: var(--light-surface);
+  border-color: var(--light-border);
+}
+.library-card--light .library-card__title {
+  color: var(--light-text);
+}
+.library-card--light .library-card__meta,
+.library-card--light .library-card__meta-sub {
+  color: var(--light-text-muted);
+}
+.library-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-right: 0.35rem;
+}
+
+.content-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.content-type-badge--share {
+  background: rgba(59, 130, 246, 0.15);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+.content-type-badge--paid {
+  background: rgba(234, 179, 8, 0.18);
+  color: #a16207;
+  border: 1px solid rgba(234, 179, 8, 0.45);
+}
+.content-type-badge--homework {
+  background: rgba(124, 58, 237, 0.14);
+  color: #6d28d9;
+  border: 1px solid rgba(124, 58, 237, 0.35);
+}
+
+.route-loading--light {
+  color: var(--light-text-muted);
+}
+.route-loading--light .route-loading__spinner {
+  border-color: var(--light-border);
+  border-top-color: var(--accent);
+}
+
+.library-guest-hint--light {
+  background: rgba(254, 243, 199, 0.6);
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  color: #92400e;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+}
+
+.material-register__notice {
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--light-border);
+  background: #f9fafb;
+  color: var(--light-text);
+  margin-bottom: 1.25rem;
+}
+
+.student-vault__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.student-vault__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+}
+.student-vault__meta {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+}
+.student-vault__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* 버튼 한국어 보조 텍스트 가독성 */
+.btn--stack .ui-ko {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #d1d5db;
+}
+.btn--primary.btn--stack .ui-ko {
+  color: rgba(255, 255, 255, 0.95);
+}
+.app-shell--light .btn:not(.btn--primary) .ui-ko,
+.app-shell--light .btn--ghost .ui-ko {
+  color: #374151;
+}
+.app-shell--light .btn--primary .ui-ko {
+  color: rgba(255, 255, 255, 0.95);
+}

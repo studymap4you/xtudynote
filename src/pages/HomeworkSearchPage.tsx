@@ -17,10 +17,10 @@ export function HomeworkSearchPage() {
 
   return (
     <PublicShell>
-      <main className="admin-layout homework-search">
+      <main className="admin-layout homework-search admin-layout--light">
         <div className="admin-layout__title-row">
           <h1>Homework by code</h1>
-          <span className="ui-ko">과제 번호로만 조회됩니다 · 일반 라이브러리 목록에는 표시되지 않습니다</span>
+          <span className="ui-ko">과제 번호로 바로 열기 · 라이브러리에서도 과제 뱃지로 구분됩니다</span>
         </div>
         <form onSubmit={go} className="homework-search__form">
           <label className="auth-field">

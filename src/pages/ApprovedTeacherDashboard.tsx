@@ -2,18 +2,23 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
+import { AddMaterialButton } from "@/components/AddMaterialButton";
 import { db } from "@/firebase/config";
 import "@/pages/pages.css";
 
 export function ApprovedTeacherDashboard() {
   const { profile, firebaseUser, refreshProfile } = useAuth();
-  const [bankAccount, setBankAccount] = useState(profile?.bankAccount ?? "");
+  const [bankName, setBankName] = useState(profile?.bankName ?? "");
+  const [bankAccountNumber, setBankAccountNumber] = useState(profile?.bankAccountNumber ?? "");
+  const [accountHolder, setAccountHolder] = useState(profile?.accountHolder ?? "");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    setBankAccount(profile?.bankAccount ?? "");
-  }, [profile?.bankAccount]);
+    setBankName(profile?.bankName ?? "");
+    setBankAccountNumber(profile?.bankAccountNumber ?? "");
+    setAccountHolder(profile?.accountHolder ?? "");
+  }, [profile?.bankName, profile?.bankAccountNumber, profile?.accountHolder]);
 
   async function saveBank(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +27,9 @@ export function ApprovedTeacherDashboard() {
     setMsg(null);
     try {
       await updateDoc(doc(db, "users", firebaseUser.uid), {
-        bankAccount: bankAccount.trim(),
+        bankName: bankName.trim(),
+        bankAccountNumber: bankAccountNumber.trim(),
+        accountHolder: accountHolder.trim(),
       });
       await refreshProfile();
       setMsg("저장되었습니다.");
@@ -60,6 +67,7 @@ export function ApprovedTeacherDashboard() {
             <span className="panel__badge panel__badge--ok">Teacher</span>
           </div>
           <div className="badge-row" style={{ flexWrap: "wrap" }}>
+            <AddMaterialButton />
             <Link to="/teacher/homework/new" className="btn btn--primary btn--stack">
               <span className="ui-en">New homework</span>
               <span className="ui-ko">과제 출제</span>
@@ -75,24 +83,62 @@ export function ApprovedTeacherDashboard() {
           </div>
         </section>
 
+        <section className="panel">
+          <div className="panel__head">
+            <div>
+              <h2 className="panel__title">판매 통계</h2>
+              <span className="ui-ko" style={{ fontSize: "0.8rem" }}>
+                날짜별·자료별 집계
+              </span>
+            </div>
+          </div>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "0.75rem" }}>
+            관리자가 등록한 판매 데이터를 확인합니다.
+          </p>
+          <Link to="/teacher/stats" className="btn btn--primary btn--stack">
+            <span className="ui-en">Open sales stats</span>
+            <span className="ui-ko">판매 통계 보기</span>
+          </Link>
+        </section>
+
         <aside className="panel">
           <div className="panel__head">
             <div>
               <h2 className="panel__title">정산 계좌</h2>
               <span className="ui-ko" style={{ fontSize: "0.8rem" }}>
-                bankAccount
+                유료 정산용
               </span>
             </div>
           </div>
           <form onSubmit={(e) => void saveBank(e)}>
             <label className="auth-field">
-              계좌 정보
-              <textarea
-                className="add-passage__control add-passage__intro"
-                rows={4}
-                value={bankAccount}
-                onChange={(e) => setBankAccount(e.target.value)}
-                placeholder="은행명, 계좌번호, 예금주 (필요 시 메모)"
+              은행
+              <input
+                className="add-passage__control"
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+                placeholder="예: 국민은행"
+                autoComplete="off"
+              />
+            </label>
+            <label className="auth-field">
+              계좌번호
+              <input
+                className="add-passage__control"
+                value={bankAccountNumber}
+                onChange={(e) => setBankAccountNumber(e.target.value)}
+                placeholder="숫자만 또는 하이픈 포함"
+                autoComplete="off"
+              />
+            </label>
+            <label className="auth-field">
+              예금주
+              <input
+                className="add-passage__control"
+                value={accountHolder}
+                onChange={(e) => setAccountHolder(e.target.value)}
+                placeholder="예금주 실명"
+                autoComplete="off"
               />
             </label>
             {msg && <p className={msg.includes("실패") ? "auth-error" : undefined}>{msg}</p>}
