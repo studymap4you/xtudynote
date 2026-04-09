@@ -1,0 +1,40 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+    function isActiveSuperAdmin() {
+      return request.auth != null
+        && userDoc().role == 'super_admin'
+        && userDoc().accountStatus == 'active';
+    }
+
+    match /verification/{uid}/{fileName} {
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 10 * 1024 * 1024;
+
+      allow read: if request.auth != null && (
+        request.auth.uid == uid
+        || isActiveSuperAdmin()
+      );
+
+      allow delete: if request.auth != null && (
+        request.auth.uid == uid
+        || isActiveSuperAdmin()
+      );
+    }
+
+    match /contents/{authorId}/{fileName} {
+      allow create, update: if request.auth != null
+        && request.auth.uid == authorId
+        && isActiveSuperAdmin()
+        && request.resource.size < 50 * 1024 * 1024;
+
+      allow read, delete: if request.auth != null
+        && request.auth.uid == authorId
+        && isActiveSuperAdmin();
+    }
+  }
+}
