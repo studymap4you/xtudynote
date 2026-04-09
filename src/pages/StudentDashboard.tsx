@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import "@/pages/pages.css";
 
 export function StudentDashboard() {
@@ -67,12 +68,16 @@ export function StudentDashboard() {
               </span>
             </div>
           </div>
-          <p className="materials-placeholder">
-            <span className="ui-en">Materials shared by your educators show up here.</span>
-            <span className="ui-ko" style={{ display: "block", marginTop: "0.5rem" }}>
-              교육자가 공유한 학습 자료가 이곳에 모입니다.
-            </span>
-          </p>
+          <div className="badge-row" style={{ flexWrap: "wrap" }}>
+            <Link to="/library" className="btn btn--primary btn--stack">
+              <span className="ui-en">Open library</span>
+              <span className="ui-ko">라이브러리</span>
+            </Link>
+            <Link to="/homework" className="btn btn--ghost btn--stack">
+              <span className="ui-en">Homework code</span>
+              <span className="ui-ko">과제 번호 검색</span>
+            </Link>
+          </div>
         </section>
       </div>
     </main>

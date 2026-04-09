@@ -12,6 +12,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           XtudyNote
         </Link>
         <div className="top-nav__actions">
+          <Link to="/library" className="btn btn--ghost btn--stack">
+            <span className="ui-en">Library</span>
+            <span className="ui-ko">라이브러리</span>
+          </Link>
+          <Link to="/homework" className="btn btn--ghost btn--stack">
+            <span className="ui-en">Homework</span>
+            <span className="ui-ko">과제</span>
+          </Link>
           <span className="top-nav__email" title={firebaseUser?.email ?? ""}>
             {firebaseUser?.email}
           </span>

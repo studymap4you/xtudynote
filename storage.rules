@@ -9,6 +9,16 @@ service firebase.storage {
         && userDoc().role == 'super_admin'
         && userDoc().accountStatus == 'active';
     }
+    function isActiveTeacher() {
+      return request.auth != null
+        && userDoc().role == 'teacher'
+        && userDoc().accountStatus == 'active';
+    }
+    function isActiveStudent() {
+      return request.auth != null
+        && userDoc().role == 'student'
+        && userDoc().accountStatus == 'active';
+    }
 
     match /verification/{uid}/{fileName} {
       allow create, update: if request.auth != null
@@ -26,15 +36,36 @@ service firebase.storage {
       );
     }
 
-    match /contents/{authorId}/{fileName} {
+    match /contents/{authorId}/{allPaths=**} {
       allow create, update: if request.auth != null
         && request.auth.uid == authorId
-        && isActiveSuperAdmin()
+        && (isActiveSuperAdmin() || isActiveTeacher())
         && request.resource.size < 50 * 1024 * 1024;
 
-      allow read, delete: if request.auth != null
+      allow read: if request.auth != null
+        && (isActiveSuperAdmin() || isActiveTeacher() || isActiveStudent());
+
+      allow delete: if request.auth != null
         && request.auth.uid == authorId
-        && isActiveSuperAdmin();
+        && (isActiveSuperAdmin() || isActiveTeacher());
+    }
+
+    match /submissions/{teacherId}/{studentId}/{submissionId}/{fileName} {
+      allow create, update: if request.auth != null
+        && request.auth.uid == studentId
+        && isActiveStudent()
+        && request.resource.size < 50 * 1024 * 1024;
+
+      allow read: if request.auth != null && (
+        request.auth.uid == studentId
+        || request.auth.uid == teacherId
+        || isActiveSuperAdmin()
+      );
+
+      allow delete: if request.auth != null && (
+        (request.auth.uid == studentId && isActiveStudent())
+        || isActiveSuperAdmin()
+      );
     }
   }
 }

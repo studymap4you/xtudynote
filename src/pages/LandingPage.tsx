@@ -28,6 +28,14 @@ export function LandingPage() {
           XtudyNote
         </Link>
         <div className="top-nav__actions">
+          <Link to="/library" className="btn btn--ghost btn--stack">
+            <span className="ui-en">Library</span>
+            <span className="ui-ko">라이브러리</span>
+          </Link>
+          <Link to="/homework" className="btn btn--ghost btn--stack">
+            <span className="ui-en">Homework</span>
+            <span className="ui-ko">과제 번호</span>
+          </Link>
           <Link to="/login" className="btn btn--ghost btn--stack">
             <span className="ui-en">Log in</span>
             <span className="ui-ko">로그인</span>

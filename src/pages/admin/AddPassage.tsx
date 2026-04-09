@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminTopNav } from "@/components/AdminTopNav";
 import { db, storage } from "@/firebase/config";
+import { allocateUniqueHomeworkCode } from "@/lib/allocateHomeworkCode";
+import type { ContentStatus, ContentType } from "@/types/content";
 import "@/pages/pages.css";
 
 function suggestsUniversityLecture(subject: string, audience: string, learningTopic: string): boolean {
@@ -48,6 +50,11 @@ type ContentDocumentInput = {
   lectureLink: string | null;
   learningMaterialFilePaths: string[];
   referenceMaterialFilePaths: string[];
+  type: ContentType;
+  status: ContentStatus;
+  purchaseLink: string | null;
+  homeworkCode: string | null;
+  homeworkInstruction: string | null;
   createdAt: ReturnType<typeof serverTimestamp>;
 };
 
@@ -87,6 +94,10 @@ export function AddPassage() {
   const [lectureLink, setLectureLink] = useState("");
   const [learningMaterialFiles, setLearningMaterialFiles] = useState<File[]>([]);
   const [referenceMaterialFiles, setReferenceMaterialFiles] = useState<File[]>([]);
+  const [contentType, setContentType] = useState<ContentType>("share");
+  const [contentStatus, setContentStatus] = useState<ContentStatus>("approved");
+  const [purchaseLink, setPurchaseLink] = useState("");
+  const [homeworkInstruction, setHomeworkInstruction] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,6 +121,8 @@ export function AddPassage() {
       learningTopic: learningTopic.trim(),
       introduction: introduction.trim(),
       lectureLink: lectureLink.trim(),
+      purchaseLink: purchaseLink.trim(),
+      homeworkInstruction: homeworkInstruction.trim(),
     };
     if (
       !trimmed.subject ||
@@ -120,6 +133,10 @@ export function AddPassage() {
       !trimmed.introduction
     ) {
       setError("표준 분류 5개 항목과 자료 소개·안내(Introduction)는 필수입니다.");
+      return;
+    }
+    if (contentType === "homework" && !trimmed.homeworkInstruction) {
+      setError("과제 타입은 과제 수행 가이드(Instruction)가 필수입니다.");
       return;
     }
     setError(null);
@@ -147,7 +164,7 @@ export function AddPassage() {
         "ref"
       );
 
-      const payload: ContentDocumentInput = {
+      const common = {
         authorId,
         subject: trimmed.subject,
         audience: trimmed.audience,
@@ -158,12 +175,48 @@ export function AddPassage() {
         lectureLink: trimmed.lectureLink.length > 0 ? trimmed.lectureLink : null,
         learningMaterialFilePaths,
         referenceMaterialFilePaths,
+        type: contentType,
+        status: contentStatus,
+        purchaseLink:
+          contentType === "paid" && trimmed.purchaseLink.length > 0 ? trimmed.purchaseLink : null,
         createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "contents"), payload);
-
-      window.alert("자료가 성공적으로 등록되었습니다!");
+      if (contentType === "homework") {
+        const hwCode = await allocateUniqueHomeworkCode();
+        const contentRef = doc(collection(db, "contents"));
+        const batch = writeBatch(db);
+        const payload: ContentDocumentInput = {
+          ...common,
+          homeworkCode: hwCode,
+          homeworkInstruction: trimmed.homeworkInstruction,
+        };
+        batch.set(contentRef, payload);
+        batch.set(doc(db, "homework_codes", hwCode), {
+          contentId: contentRef.id,
+          homeworkCode: hwCode,
+          authorId,
+          subject: trimmed.subject,
+          learningTopic: trimmed.learningTopic,
+          introduction: trimmed.introduction,
+          homeworkInstruction: trimmed.homeworkInstruction,
+          lectureLink: common.lectureLink,
+          learningMaterialFilePaths,
+          referenceMaterialFilePaths,
+          status: contentStatus,
+          updatedAt: serverTimestamp(),
+        });
+        await batch.commit();
+        window.alert(`과제가 등록되었습니다.\n과제 번호: ${hwCode}`);
+      } else {
+        const payload: ContentDocumentInput = {
+          ...common,
+          homeworkCode: null,
+          homeworkInstruction: null,
+        };
+        await addDoc(collection(db, "contents"), payload);
+        window.alert("자료가 성공적으로 등록되었습니다!");
+      }
       navigate("/admin/contents", { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
@@ -261,6 +314,71 @@ export function AddPassage() {
                 />
               </label>
             </div>
+          </fieldset>
+
+          <fieldset className="add-passage__fieldset">
+            <legend className="add-passage__legend">
+              <span className="ui-en">Type · status · links</span>
+              <span className="ui-ko">유형 · 공개 상태 · 구매 링크</span>
+            </legend>
+            <div className="add-passage__grid">
+              <label className="auth-field add-passage__field">
+                <span className="ui-en">Type</span>
+                <span className="ui-ko">유형 (공유 / 유료 / 과제)</span>
+                <select
+                  className="add-passage__control"
+                  value={contentType}
+                  onChange={(ev) => setContentType(ev.target.value as ContentType)}
+                >
+                  <option value="share">공유 (share)</option>
+                  <option value="paid">유료 (paid)</option>
+                  <option value="homework">과제 (homework)</option>
+                </select>
+              </label>
+              <label className="auth-field add-passage__field">
+                <span className="ui-en">Status</span>
+                <span className="ui-ko">상태 (대기 / 승인 / 반려)</span>
+                <select
+                  className="add-passage__control"
+                  value={contentStatus}
+                  onChange={(ev) => setContentStatus(ev.target.value as ContentStatus)}
+                >
+                  <option value="pending">대기</option>
+                  <option value="approved">승인</option>
+                  <option value="rejected">반려</option>
+                </select>
+              </label>
+              {contentType === "paid" && (
+                <label className="auth-field add-passage__field add-passage__field--wide">
+                  <span className="ui-en">Purchase link</span>
+                  <span className="ui-ko">구매 URL (유료)</span>
+                  <input
+                    className="add-passage__control"
+                    type="url"
+                    value={purchaseLink}
+                    onChange={(ev) => setPurchaseLink(ev.target.value)}
+                    placeholder="https://..."
+                    autoComplete="off"
+                  />
+                </label>
+              )}
+            </div>
+            {contentType === "homework" && (
+              <div className="add-passage__block" style={{ marginTop: "1rem" }}>
+                <label className="auth-field">
+                  <span className="ui-en">Homework instruction</span>
+                  <span className="ui-ko">과제 수행 가이드 및 주의사항 (학생이 번호 검색 시 최우선 표시)</span>
+                </label>
+                <textarea
+                  className="add-passage__control add-passage__intro"
+                  value={homeworkInstruction}
+                  onChange={(ev) => setHomeworkInstruction(ev.target.value)}
+                  rows={12}
+                  spellCheck
+                  placeholder="과제 목표, 제출 형식, 금지 사항 등을 적습니다."
+                />
+              </div>
+            )}
           </fieldset>
 
           <fieldset className="add-passage__fieldset">

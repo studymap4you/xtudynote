@@ -1017,3 +1017,117 @@
   vertical-align: bottom;
   padding-bottom: 0.65rem;
 }
+
+.library-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.library-toolbar__views,
+.library-toolbar__bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.library-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+.library-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+.library-card__check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-weight: 700;
+}
+.library-card__title {
+  font-size: 1rem;
+}
+.library-card__meta {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.library-card__meta-sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.library-card__link {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+.library-guest-hint {
+  margin-bottom: 1rem;
+}
+
+.homework-student__pre {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin: 0;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+}
+.homework-search__form {
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.content-detail__intro {
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.content-detail__qa-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.content-detail__qa-item {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
+}
+.content-detail__qa-answer {
+  margin-top: 0.5rem;
+  color: rgba(200, 214, 255, 0.95);
+}
+.content-detail__qa-reply {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.homework-feedback__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.homework-feedback__block {
+  margin-top: 0.75rem;
+}
+.homework-feedback__grade {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}

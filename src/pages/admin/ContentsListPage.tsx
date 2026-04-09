@@ -1,14 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   collection,
+  doc,
   onSnapshot,
   orderBy,
   query,
   Timestamp,
+  updateDoc,
 } from "firebase/firestore";
+import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
 import { AdminTopNav } from "@/components/AdminTopNav";
+import { syncHomeworkCodeStatus } from "@/lib/homeworkSync";
+import type { ContentStatus, ContentType } from "@/types/content";
 import "@/pages/pages.css";
 
 type ContentRow = {
@@ -17,6 +22,9 @@ type ContentRow = {
   identifier: string;
   learningTopic: string;
   createdAtLabel: string;
+  type: ContentType;
+  status: ContentStatus;
+  homeworkCode: string | null;
 };
 
 function formatCreatedAt(raw: unknown): string {
@@ -38,6 +46,18 @@ function formatCreatedAt(raw: unknown): string {
   return "—";
 }
 
+function labelType(t: ContentType): string {
+  if (t === "share") return "공유";
+  if (t === "paid") return "유료";
+  return "과제";
+}
+
+function labelStatus(s: ContentStatus): string {
+  if (s === "pending") return "대기";
+  if (s === "approved") return "승인";
+  return "반려";
+}
+
 function AddNewMaterialButton() {
   return (
     <Link to="/admin/contents/new" className="btn btn--primary btn--stack contents-list__add-btn">
@@ -48,15 +68,16 @@ function AddNewMaterialButton() {
 }
 
 export function ContentsListPage() {
+  const { isSuperAdmin } = useAuth();
   const [rows, setRows] = useState<ContentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
 
-    /** 최신 등록이 위로 오도록 항상 createdAt 내림차순 */
     const q = query(collection(db, "contents"), orderBy("createdAt", "desc"));
 
     const unsub = onSnapshot(
@@ -65,12 +86,17 @@ export function ContentsListPage() {
         const list: ContentRow[] = [];
         snap.forEach((d) => {
           const x = d.data();
+          const rawType = (x.type as ContentType | undefined) ?? "share";
+          const rawStatus = (x.status as ContentStatus | undefined) ?? "approved";
           list.push({
             id: d.id,
             subject: String(x.subject ?? ""),
             identifier: String(x.identifier ?? ""),
             learningTopic: String(x.learningTopic ?? ""),
             createdAtLabel: formatCreatedAt(x.createdAt),
+            type: rawType,
+            status: rawStatus,
+            homeworkCode: x.homeworkCode != null ? String(x.homeworkCode) : null,
           });
         });
         setRows(list);
@@ -84,6 +110,21 @@ export function ContentsListPage() {
     );
 
     return () => unsub();
+  }, []);
+
+  const setStatus = useCallback(async (row: ContentRow, next: ContentStatus) => {
+    setBusyId(row.id);
+    setError(null);
+    try {
+      await updateDoc(doc(db, "contents", row.id), { status: next });
+      if (row.type === "homework" && row.homeworkCode) {
+        await syncHomeworkCodeStatus(db, row.homeworkCode, next);
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "상태 변경에 실패했습니다.");
+    } finally {
+      setBusyId(null);
+    }
   }, []);
 
   return (
@@ -117,10 +158,9 @@ export function ContentsListPage() {
                     <span className="admin-th__en">SUBJECT</span>
                     <span className="admin-th__sub">(과목)</span>
                   </th>
-                  <th className="th-bilingual th-bilingual--professional">
-                    <span className="admin-th__en">ID</span>
-                    <span className="admin-th__sub">(식별번호)</span>
-                  </th>
+                  <th>유형</th>
+                  <th>상태</th>
+                  <th>과제번호</th>
                   <th className="th-bilingual th-bilingual--professional">
                     <span className="admin-th__en">TOPIC</span>
                     <span className="admin-th__sub">(학습주제)</span>
@@ -129,12 +169,13 @@ export function ContentsListPage() {
                     <span className="admin-th__en">CREATED</span>
                     <span className="admin-th__sub">(등록일)</span>
                   </th>
+                  <th>액션</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ color: "var(--text-muted)" }}>
+                    <td colSpan={7} style={{ color: "var(--text-muted)" }}>
                       No items yet. Add a passage to get started.
                       <span className="ui-ko" style={{ display: "block", marginTop: "0.35rem" }}>
                         아직 등록된 항목이 없습니다. 새 자료 등록으로 시작하세요.
@@ -145,9 +186,48 @@ export function ContentsListPage() {
                   rows.map((r) => (
                     <tr key={r.id}>
                       <td>{r.subject}</td>
-                      <td>{r.identifier}</td>
+                      <td>{labelType(r.type)}</td>
+                      <td>{labelStatus(r.status)}</td>
+                      <td>{r.homeworkCode ?? "—"}</td>
                       <td>{r.learningTopic}</td>
                       <td>{r.createdAtLabel}</td>
+                      <td>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                          {r.type !== "homework" && r.status === "approved" && (
+                            <Link to={`/content/${r.id}`} className="btn btn--ghost btn--stack">
+                              공개 상세
+                            </Link>
+                          )}
+                          {r.type === "homework" && r.homeworkCode && (
+                            <Link
+                              to={`/homework/${encodeURIComponent(r.homeworkCode)}`}
+                              className="btn btn--ghost btn--stack"
+                            >
+                              과제 보기
+                            </Link>
+                          )}
+                          {isSuperAdmin && r.status === "pending" && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn--success btn--stack"
+                                disabled={busyId === r.id}
+                                onClick={() => void setStatus(r, "approved")}
+                              >
+                                승인
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn--danger btn--stack"
+                                disabled={busyId === r.id}
+                                onClick={() => void setStatus(r, "rejected")}
+                              >
+                                반려
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}

@@ -20,6 +20,23 @@ service cloud.firestore {
         && userData(request.auth.uid).role == 'super_admin'
         && userData(request.auth.uid).accountStatus == 'active';
     }
+    function isActiveTeacher() {
+      return signedIn()
+        && userData(request.auth.uid).role == 'teacher'
+        && userData(request.auth.uid).accountStatus == 'active';
+    }
+    function isActiveStudent() {
+      return signedIn()
+        && userData(request.auth.uid).role == 'student'
+        && userData(request.auth.uid).accountStatus == 'active';
+    }
+    function isApprovedLibraryContent() {
+      return resource.data.status == 'approved'
+        && (resource.data.type == 'share' || resource.data.type == 'paid');
+    }
+    function isAuthor() {
+      return signedIn() && resource.data.authorId == request.auth.uid;
+    }
 
     match /users/{userId} {
       allow read: if signedIn() && (
@@ -57,13 +74,100 @@ service cloud.firestore {
           && request.resource.data.role == resource.data.role
           && request.resource.data.email == resource.data.email
           && request.resource.data.accountStatus == resource.data.accountStatus
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['displayName', 'verificationFileUrls', 'verificationSubmittedAt'])
+          && (
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['displayName', 'verificationFileUrls', 'verificationSubmittedAt'])
+            || (
+              userData(userId).role == 'teacher'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bankAccount'])
+            )
+          )
         );
     }
 
     match /contents/{docId} {
-      allow read, create, update, delete: if isActiveSuperAdmin();
+      allow read: if isActiveSuperAdmin()
+        || isAuthor()
+        || isApprovedLibraryContent();
+
+      allow create: if isActiveSuperAdmin()
+        || (
+          isActiveTeacher()
+          && request.resource.data.authorId == request.auth.uid
+        );
+
+      allow update: if isActiveSuperAdmin() || (
+        isActiveTeacher()
+        && resource.data.authorId == request.auth.uid
+        && request.resource.data.authorId == resource.data.authorId
+      );
+
+      allow delete: if isActiveSuperAdmin() || (
+        isActiveTeacher() && resource.data.authorId == request.auth.uid
+      );
+    }
+
+    match /homework_codes/{code} {
+      allow get: if resource.data.status == 'approved';
+      allow list: if false;
+      allow create, update: if isActiveSuperAdmin() || (
+        isActiveTeacher()
+        && request.resource.data.authorId == request.auth.uid
+        && exists(/databases/$(database)/documents/contents/$(request.resource.data.contentId))
+        && get(/databases/$(database)/documents/contents/$(request.resource.data.contentId)).data.authorId
+          == request.auth.uid
+        && request.resource.data.homeworkCode == code
+      );
+      allow delete: if isActiveSuperAdmin() || (
+        isActiveTeacher()
+        && resource.data.authorId == request.auth.uid
+      );
+    }
+
+    match /content_qa/{qaId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.keys().hasAll(['contentId', 'studentId', 'question', 'createdAt'])
+        && request.resource.data.question is string
+        && request.resource.data.answer == null;
+      allow update: if signedIn()
+        && get(/databases/$(database)/documents/contents/$(resource.data.contentId)).data.authorId
+          == request.auth.uid
+        && request.resource.data.studentId == resource.data.studentId
+        && request.resource.data.contentId == resource.data.contentId
+        && request.resource.data.question == resource.data.question
+        && request.resource.data.answer is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer', 'answeredAt']);
+    }
+
+    match /submissions/{subId} {
+      allow read: if isActiveSuperAdmin()
+        || (signedIn() && resource.data.studentId == request.auth.uid)
+        || (signedIn() && resource.data.teacherId == request.auth.uid);
+
+      allow create: if isActiveStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'contentId', 'studentId', 'teacherId', 'submissionText', 'submissionFiles',
+          'score', 'feedback', 'submittedAt'
+        ])
+        && get(/databases/$(database)/documents/contents/$(request.resource.data.contentId)).data.authorId
+          == request.resource.data.teacherId;
+
+      allow update: if isActiveSuperAdmin()
+        || (
+          signedIn()
+          && resource.data.teacherId == request.auth.uid
+          && request.resource.data.studentId == resource.data.studentId
+          && request.resource.data.contentId == resource.data.contentId
+          && request.resource.data.teacherId == resource.data.teacherId
+          && request.resource.data.submissionText == resource.data.submissionText
+          && request.resource.data.submissionFiles == resource.data.submissionFiles
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score', 'feedback', 'updatedAt'])
+        );
+
+      allow delete: if isActiveSuperAdmin();
     }
   }
 }
