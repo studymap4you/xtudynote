@@ -1353,3 +1353,101 @@
 .app-shell--light .btn--primary .ui-ko {
   color: rgba(255, 255, 255, 0.95);
 }
+
+/* 자료 등록 신청 폼 (흰 배경·검정 글자) */
+.material-register-form--student {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #111827 !important;
+}
+.material-register-form--student .panel__title,
+.material-register-form--student .material-register-form__legend,
+.material-register-form--student .material-register-form__sub {
+  color: #111827;
+}
+.material-register-form__head {
+  margin-bottom: 1.25rem;
+}
+.material-register-form__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.material-register-form__fieldset {
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+  margin: 0;
+  background: #fafafa;
+}
+.material-register-form__legend {
+  padding: 0 0.35rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #111827;
+}
+.reg-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.reg-form__field:last-child {
+  margin-bottom: 0;
+}
+.reg-form__label-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+}
+.reg-form__label-en {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #111827;
+}
+.reg-form__label-ko {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #374151;
+}
+.material-register-form__input,
+.material-register-form__textarea {
+  background: #fff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+.material-register-form__radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.material-register-form__radio {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #111827;
+  cursor: pointer;
+}
+.th-bi-en {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.th-bi-ko {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.student-settlement-form .reg-form__label-en {
+  color: var(--text);
+}
+.student-settlement-form .reg-form__label-ko {
+  color: var(--text-muted);
+}

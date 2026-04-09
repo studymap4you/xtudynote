@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { AddMaterialButton } from "@/components/AddMaterialButton";
 import { StudentLearningVault } from "@/components/StudentLearningVault";
+import { StudentSalesSection } from "@/components/StudentSalesSection";
+import { StudentSettlementForm } from "@/components/StudentSettlementForm";
 import "@/pages/pages.css";
 
 export function StudentDashboard() {
@@ -36,6 +38,10 @@ export function StudentDashboard() {
         </section>
 
         <StudentLearningVault />
+
+        <StudentSalesSection />
+
+        <StudentSettlementForm />
 
         <section className="panel">
           <div className="panel__head">

@@ -58,6 +58,14 @@
         { "fieldPath": "teacherId", "order": "ASCENDING" },
         { "fieldPath": "soldAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "sales_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sellerId", "order": "ASCENDING" },
+        { "fieldPath": "soldAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

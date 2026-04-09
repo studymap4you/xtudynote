@@ -12,10 +12,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { db } from "@/firebase/config";
+import { mergeSalesById, type SaleRow } from "@/lib/salesMerge";
 import type { SalesRecord } from "@/types/sales";
 import "@/pages/pages.css";
 
-type Row = SalesRecord & { id: string };
+type Row = SaleRow;
 
 function formatTs(raw: unknown): string {
   if (raw instanceof Timestamp) return raw.toDate().toLocaleString();
@@ -38,29 +39,51 @@ function Inner() {
 
   useEffect(() => {
     if (!firebaseUser) return;
-    const q = query(
+    let byTeacher: Row[] = [];
+    let bySeller: Row[] = [];
+    const apply = () => {
+      setRows(mergeSalesById(byTeacher, bySeller));
+      setLoading(false);
+      setError(null);
+    };
+    const qTeacher = query(
       collection(db, "sales_records"),
       where("teacherId", "==", firebaseUser.uid),
       orderBy("soldAt", "desc")
     );
-    const unsub = onSnapshot(
-      q,
+    const qSeller = query(
+      collection(db, "sales_records"),
+      where("sellerId", "==", firebaseUser.uid),
+      orderBy("soldAt", "desc")
+    );
+    const unsub1 = onSnapshot(
+      qTeacher,
       (snap) => {
-        const list: Row[] = [];
-        snap.forEach((d) => {
-          const x = d.data() as SalesRecord;
-          list.push({ id: d.id, ...x });
-        });
-        setRows(list);
-        setLoading(false);
-        setError(null);
+        byTeacher = [];
+        snap.forEach((d) => byTeacher.push({ id: d.id, ...(d.data() as SalesRecord) }));
+        apply();
       },
       (err) => {
         setError(err.message);
         setLoading(false);
       }
     );
-    return () => unsub();
+    const unsub2 = onSnapshot(
+      qSeller,
+      (snap) => {
+        bySeller = [];
+        snap.forEach((d) => bySeller.push({ id: d.id, ...(d.data() as SalesRecord) }));
+        apply();
+      },
+      (err) => {
+        setError(err.message);
+        setLoading(false);
+      }
+    );
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, [firebaseUser]);
 
   const byDate = useMemo(() => {
