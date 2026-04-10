@@ -13,7 +13,11 @@ import {
 import type { Timestamp } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
-import { isEmailJsConfigured, sendHomeworkEmailsSequential } from "@/lib/sendHomeworkEmails";
+import {
+  isEmailJsConfigured,
+  normalizeRecipientEmail,
+  sendHomeworkEmailsSequential,
+} from "@/lib/sendHomeworkEmails";
 import type { CrmStudentDocument } from "@/types/crmStudent";
 import type { ContentDocument } from "@/types/content";
 
@@ -253,16 +257,27 @@ export function StudentManagementSection() {
       return;
     }
 
-    const recipients = selectedRows.map((r) => ({
-      name: (r.name ?? "").trim(),
-      email: (r.email ?? "").trim().toLowerCase(),
-    }));
-
-    const invalid = recipients.filter((r) => !isValidEmail(r.email));
-    if (invalid.length > 0) {
-      setDispatchMsg(
-        `이메일이 비어 있거나 형식이 올바르지 않은 학생이 있습니다: ${invalid.map((x) => x.name || x.email).join(", ")}`
-      );
+    const recipients: { name: string; email: string }[] = [];
+    const invalidLines: string[] = [];
+    for (const r of selectedRows) {
+      const normalized = normalizeRecipientEmail(r.email);
+      if (!normalized) {
+        invalidLines.push(
+          `${(r.name ?? "").trim() || "(이름 없음)"}: 이메일 없음 또는 형식 오류 — «${String(r.email ?? "").trim() || "(비어 있음)"}»`
+        );
+        continue;
+      }
+      recipients.push({
+        name: (r.name ?? "").trim() || "학생",
+        email: normalized,
+      });
+    }
+    if (invalidLines.length > 0) {
+      setDispatchMsg(`발송 전 이메일 검사에 실패했습니다.\n${invalidLines.join("\n")}`);
+      return;
+    }
+    if (recipients.length === 0) {
+      setDispatchMsg("유효한 이메일 주소를 가진 학생이 없습니다.");
       return;
     }
 
@@ -284,7 +299,7 @@ export function StudentManagementSection() {
         recipients: selectedRows.map((r) => ({
           studentId: r.id,
           name: r.name,
-          email: (r.email ?? "").trim().toLowerCase(),
+          email: normalizeRecipientEmail(r.email) ?? "",
           phone: r.phone,
         })),
         createdAt: serverTimestamp(),
@@ -391,7 +406,7 @@ export function StudentManagementSection() {
             실제 메일 발송을 위해 <code>.env.local</code>에{" "}
             <code>VITE_EMAILJS_PUBLIC_KEY</code>, <code>VITE_EMAILJS_SERVICE_ID</code>,{" "}
             <code>VITE_EMAILJS_TEMPLATE_ID</code>를 추가한 뒤 서버를 재시작하세요. 템플릿에는{" "}
-            <code>to_email</code>, <code>homework_code</code>, <code>message</code> 변수가 필요합니다.
+            <code>email</code>(수신 주소), <code>homework_code</code>, <code>message</code> 변수가 필요합니다.
           </span>
         </div>
       )}
