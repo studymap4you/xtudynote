@@ -62,6 +62,151 @@ function IconSend() {
   );
 }
 
+const shortcutIconProps = {
+  className: "intro-shortcut__icon",
+  width: 22,
+  height: 22,
+  viewBox: "0 0 24 24",
+  fill: "none" as const,
+  "aria-hidden": true as const,
+};
+
+/** 라이브러리 — 책 */
+function IconShortcutLibrary() {
+  return (
+    <svg {...shortcutIconProps}>
+      <path
+        d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M8 7h8M8 11h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** 과제 검색 — 돋보기 */
+function IconShortcutSearch() {
+  return (
+    <svg {...shortcutIconProps}>
+      <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.5" />
+      <path d="m20 20-3.2-3.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** 유료 자료관 — 쇼핑백 */
+function IconShortcutPaid() {
+  return (
+    <svg {...shortcutIconProps}>
+      <path
+        d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M3 6h18" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M16 10a4 4 0 0 1-8 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** 테마별 — 격자 */
+function IconShortcutGrid() {
+  return (
+    <svg {...shortcutIconProps}>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+/** 새자료 등록 — 문서+플러스 */
+function IconShortcutNewDoc() {
+  return (
+    <svg {...shortcutIconProps}>
+      <path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12 18v-5M9.5 15.5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** 동영상 — 재생 */
+function IconShortcutVideo() {
+  return (
+    <svg {...shortcutIconProps}>
+      <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="m10 9 6 3-6 3V9Z" fill="currentColor" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** 로그인 — 사용자 */
+function IconShortcutUser() {
+  return (
+    <svg {...shortcutIconProps}>
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M5 20a7 7 0 0 1 14 0"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** 플랫폼 소개 — 정보/레이어 */
+function IconShortcutInfo() {
+  return (
+    <svg {...shortcutIconProps}>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M12 16v-5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+      <circle cx="12" cy="8" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ShortcutOrbIcon({ tone }: { tone: (typeof SHORTCUTS)[number]["tone"] }) {
+  switch (tone) {
+    case "a":
+      return <IconShortcutLibrary />;
+    case "b":
+      return <IconShortcutSearch />;
+    case "c":
+      return <IconShortcutPaid />;
+    case "d":
+      return <IconShortcutGrid />;
+    case "e":
+      return <IconShortcutNewDoc />;
+    case "f":
+      return <IconShortcutVideo />;
+    case "g":
+      return <IconShortcutUser />;
+    case "h":
+      return <IconShortcutInfo />;
+    default:
+      return null;
+  }
+}
+
 /**
  * 랜딩 히어로 — 비대칭 레이아웃(좌 카피 / 우 기능), XtudyNote 2.0 라이트 마켓 톤
  */
@@ -166,7 +311,9 @@ export function Intro() {
                     to={s.to}
                     className={`intro-shortcut intro-shortcut--${s.tone}`}
                   >
-                    <span className="intro-shortcut__orb" aria-hidden />
+                    <span className="intro-shortcut__orb" aria-hidden>
+                      <ShortcutOrbIcon tone={s.tone} />
+                    </span>
                     <span className="intro-shortcut__label">{s.label}</span>
                   </Link>
                 </li>

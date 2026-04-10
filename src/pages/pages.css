@@ -471,11 +471,23 @@
   color: var(--premium-accent);
 }
 .intro-shortcut__orb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 48px;
   height: 48px;
   border-radius: 50%;
   border: 1px solid rgba(226, 232, 240, 0.1);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+.intro-shortcut__icon {
+  display: block;
+  color: rgba(15, 23, 42, 0.72);
+  transition: color 0.15s ease;
+}
+.intro-shortcut:hover .intro-shortcut__icon {
+  color: #1d4ed8;
 }
 .intro-shortcut--a .intro-shortcut__orb {
   background: var(--intro-pastel-a);
