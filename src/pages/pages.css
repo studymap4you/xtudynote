@@ -952,6 +952,17 @@
   border-radius: var(--radius-lg);
   padding: 2rem;
 }
+.auth-card--role-pick {
+  max-width: 36rem;
+}
+.register-role-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+  width: 100%;
+  margin: 0 0 1rem;
+}
 .auth-card h1 {
   font-family: var(--font-display);
   font-size: 1.5rem;

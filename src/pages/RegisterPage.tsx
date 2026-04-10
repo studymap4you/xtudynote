@@ -21,12 +21,72 @@ export function RegisterPage() {
     return null;
   }, [roleParam]);
 
-  if (!choice) {
-    return <Navigate to="/" replace />;
-  }
-
   if (!loading && firebaseUser && profile) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!choice) {
+    return (
+      <div className="app-shell">
+        <header className="top-nav">
+          <Link to="/" className="top-nav__brand">
+            <BrandLockup />
+          </Link>
+        </header>
+        <main className="auth-page">
+          <div className="auth-card auth-card--role-pick">
+            <h1>
+              <span className="ui-en ui-en--lg">Create account</span>
+              <span className="ui-ko">회원가입</span>
+            </h1>
+            <p className="auth-card__hint">
+              <span className="ui-en" style={{ fontSize: "0.95rem", color: "var(--text-muted)" }}>
+                Choose how you’ll use XtudyNote.
+              </span>
+              <span className="ui-ko">서비스 이용 방식에 맞는 역할을 선택해 주세요.</span>
+            </p>
+            <div className="register-role-choices">
+              <Link
+                to="/register?role=teacher"
+                className="landing__choice landing__choice--teacher"
+              >
+                Teacher
+                <span className="landing__choice-sub">
+                  <span className="ui-en" style={{ fontWeight: 700 }}>
+                    Educator / expert workspace
+                  </span>
+                  <span className="ui-ko">
+                    교육자·전문가 — 콘텐츠·학습 그룹 관리 (승인 후 전체 기능)
+                  </span>
+                </span>
+              </Link>
+              <Link
+                to="/register?role=student"
+                className="landing__choice landing__choice--student"
+              >
+                Student
+                <span className="landing__choice-sub">
+                  <span className="ui-en" style={{ fontWeight: 700 }}>
+                    Learner dashboard
+                  </span>
+                  <span className="ui-ko">학습자 — 피드백·로그·자료 중심의 학습 홈</span>
+                </span>
+              </Link>
+            </div>
+            <div className="auth-card__links">
+              <Link to="/">
+                <span className="ui-en">Home</span>
+                <span className="ui-ko">홈</span>
+              </Link>
+              <Link to="/login">
+                <span className="ui-en">Log in</span>
+                <span className="ui-ko">로그인</span>
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   const hint =
