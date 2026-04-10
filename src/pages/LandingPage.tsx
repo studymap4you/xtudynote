@@ -33,7 +33,11 @@ export function LandingPage() {
   return (
     <div className="app-shell app-shell--landing">
       <header className="top-nav top-nav--landing">
-        <Link to="/" className="top-nav__brand top-nav__brand--landing">
+        <Link
+          to="/"
+          className="top-nav__brand top-nav__brand--landing"
+          aria-label="XtudyNote 엑스터디노트 홈"
+        >
           <BrandLockup />
         </Link>
         <div className="top-nav__actions top-nav__actions--landing-tier">

@@ -25,6 +25,14 @@
   /* 포인트 버튼 위 글자 (밝은 배경색 버튼용 고대비) */
   --btn-on-accent: #0a0f1a;
   --btn-on-accent-muted: rgba(10, 15, 26, 0.82);
+  /* 브랜드 X — 로즈→마젠타→바이올렛 */
+  --brand-x-gradient: linear-gradient(
+    155deg,
+    #fb7185 0%,
+    #e11d48 28%,
+    #c026d3 62%,
+    #7c3aed 100%
+  );
 
   /* Premium dark navy (Intro, CRM, landing) — 8/16/24 spacing, R=8px */
   --premium-ink: #e2e8f0;

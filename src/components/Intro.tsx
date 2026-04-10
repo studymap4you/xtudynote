@@ -102,7 +102,7 @@ export function Intro() {
                   <IconStudent />
                 </span>
                 <span className="intro-login-card__row-text">
-                  <span className="intro-login-card__row-title">학습자 · 학부모</span>
+                  <span className="intro-login-card__row-title">학습자 · 일반 · 학부모</span>
                   <span className="intro-login-card__row-sub">피드백·과제·학습 로그</span>
                 </span>
               </div>
