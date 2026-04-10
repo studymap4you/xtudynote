@@ -77,6 +77,20 @@
   --intro-pastel-h: rgba(147, 197, 253, 0.24);
   --mp-emerald: #059669;
   --mp-emerald-soft: rgba(5, 150, 105, 0.12);
+  /* 라이트 랜딩: 밝은 배경에서도 잘 보이는 로열블루 → 네이비 */
+  --brand-rest-gradient: linear-gradient(
+    115deg,
+    #2563eb 0%,
+    #1d4ed8 38%,
+    #1e40af 78%,
+    #172554 100%
+  );
+  --brand-rest-gradient-hover: linear-gradient(
+    115deg,
+    #3b82f6 0%,
+    #2563eb 42%,
+    #1d4ed8 100%
+  );
   min-height: 100%;
   background: var(--premium-bg-silk);
   color: var(--premium-ink);
@@ -104,12 +118,6 @@
 }
 .top-nav__brand--landing:hover {
   color: inherit;
-}
-.app-shell--landing .top-nav__brand--landing .brand-lockup__rest {
-  color: var(--premium-ink);
-}
-.app-shell--landing .top-nav__brand--landing:hover .brand-lockup__rest {
-  color: var(--premium-accent);
 }
 .app-shell--landing .top-nav__brand--landing .brand-lockup__ko {
   color: var(--premium-ink-muted);
@@ -199,10 +207,6 @@
   align-items: baseline;
   gap: 0;
   letter-spacing: -0.03em;
-}
-.intro-hero__brand .brand-lockup__rest {
-  font-weight: 700;
-  color: var(--premium-accent);
 }
 .intro-hero__brand .brand-lockup__sep {
   color: var(--premium-ink-faint);
@@ -565,7 +569,11 @@
   text-decoration: none;
 }
 .top-nav__brand:hover .brand-lockup__rest {
-  color: var(--accent);
+  background: var(--brand-rest-gradient-hover);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 .top-nav__brand:hover .brand-lockup__ko {
   color: var(--accent);
@@ -606,7 +614,18 @@
 }
 .brand-lockup__rest {
   font-weight: 700;
-  color: var(--text);
+  background: var(--brand-rest-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+@supports not (background-clip: text) {
+  .brand-lockup__rest {
+    color: #60a5fa;
+    -webkit-text-fill-color: currentColor;
+    background: none;
+  }
 }
 .brand-lockup__sep {
   color: var(--text-muted);
@@ -1689,6 +1708,19 @@
 
 .app-shell--light {
   min-height: 100%;
+  --brand-rest-gradient: linear-gradient(
+    115deg,
+    #2563eb 0%,
+    #1d4ed8 40%,
+    #1e40af 85%,
+    #172554 100%
+  );
+  --brand-rest-gradient-hover: linear-gradient(
+    115deg,
+    #3b82f6 0%,
+    #2563eb 45%,
+    #1d4ed8 100%
+  );
   background: var(--light-bg);
   color: var(--light-text);
 }
@@ -1702,12 +1734,6 @@
 }
 .app-shell--light .top-nav__brand:hover {
   color: inherit;
-}
-.app-shell--light .brand-lockup__rest {
-  color: var(--light-text);
-}
-.app-shell--light .top-nav__brand:hover .brand-lockup__rest {
-  color: #2563eb;
 }
 .app-shell--light .brand-lockup__sep {
   color: #9ca3af;

@@ -37,6 +37,22 @@
     #7c3aed 100%
   );
 
+  /* 브랜드 "tudyNote" — 스카이블루 → 울트라마린/군청 네이비 */
+  --brand-rest-gradient: linear-gradient(
+    115deg,
+    #93c5fd 0%,
+    #60a5fa 30%,
+    #2563eb 65%,
+    #1e3a8a 100%
+  );
+  --brand-rest-gradient-hover: linear-gradient(
+    115deg,
+    #bfdbfe 0%,
+    #93c5fd 32%,
+    #3b82f6 68%,
+    #1d4ed8 100%
+  );
+
   /* Premium dark navy (Intro, CRM, landing) — 8/16/24 spacing, R=8px */
   --premium-ink: #e2e8f0;
   --premium-ink-soft: #cbd5e1;
