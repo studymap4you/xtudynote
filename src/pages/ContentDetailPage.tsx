@@ -88,7 +88,8 @@ export function ContentDetailPage() {
   const displayTitle = useMemo(() => {
     if (!content) return "";
     if ((content.type ?? "share") === "homework" && content.homeworkCode) {
-      return `${content.homeworkCode} · ${content.subject}`;
+      const pin = content.shortCode?.trim();
+      return pin ? `${pin} · ${content.subject}` : `${content.homeworkCode} · ${content.subject}`;
     }
     return content.subject;
   }, [content]);

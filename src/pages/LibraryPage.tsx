@@ -25,6 +25,7 @@ type LibraryRow = {
   learningTopic: string;
   type: ContentType;
   homeworkCode: string | null;
+  shortCode: string | null;
   createdAtLabel: string;
   allFilePaths: string[];
 };
@@ -70,11 +71,26 @@ function TypeBadge({ type }: { type: ContentType }) {
   );
 }
 
-function listTitle(row: LibraryRow): string {
-  if (row.type === "homework" && row.homeworkCode) {
-    return `${row.homeworkCode} · ${row.subject}`;
+/** 유형 열: 과제는 배지 옆에 안내 번호(4자리) 또는 전체 코드 표시 */
+function LibraryTypeCell({ row }: { row: LibraryRow }) {
+  if (row.type !== "homework") {
+    return <TypeBadge type={row.type} />;
   }
-  return row.subject;
+  const pin = row.shortCode?.trim();
+  const full = row.homeworkCode?.trim();
+  const display = pin || full || "—";
+  return (
+    <span className="library-type-with-code">
+      <span className="content-type-badge content-type-badge--homework">과제</span>
+      <span className="library-hw-code" title={pin ? `전체 코드: ${full ?? ""}` : "과제번호"}>
+        {display}
+      </span>
+    </span>
+  );
+}
+
+function listTitle(row: LibraryRow): string {
+  return row.subject.trim() || "—";
 }
 
 export function LibraryPage() {
@@ -113,6 +129,7 @@ export function LibraryPage() {
             learningTopic: String(x.learningTopic ?? ""),
             type: t,
             homeworkCode: x.homeworkCode != null ? String(x.homeworkCode) : null,
+            shortCode: x.shortCode != null ? String(x.shortCode) : null,
             createdAtLabel: formatCreatedAt(x.createdAt),
             allFilePaths: [...lm, ...rf],
           });
@@ -135,7 +152,8 @@ export function LibraryPage() {
   const displayRows = useMemo(() => {
     if (!librarySearch) return rows;
     return rows.filter((r) => {
-      const blob = `${listTitle(r)} ${r.learningTopic} ${r.identifier} ${r.subject}`.toLowerCase();
+      const blob =
+        `${listTitle(r)} ${r.shortCode ?? ""} ${r.homeworkCode ?? ""} ${r.learningTopic} ${r.identifier} ${r.subject}`.toLowerCase();
       return blob.includes(librarySearch);
     });
   }, [rows, librarySearch]);
@@ -170,10 +188,14 @@ export function LibraryPage() {
         if (row.allFilePaths.length === 0) continue;
         await downloadStoragePathsSequentially(row.allFilePaths);
         if (profile?.role === "student") {
+          const dlTitle =
+            row.type === "homework" && (row.shortCode?.trim() || row.homeworkCode?.trim())
+              ? `${(row.shortCode ?? row.homeworkCode)!.trim()} · ${row.subject}`
+              : row.subject;
           await recordStudentDownload({
             studentId: firebaseUser.uid,
             contentId: row.id,
-            title: listTitle(row),
+            title: dlTitle,
             storagePaths: row.allFilePaths,
           });
         }
@@ -272,7 +294,7 @@ export function LibraryPage() {
                       onChange={() => toggle(r.id)}
                     />
                     <span className="library-card__badges">
-                      <TypeBadge type={r.type} />
+                      <LibraryTypeCell row={r} />
                     </span>
                     <span className="library-card__title">{listTitle(r)}</span>
                   </label>
@@ -313,7 +335,7 @@ export function LibraryPage() {
                         <input type="checkbox" checked={!!selected[r.id]} onChange={() => toggle(r.id)} />
                       </td>
                       <td>
-                        <TypeBadge type={r.type} />
+                        <LibraryTypeCell row={r} />
                       </td>
                       <td>{listTitle(r)}</td>
                       <td>{r.learningTopic}</td>

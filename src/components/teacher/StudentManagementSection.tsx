@@ -27,6 +27,7 @@ type StudentRow = CrmStudentDocument & { id: string };
 type HomeworkOption = {
   contentId: string;
   homeworkCode: string;
+  shortCode?: string;
   label: string;
 };
 
@@ -130,10 +131,12 @@ export function StudentManagementSection() {
           const code = (x.homeworkCode ?? "").trim();
           if (!code) return;
           const subj = (x.subject ?? "").trim() || "과제";
+          const pin = (x.shortCode ?? "").trim();
           opts.push({
             contentId: d.id,
             homeworkCode: code,
-            label: `${code} · ${subj}`,
+            shortCode: pin || undefined,
+            label: pin ? `${pin} · ${subj}` : `${code} · ${subj}`,
           });
         });
         opts.sort((a, b) => b.homeworkCode.localeCompare(a.homeworkCode));
@@ -184,12 +187,24 @@ export function StudentManagementSection() {
     [rows, selected]
   );
 
+  /** Firestore·과제 식별용 전체 코드 (HW-…) */
+  function resolveHomeworkCode(): string {
+    if (homeworkSelect === CUSTOM_HW_VALUE) return homeworkCodeCustom.trim();
+    const found = homeworkOptions.find((o) => o.contentId === homeworkSelect);
+    return found?.homeworkCode.trim() ?? "";
+  }
+
+  /** 문자·이메일 본문용 — 등록 과제는 4자리 안내 번호 우선 */
+  function resolveHomeworkCodeForMessage(): string {
+    if (homeworkSelect === CUSTOM_HW_VALUE) return homeworkCodeCustom.trim();
+    const found = homeworkOptions.find((o) => o.contentId === homeworkSelect);
+    const pin = found?.shortCode?.trim();
+    return pin || (found?.homeworkCode.trim() ?? "");
+  }
+
   const smsHrefInModal = useMemo(() => {
     if (selectedRows.length !== 1) return null;
-    const code =
-      homeworkSelect === CUSTOM_HW_VALUE
-        ? homeworkCodeCustom.trim()
-        : homeworkOptions.find((o) => o.contentId === homeworkSelect)?.homeworkCode.trim() ?? "";
+    const code = resolveHomeworkCodeForMessage();
     const msg = dispatchMessage.trim();
     if (!code || !msg) return null;
     return buildHomeworkSmsHref(selectedRows[0].phone, code, msg);
@@ -200,12 +215,6 @@ export function StudentManagementSection() {
     homeworkOptions,
     dispatchMessage,
   ]);
-
-  function resolveHomeworkCode(): string {
-    if (homeworkSelect === CUSTOM_HW_VALUE) return homeworkCodeCustom.trim();
-    const found = homeworkOptions.find((o) => o.contentId === homeworkSelect);
-    return found?.homeworkCode.trim() ?? "";
-  }
 
   async function handleAddStudent(e: React.FormEvent) {
     e.preventDefault();
@@ -278,7 +287,7 @@ export function StudentManagementSection() {
       if (emailJsReady && emailRecipients.length > 0) {
         await sendHomeworkEmailsSequential({
           recipients: emailRecipients,
-          homeworkCode: code,
+          homeworkCode: resolveHomeworkCodeForMessage(),
           message: msg,
         });
       }
@@ -679,7 +688,7 @@ export function StudentManagementSection() {
                     className="crm-field__input"
                     value={homeworkCodeCustom}
                     onChange={(e) => setHomeworkCodeCustom(e.target.value)}
-                    placeholder="예: ABC12"
+                    placeholder="예: HW-… 또는 안내용 코드"
                   />
                 </label>
               )}

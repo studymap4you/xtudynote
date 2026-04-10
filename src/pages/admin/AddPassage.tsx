@@ -54,6 +54,7 @@ type ContentDocumentInput = {
   status: ContentStatus;
   purchaseLink: string | null;
   homeworkCode: string | null;
+  shortCode?: string | null;
   homeworkInstruction: string | null;
   createdAt: ReturnType<typeof serverTimestamp>;
 };
@@ -183,18 +184,20 @@ export function AddPassage() {
       };
 
       if (contentType === "homework") {
-        const hwCode = await allocateUniqueHomeworkCode();
+        const { homeworkCode: hwCode, shortCode } = await allocateUniqueHomeworkCode();
         const contentRef = doc(collection(db, "contents"));
         const batch = writeBatch(db);
         const payload: ContentDocumentInput = {
           ...common,
           homeworkCode: hwCode,
+          shortCode,
           homeworkInstruction: trimmed.homeworkInstruction,
         };
         batch.set(contentRef, payload);
         batch.set(doc(db, "homework_codes", hwCode), {
           contentId: contentRef.id,
           homeworkCode: hwCode,
+          shortCode,
           authorId,
           subject: trimmed.subject,
           learningTopic: trimmed.learningTopic,
@@ -207,7 +210,9 @@ export function AddPassage() {
           updatedAt: serverTimestamp(),
         });
         await batch.commit();
-        window.alert(`과제가 등록되었습니다.\n과제 번호: ${hwCode}`);
+        window.alert(
+          `과제가 등록되었습니다.\n\n학생에게 안내할 번호(4자리): ${shortCode}\n전체 코드: ${hwCode}`
+        );
       } else {
         const payload: ContentDocumentInput = {
           ...common,

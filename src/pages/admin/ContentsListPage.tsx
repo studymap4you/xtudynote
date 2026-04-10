@@ -25,6 +25,7 @@ type ContentRow = {
   type: ContentType;
   status: ContentStatus;
   homeworkCode: string | null;
+  shortCode: string | null;
 };
 
 function formatCreatedAt(raw: unknown): string {
@@ -97,6 +98,7 @@ export function ContentsListPage() {
             type: rawType,
             status: rawStatus,
             homeworkCode: x.homeworkCode != null ? String(x.homeworkCode) : null,
+            shortCode: x.shortCode != null ? String(x.shortCode) : null,
           });
         });
         setRows(list);
@@ -188,7 +190,20 @@ export function ContentsListPage() {
                       <td>{r.subject}</td>
                       <td>{labelType(r.type)}</td>
                       <td>{labelStatus(r.status)}</td>
-                      <td>{r.homeworkCode ?? "—"}</td>
+                      <td>
+                        {r.shortCode || r.homeworkCode ? (
+                          <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                            {r.shortCode ?? r.homeworkCode}
+                            {r.shortCode && r.homeworkCode && r.shortCode !== r.homeworkCode ? (
+                              <span style={{ display: "block", fontSize: "0.78rem", color: "var(--text-muted)" }}>
+                                {r.homeworkCode}
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td>{r.learningTopic}</td>
                       <td>{r.createdAtLabel}</td>
                       <td>
@@ -198,9 +213,9 @@ export function ContentsListPage() {
                               공개 상세
                             </Link>
                           )}
-                          {r.type === "homework" && r.homeworkCode && (
+                          {r.type === "homework" && (r.shortCode || r.homeworkCode) && (
                             <Link
-                              to={`/homework/${encodeURIComponent(r.homeworkCode)}`}
+                              to={`/homework/${encodeURIComponent(r.shortCode || r.homeworkCode || "")}`}
                               className="btn btn--ghost btn--stack"
                             >
                               과제 보기

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PublicShell } from "@/components/PublicShell";
-import { normalizeHomeworkCode } from "@/lib/homeworkCode";
+import { parseHomeworkRouteParam } from "@/lib/homeworkCode";
 import "@/pages/pages.css";
 
 export function HomeworkSearchPage() {
@@ -10,9 +10,10 @@ export function HomeworkSearchPage() {
 
   function go(e: React.FormEvent) {
     e.preventDefault();
-    const n = normalizeHomeworkCode(code);
-    if (!n) return;
-    nav(`/homework/${encodeURIComponent(n)}`);
+    const parsed = parseHomeworkRouteParam(code);
+    if (!parsed) return;
+    const segment = parsed.kind === "pin" ? parsed.pin : parsed.code;
+    nav(`/homework/${encodeURIComponent(segment)}`);
   }
 
   return (
@@ -20,17 +21,19 @@ export function HomeworkSearchPage() {
       <main className="admin-layout homework-search admin-layout--light">
         <div className="admin-layout__title-row">
           <h1>Homework by code</h1>
-          <span className="ui-ko">과제 번호로 바로 열기 · 라이브러리에서도 과제 뱃지로 구분됩니다</span>
+          <span className="ui-ko">
+            4자리 숫자 또는 전체 코드(HW-…)로 열기 · 신규 등록 과제는 4자리만 안내해도 됩니다
+          </span>
         </div>
         <form onSubmit={go} className="homework-search__form">
           <label className="auth-field">
-            과제 번호 (예: HW-AB12CD34)
+            과제 번호 (4자리 숫자 또는 HW-… 전체)
             <input
               className="add-passage__control"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               autoComplete="off"
-              placeholder="HW-..."
+              placeholder="예: 4821 또는 HW-…"
             />
           </label>
           <button type="submit" className="btn btn--primary btn--stack">

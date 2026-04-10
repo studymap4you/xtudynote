@@ -90,7 +90,7 @@ function Inner() {
         uploadStarted + 1,
         "ref"
       );
-      const code = await allocateUniqueHomeworkCode();
+      const { homeworkCode: code, shortCode } = await allocateUniqueHomeworkCode();
       const contentRef = doc(collection(db, "contents"));
       const batch = writeBatch(db);
       batch.set(contentRef, {
@@ -108,12 +108,14 @@ function Inner() {
         status: defaultStatus,
         purchaseLink: null,
         homeworkCode: code,
+        shortCode,
         homeworkInstruction: trimmed.homeworkInstruction,
         createdAt: serverTimestamp(),
       });
       batch.set(doc(db, "homework_codes", code), {
         contentId: contentRef.id,
         homeworkCode: code,
+        shortCode,
         authorId,
         subject: trimmed.subject,
         learningTopic: trimmed.learningTopic,
@@ -126,7 +128,9 @@ function Inner() {
         updatedAt: serverTimestamp(),
       });
       await batch.commit();
-      window.alert(`과제가 등록되었습니다.\n과제 번호: ${code}`);
+      window.alert(
+        `과제가 등록되었습니다.\n\n학생에게 안내할 번호(4자리): ${shortCode}\n전체 코드: ${code}`
+      );
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "저장에 실패했습니다.");

@@ -17,6 +17,8 @@ export interface ContentDocument {
   purchaseLink: string | null;
   /** Set when type is homework — unique code shown to students */
   homeworkCode: string | null;
+  /** 안내용 4자리 숫자 (신규 등록부터, 학생 조회·URL에 사용 가능) */
+  shortCode?: string | null;
   /** 과제 수행 가이드 및 주의사항 (homework only) */
   homeworkInstruction: string | null;
   createdAt: unknown;
@@ -25,6 +27,8 @@ export interface ContentDocument {
 export interface HomeworkCodeDocument {
   contentId: string;
   homeworkCode: string;
+  /** 학생·선생님 안내용 4자리 숫자 (신규 등록부터) */
+  shortCode?: string;
   subject: string;
   learningTopic: string;
   introduction: string;

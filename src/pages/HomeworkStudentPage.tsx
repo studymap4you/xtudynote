@@ -3,7 +3,6 @@ import { Link, useParams } from "react-router-dom";
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   limit,
   query,
@@ -15,6 +14,7 @@ import { ref, uploadBytes } from "firebase/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { db, storage } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
+import { getHomeworkCodeDocByRouteParam } from "@/lib/homeworkLookup";
 import { PublicShell } from "@/components/PublicShell";
 import type { HomeworkCodeDocument } from "@/types/content";
 import "@/pages/pages.css";
@@ -43,14 +43,13 @@ export function HomeworkStudentPage() {
       setLoading(true);
       setError(null);
       try {
-        const refDoc = doc(db, "homework_codes", code);
-        const s = await getDoc(refDoc);
-        if (!s.exists()) {
+        const resolved = await getHomeworkCodeDocByRouteParam(code);
+        if (!resolved) {
           if (!cancelled) setError("해당 번호의 과제를 찾을 수 없습니다.");
           setSnap(null);
           return;
         }
-        const d = s.data() as HomeworkCodeDocument;
+        const d = resolved.data;
         if (!cancelled) setSnap(d);
       } catch (e) {
         const codeMsg =
