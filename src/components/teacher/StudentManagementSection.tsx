@@ -1,26 +1,59 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
+  updateDoc,
   where,
 } from "firebase/firestore";
+import type { Timestamp } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
 import type { CrmStudentDocument } from "@/types/crmStudent";
+import type { ContentDocument } from "@/types/content";
 
 type StudentRow = CrmStudentDocument & { id: string };
+
+type HomeworkOption = {
+  contentId: string;
+  homeworkCode: string;
+  label: string;
+};
+
+const CUSTOM_HW_VALUE = "__custom__";
 
 function isValidEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
+function rowTimeMs(r: StudentRow): number {
+  if (r.createdAt && typeof (r.createdAt as Timestamp).toMillis === "function") {
+    return (r.createdAt as Timestamp).toMillis();
+  }
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function sortStudentsByCreatedDesc(rows: StudentRow[]): StudentRow[] {
+  return [...rows].sort((a, b) => rowTimeMs(b) - rowTimeMs(a));
+}
+
+function useAutoDismissSuccess(message: string | null, setMessage: (v: string | null) => void, ms: number) {
+  useEffect(() => {
+    if (!message) return;
+    if (message.includes("실패") || message.includes("오류")) return;
+    const t = setTimeout(() => setMessage(null), ms);
+    return () => clearTimeout(t);
+  }, [message, ms, setMessage]);
+}
+
 export function StudentManagementSection() {
   const { firebaseUser } = useAuth();
   const [rows, setRows] = useState<StudentRow[]>([]);
+  const [listError, setListError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -29,41 +62,111 @@ export function StudentManagementSection() {
   const [formMsg, setFormMsg] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [sendOpen, setSendOpen] = useState(false);
-  const [homeworkCode, setHomeworkCode] = useState("");
+  const [homeworkOptions, setHomeworkOptions] = useState<HomeworkOption[]>([]);
+  const [homeworkSelect, setHomeworkSelect] = useState<string>("");
+  const [homeworkCodeCustom, setHomeworkCodeCustom] = useState("");
   const [dispatchMessage, setDispatchMessage] = useState("");
   const [dispatching, setDispatching] = useState(false);
   const [dispatchMsg, setDispatchMsg] = useState<string | null>(null);
+  const [simulation, setSimulation] = useState<{
+    homeworkCode: string;
+    message: string;
+    lines: { email: string; name: string }[];
+  } | null>(null);
+  const simTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [editing, setEditing] = useState<StudentRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMsg, setEditMsg] = useState<string | null>(null);
+
+  useAutoDismissSuccess(formMsg, setFormMsg, 3000);
 
   useEffect(() => {
     if (!firebaseUser) {
       setRows([]);
+      setHomeworkOptions([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    const q = query(
-      collection(db, "students"),
-      where("teacherId", "==", firebaseUser.uid),
-      orderBy("createdAt", "desc")
-    );
-    const unsub = onSnapshot(
-      q,
+    setListError(null);
+
+    const qStudents = query(collection(db, "students"), where("teacherId", "==", firebaseUser.uid));
+
+    const unsubStudents = onSnapshot(
+      qStudents,
       (snap) => {
         const next: StudentRow[] = [];
         snap.forEach((d) => {
           const data = d.data() as CrmStudentDocument;
-          next.push({
-            id: d.id,
-            ...data,
-          });
+          next.push({ id: d.id, ...data });
         });
-        setRows(next);
+        setRows(sortStudentsByCreatedDesc(next));
         setLoading(false);
       },
-      () => setLoading(false)
+      (err) => {
+        setListError(err.message || "학생 목록을 불러오지 못했습니다.");
+        setLoading(false);
+      }
     );
-    return () => unsub();
+
+    const qHw = query(
+      collection(db, "contents"),
+      where("authorId", "==", firebaseUser.uid),
+      where("type", "==", "homework")
+    );
+
+    const unsubHw = onSnapshot(
+      qHw,
+      (snap) => {
+        const opts: HomeworkOption[] = [];
+        snap.forEach((d) => {
+          const x = d.data() as ContentDocument;
+          const code = (x.homeworkCode ?? "").trim();
+          if (!code) return;
+          const subj = (x.subject ?? "").trim() || "과제";
+          opts.push({
+            contentId: d.id,
+            homeworkCode: code,
+            label: `${code} · ${subj}`,
+          });
+        });
+        opts.sort((a, b) => b.homeworkCode.localeCompare(a.homeworkCode));
+        setHomeworkOptions(opts);
+      },
+      () => {
+        /* 과제 목록 실패 시 드롭다운은 직접 입력만 */
+        setHomeworkOptions([]);
+      }
+    );
+
+    return () => {
+      unsubStudents();
+      unsubHw();
+    };
   }, [firebaseUser]);
+
+  useEffect(() => {
+    return () => {
+      if (simTimerRef.current) clearTimeout(simTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sendOpen) return;
+    if (homeworkOptions.length === 0) {
+      setHomeworkSelect(CUSTOM_HW_VALUE);
+    } else if (
+      homeworkSelect === "" ||
+      (homeworkSelect !== CUSTOM_HW_VALUE &&
+        !homeworkOptions.some((o) => o.contentId === homeworkSelect))
+    ) {
+      setHomeworkSelect(homeworkOptions[0].contentId);
+    }
+  }, [sendOpen, homeworkOptions, homeworkSelect]);
 
   const allSelected = rows.length > 0 && selected.size === rows.length;
   const toggleAll = useCallback(() => {
@@ -85,6 +188,12 @@ export function StudentManagementSection() {
     [rows, selected]
   );
 
+  function resolveHomeworkCode(): string {
+    if (homeworkSelect === CUSTOM_HW_VALUE) return homeworkCodeCustom.trim();
+    const found = homeworkOptions.find((o) => o.contentId === homeworkSelect);
+    return found?.homeworkCode.trim() ?? "";
+  }
+
   async function handleAddStudent(e: React.FormEvent) {
     e.preventDefault();
     if (!firebaseUser) return;
@@ -102,13 +211,22 @@ export function StudentManagementSection() {
     setSaving(true);
     setFormMsg(null);
     try {
-      await addDoc(collection(db, "students"), {
+      const docRef = await addDoc(collection(db, "students"), {
         teacherId: firebaseUser.uid,
         name: n,
         phone: p,
         email: em,
         createdAt: serverTimestamp(),
       });
+      const optimistic: StudentRow = {
+        id: docRef.id,
+        teacherId: firebaseUser.uid,
+        name: n,
+        phone: p,
+        email: em,
+        createdAt: null,
+      };
+      setRows((prev) => sortStudentsByCreatedDesc([optimistic, ...prev.filter((x) => x.id !== docRef.id)]));
       setName("");
       setPhone("");
       setEmail("");
@@ -120,13 +238,31 @@ export function StudentManagementSection() {
     }
   }
 
+  function simulateEmailDelivery(
+    code: string,
+    msg: string,
+    recipients: { name: string; email: string }[]
+  ) {
+    const lines = recipients.map((r) => ({ email: r.email, name: r.name }));
+    setSimulation({ homeworkCode: code, message: msg, lines });
+    for (const r of recipients) {
+      console.info("[CRM 이메일 시뮬레이션]", {
+        to: r.email,
+        subject: `[XtudyNote] 과제 안내 — ${code}`,
+        bodyPreview: msg.slice(0, 200),
+      });
+    }
+    if (simTimerRef.current) clearTimeout(simTimerRef.current);
+    simTimerRef.current = setTimeout(() => setSimulation(null), 8000);
+  }
+
   async function handleDispatch(e: React.FormEvent) {
     e.preventDefault();
     if (!firebaseUser || selectedRows.length === 0) return;
-    const code = homeworkCode.trim();
+    const code = resolveHomeworkCode();
     const msg = dispatchMessage.trim();
     if (!code) {
-      setDispatchMsg("과제번호를 입력해 주세요.");
+      setDispatchMsg("과제를 선택하거나 과제번호를 직접 입력해 주세요.");
       return;
     }
     if (!msg) {
@@ -149,17 +285,99 @@ export function StudentManagementSection() {
         })),
         createdAt: serverTimestamp(),
       });
-      setSendOpen(false);
-      setHomeworkCode("");
-      setDispatchMessage("");
-      setFormMsg(
-        "발송 기록이 저장되었습니다. 이메일·알림은 백엔드 연동 시 수신자에게 전달됩니다."
+      simulateEmailDelivery(
+        code,
+        msg,
+        selectedRows.map((r) => ({ name: r.name, email: r.email }))
       );
+      setSendOpen(false);
+      setHomeworkSelect("");
+      setHomeworkCodeCustom("");
+      setDispatchMessage("");
+      setFormMsg("발송이 완료되었습니다. (이메일은 시뮬레이션으로 기록됨)");
     } catch (err) {
       setDispatchMsg(err instanceof Error ? err.message : "저장에 실패했습니다.");
     } finally {
       setDispatching(false);
     }
+  }
+
+  function openEdit(r: StudentRow) {
+    setEditing(r);
+    setEditName(r.name);
+    setEditPhone(r.phone);
+    setEditEmail(r.email);
+    setEditMsg(null);
+  }
+
+  async function handleEditSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!firebaseUser || !editing) return;
+    const n = editName.trim();
+    const p = editPhone.trim();
+    const em = editEmail.trim().toLowerCase();
+    if (!n) {
+      setEditMsg("이름을 입력해 주세요.");
+      return;
+    }
+    if (!isValidEmail(em)) {
+      setEditMsg("올바른 이메일 형식이 아닙니다.");
+      return;
+    }
+    setEditSaving(true);
+    setEditMsg(null);
+    try {
+      await updateDoc(doc(db, "students", editing.id), {
+        name: n,
+        phone: p,
+        email: em,
+      });
+      setRows((prev) =>
+        sortStudentsByCreatedDesc(
+          prev.map((x) =>
+            x.id === editing.id ? { ...x, name: n, phone: p, email: em } : x
+          )
+        )
+      );
+      setEditing(null);
+      setFormMsg("수정되었습니다.");
+    } catch (err) {
+      setEditMsg(err instanceof Error ? err.message : "수정에 실패했습니다.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function handleDelete(r: StudentRow) {
+    if (!firebaseUser) return;
+    const ok = window.confirm(
+      `${r.name} 학생을 목록에서 삭제할까요?\nDelete "${r.name}" from your list?`
+    );
+    if (!ok) return;
+    try {
+      await deleteDoc(doc(db, "students", r.id));
+      setSelected((prev) => {
+        const n = new Set(prev);
+        n.delete(r.id);
+        return n;
+      });
+      setRows((prev) => prev.filter((x) => x.id !== r.id));
+      setFormMsg("삭제되었습니다.");
+    } catch (err) {
+      setFormMsg(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+    }
+  }
+
+  function openSendModal() {
+    setDispatchMsg(null);
+    if (homeworkOptions.length > 0) {
+      setHomeworkSelect(homeworkOptions[0].contentId);
+      setHomeworkCodeCustom("");
+    } else {
+      setHomeworkSelect(CUSTOM_HW_VALUE);
+      setHomeworkCodeCustom("");
+    }
+    setSendOpen(true);
   }
 
   if (!firebaseUser) return null;
@@ -177,7 +395,7 @@ export function StudentManagementSection() {
               Register offline cohort contacts and send homework codes in bulk.
             </span>
             <span className="crm-section__lead-ko">
-              이름·연락처를 저장하고, 선택한 학생에게 과제번호와 안내를 일괄 기록합니다.
+              이름·연락처를 저장하고, 선택한 학생에게 과제번호와 안내를 일괄 발송합니다.
             </span>
           </p>
         </div>
@@ -238,6 +456,8 @@ export function StudentManagementSection() {
         </div>
       </form>
 
+      {listError && <p className="crm-list-error">{listError}</p>}
+
       <div className="crm-toolbar">
         <div className="crm-toolbar__left">
           <label className="crm-check">
@@ -256,15 +476,35 @@ export function StudentManagementSection() {
           type="button"
           className="btn btn--primary btn--stack"
           disabled={selected.size === 0}
-          onClick={() => {
-            setDispatchMsg(null);
-            setSendOpen(true);
-          }}
+          onClick={openSendModal}
         >
           <span className="ui-en">Send Homework</span>
           <span className="ui-ko">과제 발송</span>
         </button>
       </div>
+
+      {simulation && (
+        <div className="crm-simulation" role="status">
+          <div className="crm-simulation__title">
+            이메일 발송 시뮬레이션 · Email send (simulated)
+          </div>
+          <p className="crm-simulation__meta">
+            과제번호 <strong>{simulation.homeworkCode}</strong> · 수신{" "}
+            <strong>{simulation.lines.length}</strong>명
+          </p>
+          <ul className="crm-simulation__list">
+            {simulation.lines.map((line) => (
+              <li key={line.email}>
+                <span className="crm-simulation__name">{line.name}</span>
+                <span className="crm-simulation__email">{line.email}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="crm-simulation__note">
+            실제 SMTP 발송은 서버 연동 시 동일 수신자로 전달됩니다. 콘솔에 전송 로그가 기록되었습니다.
+          </p>
+        </div>
+      )}
 
       <div className="crm-list-wrap">
         {loading ? (
@@ -291,6 +531,47 @@ export function StudentManagementSection() {
                     <span className="crm-list__phone">{r.phone || "—"}</span>
                   </div>
                 </div>
+                <div className="crm-list__actions">
+                  <button
+                    type="button"
+                    className="crm-icon-btn"
+                    title="Edit · 수정"
+                    aria-label="Edit student"
+                    onClick={() => openEdit(r)}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path
+                        d="M4 20h4l10.5-10.5-4-4L4 16v4z"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M14.5 5.5l4 4"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    className="crm-icon-btn crm-icon-btn--danger"
+                    title="Delete · 삭제"
+                    aria-label="Delete student"
+                    onClick={() => void handleDelete(r)}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path
+                        d="M6 7h12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M10 11v6M14 11v6M5 7l1 14a1 1 0 001 1h10a1 1 0 001-1l1-14"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -298,30 +579,66 @@ export function StudentManagementSection() {
       </div>
 
       {sendOpen && (
-        <div className="crm-modal-root" role="dialog" aria-modal="true" aria-labelledby="crm-send-title">
-          <div className="crm-modal-backdrop" onClick={() => !dispatching && setSendOpen(false)} />
-          <div className="crm-modal">
+        <div
+          className="crm-modal-root"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="crm-send-title"
+        >
+          <div
+            className="crm-modal-backdrop"
+            onClick={() => !dispatching && setSendOpen(false)}
+          />
+          <div className="crm-modal crm-modal--send">
+            <button
+              type="button"
+              className="crm-modal__close"
+              aria-label="Close"
+              onClick={() => !dispatching && setSendOpen(false)}
+            >
+              ×
+            </button>
             <h3 id="crm-send-title" className="crm-modal__title">
               <span className="crm-modal__title-en">Send homework notice</span>
               <span className="crm-modal__title-ko">과제 안내 일괄 발송</span>
             </h3>
             <p className="crm-modal__hint">
-              선택한 {selectedRows.length}명에게 과제번호와 메시지가 기록됩니다. (이메일 자동 발송은 서버 연동 시
-              활성화)
+              선택한 <strong>{selectedRows.length}</strong>명에게 과제번호와 메시지가 전달됩니다. (이메일은
+              시뮬레이션으로 기록)
             </p>
             <form onSubmit={(e) => void handleDispatch(e)}>
               <label className="crm-field crm-field--block">
                 <span className="crm-field__label">
-                  <span className="crm-field__en">Homework code</span>
-                  <span className="crm-field__ko">과제번호</span>
+                  <span className="crm-field__en">Select homework</span>
+                  <span className="crm-field__ko">과제 선택</span>
                 </span>
-                <input
-                  className="crm-field__input"
-                  value={homeworkCode}
-                  onChange={(e) => setHomeworkCode(e.target.value)}
-                  placeholder="예: HW-2026-041"
-                />
+                <select
+                  className="crm-field__select"
+                  value={homeworkSelect}
+                  onChange={(e) => setHomeworkSelect(e.target.value)}
+                >
+                  {homeworkOptions.map((o) => (
+                    <option key={o.contentId} value={o.contentId}>
+                      {o.label}
+                    </option>
+                  ))}
+                  <option value={CUSTOM_HW_VALUE}>직접 입력 · Enter code manually</option>
+                </select>
               </label>
+              {homeworkSelect === CUSTOM_HW_VALUE && (
+                <label className="crm-field crm-field--block">
+                  <span className="crm-field__label">
+                    <span className="crm-field__en">Homework code</span>
+                    <span className="crm-field__ko">과제번호</span>
+                  </span>
+                  <input
+                    className="crm-field__input"
+                    value={homeworkCodeCustom}
+                    onChange={(e) => setHomeworkCodeCustom(e.target.value)}
+                    placeholder="예: ABC12"
+                  />
+                </label>
+              )}
               <label className="crm-field crm-field--block">
                 <span className="crm-field__label">
                   <span className="crm-field__en">Message</span>
@@ -343,10 +660,72 @@ export function StudentManagementSection() {
                   disabled={dispatching}
                   onClick={() => setSendOpen(false)}
                 >
-                  Cancel · 취소
+                  취소 · Cancel
                 </button>
                 <button type="submit" className="btn btn--primary" disabled={dispatching}>
-                  {dispatching ? "저장 중…" : "Confirm · 발송 기록 저장"}
+                  {dispatching ? "발송 중…" : "발송 · Send"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editing && (
+        <div className="crm-modal-root" role="dialog" aria-modal="true" aria-labelledby="crm-edit-title">
+          <div className="crm-modal-backdrop" onClick={() => !editSaving && setEditing(null)} />
+          <div className="crm-modal crm-modal--edit">
+            <h3 id="crm-edit-title" className="crm-modal__title">
+              <span className="crm-modal__title-en">Edit student</span>
+              <span className="crm-modal__title-ko">학생 정보 수정</span>
+            </h3>
+            <form onSubmit={(e) => void handleEditSave(e)}>
+              <label className="crm-field crm-field--block">
+                <span className="crm-field__label">
+                  <span className="crm-field__en">Name</span>
+                  <span className="crm-field__ko">이름</span>
+                </span>
+                <input
+                  className="crm-field__input"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+              </label>
+              <label className="crm-field crm-field--block">
+                <span className="crm-field__label">
+                  <span className="crm-field__en">Phone</span>
+                  <span className="crm-field__ko">전화번호</span>
+                </span>
+                <input
+                  className="crm-field__input"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                />
+              </label>
+              <label className="crm-field crm-field--block">
+                <span className="crm-field__label">
+                  <span className="crm-field__en">Email</span>
+                  <span className="crm-field__ko">이메일</span>
+                </span>
+                <input
+                  className="crm-field__input"
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                />
+              </label>
+              {editMsg && <p className="crm-msg crm-msg--err">{editMsg}</p>}
+              <div className="crm-modal__actions">
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  disabled={editSaving}
+                  onClick={() => setEditing(null)}
+                >
+                  취소
+                </button>
+                <button type="submit" className="btn btn--primary" disabled={editSaving}>
+                  {editSaving ? "저장 중…" : "저장"}
                 </button>
               </div>
             </form>
