@@ -18,6 +18,7 @@ import {
   normalizeRecipientEmail,
   sendHomeworkEmailsSequential,
 } from "@/lib/sendHomeworkEmails";
+import { buildHomeworkSmsHref, normalizeSmsDialString } from "@/lib/smsLinks";
 import type { CrmStudentDocument } from "@/types/crmStudent";
 import type { ContentDocument } from "@/types/content";
 
@@ -50,7 +51,7 @@ function useAutoDismissFormMessage(
     if (!message) return;
     if (message.includes("실패") || message.includes("오류")) return;
     const ms =
-      message.includes("기록이 저장") || message.includes("성공적으로 발송") ? 6000 : 3000;
+      message.includes("기록이 저장") || message.includes("이메일") ? 6000 : 3000;
     const t = setTimeout(() => setMessage(null), ms);
     return () => clearTimeout(t);
   }, [message, setMessage]);
@@ -183,6 +184,23 @@ export function StudentManagementSection() {
     [rows, selected]
   );
 
+  const smsHrefInModal = useMemo(() => {
+    if (selectedRows.length !== 1) return null;
+    const code =
+      homeworkSelect === CUSTOM_HW_VALUE
+        ? homeworkCodeCustom.trim()
+        : homeworkOptions.find((o) => o.contentId === homeworkSelect)?.homeworkCode.trim() ?? "";
+    const msg = dispatchMessage.trim();
+    if (!code || !msg) return null;
+    return buildHomeworkSmsHref(selectedRows[0].phone, code, msg);
+  }, [
+    selectedRows,
+    homeworkSelect,
+    homeworkCodeCustom,
+    homeworkOptions,
+    dispatchMessage,
+  ]);
+
   function resolveHomeworkCode(): string {
     if (homeworkSelect === CUSTOM_HW_VALUE) return homeworkCodeCustom.trim();
     const found = homeworkOptions.find((o) => o.contentId === homeworkSelect);
@@ -243,38 +261,27 @@ export function StudentManagementSection() {
       return;
     }
 
-    const recipients: { name: string; email: string }[] = [];
-    const invalidLines: string[] = [];
+    const emailRecipients: { name: string; email: string }[] = [];
     for (const r of selectedRows) {
-      const normalized = normalizeRecipientEmail(r.email);
-      if (!normalized) {
-        invalidLines.push(
-          `${(r.name ?? "").trim() || "(이름 없음)"}: 이메일 없음 또는 형식 오류 — «${String(r.email ?? "").trim() || "(비어 있음)"}»`
-        );
-        continue;
+      const em = normalizeRecipientEmail(r.email);
+      if (em) {
+        emailRecipients.push({
+          name: (r.name ?? "").trim() || "학생",
+          email: em,
+        });
       }
-      recipients.push({
-        name: (r.name ?? "").trim() || "학생",
-        email: normalized,
-      });
-    }
-    if (invalidLines.length > 0) {
-      setDispatchMsg(`발송 전 이메일 검사에 실패했습니다.\n${invalidLines.join("\n")}`);
-      return;
-    }
-    if (recipients.length === 0) {
-      setDispatchMsg("유효한 이메일 주소를 가진 학생이 없습니다.");
-      return;
     }
 
     setDispatching(true);
     setDispatchMsg(null);
     try {
-      await sendHomeworkEmailsSequential({
-        recipients,
-        homeworkCode: code,
-        message: msg,
-      });
+      if (emailJsReady && emailRecipients.length > 0) {
+        await sendHomeworkEmailsSequential({
+          recipients: emailRecipients,
+          homeworkCode: code,
+          message: msg,
+        });
+      }
 
       await addDoc(collection(db, "homework_dispatches"), {
         teacherId: firebaseUser.uid,
@@ -284,7 +291,7 @@ export function StudentManagementSection() {
         recipients: selectedRows.map((r) => ({
           studentId: r.id,
           name: r.name,
-          email: normalizeRecipientEmail(r.email) ?? "",
+          email: String(r.email ?? "").trim(),
           phone: r.phone,
         })),
         createdAt: serverTimestamp(),
@@ -294,7 +301,15 @@ export function StudentManagementSection() {
       setHomeworkSelect("");
       setHomeworkCodeCustom("");
       setDispatchMessage("");
-      setFormMsg("성공적으로 발송되었습니다.");
+      let ok = "과제 안내 기록이 저장되었습니다.";
+      if (emailJsReady) {
+        if (emailRecipients.length > 0) {
+          ok += ` 이메일 ${emailRecipients.length}건을 발송했습니다.`;
+        } else {
+          ok += " (등록된 이메일이 없어 메일은 발송하지 않았습니다.)";
+        }
+      }
+      setFormMsg(ok);
     } catch (err) {
       setDispatchMsg(err instanceof Error ? err.message : String(err));
     } finally {
@@ -364,8 +379,11 @@ export function StudentManagementSection() {
     }
   }
 
-  function openSendModal() {
+  function openSendModal(forStudentId?: string) {
     setDispatchMsg(null);
+    if (forStudentId !== undefined) {
+      setSelected(new Set([forStudentId]));
+    }
     if (homeworkOptions.length > 0) {
       setHomeworkSelect(homeworkOptions[0].contentId);
       setHomeworkCodeCustom("");
@@ -384,10 +402,9 @@ export function StudentManagementSection() {
         <div className="crm-emailjs-banner" role="status">
           <strong>EmailJS 미설정</strong>
           <span>
-            과제 메일 발송을 위해 <code>.env.local</code>에{" "}
-            <code>VITE_EMAILJS_PUBLIC_KEY</code>, <code>VITE_EMAILJS_SERVICE_ID</code>,{" "}
-            <code>VITE_EMAILJS_TEMPLATE_ID</code>를 설정한 뒤 서버를 재시작하세요. 템플릿 수신자(To)에는{" "}
-            <code>{"{{email}}"}</code>를 사용하세요.
+            이메일 발송을 위해 <code>.env.local</code>에 <code>VITE_EMAILJS_PUBLIC_KEY</code>,{" "}
+            <code>VITE_EMAILJS_SERVICE_ID</code>, <code>VITE_EMAILJS_TEMPLATE_ID</code> 세 변수를 모두
+            넣은 뒤 서버를 재시작하세요. 템플릿 수신자(To)에는 <code>{"{{email}}"}</code>를 사용합니다.
           </span>
         </div>
       )}
@@ -413,10 +430,11 @@ export function StudentManagementSection() {
           </h2>
           <p className="crm-section__lead">
             <span className="crm-section__lead-en">
-              Register offline cohort contacts and send homework notices by email.
+              Save contacts, send homework emails (EmailJS), and open SMS with prefilled text.
             </span>
             <span className="crm-section__lead-ko">
-              이름·연락처를 저장하고, 선택한 학생에게 과제번호와 안내 메시지를 이메일로 발송합니다.
+              이름·연락처를 저장하고, 선택한 학생에게 과제 안내 이메일을 보내거나 Firestore에 기록합니다.
+              전화번호가 있으면 문자 앱 연결도 사용할 수 있습니다.
             </span>
           </p>
         </div>
@@ -492,10 +510,10 @@ export function StudentManagementSection() {
           type="button"
           className="btn btn--primary btn--stack"
           disabled={selected.size === 0}
-          onClick={openSendModal}
+          onClick={() => openSendModal()}
         >
-          <span className="ui-en">Send homework</span>
-          <span className="ui-ko">과제 발송</span>
+          <span className="ui-en">Homework notify</span>
+          <span className="ui-ko">과제 알림</span>
         </button>
       </div>
 
@@ -518,7 +536,39 @@ export function StudentManagementSection() {
                   />
                 </label>
                 <div className="crm-list__main">
-                  <div className="crm-list__name">{r.name}</div>
+                  <div className="crm-list__name-row">
+                    <span className="crm-list__name">{r.name}</span>
+                    <div className="crm-list__notify">
+                      <button
+                        type="button"
+                        className="crm-notify-btn"
+                        disabled={!emailJsReady || !normalizeRecipientEmail(r.email)}
+                        title={
+                          !emailJsReady
+                            ? "EmailJS 환경 변수를 설정해 주세요."
+                            : !normalizeRecipientEmail(r.email)
+                              ? "유효한 이메일이 없습니다."
+                              : "이 학생만 선택해 과제 알림 모달을 엽니다."
+                        }
+                        onClick={() => openSendModal(r.id)}
+                      >
+                        메일 발송
+                      </button>
+                      <button
+                        type="button"
+                        className="crm-notify-btn crm-notify-btn--sms"
+                        disabled={!normalizeSmsDialString(r.phone)}
+                        title={
+                          !normalizeSmsDialString(r.phone)
+                            ? "전화번호가 없거나 형식이 올바르지 않습니다."
+                            : "과제·메시지 입력 후 모달에서 문자 앱을 엽니다."
+                        }
+                        onClick={() => openSendModal(r.id)}
+                      >
+                        문자 발송
+                      </button>
+                    </div>
+                  </div>
                   <div className="crm-list__meta">
                     <span className="crm-list__email">{r.email}</span>
                     <span className="crm-list__phone">{r.phone || "—"}</span>
@@ -592,13 +642,13 @@ export function StudentManagementSection() {
               ×
             </button>
             <h3 id="crm-send-title" className="crm-modal__title">
-              <span className="crm-modal__title-en">Send homework notice</span>
-              <span className="crm-modal__title-ko">과제 안내 발송</span>
+              <span className="crm-modal__title-en">Homework notification</span>
+              <span className="crm-modal__title-ko">과제 알림</span>
             </h3>
             <p className="crm-modal__hint">
-              선택한 <strong>{selectedRows.length}</strong>명에게 EmailJS로 순차 발송합니다. 템플릿 변수:{" "}
-              <code>email</code>(수신), <code>to_name</code>, <code>homework_code</code>,{" "}
-              <code>message</code>.
+              선택 <strong>{selectedRows.length}</strong>명: 이메일이 등록된 학생에게는 EmailJS로 순차 발송
+              (수신 변수 <code>email</code>), 이후 <code>homework_dispatches</code>에 기록합니다. 전체
+              선택 후 이 화면에서 제출하면 <strong>대량 이메일</strong>이 동일하게 동작합니다.
             </p>
             <form onSubmit={(e) => void handleDispatch(e)}>
               <label className="crm-field crm-field--block">
@@ -646,6 +696,20 @@ export function StudentManagementSection() {
                   placeholder="과제 제출 방법, 마감일 등을 입력하세요."
                 />
               </label>
+              {selectedRows.length === 1 && normalizeSmsDialString(selectedRows[0].phone) && (
+                <div className="crm-modal__sms">
+                  한 명만 선택된 경우, 과제번호·안내 메시지를 입력한 뒤 휴대폰 문자 앱을 열 수 있습니다.
+                  {smsHrefInModal ? (
+                    <a className="crm-sms-open" href={smsHrefInModal}>
+                      문자 앱 열기
+                    </a>
+                  ) : (
+                    <span className="crm-sms-open crm-sms-open--placeholder" role="note">
+                      문자 앱 열기 (과제·메시지 입력 필요)
+                    </span>
+                  )}
+                </div>
+              )}
               {dispatchMsg && (
                 <p className="crm-msg crm-msg--err crm-msg--multiline">{dispatchMsg}</p>
               )}
@@ -658,17 +722,12 @@ export function StudentManagementSection() {
                 >
                   취소 · Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="btn btn--primary"
-                  disabled={dispatching || !emailJsReady}
-                  title={
-                    !emailJsReady
-                      ? "EmailJS 환경 변수를 설정한 뒤 사용할 수 있습니다."
-                      : undefined
-                  }
-                >
-                  {dispatching ? "발송 중…" : "발송 · Send"}
+                <button type="submit" className="btn btn--primary" disabled={dispatching}>
+                  {dispatching
+                    ? "처리 중…"
+                    : emailJsReady
+                      ? "기록 저장 · 이메일 발송"
+                      : "기록 저장"}
                 </button>
               </div>
             </form>

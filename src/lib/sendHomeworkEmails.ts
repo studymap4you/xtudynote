@@ -2,9 +2,6 @@ import emailjs from "@emailjs/browser";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/**
- * 수신 주소로 쓸 수 있으면 trim·소문자 정규화된 문자열, 아니면 null.
- */
 export function normalizeRecipientEmail(raw: string | null | undefined): string | null {
   if (raw == null || typeof raw !== "string") return null;
   const t = raw.trim().toLowerCase();
@@ -33,8 +30,7 @@ export type HomeworkEmailRecipient = {
 };
 
 /**
- * 선택 학생별로 순차 발송. 템플릿 변수: email, to_name, homework_code, message
- * @see https://www.emailjs.com/docs/sdk/send/
+ * 수신(To) 템플릿 변수명은 반드시 `email` — homework_code, message, to_name 동봉.
  */
 export async function sendHomeworkEmailsSequential(args: {
   recipients: HomeworkEmailRecipient[];
@@ -55,12 +51,12 @@ export async function sendHomeworkEmailsSequential(args: {
   ) {
     throw new Error(
       "EmailJS가 설정되지 않았습니다.\n" +
-        ".env.local에 VITE_EMAILJS_PUBLIC_KEY, VITE_EMAILJS_SERVICE_ID, VITE_EMAILJS_TEMPLATE_ID를 넣고 개발 서버를 재시작하세요."
+        ".env.local에 VITE_EMAILJS_PUBLIC_KEY, VITE_EMAILJS_SERVICE_ID, VITE_EMAILJS_TEMPLATE_ID를 설정하세요."
     );
   }
 
   if (args.recipients.length === 0) {
-    throw new Error("발송 대상 학생이 없습니다.");
+    throw new Error("발송할 이메일 대상이 없습니다.");
   }
 
   const failures: string[] = [];
