@@ -25,6 +25,9 @@
   /* 포인트 버튼 위 글자 (밝은 배경색 버튼용 고대비) */
   --btn-on-accent: #0a0f1a;
   --btn-on-accent-muted: rgba(10, 15, 26, 0.82);
+  /* 랜딩 슬로건 — 210 마마블록(라이선스 파일 배치 시 적용). 미배치 시 Noto 폴백 */
+  --font-slogan-mamablock: "210 Mamablock", "210 마마블럭", var(--font-body);
+
   /* 브랜드 X — 로즈→마젠타→바이올렛 */
   --brand-x-gradient: linear-gradient(
     155deg,
@@ -75,6 +78,20 @@
   --intro-pastel-f: rgba(244, 114, 182, 0.12);
   --intro-pastel-g: rgba(52, 211, 153, 0.12);
   --intro-pastel-h: rgba(147, 197, 253, 0.12);
+}
+
+/* 210 마마블록 Bold — 산돌구름·디자인210 등에서 구매한 웹폰트 파일을 public/fonts/ 에 두면 로드됩니다. */
+@font-face {
+  font-family: "210 Mamablock";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    local("210 Mamablock Bold"),
+    local("210마마블럭 Bold"),
+    local("210 Mamablock"),
+    url("/fonts/210-Mamablock-Bold.woff2") format("woff2"),
+    url("/fonts/210-Mamablock-Bold.otf") format("opentype");
 }
 
 *,

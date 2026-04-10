@@ -86,7 +86,7 @@ export function Intro() {
           <h1 id="intro-slogan" className="intro-hero__slogan">
             모두를 위한
             <br />
-            모두의 학습공간
+            모두의 학습
           </h1>
           <p className="intro-hero__lede">
             모든 과제가 기록되고, 모든 성장이 눈에 보입니다.

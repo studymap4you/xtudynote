@@ -212,14 +212,14 @@
 }
 .intro-hero__slogan {
   margin: 0 0 var(--space-2);
-  font-family: var(--font-display);
-  font-weight: 600;
+  font-family: var(--font-slogan-mamablock);
+  font-weight: 700;
   font-size: clamp(1.85rem, 4.2vw, 2.85rem);
-  line-height: 1.28;
-  letter-spacing: -0.045em;
+  line-height: 1.22;
+  letter-spacing: -0.03em;
   word-break: keep-all;
   overflow-wrap: break-word;
-  color: var(--premium-ink);
+  color: #1a1e26;
 }
 .intro-hero__lede {
   margin: 0;
