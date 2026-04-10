@@ -1451,3 +1451,36 @@
 .student-settlement-form .reg-form__label-ko {
   color: var(--text-muted);
 }
+
+.material-register--unified .material-register-form--full {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.material-register__success {
+  color: #047857;
+  font-weight: 600;
+}
+.material-register__footer-links {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e5e7eb;
+}
+.material-register__footer-links-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.material-register__text-link {
+  font-size: 0.88rem;
+  color: #2563eb;
+  text-decoration: underline;
+}
+.material-register__text-link:hover {
+  color: #1d4ed8;
+}
+.material-register__subtitle-bi .reg-form__label-en {
+  color: #374151;
+}
+.material-register__subtitle-bi .reg-form__label-ko {
+  color: #4b5563;
+}

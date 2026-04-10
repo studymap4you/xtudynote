@@ -188,12 +188,18 @@ service cloud.firestore {
     }
 
     match /material_requests/{reqId} {
-      allow create: if isActiveStudent()
-        && request.resource.data.studentId == request.auth.uid
+      allow create: if signedIn()
         && request.resource.data.status == 'pending'
-        && request.resource.data.materialType in ['share', 'paid', 'homework'];
+        && request.resource.data.materialType in ['share', 'paid', 'homework']
+        && request.resource.data.submitterId == request.auth.uid
+        && (
+          isActiveStudent()
+          || isActiveTeacher()
+          || isActiveSuperAdmin()
+        );
       allow read: if signedIn() && (
-        resource.data.studentId == request.auth.uid
+        resource.data.submitterId == request.auth.uid
+        || resource.data.studentId == request.auth.uid
         || isActiveSuperAdmin()
       );
     }

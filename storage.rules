@@ -50,19 +50,19 @@ service firebase.storage {
         && (isActiveSuperAdmin() || isActiveTeacher());
     }
 
-    match /pending_materials/{studentId}/{requestId}/{allPaths=**} {
+    match /pending_materials/{uploaderId}/{requestId}/{allPaths=**} {
       allow create, update: if request.auth != null
-        && request.auth.uid == studentId
-        && isActiveStudent()
+        && request.auth.uid == uploaderId
+        && (isActiveStudent() || isActiveTeacher() || isActiveSuperAdmin())
         && request.resource.size < 50 * 1024 * 1024;
 
       allow read: if request.auth != null && (
-        request.auth.uid == studentId
+        request.auth.uid == uploaderId
         || isActiveSuperAdmin()
       );
 
       allow delete: if request.auth != null && (
-        request.auth.uid == studentId
+        request.auth.uid == uploaderId
         || isActiveSuperAdmin()
       );
     }
