@@ -16,6 +16,11 @@ import { TeacherStatsPage } from "@/pages/teacher/TeacherStatsPage";
 import { MaterialRegisterPage } from "@/pages/MaterialRegisterPage";
 import { VideoLectureRegisterPage } from "@/pages/VideoLectureRegisterPage";
 import { ProtectedRoute, SuperAdminRoute } from "@/components/ProtectedRoute";
+import { TeacherRoute } from "@/components/TeacherRoute";
+import { ClassroomListPage } from "@/pages/classroom/ClassroomListPage";
+import { ClassroomDetailPage } from "@/pages/classroom/ClassroomDetailPage";
+import { ClassroomCreatePage } from "@/pages/classroom/ClassroomCreatePage";
+import { ClassroomManagePage } from "@/pages/classroom/ClassroomManagePage";
 
 export default function App() {
   return (
@@ -96,6 +101,38 @@ export default function App() {
         element={
           <ProtectedRoute>
             <VideoLectureRegisterPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/classroom/new"
+        element={
+          <TeacherRoute>
+            <ClassroomCreatePage />
+          </TeacherRoute>
+        }
+      />
+      <Route
+        path="/classroom/:id/manage"
+        element={
+          <TeacherRoute>
+            <ClassroomManagePage />
+          </TeacherRoute>
+        }
+      />
+      <Route
+        path="/classroom/:id"
+        element={
+          <ProtectedRoute>
+            <ClassroomDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/classroom"
+        element={
+          <ProtectedRoute>
+            <ClassroomListPage />
           </ProtectedRoute>
         }
       />

@@ -22,5 +22,7 @@ export interface MaterialRequestDocument {
   learningMaterialFilePaths: string[];
   referenceMaterialFilePaths: string[];
   status: MaterialRequestStatus;
+  /** 강의실 연동 시 */
+  classroomId?: string | null;
   createdAt: unknown;
 }

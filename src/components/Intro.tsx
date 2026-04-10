@@ -517,6 +517,29 @@ export function Intro() {
             모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
           </p>
           <IntroHeroShare />
+          <div className="intro-hero__classroom">
+            <p className="intro-hero__share-label">강의실</p>
+            <div className="intro-hero__classroom-row">
+              <Link
+                to="/classroom"
+                className="intro-hero__classroom-btn intro-hero__classroom-btn--enter"
+              >
+                <span className="intro-hero__classroom-btn-en">Enter</span>
+                <span className="intro-hero__classroom-btn-ko">강의실 입장</span>
+              </Link>
+              <Link
+                to="/classroom/new"
+                className="intro-hero__classroom-btn intro-hero__classroom-btn--create"
+              >
+                <span className="intro-hero__classroom-btn-en">Create</span>
+                <span className="intro-hero__classroom-btn-ko">강의실 개설</span>
+              </Link>
+            </div>
+            <p className="intro-hero__classroom-hint">
+              입장은 로그인 후 목록에서 선택합니다. 개설은{" "}
+              <strong>승인된 선생님</strong> 계정에서 가능합니다.
+            </p>
+          </div>
         </div>
 
         <div className="intro-hero__panel intro-hero__panel--fade">

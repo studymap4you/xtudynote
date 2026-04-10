@@ -19,5 +19,7 @@ export interface VideoMaterialRequestDocument {
   /** 과제 유형일 때만 */
   homeworkInstruction: string | null;
   status: VideoMaterialRequestStatus;
+  /** 강의실 연동 시 */
+  classroomId?: string | null;
   createdAt: unknown;
 }

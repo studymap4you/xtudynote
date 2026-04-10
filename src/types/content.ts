@@ -21,6 +21,8 @@ export interface ContentDocument {
   shortCode?: string | null;
   /** 과제 수행 가이드 및 주의사항 (homework only) */
   homeworkInstruction: string | null;
+  /** 강의실에서 등록된 경우 해당 강의실 문서 ID */
+  classroomId?: string | null;
   createdAt: unknown;
 }
 

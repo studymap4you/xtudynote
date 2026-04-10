@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +8,7 @@ import { db, storage } from "@/firebase/config";
 import type { ContentType } from "@/types/content";
 import type { UserProfile } from "@/types/user";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
+import { getClassroomIfTeacher } from "@/lib/classroom";
 import "@/pages/pages.css";
 
 function safeFileName(name: string): string {
@@ -40,6 +41,7 @@ function resolveSubmitterRole(profile: UserProfile): MaterialRequestDocument["su
 
 export function MaterialRegisterPage() {
   const { firebaseUser, profile, canManageMaterials, isStudent, isSuperAdmin } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const canSubmit =
     !!profile &&
@@ -85,6 +87,15 @@ export function MaterialRegisterPage() {
       return;
     }
 
+    let classroomId: string | null = searchParams.get("classroomId")?.trim() || null;
+    if (classroomId) {
+      const ok = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
+      if (!ok) {
+        window.alert("강의실을 찾을 수 없거나 이 강의실에 자료를 연결할 권한이 없습니다.");
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const reqRef = doc(collection(db, "material_requests"));
@@ -122,6 +133,7 @@ export function MaterialRegisterPage() {
         learningMaterialFilePaths,
         referenceMaterialFilePaths,
         status: "pending",
+        ...(classroomId ? { classroomId } : {}),
         createdAt: serverTimestamp(),
       });
 

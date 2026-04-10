@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -7,6 +7,7 @@ import { db } from "@/firebase/config";
 import type { ContentType } from "@/types/content";
 import type { UserProfile } from "@/types/user";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
+import { getClassroomIfTeacher } from "@/lib/classroom";
 import "@/pages/pages.css";
 
 function resolveSubmitterRole(profile: UserProfile): VideoMaterialRequestDocument["submitterRole"] {
@@ -26,6 +27,7 @@ function isHttpUrl(s: string): boolean {
 
 export function VideoLectureRegisterPage() {
   const { firebaseUser, profile, canManageMaterials, isStudent, isSuperAdmin } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const canSubmit =
     !!profile &&
@@ -75,6 +77,15 @@ export function VideoLectureRegisterPage() {
       return;
     }
 
+    let classroomId: string | null = searchParams.get("classroomId")?.trim() || null;
+    if (classroomId) {
+      const ok = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
+      if (!ok) {
+        window.alert("강의실을 찾을 수 없거나 이 강의실에 동영상을 연결할 권한이 없습니다.");
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const reqRef = doc(collection(db, "video_material_requests"));
@@ -92,6 +103,7 @@ export function VideoLectureRegisterPage() {
         desiredPrice: materialType === "paid" ? priceNum : null,
         homeworkInstruction: materialType === "homework" ? homeworkInstruction.trim() : null,
         status: "pending",
+        ...(classroomId ? { classroomId } : {}),
         createdAt: serverTimestamp(),
       });
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,6 +7,7 @@ import { TeacherRoute } from "@/components/TeacherRoute";
 import { DashboardShell } from "@/components/DashboardShell";
 import { db, storage } from "@/firebase/config";
 import { allocateUniqueHomeworkCode } from "@/lib/allocateHomeworkCode";
+import { getClassroomIfTeacher } from "@/lib/classroom";
 import "@/pages/pages.css";
 
 function safeFileName(name: string): string {
@@ -32,7 +33,8 @@ async function uploadFilesForKind(
 
 function Inner() {
   const navigate = useNavigate();
-  const { firebaseUser, isSuperAdmin } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { firebaseUser, isSuperAdmin, isTeacherApproved } = useAuth();
   const [subject, setSubject] = useState("");
   const [audience, setAudience] = useState("");
   const [section, setSection] = useState("");
@@ -45,6 +47,8 @@ function Inner() {
   const [referenceMaterialFiles, setReferenceMaterialFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const classroomIdParam = searchParams.get("classroomId")?.trim() || null;
 
   const defaultStatus = useMemo(() => (isSuperAdmin ? "approved" : "pending"), [isSuperAdmin]);
 
@@ -74,6 +78,17 @@ function Inner() {
       return;
     }
     setError(null);
+
+    let verifiedClassroomId: string | null = null;
+    if (classroomIdParam) {
+      const cr = await getClassroomIfTeacher(classroomIdParam, firebaseUser.uid);
+      if (!cr) {
+        setError("강의실을 찾을 수 없거나 이 강의실에 과제를 등록할 권한이 없습니다.");
+        return;
+      }
+      verifiedClassroomId = classroomIdParam;
+    }
+
     setSaving(true);
     const authorId = firebaseUser.uid;
     const uploadStarted = performance.now();
@@ -93,6 +108,8 @@ function Inner() {
       const { homeworkCode: code, shortCode } = await allocateUniqueHomeworkCode();
       const contentRef = doc(collection(db, "contents"));
       const batch = writeBatch(db);
+      const publishStatus =
+        isSuperAdmin || (verifiedClassroomId && isTeacherApproved) ? "approved" : defaultStatus;
       batch.set(contentRef, {
         authorId,
         subject: trimmed.subject,
@@ -105,11 +122,12 @@ function Inner() {
         learningMaterialFilePaths,
         referenceMaterialFilePaths,
         type: "homework",
-        status: defaultStatus,
+        status: publishStatus,
         purchaseLink: null,
         homeworkCode: code,
         shortCode,
         homeworkInstruction: trimmed.homeworkInstruction,
+        ...(verifiedClassroomId ? { classroomId: verifiedClassroomId } : {}),
         createdAt: serverTimestamp(),
       });
       batch.set(doc(db, "homework_codes", code), {
@@ -124,14 +142,16 @@ function Inner() {
         lectureLink: trimmed.lectureLink.length > 0 ? trimmed.lectureLink : null,
         learningMaterialFilePaths,
         referenceMaterialFilePaths,
-        status: defaultStatus,
+        status: publishStatus,
         updatedAt: serverTimestamp(),
       });
       await batch.commit();
       window.alert(
         `과제가 등록되었습니다.\n\n학생에게 안내할 번호(4자리): ${shortCode}\n전체 코드: ${code}`
       );
-      navigate("/dashboard", { replace: true });
+      navigate(verifiedClassroomId ? `/classroom/${verifiedClassroomId}/manage` : "/dashboard", {
+        replace: true,
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
     } finally {
@@ -147,9 +167,11 @@ function Inner() {
           <span className="ui-ko">과제 타입 · 가이드(Instruction) · 자동 과제번호</span>
         </div>
         <p style={{ color: "var(--text-muted)", marginBottom: "1rem" }}>
-          {isSuperAdmin
-            ? "관리자 계정으로 등록 시 바로 승인 상태로 저장됩니다."
-            : "등록 후 관리자 승인이 필요합니다. 승인 전까지 학생은 번호로 조회할 수 없습니다."}
+          {classroomIdParam
+            ? "강의실에서 등록하는 과제는 승인된 선생님 계정 기준으로 검수 없이 라이브러리에 공개됩니다."
+            : isSuperAdmin
+              ? "관리자 계정으로 등록 시 바로 승인 상태로 저장됩니다."
+              : "등록 후 관리자 승인이 필요합니다. 승인 전까지 학생은 번호로 조회할 수 없습니다."}
         </p>
         {error && <p className="auth-error">{error}</p>}
         <form onSubmit={(e) => void handleSubmit(e)} className="add-passage__form">
