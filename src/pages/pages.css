@@ -128,10 +128,12 @@
   border-color: rgba(29, 78, 216, 0.18);
   color: var(--premium-ink);
 }
-.app-shell--landing a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn) {
+.app-shell--landing
+  a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn):not(.mp-btn) {
   color: var(--premium-accent);
 }
-.app-shell--landing a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn):hover {
+.app-shell--landing
+  a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn):not(.mp-btn):hover {
   color: var(--premium-accent-hover);
 }
 .app-shell--landing .btn.btn--ghost .ui-en {
@@ -3029,27 +3031,40 @@
 }
 .mp-btn--royal {
   background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
-  color: #fff;
-  border: 1px solid rgba(29, 78, 216, 0.35);
+  color: #ffffff;
+  border: 1px solid rgba(29, 78, 216, 0.45);
   box-shadow: 0 4px 14px rgba(29, 78, 216, 0.25);
 }
+.mp-btn--royal:visited {
+  color: #ffffff;
+}
 .mp-btn--royal:hover {
-  filter: brightness(1.05);
+  color: #ffffff;
+  filter: brightness(1.06);
 }
 .mp-btn--emerald-ghost {
-  background: rgba(5, 150, 105, 0.1);
-  color: #047857;
-  border: 1px solid rgba(5, 150, 105, 0.28);
+  background: rgba(236, 253, 245, 0.95);
+  color: #065f46;
+  border: 1px solid rgba(5, 150, 105, 0.45);
+}
+.mp-btn--emerald-ghost:visited {
+  color: #065f46;
 }
 .mp-btn--emerald-ghost:hover {
-  background: rgba(5, 150, 105, 0.16);
+  background: rgba(209, 250, 229, 0.98);
+  color: #064e3b;
+  border-color: rgba(5, 150, 105, 0.55);
 }
 .mp-btn--outline {
-  background: #fff;
-  color: var(--premium-ink-soft);
-  border: 1px solid var(--premium-border-soft);
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+}
+.mp-btn--outline:visited {
+  color: #0f172a;
 }
 .mp-btn--outline:hover {
-  border-color: rgba(29, 78, 216, 0.25);
-  color: #1d4ed8;
+  border-color: rgba(29, 78, 216, 0.4);
+  color: #1e3a8a;
+  background: #f8fafc;
 }
