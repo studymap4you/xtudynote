@@ -2392,6 +2392,10 @@
   background: rgba(16, 185, 129, 0.18);
 }
 .crm-modal__sms {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
   margin: 0 0 var(--space-2);
   padding: var(--space-2);
   border-radius: var(--radius-ui);
@@ -2403,7 +2407,7 @@
 }
 .crm-modal__sms a.crm-sms-open {
   display: inline-block;
-  margin-top: var(--space-1);
+  flex: 0 0 auto;
   padding: var(--space-2) var(--space-2);
   border-radius: var(--radius-ui);
   font-weight: 700;
@@ -2419,7 +2423,7 @@
 }
 .crm-modal__sms .crm-sms-open--placeholder {
   display: inline-block;
-  margin-top: var(--space-1);
+  flex: 0 0 auto;
   padding: var(--space-2) var(--space-2);
   border-radius: var(--radius-ui);
   font-weight: 600;

@@ -698,14 +698,16 @@ export function StudentManagementSection() {
               </label>
               {selectedRows.length === 1 && normalizeSmsDialString(selectedRows[0].phone) && (
                 <div className="crm-modal__sms">
-                  한 명만 선택된 경우, 과제번호·안내 메시지를 입력한 뒤 휴대폰 문자 앱을 열 수 있습니다.
+                  <span className="crm-modal__sms-text">
+                    한 명만 선택된 경우, 과제번호·안내 메시지를 입력한 뒤 휴대폰 문자 앱을 열 수 있습니다.
+                  </span>
                   {smsHrefInModal ? (
                     <a className="crm-sms-open" href={smsHrefInModal}>
-                      문자 앱 열기
+                      문자앱열기(휴대폰만 가능)
                     </a>
                   ) : (
                     <span className="crm-sms-open crm-sms-open--placeholder" role="note">
-                      문자 앱 열기 (과제·메시지 입력 필요)
+                      문자앱열기(휴대폰만 가능)
                     </span>
                   )}
                 </div>
