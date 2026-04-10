@@ -28,7 +28,7 @@ export function LandingPage() {
         <Link to="/" className="top-nav__brand top-nav__brand--landing">
           XtudyNote
         </Link>
-        <div className="top-nav__actions">
+        <div className="top-nav__actions top-nav__actions--landing-tier">
           <Link to="/library" className="btn btn--ghost btn--stack">
             <span className="ui-en">Library</span>
             <span className="ui-ko">라이브러리</span>
@@ -37,15 +37,24 @@ export function LandingPage() {
             <span className="ui-en">Homework</span>
             <span className="ui-ko">과제 번호</span>
           </Link>
-          <Link to="/login" className="btn btn--ghost btn--stack">
-            <span className="ui-en">Log in</span>
-            <span className="ui-ko">로그인</span>
+          <Link
+            to="/register"
+            className="top-nav__auth-link top-nav__auth-link--register"
+          >
+            회원가입
+          </Link>
+          <Link to="/login" className="top-nav__auth-link top-nav__auth-link--login">
+            로그인
           </Link>
         </div>
       </header>
       <main className="landing">
         <Intro />
-        <ul className="landing__features" aria-label="Platform highlights">
+        <ul
+          id="landing-features"
+          className="landing__features"
+          aria-label="Platform highlights"
+        >
           {FEATURES.map((f) => (
             <li key={f.title} className="landing__feature">
               <h2 className="landing__feature-title">{f.title}</h2>
@@ -53,7 +62,7 @@ export function LandingPage() {
             </li>
           ))}
         </ul>
-        <div className="landing__choices">
+        <div id="landing-choices" className="landing__choices">
           <Link
             to="/register?role=teacher"
             className="landing__choice landing__choice--teacher"
@@ -83,7 +92,7 @@ export function LandingPage() {
             </span>
           </Link>
         </div>
-        <p className="landing__footer">
+        <p id="landing-footer" className="landing__footer">
           <Link to="/login">
             <span className="ui-en">Already have an account? Log in</span>
             <span className="ui-ko">이미 계정이 있으신가요? 로그인</span>

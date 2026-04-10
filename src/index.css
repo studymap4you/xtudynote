@@ -42,6 +42,25 @@
   --space-1: 8px;
   --space-2: 16px;
   --space-3: 24px;
+
+  /* Intro: 다크-파스텔 실크 (랜딩 히어로 — 대시보드 토큰과 공유) */
+  --intro-silk-bg: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(186, 230, 253, 0.06) 42%,
+    rgba(167, 139, 250, 0.05) 100%
+  );
+  --intro-silk-border: rgba(226, 232, 240, 0.16);
+  --intro-silk-shadow: 0 4px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --intro-card-bg: rgba(17, 28, 50, 0.55);
+  --intro-pastel-a: rgba(253, 224, 71, 0.14);
+  --intro-pastel-b: rgba(167, 139, 250, 0.16);
+  --intro-pastel-c: rgba(45, 212, 191, 0.12);
+  --intro-pastel-d: rgba(251, 146, 60, 0.12);
+  --intro-pastel-e: rgba(96, 165, 250, 0.14);
+  --intro-pastel-f: rgba(244, 114, 182, 0.12);
+  --intro-pastel-g: rgba(52, 211, 153, 0.12);
+  --intro-pastel-h: rgba(147, 197, 253, 0.12);
 }
 
 *,
