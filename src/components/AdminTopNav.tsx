@@ -17,6 +17,10 @@ export function AdminTopNav() {
           <BrandLockup />
         </Link>
         <nav className="admin-nav-tabs" aria-label="관리자 메뉴">
+          <NavLink to="/admin/pending-materials" className={tabClassName}>
+            <span className="admin-nav-tabs__title">자료 검수 대기</span>
+            <span className="admin-nav-tabs__en">Pending reviews</span>
+          </NavLink>
           <NavLink to="/admin/contents" className={tabClassName}>
             <span className="admin-nav-tabs__title">콘텐츠 DB 관리</span>
             <span className="admin-nav-tabs__en">Content database</span>

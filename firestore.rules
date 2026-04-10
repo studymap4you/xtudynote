@@ -238,6 +238,9 @@ service cloud.firestore {
         || resource.data.studentId == request.auth.uid
         || isActiveSuperAdmin()
       );
+
+      /** 마스터 검수: 승인·반려·연결 콘텐츠 ID 기록 */
+      allow update: if isActiveSuperAdmin();
     }
 
     // ——— video_material_requests ———
@@ -268,6 +271,8 @@ service cloud.firestore {
         resource.data.submitterId == request.auth.uid
         || isActiveSuperAdmin()
       );
+
+      allow update: if isActiveSuperAdmin();
     }
 
     // ——— sales_records ———

@@ -25,4 +25,7 @@ export interface MaterialRequestDocument {
   /** 강의실 연동 시 */
   classroomId?: string | null;
   createdAt: unknown;
+  /** 마스터 승인 후 생성된 contents 문서 ID */
+  resolvedContentId?: string | null;
+  reviewedAt?: unknown;
 }

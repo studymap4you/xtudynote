@@ -37,10 +37,13 @@ service firebase.storage {
     }
 
     match /contents/{authorId}/{allPaths=**} {
+      /** 본인(교사/관리자) 업로드 또는 마스터가 검수 시 제출자 폴더로 복사 */
       allow create, update: if request.auth != null
-        && request.auth.uid == authorId
-        && (isActiveSuperAdmin() || isActiveTeacher())
-        && request.resource.size < 50 * 1024 * 1024;
+        && request.resource.size < 50 * 1024 * 1024
+        && (
+          (request.auth.uid == authorId && (isActiveSuperAdmin() || isActiveTeacher()))
+          || isActiveSuperAdmin()
+        );
 
       allow read: if request.auth != null
         && (isActiveSuperAdmin() || isActiveTeacher() || isActiveStudent());

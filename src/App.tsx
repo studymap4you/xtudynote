@@ -6,6 +6,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { AdminPanelPage } from "@/pages/AdminPanelPage";
 import { AddPassage } from "@/pages/admin/AddPassage";
 import { ContentsListPage } from "@/pages/admin/ContentsListPage";
+import { PendingMaterialReviewsPage } from "@/pages/admin/PendingMaterialReviewsPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { ContentDetailPage } from "@/pages/ContentDetailPage";
 import { HomeworkSearchPage } from "@/pages/HomeworkSearchPage";
@@ -53,6 +54,14 @@ export default function App() {
         element={
           <SuperAdminRoute>
             <ContentsListPage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/pending-materials"
+        element={
+          <SuperAdminRoute>
+            <PendingMaterialReviewsPage />
           </SuperAdminRoute>
         }
       />

@@ -35,9 +35,17 @@ export function SuperAdminDashboard() {
               유저 목록·서류 검토·승인·추방을 한 화면에서 처리합니다.
             </span>
           </p>
-          <Link to="/admin/contents" className="btn btn--primary btn--stack">
-            <span className="ui-en">Open content database</span>
-            <span className="ui-ko">콘텐츠 DB 관리 열기</span>
+          <Link to="/admin/pending-materials" className="btn btn--primary btn--stack">
+            <span className="ui-en">Review pending registrations</span>
+            <span className="ui-ko">자료 등록 검수 대기 열기</span>
+          </Link>
+          <Link
+            to="/admin/contents"
+            className="btn btn--ghost btn--stack"
+            style={{ marginTop: "0.65rem" }}
+          >
+            <span className="ui-en">Content database (approved items)</span>
+            <span className="ui-ko">콘텐츠 DB 관리</span>
           </Link>
         </section>
         <section className="panel">

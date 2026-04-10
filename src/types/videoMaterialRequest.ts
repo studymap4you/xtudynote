@@ -22,4 +22,6 @@ export interface VideoMaterialRequestDocument {
   /** 강의실 연동 시 */
   classroomId?: string | null;
   createdAt: unknown;
+  resolvedContentId?: string | null;
+  reviewedAt?: unknown;
 }
