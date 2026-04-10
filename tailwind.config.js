@@ -9,20 +9,19 @@ export default {
     extend: {
       colors: {
         ink: {
-          DEFAULT: "#0f172a",
-          soft: "#1e293b",
-          muted: "#475569",
+          DEFAULT: "#0a1224",
+          soft: "#0f1a30",
+          muted: "#94a3b8",
           faint: "#64748b",
         },
         silk: {
-          DEFAULT: "#f0f4fa",
-          card: "#ffffff",
+          DEFAULT: "#e2e8f0",
+          card: "#111c32",
         },
-        slatebrand: {
-          500: "#486581",
-          600: "#334e68",
-          700: "#243b53",
-          800: "#102a43",
+        skybrand: {
+          DEFAULT: "#5eb8ec",
+          soft: "#7ec8f4",
+          muted: "#7eb0d4",
         },
       },
       borderRadius: {

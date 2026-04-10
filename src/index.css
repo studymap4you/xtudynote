@@ -1,12 +1,14 @@
 :root {
-  --bg-deep: #0c0f14;
-  --bg-panel: #141a24;
-  --bg-elevated: #1c2433;
-  --border: rgba(255, 255, 255, 0.08);
-  --text: #e8ecf4;
-  --text-muted: #8b95a8;
-  --accent: #5b8cff;
-  --accent-soft: rgba(91, 140, 255, 0.15);
+  /* Deep navy shell — intro, dashboard, modals */
+  --bg-deep: #0a1224;
+  --bg-panel: #0f1a30;
+  --bg-elevated: #131f3a;
+  --border: rgba(226, 232, 240, 0.08);
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  /* Pastel sky — primary actions */
+  --accent: #5eb8ec;
+  --accent-soft: rgba(94, 184, 236, 0.18);
   --teacher: #7c5cff;
   --teacher-glow: rgba(124, 92, 255, 0.35);
   --student: #2dd4bf;
@@ -18,28 +20,24 @@
   --font-display: "Outfit", system-ui, sans-serif;
   --font-body: "DM Sans", system-ui, sans-serif;
 
-  /* Premium education (Intro, CRM, landing) — 8/16/24 spacing, R=8px */
-  --premium-ink: #0f172a;
-  --premium-ink-soft: #1e293b;
-  --premium-ink-muted: #475569;
+  /* Premium dark navy (Intro, CRM, landing) — 8/16/24 spacing, R=8px */
+  --premium-ink: #e2e8f0;
+  --premium-ink-soft: #cbd5e1;
+  --premium-ink-muted: #94a3b8;
   --premium-ink-faint: #64748b;
-  --premium-bg-silk: linear-gradient(
-    165deg,
-    #e8edf5 0%,
-    #f0f1f8 38%,
-    #eef2f9 72%,
-    #e5eaf3 100%
-  );
-  --premium-surface-glass: rgba(255, 255, 255, 0.78);
-  --premium-card: #ffffff;
-  --premium-border: rgba(30, 41, 59, 0.08);
-  --premium-border-soft: rgba(51, 65, 85, 0.12);
-  --premium-accent: #334e68;
-  --premium-accent-hover: #243b53;
-  --premium-accent-muted: #486581;
-  --premium-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(30, 41, 59, 0.07);
-  --premium-shadow-control: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --premium-inset: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --premium-bg-silk: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(56, 130, 246, 0.12), transparent),
+    radial-gradient(ellipse 90% 60% at 100% 100%, rgba(94, 184, 236, 0.06), transparent),
+    linear-gradient(180deg, #0a1224 0%, #070f1c 100%);
+  --premium-surface-glass: rgba(15, 26, 48, 0.72);
+  --premium-card: #111c32;
+  --premium-border: rgba(226, 232, 240, 0.08);
+  --premium-border-soft: rgba(148, 163, 184, 0.14);
+  --premium-accent: #5eb8ec;
+  --premium-accent-hover: #7ec8f4;
+  --premium-accent-muted: #7eb0d4;
+  --premium-shadow-card: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.04);
+  --premium-shadow-control: inset 0 1px 2px rgba(0, 0, 0, 0.28), 0 1px 0 rgba(255, 255, 255, 0.05);
+  --premium-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --radius-ui: 8px;
   --space-1: 8px;
   --space-2: 16px;
@@ -61,8 +59,8 @@ body,
 body {
   margin: 0;
   font-family: var(--font-body);
-  background: radial-gradient(1200px 800px at 20% -10%, rgba(91, 140, 255, 0.12), transparent),
-    radial-gradient(900px 600px at 100% 0%, rgba(124, 92, 255, 0.1), transparent),
+  background: radial-gradient(1200px 800px at 20% -10%, rgba(94, 184, 236, 0.08), transparent),
+    radial-gradient(900px 600px at 100% 0%, rgba(56, 130, 246, 0.06), transparent),
     var(--bg-deep);
   color: var(--text);
   line-height: 1.5;
