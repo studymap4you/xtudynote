@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Intro } from "@/components/Intro";
 import "@/pages/pages.css";
 
 const FEATURES = [
@@ -22,9 +23,9 @@ const FEATURES = [
 
 export function LandingPage() {
   return (
-    <div className="app-shell">
-      <header className="top-nav">
-        <Link to="/" className="top-nav__brand">
+    <div className="app-shell app-shell--landing">
+      <header className="top-nav top-nav--landing">
+        <Link to="/" className="top-nav__brand top-nav__brand--landing">
           XtudyNote
         </Link>
         <div className="top-nav__actions">
@@ -43,19 +44,7 @@ export function LandingPage() {
         </div>
       </header>
       <main className="landing">
-        <h1 className="landing__logo">XtudyNote</h1>
-        <p className="landing__slogan">The Ultimate Learning Ecosystem, All in One.</p>
-        <p className="landing__slogan-ko--primary">
-          궁극의 학습 생태계를 하나의 플랫폼에
-        </p>
-        <div className="landing__tagline-sub">
-          <p className="landing__tagline-sub-ko">
-            선생님과 학생 모두의 학습공간 — XtudyNote
-          </p>
-          <p className="landing__tagline-sub-en" lang="en">
-            A Learning Space for Both Teachers and Students
-          </p>
-        </div>
+        <Intro />
         <ul className="landing__features" aria-label="Platform highlights">
           {FEATURES.map((f) => (
             <li key={f.title} className="landing__feature">
