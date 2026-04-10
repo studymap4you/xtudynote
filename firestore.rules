@@ -1,6 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ——— 공통 헬퍼 ———
     function signedIn() {
       return request.auth != null;
     }
@@ -45,12 +47,14 @@ service cloud.firestore {
     function isSignedInActiveAccount() {
       return signedIn() && userData(request.auth.uid).accountStatus == 'active';
     }
+    /** 강의실 소유자만 classroomId 연결 가능 */
     function ownsClassroom(classroomId) {
       return exists(/databases/$(database)/documents/classrooms/$(classroomId))
         && get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId
           == request.auth.uid;
     }
 
+    // ——— users ———
     match /users/{userId} {
       allow read: if signedIn() && (
         request.auth.uid == userId
@@ -104,6 +108,7 @@ service cloud.firestore {
         );
     }
 
+    // ——— contents (라이브러리·강의실 연동 시 classroomId 검증) ———
     match /contents/{docId} {
       allow read: if isActiveSuperAdmin()
         || isAuthor()
@@ -131,9 +136,13 @@ service cloud.firestore {
       );
     }
 
+    /**
+     * homework_codes — 문서 ID = 전체 과제코드(HW-…).
+     * read: get + shortCode 등 쿼리(list). 승인된 과제만 조회 가능.
+     */
     match /homework_codes/{code} {
-      allow get: if resource.data.status == 'approved';
-      allow list: if false;
+      allow read: if resource.data.status == 'approved';
+
       allow create, update: if isActiveSuperAdmin() || (
         isActiveTeacher()
         && request.resource.data.authorId == request.auth.uid
@@ -142,12 +151,14 @@ service cloud.firestore {
           == request.auth.uid
         && request.resource.data.homeworkCode == code
       );
+
       allow delete: if isActiveSuperAdmin() || (
         isActiveTeacher()
         && resource.data.authorId == request.auth.uid
       );
     }
 
+    // ——— content_qa ———
     match /content_qa/{qaId} {
       allow read: if signedIn();
       allow create: if signedIn()
@@ -165,6 +176,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer', 'answeredAt']);
     }
 
+    // ——— submissions ———
     match /submissions/{subId} {
       allow read: if isActiveSuperAdmin()
         || (signedIn() && resource.data.studentId == request.auth.uid)
@@ -194,6 +206,7 @@ service cloud.firestore {
       allow delete: if isActiveSuperAdmin();
     }
 
+    // ——— student_downloads ———
     match /student_downloads/{docId} {
       allow read, delete: if signedIn() && resource.data.studentId == request.auth.uid;
       allow create, update: if signedIn()
@@ -201,6 +214,7 @@ service cloud.firestore {
         && docId == request.auth.uid + '_' + request.resource.data.contentId;
     }
 
+    // ——— material_requests (선택 필드 classroomId — 소유 강의실만) ———
     match /material_requests/{reqId} {
       allow create: if signedIn()
         && request.resource.data.status == 'pending'
@@ -226,7 +240,7 @@ service cloud.firestore {
       );
     }
 
-    /** 동영상 학습자료 등록 신청 (URL 링크) */
+    // ——— video_material_requests ———
     match /video_material_requests/{reqId} {
       allow create: if signedIn()
         && request.resource.data.status == 'pending'
@@ -256,6 +270,7 @@ service cloud.firestore {
       );
     }
 
+    // ——— sales_records ———
     match /sales_records/{saleId} {
       allow read: if signedIn() && (
         isActiveSuperAdmin()
@@ -265,7 +280,7 @@ service cloud.firestore {
       allow create, update, delete: if isActiveSuperAdmin();
     }
 
-    /** 교사별 CRM 학생 명단 — teacherId로 소유자 구분 */
+    // ——— students (CRM) ———
     match /students/{studentId} {
       allow read: if isActiveSuperAdmin()
         || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
@@ -288,9 +303,7 @@ service cloud.firestore {
         || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
     }
 
-    /**
-     * 강의실 — 개설자(teacherId)만 수정·삭제, 로그인·활성 계정은 목록/입장 조회
-     */
+    // ——— classrooms (강의실 개설·입장) ———
     match /classrooms/{classroomId} {
       allow read: if isSignedInActiveAccount();
 
@@ -311,7 +324,7 @@ service cloud.firestore {
         || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
     }
 
-    /** 과제 안내 일괄 발송 기록 (이메일은 서버/확장 연동 시 처리) */
+    // ——— homework_dispatches ———
     match /homework_dispatches/{dispatchId} {
       allow read: if isActiveSuperAdmin()
         || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
