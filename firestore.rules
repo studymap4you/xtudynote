@@ -212,5 +212,46 @@ service cloud.firestore {
       );
       allow create, update, delete: if isActiveSuperAdmin();
     }
+
+    /** 교사별 CRM 학생 명단 — teacherId로 소유자 구분 */
+    match /students/{studentId} {
+      allow read: if isActiveSuperAdmin()
+        || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
+
+      allow create: if isActiveTeacher()
+        && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.phone is string
+        && request.resource.data.email is string
+        && request.resource.data.keys().hasAll(['teacherId', 'name', 'phone', 'email', 'createdAt']);
+
+      allow update: if isActiveSuperAdmin()
+        || (
+          isActiveTeacher()
+          && resource.data.teacherId == request.auth.uid
+          && request.resource.data.teacherId == resource.data.teacherId
+        );
+
+      allow delete: if isActiveSuperAdmin()
+        || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
+    }
+
+    /** 과제 안내 일괄 발송 기록 (이메일은 서버/확장 연동 시 처리) */
+    match /homework_dispatches/{dispatchId} {
+      allow read: if isActiveSuperAdmin()
+        || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
+
+      allow create: if isActiveTeacher()
+        && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.homeworkCode is string
+        && request.resource.data.message is string
+        && request.resource.data.recipientStudentIds is list
+        && request.resource.data.recipients is list
+        && request.resource.data.keys().hasAll([
+          'teacherId', 'homeworkCode', 'message', 'recipientStudentIds', 'recipients', 'createdAt'
+        ]);
+
+      allow update, delete: if false;
+    }
   }
 }

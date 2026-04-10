@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { AddMaterialButton } from "@/components/AddMaterialButton";
+import { StudentManagementSection } from "@/components/teacher/StudentManagementSection";
 import { db } from "@/firebase/config";
 import "@/pages/pages.css";
 
@@ -148,6 +149,8 @@ export function ApprovedTeacherDashboard() {
           </form>
         </aside>
       </div>
+
+      <StudentManagementSection />
     </main>
   );
 }
