@@ -84,6 +84,8 @@ export function Intro() {
             <BrandLockup />
           </p>
           <h1 id="intro-slogan" className="intro-hero__slogan">
+            모두에 의한
+            <br />
             모두를 위한
             <br />
             모두의 학습

@@ -215,7 +215,7 @@
   font-family: var(--font-slogan-mamablock);
   font-weight: 700;
   font-size: clamp(1.85rem, 4.2vw, 2.85rem);
-  line-height: 1.22;
+  line-height: 1.26;
   letter-spacing: -0.03em;
   word-break: keep-all;
   overflow-wrap: break-word;
