@@ -1,3 +1,4 @@
+import type { ContentType } from "@/types/content";
 import type { UserRole } from "@/types/user";
 
 export type VideoMaterialRequestStatus = "pending" | "approved" | "rejected";
@@ -9,9 +10,14 @@ export interface VideoMaterialRequestDocument {
   title: string;
   subject: string;
   audienceGrade: string;
+  materialType: ContentType;
   /** YouTube, Vimeo 등 공개 재생 URL */
   videoUrl: string;
   description: string;
+  /** 유료일 때만 (원) */
+  desiredPrice: number | null;
+  /** 과제 유형일 때만 */
+  homeworkInstruction: string | null;
   status: VideoMaterialRequestStatus;
   createdAt: unknown;
 }

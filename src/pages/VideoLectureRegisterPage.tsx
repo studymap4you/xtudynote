@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
 import { db } from "@/firebase/config";
+import type { ContentType } from "@/types/content";
 import type { UserProfile } from "@/types/user";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import "@/pages/pages.css";
@@ -34,10 +35,23 @@ export function VideoLectureRegisterPage() {
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [audienceGrade, setAudienceGrade] = useState("");
+  const [materialType, setMaterialType] = useState<ContentType>("share");
+  const [desiredPrice, setDesiredPrice] = useState("");
+  const [homeworkInstruction, setHomeworkInstruction] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+
+  const showPrice = materialType === "paid";
+  const showHomeworkNotes = materialType === "homework";
+
+  const priceNum = useMemo(() => {
+    const t = desiredPrice.trim();
+    if (!t) return null;
+    const n = Number(t.replace(/,/g, ""));
+    return Number.isFinite(n) ? n : null;
+  }, [desiredPrice]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,6 +66,14 @@ export function VideoLectureRegisterPage() {
       window.alert("동영상 링크는 http(s)로 시작하는 전체 URL을 입력해 주세요.");
       return;
     }
+    if (materialType === "paid" && (priceNum == null || priceNum < 0)) {
+      window.alert("유료 강의는 희망 판매 가격(원)을 입력해 주세요.");
+      return;
+    }
+    if (materialType === "homework" && !homeworkInstruction.trim()) {
+      window.alert("과제 유형은 과제 주의사항·안내를 입력해 주세요.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -64,8 +86,11 @@ export function VideoLectureRegisterPage() {
         title: title.trim(),
         subject: subject.trim(),
         audienceGrade: audienceGrade.trim(),
+        materialType,
         videoUrl: urlTrim,
         description: description.trim(),
+        desiredPrice: materialType === "paid" ? priceNum : null,
+        homeworkInstruction: materialType === "homework" ? homeworkInstruction.trim() : null,
         status: "pending",
         createdAt: serverTimestamp(),
       });
@@ -75,6 +100,9 @@ export function VideoLectureRegisterPage() {
       setTitle("");
       setSubject("");
       setAudienceGrade("");
+      setMaterialType("share");
+      setDesiredPrice("");
+      setHomeworkInstruction("");
       setVideoUrl("");
       setDescription("");
     } catch (err) {
@@ -159,6 +187,69 @@ export function VideoLectureRegisterPage() {
                   placeholder="예: 고2, 성인"
                 />
               </label>
+
+              <fieldset className="material-register-form__fieldset">
+                <legend className="material-register-form__legend">
+                  <span className="reg-form__label-en">Lecture type</span>
+                  <span className="reg-form__label-ko"> 강의 유형</span>
+                </legend>
+                <div className="material-register-form__radio-row">
+                  {(
+                    [
+                      ["share", "Share · 공유"],
+                      ["paid", "Paid · 유료"],
+                      ["homework", "Homework · 과제"],
+                    ] as const
+                  ).map(([v, label]) => (
+                    <label key={v} className="material-register-form__radio">
+                      <input
+                        type="radio"
+                        name="videoMaterialType"
+                        value={v}
+                        checked={materialType === v}
+                        onChange={() => setMaterialType(v)}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              {showPrice && (
+                <label className="reg-form__field">
+                  <span className="reg-form__label-line">
+                    <span className="reg-form__label-en">Desired price (KRW)</span>
+                    <span className="reg-form__label-ko">희망 판매 가격 (원)</span>
+                  </span>
+                  <input
+                    className="add-passage__control material-register-form__input"
+                    type="text"
+                    inputMode="decimal"
+                    value={desiredPrice}
+                    onChange={(e) => setDesiredPrice(e.target.value)}
+                    placeholder="예: 15000"
+                    required
+                  />
+                </label>
+              )}
+
+              {showHomeworkNotes && (
+                <label className="reg-form__field">
+                  <span className="reg-form__label-line">
+                    <span className="reg-form__label-en">Homework guidelines &amp; cautions</span>
+                    <span className="reg-form__label-ko">과제 주의사항·안내</span>
+                  </span>
+                  <textarea
+                    className="add-passage__control add-passage__intro material-register-form__textarea"
+                    rows={6}
+                    value={homeworkInstruction}
+                    onChange={(e) => setHomeworkInstruction(e.target.value)}
+                    required={showHomeworkNotes}
+                    spellCheck
+                    placeholder="제출 형식, 마감, 금지 사항 등"
+                  />
+                </label>
+              )}
 
               <label className="reg-form__field">
                 <span className="reg-form__label-line">
