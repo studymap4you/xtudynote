@@ -204,6 +204,27 @@ service cloud.firestore {
       );
     }
 
+    /** 동영상 학습자료 등록 신청 (URL 링크) */
+    match /video_material_requests/{reqId} {
+      allow create: if signedIn()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.submitterId == request.auth.uid
+        && request.resource.data.videoUrl is string
+        && request.resource.data.title is string
+        && request.resource.data.subject is string
+        && request.resource.data.audienceGrade is string
+        && request.resource.data.description is string
+        && (
+          isActiveStudent()
+          || isActiveTeacher()
+          || isActiveSuperAdmin()
+        );
+      allow read: if signedIn() && (
+        resource.data.submitterId == request.auth.uid
+        || isActiveSuperAdmin()
+      );
+    }
+
     match /sales_records/{saleId} {
       allow read: if signedIn() && (
         isActiveSuperAdmin()

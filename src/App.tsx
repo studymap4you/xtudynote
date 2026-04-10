@@ -14,6 +14,7 @@ import { TeacherHomeworkPage } from "@/pages/teacher/TeacherHomeworkPage";
 import { HomeworkFeedbackPage } from "@/pages/teacher/HomeworkFeedbackPage";
 import { TeacherStatsPage } from "@/pages/teacher/TeacherStatsPage";
 import { MaterialRegisterPage } from "@/pages/MaterialRegisterPage";
+import { VideoLectureRegisterPage } from "@/pages/VideoLectureRegisterPage";
 import { ProtectedRoute, SuperAdminRoute } from "@/components/ProtectedRoute";
 
 export default function App() {
@@ -87,6 +88,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <MaterialRegisterPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/video/register"
+        element={
+          <ProtectedRoute>
+            <VideoLectureRegisterPage />
           </ProtectedRoute>
         }
       />

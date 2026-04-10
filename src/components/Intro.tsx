@@ -8,8 +8,8 @@ const SHORTCUTS = [
   { to: "/homework", label: "과제 검색", tone: "b" as const },
   { to: "/#marketplace-premium", label: "유료 자료관", tone: "c" as const },
   { to: "/#marketplace-categories", label: "테마별 자료", tone: "d" as const },
-  { to: "/#marketplace-ranking", label: "실시간 랭킹", tone: "e" as const },
-  { to: "/#marketplace-creator", label: "크리에이터", tone: "f" as const },
+  { to: "/material/register", label: "새자료 등록", tone: "e" as const },
+  { to: "/video/register", label: "동영상 강의", tone: "f" as const },
   { to: "/login", label: "로그인", tone: "g" as const },
   { to: "/#landing-features", label: "플랫폼 소개", tone: "h" as const },
 ] as const;
