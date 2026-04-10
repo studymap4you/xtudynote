@@ -5,12 +5,12 @@ import { normalizeHomeworkCode } from "@/lib/homeworkCode";
 const SHORTCUTS = [
   { to: "/library", label: "라이브러리", tone: "a" as const },
   { to: "/homework", label: "과제 검색", tone: "b" as const },
-  { to: "/login", label: "로그인", tone: "c" as const },
-  { to: "/register?role=student", label: "학생 회원가입", tone: "d" as const },
-  { to: "/register?role=teacher", label: "교사 회원가입", tone: "e" as const },
-  { to: "/#landing-features", label: "학습 하이라이트", tone: "f" as const },
-  { to: "/#landing-choices", label: "시작 가이드", tone: "g" as const },
-  { to: "/#landing-footer", label: "계정 안내", tone: "h" as const },
+  { to: "/#marketplace-premium", label: "유료 자료관", tone: "c" as const },
+  { to: "/#marketplace-categories", label: "테마별 자료", tone: "d" as const },
+  { to: "/#marketplace-ranking", label: "실시간 랭킹", tone: "e" as const },
+  { to: "/#marketplace-creator", label: "크리에이터", tone: "f" as const },
+  { to: "/login", label: "로그인", tone: "g" as const },
+  { to: "/#landing-features", label: "플랫폼 소개", tone: "h" as const },
 ] as const;
 
 function IconStudent() {
@@ -62,7 +62,7 @@ function IconSend() {
 }
 
 /**
- * 랜딩 히어로 — 비대칭 레이아웃(좌 카피 / 우 기능), 다크-파스텔 실크 톤
+ * 랜딩 히어로 — 비대칭 레이아웃(좌 카피 / 우 기능), XtudyNote 2.0 라이트 마켓 톤
  */
 export function Intro() {
   const navigate = useNavigate();

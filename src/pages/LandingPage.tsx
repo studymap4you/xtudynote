@@ -1,23 +1,30 @@
 import { Link } from "react-router-dom";
 import { Intro } from "@/components/Intro";
+import {
+  MarketplaceSearchStrip,
+  PremiumVaultSection,
+  CategoryGridSection,
+  LiveRankingSection,
+  CreatorCenterSection,
+} from "@/components/landing/MarketplaceSections";
 import "@/pages/pages.css";
 
 const FEATURES = [
   {
-    title: "Verified Experts",
-    ko: "검증된 전문가와 함께하는 학습 — 신뢰할 수 있는 지도 환경",
+    title: "Verified marketplace",
+    ko: "검증된 판매자·샘플 미리보기로 신뢰할 수 있는 지식 거래",
   },
   {
-    title: "Smart Library",
-    ko: "스마트 라이브러리 — 과목에 얽매이지 않는 지식·자료 허브",
+    title: "Category-rich library",
+    ko: "수능·어학·자격증·전공까지 테마별 큐레이션 라이브러리",
   },
   {
-    title: "Logic-Based Feedback",
-    ko: "논리 기반 피드백 — 사고 과정을 드러내는 학습 피드백",
+    title: "Creator economics",
+    ko: "크리에이터 센터 — 등록·판매·정산을 한곳에서",
   },
   {
-    title: "Personal Learning Logs",
-    ko: "개인 학습 로그 — 나만의 학습 궤적을 한곳에 기록",
+    title: "Learning logs",
+    ko: "학습자 피드백·로그로 성장 궤적을 기록",
   },
 ] as const;
 
@@ -50,6 +57,11 @@ export function LandingPage() {
       </header>
       <main className="landing">
         <Intro />
+        <MarketplaceSearchStrip />
+        <PremiumVaultSection />
+        <CategoryGridSection />
+        <LiveRankingSection />
+        <CreatorCenterSection />
         <ul
           id="landing-features"
           className="landing__features"

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   collection,
   onSnapshot,
@@ -79,6 +79,8 @@ function listTitle(row: LibraryRow): string {
 
 export function LibraryPage() {
   const { firebaseUser, profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const librarySearch = (searchParams.get("q") ?? "").trim().toLowerCase();
   const [rows, setRows] = useState<LibraryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -130,13 +132,21 @@ export function LibraryPage() {
     setSelected((s) => ({ ...s, [id]: !s[id] }));
   }, []);
 
+  const displayRows = useMemo(() => {
+    if (!librarySearch) return rows;
+    return rows.filter((r) => {
+      const blob = `${listTitle(r)} ${r.learningTopic} ${r.identifier} ${r.subject}`.toLowerCase();
+      return blob.includes(librarySearch);
+    });
+  }, [rows, librarySearch]);
+
   const selectAll = useCallback(() => {
     const next: Record<string, boolean> = {};
-    rows.forEach((r) => {
+    displayRows.forEach((r) => {
       next[r.id] = true;
     });
     setSelected(next);
-  }, [rows]);
+  }, [displayRows]);
 
   const clearSel = useCallback(() => setSelected({}), []);
 
@@ -182,6 +192,12 @@ export function LibraryPage() {
           <h1>Library</h1>
           <span className="ui-ko">승인된 자료 · 공유 / 유료 / 과제</span>
         </div>
+
+        {librarySearch && (
+          <p className="library-query-hint" role="status">
+            검색: <strong>{searchParams.get("q")}</strong> — 제목·주제·식별자에서 필터합니다.
+          </p>
+        )}
 
         <div className="library-toolbar">
           <div className="library-toolbar__views">
@@ -242,10 +258,12 @@ export function LibraryPage() {
           </div>
         ) : view === "card" ? (
           <div className="library-cards">
-            {rows.length === 0 ? (
-              <p style={{ color: "var(--light-text-muted, #6b7280)" }}>표시할 자료가 없습니다.</p>
+            {displayRows.length === 0 ? (
+              <p style={{ color: "var(--light-text-muted, #6b7280)" }}>
+                {librarySearch ? "검색 결과가 없습니다." : "표시할 자료가 없습니다."}
+              </p>
             ) : (
-              rows.map((r) => (
+              displayRows.map((r) => (
                 <article key={r.id} className="library-card library-card--light">
                   <label className="library-card__check">
                     <input
@@ -282,14 +300,14 @@ export function LibraryPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.length === 0 ? (
+                {displayRows.length === 0 ? (
                   <tr>
                     <td colSpan={6} style={{ color: "var(--light-text-muted, #6b7280)" }}>
-                      표시할 자료가 없습니다.
+                      {librarySearch ? "검색 결과가 없습니다." : "표시할 자료가 없습니다."}
                     </td>
                   </tr>
                 ) : (
-                  rows.map((r) => (
+                  displayRows.map((r) => (
                     <tr key={r.id}>
                       <td>
                         <input type="checkbox" checked={!!selected[r.id]} onChange={() => toggle(r.id)} />
