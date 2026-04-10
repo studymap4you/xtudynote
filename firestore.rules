@@ -41,6 +41,15 @@ service cloud.firestore {
     function isAuthor() {
       return signedIn() && resource.data.authorId == request.auth.uid;
     }
+    /** 로그인 + users 문서상 활성 (강의실 목록·입장 등) */
+    function isSignedInActiveAccount() {
+      return signedIn() && userData(request.auth.uid).accountStatus == 'active';
+    }
+    function ownsClassroom(classroomId) {
+      return exists(/databases/$(database)/documents/classrooms/$(classroomId))
+        && get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId
+          == request.auth.uid;
+    }
 
     match /users/{userId} {
       allow read: if signedIn() && (
@@ -104,6 +113,11 @@ service cloud.firestore {
         || (
           isActiveTeacher()
           && request.resource.data.authorId == request.auth.uid
+          && (
+            !('classroomId' in request.resource.data)
+            || request.resource.data.classroomId == null
+            || ownsClassroom(request.resource.data.classroomId)
+          )
         );
 
       allow update: if isActiveSuperAdmin() || (
@@ -196,6 +210,14 @@ service cloud.firestore {
           isActiveStudent()
           || isActiveTeacher()
           || isActiveSuperAdmin()
+        )
+        && (
+          !('classroomId' in request.resource.data)
+          || request.resource.data.classroomId == null
+          || (
+            request.resource.data.classroomId is string
+            && ownsClassroom(request.resource.data.classroomId)
+          )
         );
       allow read: if signedIn() && (
         resource.data.submitterId == request.auth.uid
@@ -219,6 +241,14 @@ service cloud.firestore {
           isActiveStudent()
           || isActiveTeacher()
           || isActiveSuperAdmin()
+        )
+        && (
+          !('classroomId' in request.resource.data)
+          || request.resource.data.classroomId == null
+          || (
+            request.resource.data.classroomId is string
+            && ownsClassroom(request.resource.data.classroomId)
+          )
         );
       allow read: if signedIn() && (
         resource.data.submitterId == request.auth.uid
@@ -246,6 +276,29 @@ service cloud.firestore {
         && request.resource.data.phone is string
         && request.resource.data.email is string
         && request.resource.data.keys().hasAll(['teacherId', 'name', 'phone', 'email', 'createdAt']);
+
+      allow update: if isActiveSuperAdmin()
+        || (
+          isActiveTeacher()
+          && resource.data.teacherId == request.auth.uid
+          && request.resource.data.teacherId == resource.data.teacherId
+        );
+
+      allow delete: if isActiveSuperAdmin()
+        || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
+    }
+
+    /**
+     * 강의실 — 개설자(teacherId)만 수정·삭제, 로그인·활성 계정은 목록/입장 조회
+     */
+    match /classrooms/{classroomId} {
+      allow read: if isSignedInActiveAccount();
+
+      allow create: if isActiveTeacher()
+        && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.description is string
+        && request.resource.data.keys().hasAll(['teacherId', 'title', 'description', 'createdAt']);
 
       allow update: if isActiveSuperAdmin()
         || (
