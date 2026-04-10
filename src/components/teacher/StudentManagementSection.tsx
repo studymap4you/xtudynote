@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addDoc,
   collection,
@@ -13,6 +13,7 @@ import {
 import type { Timestamp } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
+import { isEmailJsConfigured, sendHomeworkEmailsSequential } from "@/lib/sendHomeworkEmails";
 import type { CrmStudentDocument } from "@/types/crmStudent";
 import type { ContentDocument } from "@/types/content";
 
@@ -41,17 +42,22 @@ function sortStudentsByCreatedDesc(rows: StudentRow[]): StudentRow[] {
   return [...rows].sort((a, b) => rowTimeMs(b) - rowTimeMs(a));
 }
 
-function useAutoDismissSuccess(message: string | null, setMessage: (v: string | null) => void, ms: number) {
+function useAutoDismissFormMessage(
+  message: string | null,
+  setMessage: (v: string | null) => void
+) {
   useEffect(() => {
     if (!message) return;
     if (message.includes("실패") || message.includes("오류")) return;
+    const ms = message.includes("성공적으로 발송") ? 6000 : 3000;
     const t = setTimeout(() => setMessage(null), ms);
     return () => clearTimeout(t);
-  }, [message, ms, setMessage]);
+  }, [message, setMessage]);
 }
 
 export function StudentManagementSection() {
   const { firebaseUser } = useAuth();
+  const emailJsReady = isEmailJsConfigured();
   const [rows, setRows] = useState<StudentRow[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,12 +74,6 @@ export function StudentManagementSection() {
   const [dispatchMessage, setDispatchMessage] = useState("");
   const [dispatching, setDispatching] = useState(false);
   const [dispatchMsg, setDispatchMsg] = useState<string | null>(null);
-  const [simulation, setSimulation] = useState<{
-    homeworkCode: string;
-    message: string;
-    lines: { email: string; name: string }[];
-  } | null>(null);
-  const simTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [editing, setEditing] = useState<StudentRow | null>(null);
   const [editName, setEditName] = useState("");
@@ -82,7 +82,7 @@ export function StudentManagementSection() {
   const [editSaving, setEditSaving] = useState(false);
   const [editMsg, setEditMsg] = useState<string | null>(null);
 
-  useAutoDismissSuccess(formMsg, setFormMsg, 3000);
+  useAutoDismissFormMessage(formMsg, setFormMsg);
 
   useEffect(() => {
     if (!firebaseUser) {
@@ -148,12 +148,6 @@ export function StudentManagementSection() {
       unsubHw();
     };
   }, [firebaseUser]);
-
-  useEffect(() => {
-    return () => {
-      if (simTimerRef.current) clearTimeout(simTimerRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     if (!sendOpen) return;
@@ -238,24 +232,6 @@ export function StudentManagementSection() {
     }
   }
 
-  function simulateEmailDelivery(
-    code: string,
-    msg: string,
-    recipients: { name: string; email: string }[]
-  ) {
-    const lines = recipients.map((r) => ({ email: r.email, name: r.name }));
-    setSimulation({ homeworkCode: code, message: msg, lines });
-    for (const r of recipients) {
-      console.info("[CRM 이메일 시뮬레이션]", {
-        to: r.email,
-        subject: `[XtudyNote] 과제 안내 — ${code}`,
-        bodyPreview: msg.slice(0, 200),
-      });
-    }
-    if (simTimerRef.current) clearTimeout(simTimerRef.current);
-    simTimerRef.current = setTimeout(() => setSimulation(null), 8000);
-  }
-
   async function handleDispatch(e: React.FormEvent) {
     e.preventDefault();
     if (!firebaseUser || selectedRows.length === 0) return;
@@ -269,9 +245,37 @@ export function StudentManagementSection() {
       setDispatchMsg("안내 메시지를 입력해 주세요.");
       return;
     }
+    const teacherEmail = (firebaseUser.email ?? "").trim();
+    if (!teacherEmail) {
+      setDispatchMsg(
+        "로그인 계정에 이메일이 없습니다. 이메일이 연동된 로그인 방식(Google 등)을 사용해 주세요."
+      );
+      return;
+    }
+
+    const recipients = selectedRows.map((r) => ({
+      name: (r.name ?? "").trim(),
+      email: (r.email ?? "").trim().toLowerCase(),
+    }));
+
+    const invalid = recipients.filter((r) => !isValidEmail(r.email));
+    if (invalid.length > 0) {
+      setDispatchMsg(
+        `이메일이 비어 있거나 형식이 올바르지 않은 학생이 있습니다: ${invalid.map((x) => x.name || x.email).join(", ")}`
+      );
+      return;
+    }
+
     setDispatching(true);
     setDispatchMsg(null);
     try {
+      await sendHomeworkEmailsSequential({
+        recipients,
+        homeworkCode: code,
+        message: msg,
+        teacherEmail,
+      });
+
       await addDoc(collection(db, "homework_dispatches"), {
         teacherId: firebaseUser.uid,
         homeworkCode: code,
@@ -280,23 +284,19 @@ export function StudentManagementSection() {
         recipients: selectedRows.map((r) => ({
           studentId: r.id,
           name: r.name,
-          email: r.email,
+          email: (r.email ?? "").trim().toLowerCase(),
           phone: r.phone,
         })),
         createdAt: serverTimestamp(),
       });
-      simulateEmailDelivery(
-        code,
-        msg,
-        selectedRows.map((r) => ({ name: r.name, email: r.email }))
-      );
+
       setSendOpen(false);
       setHomeworkSelect("");
       setHomeworkCodeCustom("");
       setDispatchMessage("");
-      setFormMsg("발송이 완료되었습니다. (이메일은 시뮬레이션으로 기록됨)");
+      setFormMsg("성공적으로 발송되었습니다.");
     } catch (err) {
-      setDispatchMsg(err instanceof Error ? err.message : "저장에 실패했습니다.");
+      setDispatchMsg(err instanceof Error ? err.message : String(err));
     } finally {
       setDispatching(false);
     }
@@ -384,6 +384,31 @@ export function StudentManagementSection() {
 
   return (
     <div className="crm-section">
+      {!emailJsReady && (
+        <div className="crm-emailjs-banner" role="status">
+          <strong>EmailJS 미설정</strong>
+          <span>
+            실제 메일 발송을 위해 <code>.env.local</code>에{" "}
+            <code>VITE_EMAILJS_PUBLIC_KEY</code>, <code>VITE_EMAILJS_SERVICE_ID</code>,{" "}
+            <code>VITE_EMAILJS_TEMPLATE_ID</code>를 추가한 뒤 서버를 재시작하세요. 템플릿에는{" "}
+            <code>to_email</code>, <code>homework_code</code>, <code>message</code> 변수가 필요합니다.
+          </span>
+        </div>
+      )}
+
+      {formMsg && (
+        <div
+          className={
+            formMsg.includes("실패") || formMsg.includes("오류")
+              ? "crm-feedback crm-feedback--err"
+              : "crm-feedback crm-feedback--ok"
+          }
+          role="status"
+        >
+          {formMsg}
+        </div>
+      )}
+
       <div className="crm-section__head">
         <div>
           <h2 className="crm-section__title">
@@ -448,11 +473,6 @@ export function StudentManagementSection() {
           <button type="submit" className="btn btn--primary" disabled={saving}>
             {saving ? "저장 중…" : "Add student · 학생 추가"}
           </button>
-          {formMsg && (
-            <span className={formMsg.includes("실패") ? "crm-msg crm-msg--err" : "crm-msg"}>
-              {formMsg}
-            </span>
-          )}
         </div>
       </form>
 
@@ -482,29 +502,6 @@ export function StudentManagementSection() {
           <span className="ui-ko">과제 발송</span>
         </button>
       </div>
-
-      {simulation && (
-        <div className="crm-simulation" role="status">
-          <div className="crm-simulation__title">
-            이메일 발송 시뮬레이션 · Email send (simulated)
-          </div>
-          <p className="crm-simulation__meta">
-            과제번호 <strong>{simulation.homeworkCode}</strong> · 수신{" "}
-            <strong>{simulation.lines.length}</strong>명
-          </p>
-          <ul className="crm-simulation__list">
-            {simulation.lines.map((line) => (
-              <li key={line.email}>
-                <span className="crm-simulation__name">{line.name}</span>
-                <span className="crm-simulation__email">{line.email}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="crm-simulation__note">
-            실제 SMTP 발송은 서버 연동 시 동일 수신자로 전달됩니다. 콘솔에 전송 로그가 기록되었습니다.
-          </p>
-        </div>
-      )}
 
       <div className="crm-list-wrap">
         {loading ? (
@@ -603,8 +600,8 @@ export function StudentManagementSection() {
               <span className="crm-modal__title-ko">과제 안내 일괄 발송</span>
             </h3>
             <p className="crm-modal__hint">
-              선택한 <strong>{selectedRows.length}</strong>명에게 과제번호와 메시지가 전달됩니다. (이메일은
-              시뮬레이션으로 기록)
+              선택한 <strong>{selectedRows.length}</strong>명의 이메일로 순차 발송합니다. 본문에는{" "}
+              <strong>과제번호</strong>와 선생님 <strong>안내 메시지</strong>가 포함됩니다 (EmailJS).
             </p>
             <form onSubmit={(e) => void handleDispatch(e)}>
               <label className="crm-field crm-field--block">
@@ -652,7 +649,9 @@ export function StudentManagementSection() {
                   placeholder="과제 제출 방법, 마감일 등을 입력하세요."
                 />
               </label>
-              {dispatchMsg && <p className="crm-msg crm-msg--err">{dispatchMsg}</p>}
+              {dispatchMsg && (
+                <p className="crm-msg crm-msg--err crm-msg--multiline">{dispatchMsg}</p>
+              )}
               <div className="crm-modal__actions">
                 <button
                   type="button"
@@ -662,7 +661,16 @@ export function StudentManagementSection() {
                 >
                   취소 · Cancel
                 </button>
-                <button type="submit" className="btn btn--primary" disabled={dispatching}>
+                <button
+                  type="submit"
+                  className="btn btn--primary"
+                  disabled={dispatching || !emailJsReady}
+                  title={
+                    !emailJsReady
+                      ? "EmailJS 환경 변수를 설정한 뒤 사용할 수 있습니다."
+                      : undefined
+                  }
+                >
                   {dispatching ? "발송 중…" : "발송 · Send"}
                 </button>
               </div>
