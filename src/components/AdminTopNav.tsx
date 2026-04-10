@@ -1,4 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
+import { BrandLockup } from "@/components/BrandLockup";
 import "@/pages/pages.css";
 
 function tabClassName({ isActive }: { isActive: boolean }): string {
@@ -13,7 +14,7 @@ export function AdminTopNav() {
     <header className="top-nav admin-top-nav">
       <div className="admin-top-nav__bar">
         <Link to="/dashboard" className="top-nav__brand">
-          XtudyNote
+          <BrandLockup />
         </Link>
         <nav className="admin-nav-tabs" aria-label="관리자 메뉴">
           <NavLink to="/admin/contents" className={tabClassName}>

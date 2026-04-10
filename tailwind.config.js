@@ -7,6 +7,14 @@ export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: [
+          '"Noto Sans KR"',
+          '"Noto Sans"',
+          "system-ui",
+          "sans-serif",
+        ],
+      },
       colors: {
         ink: {
           DEFAULT: "#0a1224",

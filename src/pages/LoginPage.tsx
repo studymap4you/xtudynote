@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { FirebaseError } from "firebase/app";
+import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
@@ -86,7 +87,7 @@ export function LoginPage() {
     <div className="app-shell">
       <header className="top-nav">
         <Link to="/" className="top-nav__brand">
-          XtudyNote
+          <BrandLockup />
         </Link>
       </header>
       <main className="auth-page">

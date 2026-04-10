@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
@@ -69,7 +70,7 @@ export function RegisterPage() {
     <div className="app-shell">
       <header className="top-nav">
         <Link to="/" className="top-nav__brand">
-          XtudyNote
+          <BrandLockup />
         </Link>
       </header>
       <main className="auth-page">

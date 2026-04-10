@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { BrandLockup } from "@/components/BrandLockup";
 import { normalizeHomeworkCode } from "@/lib/homeworkCode";
 
 const SHORTCUTS = [
@@ -79,7 +80,9 @@ export function Intro() {
     <section className="intro-hero" aria-labelledby="intro-slogan">
       <div className="intro-hero__grid">
         <div className="intro-hero__copy intro-hero__copy--fade">
-          <p className="intro-hero__brand">XtudyNote</p>
+          <p className="intro-hero__brand">
+            <BrandLockup />
+          </p>
           <h1 id="intro-slogan" className="intro-hero__slogan">
             모두를 위한
             <br />

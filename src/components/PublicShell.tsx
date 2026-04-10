@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
@@ -16,7 +17,7 @@ export function PublicShell({
     <div className={light ? "app-shell app-shell--light" : "app-shell"}>
       <header className="top-nav">
         <Link to="/" className="top-nav__brand">
-          XtudyNote
+          <BrandLockup />
         </Link>
         <nav className="top-nav__actions" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
           <Link to="/library" className="btn btn--ghost btn--stack">

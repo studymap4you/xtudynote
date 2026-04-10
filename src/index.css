@@ -17,8 +17,14 @@
   --success: #4ade80;
   --radius-lg: 20px;
   --radius-md: 12px;
-  --font-display: "Outfit", system-ui, sans-serif;
-  --font-body: "DM Sans", system-ui, sans-serif;
+  /* Noto Sans 계열 — 라틴 + 한글 */
+  --font-sans: "Noto Sans KR", "Noto Sans", "Apple SD Gothic Neo", "Malgun Gothic", system-ui,
+    sans-serif;
+  --font-display: var(--font-sans);
+  --font-body: var(--font-sans);
+  /* 포인트 버튼 위 글자 (밝은 배경색 버튼용 고대비) */
+  --btn-on-accent: #0a0f1a;
+  --btn-on-accent-muted: rgba(10, 15, 26, 0.82);
 
   /* Premium dark navy (Intro, CRM, landing) — 8/16/24 spacing, R=8px */
   --premium-ink: #e2e8f0;

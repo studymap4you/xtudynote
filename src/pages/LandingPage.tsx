@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { BrandLockup } from "@/components/BrandLockup";
 import { Intro } from "@/components/Intro";
 import {
   MarketplaceSearchStrip,
@@ -33,7 +34,7 @@ export function LandingPage() {
     <div className="app-shell app-shell--landing">
       <header className="top-nav top-nav--landing">
         <Link to="/" className="top-nav__brand top-nav__brand--landing">
-          XtudyNote
+          <BrandLockup />
         </Link>
         <div className="top-nav__actions top-nav__actions--landing-tier">
           <Link to="/library" className="btn btn--ghost btn--stack">

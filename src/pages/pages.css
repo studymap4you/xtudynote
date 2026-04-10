@@ -98,9 +98,16 @@
 }
 .top-nav__brand--landing {
   color: var(--premium-ink);
-  font-weight: 800;
+  font-weight: 700;
+  max-width: min(100%, 22rem);
 }
 .top-nav__brand--landing:hover {
+  color: var(--premium-accent);
+}
+.app-shell--landing .top-nav__brand--landing .brand-lockup__ko {
+  color: var(--premium-ink-muted);
+}
+.app-shell--landing .top-nav__brand--landing:hover .brand-lockup__ko {
   color: var(--premium-accent);
 }
 .app-shell--landing .btn--ghost {
@@ -150,12 +157,20 @@
 }
 .intro-hero__brand {
   margin: 0 0 var(--space-2);
-  font-family: var(--font-display);
-  font-weight: 600;
+}
+.intro-hero__brand .brand-lockup__en {
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--premium-accent);
+}
+.intro-hero__brand .brand-lockup__sep {
+  color: var(--premium-ink-faint);
+}
+.intro-hero__brand .brand-lockup__ko {
   font-size: 0.82rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--premium-accent-muted);
+  font-weight: 600;
+  color: var(--premium-ink-muted);
 }
 .intro-hero__slogan {
   margin: 0 0 var(--space-2);
@@ -493,14 +508,43 @@
 }
 .top-nav__brand {
   font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.15rem;
+  font-weight: 700;
+  font-size: 1rem;
   letter-spacing: -0.02em;
   color: var(--text);
   text-decoration: none;
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.35rem;
+  max-width: min(100%, 18rem);
 }
 .top-nav__brand:hover {
   text-decoration: none;
+  color: var(--accent);
+}
+.brand-lockup {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.35rem;
+}
+.brand-lockup__en {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.brand-lockup__sep {
+  color: var(--text-muted);
+  font-weight: 500;
+  user-select: none;
+}
+.brand-lockup__ko {
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--text-muted);
+}
+.top-nav__brand:hover .brand-lockup__ko {
   color: var(--accent);
 }
 .top-nav__actions {
@@ -617,10 +661,15 @@
 .btn--primary {
   background: var(--accent);
   border-color: transparent;
-  color: #0a1628;
+  color: var(--btn-on-accent, #0a0f1a);
 }
 .btn--primary:hover {
   background: var(--premium-accent-hover);
+  color: var(--btn-on-accent, #0a0f1a);
+}
+.btn--primary .ui-en,
+.btn--primary .ui-ko {
+  color: inherit;
 }
 .btn--danger {
   background: rgba(248, 113, 113, 0.15);
@@ -1571,6 +1620,15 @@
 .app-shell--light .top-nav__brand:hover {
   color: #2563eb;
 }
+.app-shell--light .brand-lockup__sep {
+  color: #9ca3af;
+}
+.app-shell--light .brand-lockup__ko {
+  color: var(--light-text-muted);
+}
+.app-shell--light .top-nav__brand:hover .brand-lockup__ko {
+  color: #2563eb;
+}
 .app-shell--light .top-nav__email {
   color: var(--light-text-muted);
 }
@@ -1588,11 +1646,12 @@
 }
 .app-shell--light .btn--primary {
   background: var(--accent);
-  color: #0a1628;
+  color: var(--btn-on-accent, #0a0f1a);
   border-color: transparent;
 }
 .app-shell--light .btn--primary:hover {
   background: var(--premium-accent-hover);
+  color: var(--btn-on-accent, #0a0f1a);
 }
 .app-shell--light .btn--danger {
   background: rgba(248, 113, 113, 0.12);
@@ -1750,21 +1809,21 @@
   align-items: center;
 }
 
-/* 버튼 한국어 보조 텍스트 가독성 */
+/* 버튼 한국어 보조 텍스트 — 고대비(포인트 버튼은 본문색 상속) */
 .btn--stack .ui-ko {
   font-size: 0.68rem;
   font-weight: 600;
   color: #d1d5db;
 }
 .btn--primary.btn--stack .ui-ko {
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--btn-on-accent-muted, rgba(10, 15, 26, 0.88));
 }
 .app-shell--light .btn:not(.btn--primary) .ui-ko,
 .app-shell--light .btn--ghost .ui-ko {
   color: #374151;
 }
 .app-shell--light .btn--primary .ui-ko {
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--btn-on-accent-muted, rgba(10, 15, 26, 0.88));
 }
 
 /* 자료 등록 신청 폼 (흰 배경·검정 글자) */
@@ -2320,13 +2379,18 @@
 .crm-section .btn--primary {
   background: linear-gradient(180deg, var(--premium-accent-muted) 0%, var(--premium-accent) 100%);
   border: 1px solid rgba(94, 184, 236, 0.35);
-  color: #0a1628;
+  color: var(--btn-on-accent, #0a0f1a);
   border-radius: var(--radius-ui);
   padding: var(--space-2) var(--space-2);
   box-shadow: var(--premium-shadow-control);
 }
+.crm-section .btn--primary .ui-en,
+.crm-section .btn--primary .ui-ko {
+  color: inherit;
+}
 .crm-section .btn--primary:hover:not(:disabled) {
   background: linear-gradient(180deg, var(--premium-accent) 0%, var(--premium-accent-hover) 100%);
+  color: var(--btn-on-accent, #0a0f1a);
 }
 .crm-section .btn--ghost {
   border-radius: var(--radius-ui);
