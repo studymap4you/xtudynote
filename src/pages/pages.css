@@ -237,6 +237,95 @@
   word-break: keep-all;
   color: var(--premium-ink-muted);
 }
+.intro-hero__share {
+  margin-top: var(--space-2);
+  max-width: 28rem;
+}
+.intro-hero__share-label {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--premium-ink-faint);
+}
+.intro-hero__share-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+.intro-hero__share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.85);
+  color: rgba(15, 23, 42, 0.78);
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease;
+}
+.intro-hero__share-btn:hover {
+  background: #ffffff;
+  border-color: rgba(29, 78, 216, 0.25);
+  color: #1d4ed8;
+  transform: translateY(-1px);
+}
+.intro-hero__share-btn:active {
+  transform: translateY(0);
+}
+.intro-hero__share-btn--facebook:hover {
+  color: #1877f2;
+  border-color: rgba(24, 119, 242, 0.35);
+}
+.intro-hero__share-btn--x:hover {
+  color: #0f1419;
+  border-color: rgba(15, 20, 25, 0.2);
+}
+.intro-hero__share-btn--line:hover {
+  color: #06c755;
+  border-color: rgba(6, 199, 85, 0.35);
+}
+.intro-hero__share-btn--kakao {
+  background: #fee500;
+  border-color: rgba(0, 0, 0, 0.06);
+  color: #191919;
+}
+.intro-hero__share-btn--kakao:hover {
+  background: #ffe033;
+  color: #111;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.intro-hero__share-btn--naver:hover {
+  color: #03c75a;
+  border-color: rgba(3, 199, 90, 0.35);
+}
+.intro-hero__share-btn--band:hover {
+  color: #21c531;
+  border-color: rgba(33, 197, 49, 0.35);
+}
+.intro-hero__share-btn--whatsapp:hover {
+  color: #25d366;
+  border-color: rgba(37, 211, 102, 0.35);
+}
+.intro-hero__share-btn--telegram:hover {
+  color: #229ed9;
+  border-color: rgba(34, 158, 217, 0.35);
+}
+.intro-hero__share-status {
+  margin: 0.45rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #1d4ed8;
+}
 .intro-hero__panel {
   display: flex;
   flex-direction: column;
