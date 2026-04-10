@@ -13,6 +13,11 @@ import {
 import type { Timestamp } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
+import {
+  isEmailJsConfigured,
+  normalizeRecipientEmail,
+  sendHomeworkEmailsSequential,
+} from "@/lib/sendHomeworkEmails";
 import type { CrmStudentDocument } from "@/types/crmStudent";
 import type { ContentDocument } from "@/types/content";
 
@@ -44,7 +49,8 @@ function useAutoDismissFormMessage(
   useEffect(() => {
     if (!message) return;
     if (message.includes("실패") || message.includes("오류")) return;
-    const ms = message.includes("기록이 저장") ? 6000 : 3000;
+    const ms =
+      message.includes("기록이 저장") || message.includes("성공적으로 발송") ? 6000 : 3000;
     const t = setTimeout(() => setMessage(null), ms);
     return () => clearTimeout(t);
   }, [message, setMessage]);
@@ -52,6 +58,7 @@ function useAutoDismissFormMessage(
 
 export function StudentManagementSection() {
   const { firebaseUser } = useAuth();
+  const emailJsReady = isEmailJsConfigured();
   const [rows, setRows] = useState<StudentRow[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -235,9 +242,40 @@ export function StudentManagementSection() {
       setDispatchMsg("안내 메시지를 입력해 주세요.");
       return;
     }
+
+    const recipients: { name: string; email: string }[] = [];
+    const invalidLines: string[] = [];
+    for (const r of selectedRows) {
+      const normalized = normalizeRecipientEmail(r.email);
+      if (!normalized) {
+        invalidLines.push(
+          `${(r.name ?? "").trim() || "(이름 없음)"}: 이메일 없음 또는 형식 오류 — «${String(r.email ?? "").trim() || "(비어 있음)"}»`
+        );
+        continue;
+      }
+      recipients.push({
+        name: (r.name ?? "").trim() || "학생",
+        email: normalized,
+      });
+    }
+    if (invalidLines.length > 0) {
+      setDispatchMsg(`발송 전 이메일 검사에 실패했습니다.\n${invalidLines.join("\n")}`);
+      return;
+    }
+    if (recipients.length === 0) {
+      setDispatchMsg("유효한 이메일 주소를 가진 학생이 없습니다.");
+      return;
+    }
+
     setDispatching(true);
     setDispatchMsg(null);
     try {
+      await sendHomeworkEmailsSequential({
+        recipients,
+        homeworkCode: code,
+        message: msg,
+      });
+
       await addDoc(collection(db, "homework_dispatches"), {
         teacherId: firebaseUser.uid,
         homeworkCode: code,
@@ -246,7 +284,7 @@ export function StudentManagementSection() {
         recipients: selectedRows.map((r) => ({
           studentId: r.id,
           name: r.name,
-          email: String(r.email ?? "").trim(),
+          email: normalizeRecipientEmail(r.email) ?? "",
           phone: r.phone,
         })),
         createdAt: serverTimestamp(),
@@ -256,7 +294,7 @@ export function StudentManagementSection() {
       setHomeworkSelect("");
       setHomeworkCodeCustom("");
       setDispatchMessage("");
-      setFormMsg("과제 안내 기록이 저장되었습니다.");
+      setFormMsg("성공적으로 발송되었습니다.");
     } catch (err) {
       setDispatchMsg(err instanceof Error ? err.message : String(err));
     } finally {
@@ -342,6 +380,18 @@ export function StudentManagementSection() {
 
   return (
     <div className="crm-section">
+      {!emailJsReady && (
+        <div className="crm-emailjs-banner" role="status">
+          <strong>EmailJS 미설정</strong>
+          <span>
+            과제 메일 발송을 위해 <code>.env.local</code>에{" "}
+            <code>VITE_EMAILJS_PUBLIC_KEY</code>, <code>VITE_EMAILJS_SERVICE_ID</code>,{" "}
+            <code>VITE_EMAILJS_TEMPLATE_ID</code>를 설정한 뒤 서버를 재시작하세요. 템플릿 수신자(To)에는{" "}
+            <code>{"{{email}}"}</code>를 사용하세요.
+          </span>
+        </div>
+      )}
+
       {formMsg && (
         <div
           className={
@@ -363,10 +413,10 @@ export function StudentManagementSection() {
           </h2>
           <p className="crm-section__lead">
             <span className="crm-section__lead-en">
-              Register offline cohort contacts and keep homework notice records.
+              Register offline cohort contacts and send homework notices by email.
             </span>
             <span className="crm-section__lead-ko">
-              이름·연락처를 저장하고, 선택한 학생에 대한 과제 안내 기록을 남깁니다.
+              이름·연락처를 저장하고, 선택한 학생에게 과제번호와 안내 메시지를 이메일로 발송합니다.
             </span>
           </p>
         </div>
@@ -444,8 +494,8 @@ export function StudentManagementSection() {
           disabled={selected.size === 0}
           onClick={openSendModal}
         >
-          <span className="ui-en">Homework notice</span>
-          <span className="ui-ko">과제 안내 기록</span>
+          <span className="ui-en">Send homework</span>
+          <span className="ui-ko">과제 발송</span>
         </button>
       </div>
 
@@ -542,13 +592,13 @@ export function StudentManagementSection() {
               ×
             </button>
             <h3 id="crm-send-title" className="crm-modal__title">
-              <span className="crm-modal__title-en">Homework notice record</span>
-              <span className="crm-modal__title-ko">과제 안내 기록</span>
+              <span className="crm-modal__title-en">Send homework notice</span>
+              <span className="crm-modal__title-ko">과제 안내 발송</span>
             </h3>
             <p className="crm-modal__hint">
-              선택한 <strong>{selectedRows.length}</strong>명에 대해 <strong>과제번호</strong>와{" "}
-              <strong>안내 메시지</strong>가 포함된 과제 안내 기록을 저장합니다. 외부 이메일 발송은 이후
-              연동 시 사용할 수 있습니다.
+              선택한 <strong>{selectedRows.length}</strong>명에게 EmailJS로 순차 발송합니다. 템플릿 변수:{" "}
+              <code>email</code>(수신), <code>to_name</code>, <code>homework_code</code>,{" "}
+              <code>message</code>.
             </p>
             <form onSubmit={(e) => void handleDispatch(e)}>
               <label className="crm-field crm-field--block">
@@ -608,8 +658,17 @@ export function StudentManagementSection() {
                 >
                   취소 · Cancel
                 </button>
-                <button type="submit" className="btn btn--primary" disabled={dispatching}>
-                  {dispatching ? "저장 중…" : "기록 저장 · Save record"}
+                <button
+                  type="submit"
+                  className="btn btn--primary"
+                  disabled={dispatching || !emailJsReady}
+                  title={
+                    !emailJsReady
+                      ? "EmailJS 환경 변수를 설정한 뒤 사용할 수 있습니다."
+                      : undefined
+                  }
+                >
+                  {dispatching ? "발송 중…" : "발송 · Send"}
                 </button>
               </div>
             </form>
