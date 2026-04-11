@@ -223,7 +223,7 @@ function Inner() {
               {introErr && <p className="auth-error">{introErr}</p>}
               <form className="classroom-hub__form" onSubmit={(e) => void saveIntro(e)}>
                 <label className="auth-field">
-                  강의실 이름
+                  <span className="classroom-hub__field-label">강의실 이름</span>
                   <input
                     className="add-passage__control"
                     value={title}
@@ -232,7 +232,7 @@ function Inner() {
                   />
                 </label>
                 <label className="auth-field">
-                  요약 (한 줄)
+                  <span className="classroom-hub__field-label">요약 (한 줄)</span>
                   <input
                     className="add-passage__control"
                     value={description}
@@ -240,11 +240,14 @@ function Inner() {
                     placeholder="예: 고2 통합수학 A반 · 2026 봄"
                   />
                 </label>
-                <label className="auth-field">
-                  강의 소개
+                <label className="auth-field classroom-hub__field classroom-hub__field--intro">
+                  <span className="classroom-hub__field-label">강의 소개</span>
+                  <span className="classroom-hub__field-hint">
+                    여백을 충분히 두고 작성해 보세요. 줄바꿈은 입장 화면에 그대로 반영됩니다.
+                  </span>
                   <textarea
-                    className="add-passage__control add-passage__intro"
-                    rows={8}
+                    className="classroom-hub__intro-textarea"
+                    rows={10}
                     value={introduction}
                     onChange={(e) => setIntroduction(e.target.value)}
                     placeholder="수업 목표, 주차별 안내, 과제·시험 정책 등을 적어 주세요."

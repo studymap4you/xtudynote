@@ -99,7 +99,7 @@ function Inner() {
             </p>
             <form className="classroom-hub__form" onSubmit={(e) => void handleSubmit(e)}>
               <label className="auth-field">
-                강의실 이름
+                <span className="classroom-hub__field-label">강의실 이름</span>
                 <input
                   className="add-passage__control"
                   value={title}
@@ -109,7 +109,7 @@ function Inner() {
                 />
               </label>
               <label className="auth-field">
-                요약 (한 줄, 선택)
+                <span className="classroom-hub__field-label">요약 (한 줄, 선택)</span>
                 <input
                   className="add-passage__control"
                   value={description}
@@ -117,11 +117,14 @@ function Inner() {
                   placeholder="예: 고2 통합수학 A반 · 2026 봄"
                 />
               </label>
-              <label className="auth-field">
-                강의 소개 (선택)
+              <label className="auth-field classroom-hub__field classroom-hub__field--intro">
+                <span className="classroom-hub__field-label">강의 소개 (선택)</span>
+                <span className="classroom-hub__field-hint">
+                  목표·주차·과제·시험 정책 등을 넉넉히 적을수록 학습자에게 도움이 됩니다.
+                </span>
                 <textarea
-                  className="add-passage__control add-passage__intro"
-                  rows={6}
+                  className="classroom-hub__intro-textarea"
+                  rows={10}
                   value={introduction}
                   onChange={(e) => setIntroduction(e.target.value)}
                   placeholder="수업 목표, 주차 안내, 과제·시험 정책 등"
