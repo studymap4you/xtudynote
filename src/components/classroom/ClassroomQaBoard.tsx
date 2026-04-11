@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  writeBatch,
+} from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ClassroomQaPostDocument } from "@/types/classroom";
@@ -99,12 +107,35 @@ export function ClassroomQaBoard({
     }
   }
 
-  async function removePost(postId: string) {
+  async function removeReply(replyId: string) {
     if (!firebaseUser) return;
-    if (!window.confirm("이 글을 삭제할까요?")) return;
+    if (!window.confirm("이 답글을 삭제할까요?")) return;
     setBusy(true);
     try {
-      await deleteDoc(doc(db, "classrooms", classroomId, "qa_posts", postId));
+      await deleteDoc(doc(db, "classrooms", classroomId, "qa_posts", replyId));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeQuestionWithReplies(questionId: string) {
+    if (!firebaseUser) return;
+    const replies = repliesByParent[questionId] ?? [];
+    const n = replies.length;
+    const msg =
+      n > 0
+        ? `이 질문과 답글 ${n}개를 함께 삭제할까요?`
+        : "이 질문을 삭제할까요?";
+    if (!window.confirm(msg)) return;
+    setBusy(true);
+    try {
+      const batch = writeBatch(db);
+      const base = ["classrooms", classroomId, "qa_posts"] as const;
+      for (const r of replies) {
+        batch.delete(doc(db, ...base, r.id));
+      }
+      batch.delete(doc(db, ...base, questionId));
+      await batch.commit();
     } finally {
       setBusy(false);
     }
@@ -156,7 +187,7 @@ export function ClassroomQaBoard({
                     <button
                       type="button"
                       className="classroom-qa__delete"
-                      onClick={() => void removePost(q.id)}
+                      onClick={() => void removeQuestionWithReplies(q.id)}
                       disabled={busy}
                     >
                       삭제
@@ -178,7 +209,7 @@ export function ClassroomQaBoard({
                           <button
                             type="button"
                             className="classroom-qa__delete"
-                            onClick={() => void removePost(r.id)}
+                            onClick={() => void removeReply(r.id)}
                             disabled={busy}
                           >
                             삭제

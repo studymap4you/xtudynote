@@ -12,8 +12,11 @@ function Inner() {
   const nav = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [introduction, setIntroduction] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const previewIntro = introduction.trim() || description.trim();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,6 +33,7 @@ function Inner() {
         teacherId: firebaseUser.uid,
         title: t,
         description: description.trim(),
+        introduction: introduction.trim(),
         createdAt: serverTimestamp(),
       });
       nav(`/classroom/${ref.id}/manage`, { replace: true });
@@ -42,42 +46,102 @@ function Inner() {
 
   return (
     <DashboardShell light>
-      <main className="admin-layout classroom-page admin-layout--light">
+      <main className="admin-layout classroom-page admin-layout--light classroom-hub">
+        <nav className="classroom-page__breadcrumb">
+          <Link to="/classroom">← 강의실 목록</Link>
+        </nav>
         <div className="admin-layout__title-row">
           <h1>강의실 개설</h1>
-          <span className="ui-ko">이름과 소개를 등록한 뒤 자료·과제를 연결합니다</span>
+          <span className="ui-ko">개설 후 관리 화면에서 소개·자료·영상·질의응답을 이어서 설정합니다</span>
         </div>
-        {err && <p className="auth-error">{err}</p>}
-        <form className="classroom-page__form" onSubmit={(e) => void handleSubmit(e)}>
-          <label className="auth-field">
-            강의실 이름
-            <input
-              className="add-passage__control"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="예: 고2 통합수학 A반"
-              required
-            />
-          </label>
-          <label className="auth-field">
-            소개 (선택)
-            <textarea
-              className="add-passage__control add-passage__intro"
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="수업 목표, 주차 안내 등"
-            />
-          </label>
-          <div className="add-passage__actions">
-            <button type="submit" className="btn btn--primary btn--stack" disabled={saving}>
-              {saving ? "저장 중…" : "개설하고 관리로 이동"}
+        <p className="classroom-page__lede">
+          <span className="ui-en" style={{ display: "block", marginBottom: "0.35rem" }}>
+            After creation you land on the same hub as manage: Intro, Materials, Video, and Q&amp;A tabs.
+          </span>
+          <span className="ui-ko">
+            아래에서 이름과 소개를 입력하면 <strong>강의실 허브</strong>로 이동합니다. 자료·영상은 검수 정책에 따라
+            신청·연결됩니다.
+          </span>
+        </p>
+
+        <p className="classroom-hub__preview-label" style={{ marginTop: "var(--space-2)" }}>
+          개설 후 사용할 영역 (미리보기)
+        </p>
+        <div className="classroom-hub__tabs" role="presentation" aria-hidden="true">
+          {(
+            [
+              ["intro", "강의 소개", "이름·요약·본문"],
+              ["materials", "강의 자료", "파일·신청"],
+              ["video", "강의 영상", "URL·신청"],
+              ["qa", "질의응답", "게시판"],
+            ] as const
+          ).map(([key, label, sub]) => (
+            <button
+              key={key}
+              type="button"
+              disabled
+              className="classroom-hub__tab classroom-hub__tab--preview"
+              tabIndex={-1}
+            >
+              <span className="classroom-hub__tab-label">{label}</span>
+              <span className="classroom-hub__tab-sub">{sub}</span>
             </button>
-            <Link to="/classroom" className="btn btn--ghost btn--stack">
-              취소
-            </Link>
-          </div>
-        </form>
+          ))}
+        </div>
+
+        {err && <p className="auth-error">{err}</p>}
+
+        <div className="classroom-hub__panel">
+          <section className="classroom-hub__section">
+            <h2 className="classroom-hub__section-title">기본 정보</h2>
+            <p className="classroom-hub__hint">
+              관리 화면의 <strong>강의 소개</strong> 탭과 같은 항목입니다. 나중에 언제든지 수정할 수 있습니다.
+            </p>
+            <form className="classroom-hub__form" onSubmit={(e) => void handleSubmit(e)}>
+              <label className="auth-field">
+                강의실 이름
+                <input
+                  className="add-passage__control"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="예: 고2 통합수학 A반"
+                  required
+                />
+              </label>
+              <label className="auth-field">
+                요약 (한 줄, 선택)
+                <input
+                  className="add-passage__control"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="예: 고2 통합수학 A반 · 2026 봄"
+                />
+              </label>
+              <label className="auth-field">
+                강의 소개 (선택)
+                <textarea
+                  className="add-passage__control add-passage__intro"
+                  rows={6}
+                  value={introduction}
+                  onChange={(e) => setIntroduction(e.target.value)}
+                  placeholder="수업 목표, 주차 안내, 과제·시험 정책 등"
+                />
+              </label>
+              <p className="classroom-hub__preview-label">미리보기 (입장·관리 화면과 동일)</p>
+              <div className="classroom-hub__preview">
+                {previewIntro || "소개 글이 비어 있으면 요약만 표시됩니다."}
+              </div>
+              <div className="add-passage__actions">
+                <button type="submit" className="btn btn--primary btn--stack" disabled={saving}>
+                  {saving ? "저장 중…" : "개설하고 허브로 이동"}
+                </button>
+                <Link to="/classroom" className="btn btn--ghost btn--stack">
+                  취소
+                </Link>
+              </div>
+            </form>
+          </section>
+        </div>
       </main>
     </DashboardShell>
   );

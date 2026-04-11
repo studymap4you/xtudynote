@@ -591,6 +591,17 @@
   background: #eff6ff;
   box-shadow: 0 1px 3px rgba(29, 78, 216, 0.12);
 }
+.classroom-hub__tab--preview,
+.classroom-hub__tab--preview:hover {
+  opacity: 0.72;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #f1f5f9;
+  border-style: dashed;
+}
+.classroom-hub__tab--preview .classroom-hub__tab-label {
+  color: #64748b;
+}
 .classroom-hub__tab-label {
   font-size: 0.9rem;
   font-weight: 700;
