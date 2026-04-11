@@ -237,6 +237,11 @@ service cloud.firestore {
         resource.data.submitterId == request.auth.uid
         || resource.data.studentId == request.auth.uid
         || isActiveSuperAdmin()
+        || (
+          'classroomId' in resource.data
+          && resource.data.classroomId is string
+          && ownsClassroom(resource.data.classroomId)
+        )
       );
 
       /** 마스터 검수: 승인·반려·연결 콘텐츠 ID 기록 */
@@ -270,6 +275,11 @@ service cloud.firestore {
       allow read: if signedIn() && (
         resource.data.submitterId == request.auth.uid
         || isActiveSuperAdmin()
+        || (
+          'classroomId' in resource.data
+          && resource.data.classroomId is string
+          && ownsClassroom(resource.data.classroomId)
+        )
       );
 
       allow update: if isActiveSuperAdmin();
@@ -327,6 +337,40 @@ service cloud.firestore {
 
       allow delete: if isActiveSuperAdmin()
         || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
+
+      /** 질의응답 (강의실 단위 스레드) */
+      match /qa_posts/{postId} {
+        allow read: if isSignedInActiveAccount();
+
+        allow create: if isSignedInActiveAccount()
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.authorName is string
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0
+          && request.resource.data.body.size() <= 8000
+          && request.resource.data.createdAt != null
+          && request.resource.data.keys().hasAll(['authorId', 'authorName', 'body', 'createdAt'])
+          && (
+            !('parentPostId' in request.resource.data)
+            || request.resource.data.parentPostId == null
+            || request.resource.data.parentPostId is string
+          );
+
+        allow update: if isSignedInActiveAccount()
+          && resource.data.authorId == request.auth.uid
+          && request.resource.data.authorId == resource.data.authorId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.parentPostId == resource.data.parentPostId
+          && request.resource.data.authorName == resource.data.authorName
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['body']);
+
+        allow delete: if isSignedInActiveAccount()
+          && (
+            resource.data.authorId == request.auth.uid
+            || isActiveSuperAdmin()
+            || (isActiveTeacher() && ownsClassroom(classroomId))
+          );
+      }
     }
 
     // ——— homework_dispatches ———

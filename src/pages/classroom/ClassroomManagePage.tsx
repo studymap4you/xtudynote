@@ -1,12 +1,33 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { DashboardShell } from "@/components/DashboardShell";
+import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
 import { db } from "@/firebase/config";
+import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import type { ClassroomDocument } from "@/types/classroom";
+import type { MaterialRequestDocument } from "@/types/materialRequest";
+import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import "@/pages/pages.css";
+
+type TabId = "intro" | "materials" | "video" | "qa";
+
+function tsLabel(t: unknown): string {
+  if (t && typeof t === "object" && "toMillis" in t && typeof (t as { toMillis: () => number }).toMillis === "function") {
+    return new Date((t as { toMillis: () => number }).toMillis()).toLocaleString();
+  }
+  return "";
+}
 
 function Inner() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +35,17 @@ function Inner() {
   const [room, setRoom] = useState<(ClassroomDocument & { id: string }) | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<TabId>("intro");
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [introduction, setIntroduction] = useState("");
+  const [savingIntro, setSavingIntro] = useState(false);
+  const [introErr, setIntroErr] = useState<string | null>(null);
+
+  const [materialRows, setMaterialRows] = useState<{ id: string; data: MaterialRequestDocument }[]>([]);
+  const [videoRows, setVideoRows] = useState<{ id: string; data: VideoMaterialRequestDocument }[]>([]);
+  const [listsLoading, setListsLoading] = useState(false);
 
   useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -31,7 +63,12 @@ function Inner() {
           if (!cancelled) setForbidden(true);
           return;
         }
-        if (!cancelled) setRoom({ id: s.id, ...d });
+        if (!cancelled) {
+          setRoom({ id: s.id, ...d });
+          setTitle(d.title);
+          setDescription(d.description ?? "");
+          setIntroduction(d.introduction ?? "");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -41,7 +78,66 @@ function Inner() {
     };
   }, [id, firebaseUser]);
 
+  useEffect(() => {
+    if (!id || !room) return;
+    let cancelled = false;
+    (async () => {
+      setListsLoading(true);
+      try {
+        const mq = query(collection(db, "material_requests"), where("classroomId", "==", id));
+        const vq = query(collection(db, "video_material_requests"), where("classroomId", "==", id));
+        const [ms, vs] = await Promise.all([getDocs(mq), getDocs(vq)]);
+        if (cancelled) return;
+        const mat: { id: string; data: MaterialRequestDocument }[] = [];
+        const vid: { id: string; data: VideoMaterialRequestDocument }[] = [];
+        ms.forEach((d) => mat.push({ id: d.id, data: d.data() as MaterialRequestDocument }));
+        vs.forEach((d) => vid.push({ id: d.id, data: d.data() as VideoMaterialRequestDocument }));
+        mat.sort((a, b) => {
+          const ta = a.data.createdAt as { toMillis?: () => number } | undefined;
+          const tb = b.data.createdAt as { toMillis?: () => number } | undefined;
+          return (tb?.toMillis?.() ?? 0) - (ta?.toMillis?.() ?? 0);
+        });
+        vid.sort((a, b) => {
+          const ta = a.data.createdAt as { toMillis?: () => number } | undefined;
+          const tb = b.data.createdAt as { toMillis?: () => number } | undefined;
+          return (tb?.toMillis?.() ?? 0) - (ta?.toMillis?.() ?? 0);
+        });
+        setMaterialRows(mat);
+        setVideoRows(vid);
+      } finally {
+        if (!cancelled) setListsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, room]);
+
   const q = (path: string) => `${path}?classroomId=${encodeURIComponent(id ?? "")}`;
+
+  async function saveIntro(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !firebaseUser || !room) return;
+    const t = title.trim();
+    if (!t) {
+      setIntroErr("강의실 이름을 입력해 주세요.");
+      return;
+    }
+    setSavingIntro(true);
+    setIntroErr(null);
+    try {
+      await updateDoc(doc(db, "classrooms", id), {
+        title: t,
+        description: description.trim(),
+        introduction: introduction.trim(),
+      });
+      setRoom({ ...room, title: t, description: description.trim(), introduction: introduction.trim() });
+    } catch (err) {
+      setIntroErr(err instanceof Error ? err.message : "저장에 실패했습니다.");
+    } finally {
+      setSavingIntro(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -69,40 +165,206 @@ function Inner() {
     );
   }
 
+  const tabs: { id: TabId; label: string; sub: string }[] = [
+    { id: "intro", label: "강의 소개", sub: "이름·요약·상세 소개" },
+    { id: "materials", label: "강의 자료", sub: "파일 업로드·신청 현황" },
+    { id: "video", label: "강의 영상", sub: "영상 URL 등록·신청 현황" },
+    { id: "qa", label: "질의응답", sub: "게시판" },
+  ];
+
   return (
     <DashboardShell light>
-      <main className="admin-layout classroom-page admin-layout--light">
+      <main className="admin-layout classroom-page admin-layout--light classroom-hub">
         <nav className="classroom-page__breadcrumb">
           <Link to="/classroom">← 강의실 목록</Link>
           {" · "}
           <Link to={`/classroom/${room.id}`}>입장 화면</Link>
         </nav>
         <div className="admin-layout__title-row">
-          <h1>{room.title} — 관리</h1>
-          <span className="ui-ko">자료 등록·동영상·과제는 아래로 연결됩니다 (라이브러리 동기화는 승인된 콘텐츠 정책과 동일)</span>
+          <h1>{room.title}</h1>
+          <span className="ui-ko">강의실 허브 — 소개·자료·영상·질의응답</span>
         </div>
         <p className="classroom-page__lede">
-          이 강의실에서 등록하는 항목에는 자동으로 <strong>강의실 ID</strong>가 붙습니다. 과제·직접 등록 콘텐츠는
-          승인된 선생님 계정 기준으로 <strong>라이브러리에 반영</strong>됩니다. 자료/동영상 <strong>신청</strong> 건은
-          기존처럼 관리자 검수 후 공개됩니다.
+          <span className="ui-en" style={{ display: "block", marginBottom: "0.35rem" }}>
+            Tabs organize lecture intro, file/video registration (linked to library review policy), and the Q&amp;A board.
+          </span>
+          <span className="ui-ko">
+            탭으로 강의 소개·자료·영상·질의응답을 나눕니다. 자료·영상 <strong>신청</strong>은 관리자 검수 후 라이브러리에
+            반영됩니다.
+          </span>
         </p>
 
-        <div className="classroom-page__manage-grid">
-          <Link to={q("/teacher/homework/new")} className="classroom-page__manage-card">
-            <h2>과제 출제</h2>
-            <p>파일·가이드와 함께 과제를 등록합니다. 강의실·라이브러리에 연결됩니다.</p>
-            <span className="classroom-page__manage-go">이동 →</span>
-          </Link>
-          <Link to={q("/material/register")} className="classroom-page__manage-card">
-            <h2>자료 등록 신청</h2>
-            <p>학습·참고 자료 업로드 (검수 후 라이브러리 반영)</p>
-            <span className="classroom-page__manage-go">이동 →</span>
-          </Link>
-          <Link to={q("/video/register")} className="classroom-page__manage-card">
-            <h2>동영상 강의 등록 신청</h2>
-            <p>영상 URL 기반 강의 (검수 후 반영)</p>
-            <span className="classroom-page__manage-go">이동 →</span>
-          </Link>
+        <div className="classroom-hub__tabs" role="tablist" aria-label="강의실 관리 구역">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              className={`classroom-hub__tab ${tab === t.id ? "classroom-hub__tab--active" : ""}`}
+              onClick={() => setTab(t.id)}
+            >
+              <span className="classroom-hub__tab-label">{t.label}</span>
+              <span className="classroom-hub__tab-sub">{t.sub}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="classroom-hub__panel">
+          {tab === "intro" && (
+            <section className="classroom-hub__section" aria-labelledby="hub-intro-h">
+              <h2 id="hub-intro-h" className="classroom-hub__section-title">
+                강의 소개 편집
+              </h2>
+              <p className="classroom-hub__hint">
+                학습자 입장 화면 상단에 표시됩니다. <strong>요약</strong>은 짧은 한 줄, <strong>강의 소개</strong>는 목표·주차
+                안내 등을 자유롭게 작성하세요.
+              </p>
+              {introErr && <p className="auth-error">{introErr}</p>}
+              <form className="classroom-hub__form" onSubmit={(e) => void saveIntro(e)}>
+                <label className="auth-field">
+                  강의실 이름
+                  <input
+                    className="add-passage__control"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                  />
+                </label>
+                <label className="auth-field">
+                  요약 (한 줄)
+                  <input
+                    className="add-passage__control"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="예: 고2 통합수학 A반 · 2026 봄"
+                  />
+                </label>
+                <label className="auth-field">
+                  강의 소개
+                  <textarea
+                    className="add-passage__control add-passage__intro"
+                    rows={8}
+                    value={introduction}
+                    onChange={(e) => setIntroduction(e.target.value)}
+                    placeholder="수업 목표, 주차별 안내, 과제·시험 정책 등을 적어 주세요."
+                  />
+                </label>
+                <p className="classroom-hub__preview-label">미리보기 (입장 화면과 동일)</p>
+                <div className="classroom-hub__preview">
+                  {getClassroomIntroBody({
+                    ...room,
+                    title,
+                    description,
+                    introduction,
+                  }) || "소개 글이 비어 있으면 요약만 표시됩니다."}
+                </div>
+                <div className="add-passage__actions">
+                  <button type="submit" className="btn btn--primary btn--stack" disabled={savingIntro}>
+                    {savingIntro ? "저장 중…" : "저장"}
+                  </button>
+                </div>
+              </form>
+            </section>
+          )}
+
+          {tab === "materials" && (
+            <section className="classroom-hub__section" aria-labelledby="hub-mat-h">
+              <h2 id="hub-mat-h" className="classroom-hub__section-title">
+                강의 자료 업로드
+              </h2>
+              <p className="classroom-hub__hint">
+                학습·참고 자료 파일을 올리고 관리자 검수를 거쳐 라이브러리에 반영합니다. 아래 버튼으로 신청 폼으로
+                이동합니다.
+              </p>
+              <div className="classroom-hub__cta-row">
+                <Link to={q("/material/register")} className="btn btn--primary btn--stack">
+                  자료 등록 신청 열기
+                </Link>
+                <Link to={q("/teacher/homework/new")} className="btn btn--ghost btn--stack">
+                  과제 출제 (강의실 연동)
+                </Link>
+              </div>
+              <h3 className="classroom-hub__subhead">이 강의실로 접수된 자료 신청</h3>
+              {listsLoading ? (
+                <p className="classroom-hub__hint">목록 불러오는 중…</p>
+              ) : materialRows.length === 0 ? (
+                <p className="classroom-hub__hint">아직 접수된 자료 신청이 없습니다.</p>
+              ) : (
+                <ul className="classroom-hub__request-list">
+                  {materialRows.map((r) => (
+                    <li key={r.id} className="classroom-hub__request-item">
+                      <div>
+                        <strong>{r.data.title}</strong>
+                        <span className="classroom-hub__request-meta">
+                          {r.data.status === "pending" && "검수 대기"}
+                          {r.data.status === "approved" && "승인됨"}
+                          {r.data.status === "rejected" && "반려"}
+                          {" · "}
+                          {tsLabel(r.data.createdAt)}
+                        </span>
+                      </div>
+                      <p className="classroom-hub__request-desc">
+                        {r.data.description.length > 180
+                          ? `${r.data.description.slice(0, 180)}…`
+                          : r.data.description}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+
+          {tab === "video" && (
+            <section className="classroom-hub__section" aria-labelledby="hub-vid-h">
+              <h2 id="hub-vid-h" className="classroom-hub__section-title">
+                강의 영상 등록
+              </h2>
+              <p className="classroom-hub__hint">
+                YouTube·Vimeo 등 공개 재생 URL을 제출합니다. 검수 후 콘텐츠로 연결됩니다.
+              </p>
+              <div className="classroom-hub__cta-row">
+                <Link to={q("/video/register")} className="btn btn--primary btn--stack">
+                  동영상 강의 등록 신청 열기
+                </Link>
+              </div>
+              <h3 className="classroom-hub__subhead">이 강의실로 접수된 영상 신청</h3>
+              {listsLoading ? (
+                <p className="classroom-hub__hint">목록 불러오는 중…</p>
+              ) : videoRows.length === 0 ? (
+                <p className="classroom-hub__hint">아직 접수된 영상 신청이 없습니다.</p>
+              ) : (
+                <ul className="classroom-hub__request-list">
+                  {videoRows.map((r) => (
+                    <li key={r.id} className="classroom-hub__request-item">
+                      <div>
+                        <strong>{r.data.title}</strong>
+                        <span className="classroom-hub__request-meta">
+                          {r.data.status === "pending" && "검수 대기"}
+                          {r.data.status === "approved" && "승인됨"}
+                          {r.data.status === "rejected" && "반려"}
+                          {" · "}
+                          {tsLabel(r.data.createdAt)}
+                        </span>
+                      </div>
+                      <p className="classroom-hub__request-desc">{r.data.videoUrl}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+
+          {tab === "qa" && id && (
+            <section className="classroom-hub__section" aria-labelledby="hub-qa-h">
+              <h2 id="hub-qa-h" className="classroom-hub__section-title">
+                질의응답 게시판
+              </h2>
+              <p className="classroom-hub__hint">학습자와 소통합니다. 부적절한 글은 삭제할 수 있습니다.</p>
+              <ClassroomQaBoard classroomId={id} isClassroomTeacher />
+            </section>
+          )}
         </div>
       </main>
     </DashboardShell>
