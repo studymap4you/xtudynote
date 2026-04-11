@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
 /** 승인된 선생님 또는 슈퍼관리자 */
 export function TeacherRoute({ children }: { children: ReactNode }) {
+  const loc = useLocation();
   const { loading, firebaseUser, profile, canManageMaterials } = useAuth();
 
   if (loading || (firebaseUser && !profile)) {
@@ -21,7 +22,7 @@ export function TeacherRoute({ children }: { children: ReactNode }) {
     );
   }
   if (!firebaseUser || !profile) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: loc }} replace />;
   }
   if (!canManageMaterials) {
     return <Navigate to="/dashboard" replace />;

@@ -16,7 +16,7 @@ export function DashboardShell({
   return (
     <div className={light ? "app-shell app-shell--light" : "app-shell"}>
       <header className="top-nav">
-        <Link to="/dashboard" className="top-nav__brand">
+        <Link to="/" className="top-nav__brand">
           <BrandLockup />
         </Link>
         <div className="top-nav__actions">
