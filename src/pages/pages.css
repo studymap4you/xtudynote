@@ -328,22 +328,30 @@
 }
 .intro-hero__classroom {
   margin-top: var(--space-2);
-  max-width: 28rem;
+  width: 100%;
+  max-width: none;
 }
 .intro-hero__classroom-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  width: 100%;
   gap: 0.5rem;
 }
 .intro-hero__classroom-btn {
   display: inline-flex;
+  flex: 1 1 0;
+  min-width: 0;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: 0.1rem;
-  padding: 0.55rem 1rem;
+  padding: 0.6rem 0.75rem;
   border-radius: var(--radius-ui);
   font-weight: 700;
   text-decoration: none;
+  text-align: center;
   border: 1px solid rgba(15, 23, 42, 0.1);
   transition:
     background 0.15s ease,
@@ -382,7 +390,7 @@
   font-size: 0.72rem;
   line-height: 1.45;
   color: var(--premium-ink-faint);
-  max-width: 24rem;
+  max-width: none;
 }
 
 /* —— 강의실 —— */
