@@ -333,16 +333,15 @@
 }
 .intro-hero__classroom-row {
   display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
+  flex-direction: column;
   align-items: stretch;
   width: 100%;
   gap: 0.5rem;
 }
 .intro-hero__classroom-btn {
   display: inline-flex;
-  flex: 1 1 0;
-  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   flex-direction: column;
   align-items: center;
   justify-content: center;
