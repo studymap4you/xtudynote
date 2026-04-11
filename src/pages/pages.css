@@ -217,15 +217,52 @@
   color: var(--premium-ink-muted);
 }
 .intro-hero__slogan {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.06em;
   margin: 0 0 var(--space-2);
-  font-family: var(--font-slogan-mamablock);
-  font-weight: 700;
+  padding-left: 0.85rem;
+  font-family: var(--font-hero-slogan);
+  font-weight: 600;
   font-size: clamp(1.85rem, 4.2vw, 2.85rem);
-  line-height: 1.26;
-  letter-spacing: -0.03em;
+  line-height: 1.22;
+  letter-spacing: -0.045em;
   word-break: keep-all;
   overflow-wrap: break-word;
-  color: #1a1e26;
+  color: #0f172a;
+}
+.intro-hero__slogan::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.12em;
+  bottom: 0.12em;
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fb7185 0%, #c026d3 52%, #2563eb 100%);
+  opacity: 0.92;
+}
+.intro-hero__slogan-line {
+  display: block;
+}
+.intro-hero__slogan-line--final {
+  margin-top: 0.04em;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+.intro-hero__slogan-accent {
+  display: inline-block;
+  background: var(--brand-rest-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: #1e40af;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .intro-hero__slogan-accent {
+    color: transparent;
+  }
 }
 .intro-hero__lede {
   margin: 0;

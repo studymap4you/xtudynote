@@ -507,11 +507,11 @@ export function Intro() {
             <BrandLockup />
           </p>
           <h1 id="intro-slogan" className="intro-hero__slogan">
-            모두에 의한
-            <br />
-            모두를 위한
-            <br />
-            모두의 학습
+            <span className="intro-hero__slogan-line">모두에 의한</span>
+            <span className="intro-hero__slogan-line">모두를 위한</span>
+            <span className="intro-hero__slogan-line intro-hero__slogan-line--final">
+              <span className="intro-hero__slogan-accent">모두의 학습</span>
+            </span>
           </h1>
           <p className="intro-hero__lede">
             모든 과제가 기록되고, 모든 성장이 눈에 보입니다.

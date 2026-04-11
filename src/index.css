@@ -25,6 +25,8 @@
   /* 포인트 버튼 위 글자 (밝은 배경색 버튼용 고대비) */
   --btn-on-accent: #0a0f1a;
   --btn-on-accent-muted: rgba(10, 15, 26, 0.82);
+  /* 랜딩 히어로 슬로건 — Pretendard 우선, 마마블록·Noto 폴백 */
+  --font-hero-slogan: "Pretendard", "210 Mamablock", "210 마마블럭", var(--font-body);
   /* 랜딩 슬로건 — 210 마마블록(라이선스 파일 배치 시 적용). 미배치 시 Noto 폴백 */
   --font-slogan-mamablock: "210 Mamablock", "210 마마블럭", var(--font-body);
 
