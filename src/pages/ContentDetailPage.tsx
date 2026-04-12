@@ -94,6 +94,15 @@ export function ContentDetailPage() {
     return content.subject;
   }, [content]);
 
+  const lectureUrls = useMemo(() => {
+    const raw = content?.lectureLink?.trim();
+    if (!raw) return [];
+    return raw
+      .split(/\n+/)
+      .map((u) => u.trim())
+      .filter(Boolean);
+  }, [content?.lectureLink]);
+
   const isUploader =
     !!profile && content && profile.accountStatus === "active" && profile.uid === content.authorId;
 
@@ -181,6 +190,20 @@ export function ContentDetailPage() {
           <span className="ui-ko">{content.learningTopic}</span>
         </div>
         <p className="content-detail__intro">{content.introduction}</p>
+        {lectureUrls.length > 0 && (
+          <section className="content-detail__lecture-links" aria-label="강의 영상 링크">
+            <h2 className="content-detail__lecture-links-title">강의 영상 링크</h2>
+            <ul className="content-detail__lecture-url-list">
+              {lectureUrls.map((u, i) => (
+                <li key={`lecture-${i}-${u.slice(0, 48)}`}>
+                  <a href={u} target="_blank" rel="noreferrer">
+                    {u}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {(content.type ?? "share") === "paid" && content.purchaseLink && (
           <p>
             <a href={content.purchaseLink} target="_blank" rel="noreferrer">

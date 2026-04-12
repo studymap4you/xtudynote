@@ -15,6 +15,10 @@ function safeFileName(name: string): string {
   return name.replace(/[^\w.\-가-힣]+/g, "_").slice(0, 180) || "file";
 }
 
+function newFileSlotId(): string {
+  return crypto.randomUUID();
+}
+
 async function uploadPendingFiles(
   files: File[],
   uploaderId: string,
@@ -55,8 +59,10 @@ export function MaterialRegisterPage() {
   const [description, setDescription] = useState("");
   const [desiredPrice, setDesiredPrice] = useState("");
   const [homeworkInstruction, setHomeworkInstruction] = useState("");
-  const [learningFiles, setLearningFiles] = useState<File[]>([]);
-  const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
+  const [lmSlots, setLmSlots] = useState(() => [newFileSlotId()]);
+  const [refSlots, setRefSlots] = useState(() => [newFileSlotId()]);
+  const [lmBySlot, setLmBySlot] = useState<Record<string, File[]>>({});
+  const [refBySlot, setRefBySlot] = useState<Record<string, File[]>>({});
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -101,6 +107,8 @@ export function MaterialRegisterPage() {
       const reqRef = doc(collection(db, "material_requests"));
       const requestId = reqRef.id;
       const t0 = performance.now();
+      const learningFiles = lmSlots.flatMap((id) => lmBySlot[id] ?? []);
+      const referenceFiles = refSlots.flatMap((id) => refBySlot[id] ?? []);
       const learningMaterialFilePaths = await uploadPendingFiles(
         learningFiles,
         firebaseUser.uid,
@@ -145,8 +153,10 @@ export function MaterialRegisterPage() {
       setDescription("");
       setDesiredPrice("");
       setHomeworkInstruction("");
-      setLearningFiles([]);
-      setReferenceFiles([]);
+      setLmSlots([newFileSlotId()]);
+      setRefSlots([newFileSlotId()]);
+      setLmBySlot({});
+      setRefBySlot({});
       setMaterialType("share");
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "제출에 실패했습니다.");
@@ -315,36 +325,104 @@ export function MaterialRegisterPage() {
                   <span className="reg-form__label-en">File uploads</span>
                   <span className="reg-form__label-ko"> 파일 업로드</span>
                 </legend>
-                <label className="reg-form__field">
+                <div className="reg-form__field">
                   <span className="reg-form__label-line">
                     <span className="reg-form__label-en">Primary learning files</span>
                     <span className="reg-form__label-ko">학습용 주 자료</span>
                   </span>
-                  <input
-                    type="file"
-                    multiple
-                    className="add-passage__control add-passage__control--file"
-                    onChange={(ev) => {
-                      const list = ev.target.files;
-                      setLearningFiles(list ? Array.from(list) : []);
-                    }}
-                  />
-                </label>
-                <label className="reg-form__field">
+                  <div className="material-register-form__multi-rows">
+                    {lmSlots.map((slotId) => (
+                      <div key={slotId} className="material-register-form__multi-row material-register-form__multi-row--file">
+                        <input
+                          type="file"
+                          multiple
+                          className="add-passage__control add-passage__control--file"
+                          onChange={(ev) => {
+                            const list = ev.target.files;
+                            setLmBySlot((m) => ({
+                              ...m,
+                              [slotId]: list ? Array.from(list) : [],
+                            }));
+                          }}
+                        />
+                        {lmSlots.length > 1 && (
+                          <button
+                            type="button"
+                            className="btn btn--ghost material-register-form__row-btn"
+                            onClick={() => {
+                              setLmSlots((s) => s.filter((id) => id !== slotId));
+                              setLmBySlot((m) => {
+                                const n = { ...m };
+                                delete n[slotId];
+                                return n;
+                              });
+                            }}
+                          >
+                            <span className="ui-en">Remove</span>
+                            <span className="ui-ko">삭제</span>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn btn--ghost material-register-form__add-row-btn"
+                      onClick={() => setLmSlots((s) => [...s, newFileSlotId()])}
+                    >
+                      <span className="ui-en">+ Add file field</span>
+                      <span className="ui-ko">+ 파일 입력 추가</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="reg-form__field">
                   <span className="reg-form__label-line">
                     <span className="reg-form__label-en">Answer key / reference</span>
                     <span className="reg-form__label-ko">해설·참고 자료</span>
                   </span>
-                  <input
-                    type="file"
-                    multiple
-                    className="add-passage__control add-passage__control--file"
-                    onChange={(ev) => {
-                      const list = ev.target.files;
-                      setReferenceFiles(list ? Array.from(list) : []);
-                    }}
-                  />
-                </label>
+                  <div className="material-register-form__multi-rows">
+                    {refSlots.map((slotId) => (
+                      <div key={slotId} className="material-register-form__multi-row material-register-form__multi-row--file">
+                        <input
+                          type="file"
+                          multiple
+                          className="add-passage__control add-passage__control--file"
+                          onChange={(ev) => {
+                            const list = ev.target.files;
+                            setRefBySlot((m) => ({
+                              ...m,
+                              [slotId]: list ? Array.from(list) : [],
+                            }));
+                          }}
+                        />
+                        {refSlots.length > 1 && (
+                          <button
+                            type="button"
+                            className="btn btn--ghost material-register-form__row-btn"
+                            onClick={() => {
+                              setRefSlots((s) => s.filter((id) => id !== slotId));
+                              setRefBySlot((m) => {
+                                const n = { ...m };
+                                delete n[slotId];
+                                return n;
+                              });
+                            }}
+                          >
+                            <span className="ui-en">Remove</span>
+                            <span className="ui-ko">삭제</span>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn btn--ghost material-register-form__add-row-btn"
+                      onClick={() => setRefSlots((s) => [...s, newFileSlotId()])}
+                    >
+                      <span className="ui-en">+ Add file field</span>
+                      <span className="ui-ko">+ 파일 입력 추가</span>
+                    </button>
+                  </div>
+                </div>
               </fieldset>
 
               <button type="submit" className="btn btn--primary btn--stack" disabled={saving}>

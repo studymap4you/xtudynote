@@ -18,6 +18,7 @@ import {
 import { AdminTopNav } from "@/components/AdminTopNav";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
+import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
 import type { ContentType } from "@/types/content";
 import "@/pages/pages.css";
 
@@ -29,7 +30,7 @@ type QueueRowBase = {
   submitterId: string;
   audienceGrade: string;
   description: string;
-  videoUrl: string | null;
+  videoUrls: string[];
   fileCount: number;
   classroomId: string | null;
   createdAtMs: number;
@@ -124,7 +125,7 @@ export function PendingMaterialReviewsPage() {
             submitterId: String(x.submitterId ?? ""),
             audienceGrade: String(x.audienceGrade ?? ""),
             description: String(x.description ?? ""),
-            videoUrl: null,
+            videoUrls: [],
             fileCount: lm + rf,
             classroomId:
               x.classroomId != null && typeof x.classroomId === "string" ? x.classroomId : null,
@@ -156,7 +157,7 @@ export function PendingMaterialReviewsPage() {
             submitterId: String(x.submitterId ?? ""),
             audienceGrade: String(x.audienceGrade ?? ""),
             description: String(x.description ?? ""),
-            videoUrl: String(x.videoUrl ?? ""),
+            videoUrls: collectVideoUrlsFromRequest(x),
             fileCount: 0,
             classroomId:
               x.classroomId != null && typeof x.classroomId === "string" ? x.classroomId : null,
@@ -302,21 +303,23 @@ export function PendingMaterialReviewsPage() {
                         </td>
                         <td>
                           <strong>{r.title}</strong>
-                          {r.kind === "video" && r.videoUrl && (
-                            <a
-                              href={r.videoUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                display: "block",
-                                fontSize: "0.82rem",
-                                marginTop: "0.25rem",
-                                wordBreak: "break-all",
-                              }}
-                            >
-                              {r.videoUrl}
-                            </a>
-                          )}
+                          {r.kind === "video" &&
+                            r.videoUrls.map((u, vi) => (
+                              <a
+                                key={`${r.id}-vu-${vi}`}
+                                href={u}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: "block",
+                                  fontSize: "0.82rem",
+                                  marginTop: "0.25rem",
+                                  wordBreak: "break-all",
+                                }}
+                              >
+                                {u}
+                              </a>
+                            ))}
                           <details style={{ marginTop: "0.4rem", fontSize: "0.85rem" }}>
                             <summary style={{ cursor: "pointer" }}>상세 설명</summary>
                             <div

@@ -2337,6 +2337,28 @@
   line-height: 1.6;
   white-space: pre-wrap;
 }
+.content-detail__lecture-links {
+  margin: 1.25rem 0 0;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-ui, 8px);
+  border: 1px solid var(--border, #e5e7eb);
+  background: rgba(37, 99, 235, 0.04);
+}
+.content-detail__lecture-links-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.content-detail__lecture-url-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  line-height: 1.5;
+  word-break: break-all;
+}
+.content-detail__lecture-url-list a {
+  color: #2563eb;
+  text-decoration: underline;
+}
 .content-detail__qa-list {
   list-style: none;
   padding: 0;
@@ -2765,6 +2787,34 @@
 }
 .material-register__subtitle-bi .reg-form__label-ko {
   color: #4b5563;
+}
+
+.material-register-form__multi-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+}
+.material-register-form__multi-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.material-register-form__multi-row--file .add-passage__control--file {
+  flex: 1;
+  min-width: min(100%, 14rem);
+}
+.material-register-form__row-btn {
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+}
+.material-register-form__add-row-btn {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.88rem;
 }
 
 /* —— Teacher CRM: 딥 네이비 — 대시보드·인트로와 동일 토큰 —— */

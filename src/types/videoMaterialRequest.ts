@@ -11,8 +11,10 @@ export interface VideoMaterialRequestDocument {
   subject: string;
   audienceGrade: string;
   materialType: ContentType;
-  /** YouTube, Vimeo 등 공개 재생 URL */
+  /** YouTube, Vimeo 등 공개 재생 URL (복수일 때 첫 링크와 동일하게 유지) */
   videoUrl: string;
+  /** 복수 링크 — 없으면 videoUrl 단일 값으로 간주 */
+  videoUrls?: string[];
   description: string;
   /** 유료일 때만 (원) */
   desiredPrice: number | null;

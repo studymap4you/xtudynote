@@ -18,6 +18,7 @@ import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import type { ClassroomDocument } from "@/types/classroom";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
+import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
 import "@/pages/pages.css";
 
 type TabId = "intro" | "materials" | "video" | "qa";
@@ -351,7 +352,13 @@ function Inner() {
                           {tsLabel(r.data.createdAt)}
                         </span>
                       </div>
-                      <p className="classroom-hub__request-desc">{r.data.videoUrl}</p>
+                      <div className="classroom-hub__request-desc">
+                        {collectVideoUrlsFromRequest(r.data).map((u, vi) => (
+                          <p key={`${r.id}-v-${vi}`} style={{ wordBreak: "break-all", margin: "0.2rem 0 0" }}>
+                            {u}
+                          </p>
+                        ))}
+                      </div>
                     </li>
                   ))}
                 </ul>

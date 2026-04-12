@@ -11,6 +11,7 @@ import { copyPendingPathsToAuthorContents } from "@/lib/copyPendingToContentsFol
 import type { ContentStatus, ContentType } from "@/types/content";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
+import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
 
 function buildIdentifierFromTitle(title: string): string {
   const t = title.trim().slice(0, 120);
@@ -147,8 +148,9 @@ export async function approveVideoMaterialRequest(
   const identifier = buildIdentifierFromTitle(title);
   const learningTopic = title;
   const introduction = appendPriceNote(raw.description?.trim() || "", raw.desiredPrice, materialType);
-  const url = raw.videoUrl?.trim() || "";
-  if (!url) throw new Error("동영상 URL이 없습니다.");
+  const urls = collectVideoUrlsFromRequest(raw);
+  if (urls.length === 0) throw new Error("동영상 URL이 없습니다.");
+  const lectureLinkValue = urls.join("\n\n");
 
   const classroomId =
     raw.classroomId != null && typeof raw.classroomId === "string" && raw.classroomId.trim()
@@ -163,7 +165,7 @@ export async function approveVideoMaterialRequest(
     identifier,
     learningTopic,
     introduction,
-    lectureLink: url,
+    lectureLink: lectureLinkValue,
     learningMaterialFilePaths: [] as string[],
     referenceMaterialFilePaths: [] as string[],
     type: materialType,
@@ -195,7 +197,7 @@ export async function approveVideoMaterialRequest(
       learningTopic,
       introduction,
       homeworkInstruction: hwInstruction,
-      lectureLink: url,
+      lectureLink: lectureLinkValue,
       learningMaterialFilePaths: [],
       referenceMaterialFilePaths: [],
       status: "approved" as ContentStatus,

@@ -25,6 +25,10 @@ function isHttpUrl(s: string): boolean {
   }
 }
 
+function newUrlRow(): { id: string; value: string } {
+  return { id: crypto.randomUUID(), value: "" };
+}
+
 export function VideoLectureRegisterPage() {
   const { firebaseUser, profile, canManageMaterials, isStudent, isSuperAdmin } = useAuth();
   const [searchParams] = useSearchParams();
@@ -40,7 +44,7 @@ export function VideoLectureRegisterPage() {
   const [materialType, setMaterialType] = useState<ContentType>("share");
   const [desiredPrice, setDesiredPrice] = useState("");
   const [homeworkInstruction, setHomeworkInstruction] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
+  const [videoUrlRows, setVideoUrlRows] = useState(() => [newUrlRow()]);
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
@@ -59,14 +63,20 @@ export function VideoLectureRegisterPage() {
     e.preventDefault();
     if (!firebaseUser || !profile || !canSubmit) return;
 
-    const urlTrim = videoUrl.trim();
+    const urls = videoUrlRows.map((r) => r.value.trim()).filter(Boolean);
     if (!title.trim() || !subject.trim() || !audienceGrade.trim() || !description.trim()) {
       window.alert("제목·과목·학년·설명은 필수입니다.");
       return;
     }
-    if (!isHttpUrl(urlTrim)) {
-      window.alert("동영상 링크는 http(s)로 시작하는 전체 URL을 입력해 주세요.");
+    if (urls.length === 0) {
+      window.alert("동영상 링크를 하나 이상 입력해 주세요.");
       return;
+    }
+    for (const u of urls) {
+      if (!isHttpUrl(u)) {
+        window.alert("동영상 링크는 http(s)로 시작하는 전체 URL을 입력해 주세요.");
+        return;
+      }
     }
     if (materialType === "paid" && (priceNum == null || priceNum < 0)) {
       window.alert("유료 강의는 희망 판매 가격(원)을 입력해 주세요.");
@@ -98,7 +108,8 @@ export function VideoLectureRegisterPage() {
         subject: subject.trim(),
         audienceGrade: audienceGrade.trim(),
         materialType,
-        videoUrl: urlTrim,
+        videoUrl: urls[0],
+        videoUrls: urls,
         description: description.trim(),
         desiredPrice: materialType === "paid" ? priceNum : null,
         homeworkInstruction: materialType === "homework" ? homeworkInstruction.trim() : null,
@@ -115,7 +126,7 @@ export function VideoLectureRegisterPage() {
       setMaterialType("share");
       setDesiredPrice("");
       setHomeworkInstruction("");
-      setVideoUrl("");
+      setVideoUrlRows([newUrlRow()]);
       setDescription("");
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "제출에 실패했습니다.");
@@ -263,22 +274,50 @@ export function VideoLectureRegisterPage() {
                 </label>
               )}
 
-              <label className="reg-form__field">
+              <div className="reg-form__field">
                 <span className="reg-form__label-line">
-                  <span className="reg-form__label-en">Video URL</span>
-                  <span className="reg-form__label-ko">동영상 링크 (필수)</span>
+                  <span className="reg-form__label-en">Video URL(s)</span>
+                  <span className="reg-form__label-ko">동영상 링크 (필수, 복수 가능)</span>
                 </span>
-                <input
-                  className="add-passage__control material-register-form__input"
-                  type="url"
-                  inputMode="url"
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  required
-                  autoComplete="off"
-                  placeholder="https://www.youtube.com/watch?v=… 또는 https://vimeo.com/…"
-                />
-              </label>
+                <div className="material-register-form__multi-rows">
+                  {videoUrlRows.map((row) => (
+                    <div key={row.id} className="material-register-form__multi-row">
+                      <input
+                        className="add-passage__control material-register-form__input"
+                        type="url"
+                        inputMode="url"
+                        value={row.value}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setVideoUrlRows((rows) =>
+                            rows.map((r) => (r.id === row.id ? { ...r, value: v } : r))
+                          );
+                        }}
+                        autoComplete="off"
+                        placeholder="https://www.youtube.com/watch?v=… 또는 https://vimeo.com/…"
+                      />
+                      {videoUrlRows.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn btn--ghost material-register-form__row-btn"
+                          onClick={() => setVideoUrlRows((rows) => rows.filter((r) => r.id !== row.id))}
+                        >
+                          <span className="ui-en">Remove</span>
+                          <span className="ui-ko">삭제</span>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn btn--ghost material-register-form__add-row-btn"
+                    onClick={() => setVideoUrlRows((rows) => [...rows, newUrlRow()])}
+                  >
+                    <span className="ui-en">+ Add video link</span>
+                    <span className="ui-ko">+ 링크 추가</span>
+                  </button>
+                </div>
+              </div>
 
               <label className="reg-form__field">
                 <span className="reg-form__label-line">
