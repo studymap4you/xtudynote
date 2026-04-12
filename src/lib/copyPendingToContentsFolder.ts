@@ -30,11 +30,24 @@ export async function copyPendingPathsToAuthorContents(
     const p = normalizeStorageObjectPath(String(fullPaths[i] ?? ""));
     if (!p) continue;
     const srcRef = ref(storage, p);
-    const bytes = await getBytes(srcRef);
+    let bytes: ArrayBuffer;
+    try {
+      bytes = await getBytes(srcRef);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(
+        `Storage에서 원본 파일을 읽지 못했습니다.\n경로: ${p}\n(${msg})\n제출자 폴더 권한·파일 존재 여부를 확인해 주세요.`
+      );
+    }
     const base = p.split("/").pop() || `file_${i}`;
     const destPath = `contents/${authorId}/${kindPrefix}_${Math.floor(seed)}_${i}_${safeFileName(base)}`;
     const destRef = ref(storage, destPath);
-    await uploadBytes(destRef, bytes);
+    try {
+      await uploadBytes(destRef, bytes);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`승인 복사본 업로드에 실패했습니다.\n대상: ${destPath}\n(${msg})`);
+    }
     out.push(destRef.fullPath);
   }
   return out;

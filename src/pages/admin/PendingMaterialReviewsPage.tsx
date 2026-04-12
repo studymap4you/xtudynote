@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   collection,
@@ -83,12 +84,50 @@ function labelType(t: ContentType): string {
   return "과제";
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = window.setTimeout(() => {
+      reject(
+        new Error(
+          `${label} 처리 시간이 초과되었습니다 (${Math.round(ms / 1000)}초). 네트워크·방화벽을 확인하고 다시 시도해 주세요.`
+        )
+      );
+    }, ms);
+    promise.then(
+      (v) => {
+        window.clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        window.clearTimeout(t);
+        reject(e);
+      }
+    );
+  });
+}
+
+type BannerState =
+  | { kind: "info"; text: string }
+  | { kind: "success"; text: string }
+  | { kind: "error"; text: string };
+
+function formatApproveError(e: unknown): string {
+  if (e && typeof e === "object" && "code" in e && "message" in e) {
+    const code = String((e as { code?: string }).code ?? "");
+    const msg = String((e as { message?: string }).message ?? e);
+    if (code) return `[${code}] ${msg}`;
+  }
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
 export function PendingMaterialReviewsPage() {
   const { isSuperAdmin } = useAuth();
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [banner, setBanner] = useState<BannerState | null>(null);
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -184,19 +223,42 @@ export function PendingMaterialReviewsPage() {
 
   const handleApprove = useCallback(async (row: QueueRow) => {
     const key = `${row.kind}:${row.id}`;
-    setBusyKey(key);
-    setError(null);
+    flushSync(() => {
+      setBusyKey(key);
+      setError(null);
+      setBanner({
+        kind: "info",
+        text:
+          row.kind === "file"
+            ? "승인 처리 중입니다. 파일을 Storage에서 복사하는 동안 1~2분 걸릴 수 있습니다. 이 창을 닫지 마세요."
+            : "승인 처리 중입니다…",
+      });
+    });
     try {
+      const approveMs = row.kind === "file" ? 240_000 : 120_000;
       if (row.kind === "file") {
-        await approveFileMaterialRequest(db, row.id);
+        await withTimeout(approveFileMaterialRequest(db, row.id), approveMs, "파일 자료 승인");
       } else {
-        await approveVideoMaterialRequest(db, row.id);
+        await withTimeout(approveVideoMaterialRequest(db, row.id), approveMs, "동영상 자료 승인");
       }
-      window.alert("승인되었습니다. 「콘텐츠 DB 관리」에서 승인된 항목을 확인할 수 있습니다.");
+      const okText =
+        "승인되었습니다. 아래 목록에서 사라지며, 「콘텐츠 DB 관리」·라이브러리에서 확인할 수 있습니다.";
+      setBanner({ kind: "success", text: okText });
+      setError(null);
+      try {
+        window.alert(okText);
+      } catch {
+        /* alert 차단 시 무시 — 배너로 안내 */
+      }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "승인 처리에 실패했습니다.";
+      const msg = formatApproveError(e) || "승인 처리에 실패했습니다.";
       setError(msg);
-      window.alert(msg);
+      setBanner({ kind: "error", text: msg });
+      try {
+        window.alert(`승인 실패\n\n${msg}`);
+      } catch {
+        /* alert 차단 */
+      }
     } finally {
       setBusyKey(null);
     }
@@ -205,18 +267,27 @@ export function PendingMaterialReviewsPage() {
   const handleReject = useCallback(async (row: QueueRow) => {
     if (!window.confirm("이 신청을 반려할까요? (제출자에게 별도 알림은 없습니다.)")) return;
     const key = `${row.kind}:${row.id}`;
-    setBusyKey(key);
-    setError(null);
+    flushSync(() => {
+      setBusyKey(key);
+      setError(null);
+      setBanner({ kind: "info", text: "반려 처리 중…" });
+    });
     try {
       if (row.kind === "file") {
         await rejectFileMaterialRequest(db, row.id);
       } else {
         await rejectVideoMaterialRequest(db, row.id);
       }
+      setBanner({ kind: "success", text: "반려 처리되었습니다." });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "반려 처리에 실패했습니다.";
+      const msg = formatApproveError(e) || "반려 처리에 실패했습니다.";
       setError(msg);
-      window.alert(msg);
+      setBanner({ kind: "error", text: msg });
+      try {
+        window.alert(msg);
+      } catch {
+        /* alert 차단 */
+      }
     } finally {
       setBusyKey(null);
     }
@@ -246,6 +317,22 @@ export function PendingMaterialReviewsPage() {
             생성되고, 「콘텐츠 DB 관리」에서도 확인할 수 있습니다.
           </span>
         </p>
+        {banner && (
+          <div
+            role="status"
+            aria-live="polite"
+            className={`pending-review-banner pending-review-banner--${banner.kind}`}
+          >
+            <span className="pending-review-banner__text">{banner.text}</span>
+            <button
+              type="button"
+              className="btn btn--ghost pending-review-banner__dismiss"
+              onClick={() => setBanner(null)}
+            >
+              닫기
+            </button>
+          </div>
+        )}
         {error && <p className="auth-error">{error}</p>}
         {loading ? (
           <div className="route-loading">
@@ -350,17 +437,25 @@ export function PendingMaterialReviewsPage() {
                           <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
                             <button
                               type="button"
-                              className="btn btn--success btn--stack"
+                              className="btn btn--success btn--stack pending-review__action-btn"
                               disabled={busy}
-                              onClick={() => void handleApprove(r)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                void handleApprove(r);
+                              }}
                             >
                               승인 · 라이브러리 반영
                             </button>
                             <button
                               type="button"
-                              className="btn btn--danger btn--stack"
+                              className="btn btn--danger btn--stack pending-review__action-btn"
                               disabled={busy}
-                              onClick={() => void handleReject(r)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                void handleReject(r);
+                              }}
                             >
                               반려
                             </button>
