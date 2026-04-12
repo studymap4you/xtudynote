@@ -188,13 +188,15 @@ export function PendingMaterialReviewsPage() {
     setError(null);
     try {
       if (row.kind === "file") {
-        await approveFileMaterialRequest(db, row.id, row.raw);
+        await approveFileMaterialRequest(db, row.id);
       } else {
-        await approveVideoMaterialRequest(db, row.id, row.raw);
+        await approveVideoMaterialRequest(db, row.id);
       }
       window.alert("승인되었습니다. 「콘텐츠 DB 관리」에서 승인된 항목을 확인할 수 있습니다.");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "승인 처리에 실패했습니다.");
+      const msg = e instanceof Error ? e.message : "승인 처리에 실패했습니다.";
+      setError(msg);
+      window.alert(msg);
     } finally {
       setBusyKey(null);
     }
@@ -212,7 +214,9 @@ export function PendingMaterialReviewsPage() {
         await rejectVideoMaterialRequest(db, row.id);
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "반려 처리에 실패했습니다.");
+      const msg = e instanceof Error ? e.message : "반려 처리에 실패했습니다.";
+      setError(msg);
+      window.alert(msg);
     } finally {
       setBusyKey(null);
     }

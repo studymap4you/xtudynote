@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   serverTimestamp,
   updateDoc,
   writeBatch,
@@ -25,12 +26,24 @@ function appendPriceNote(introduction: string, desiredPrice: number | null, type
   return `${introduction.trim()}\n\n[등록 희망 가격: ${Math.round(desiredPrice).toLocaleString("ko-KR")}원]`;
 }
 
-export async function approveFileMaterialRequest(
-  db: Firestore,
-  requestId: string,
-  raw: MaterialRequestDocument
-): Promise<string> {
-  const authorId = raw.submitterId.trim();
+function resolveSubmitterId(raw: MaterialRequestDocument): string {
+  const a = (raw.submitterId ?? "").trim();
+  if (a) return a;
+  const b = (raw.studentId ?? "").trim();
+  if (b) return b;
+  return "";
+}
+
+export async function approveFileMaterialRequest(db: Firestore, requestId: string): Promise<string> {
+  const snap = await getDoc(doc(db, "material_requests", requestId));
+  if (!snap.exists()) {
+    throw new Error("신청 문서를 찾을 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.");
+  }
+  const raw = snap.data() as MaterialRequestDocument;
+  if ((raw.status ?? "pending") !== "pending") {
+    throw new Error("이미 처리된 신청입니다.");
+  }
+  const authorId = resolveSubmitterId(raw);
   if (!authorId) throw new Error("제출자 ID가 없습니다.");
 
   const materialType = raw.materialType;
@@ -132,12 +145,16 @@ export async function approveFileMaterialRequest(
   return contentRef.id;
 }
 
-export async function approveVideoMaterialRequest(
-  db: Firestore,
-  requestId: string,
-  raw: VideoMaterialRequestDocument
-): Promise<string> {
-  const authorId = raw.submitterId.trim();
+export async function approveVideoMaterialRequest(db: Firestore, requestId: string): Promise<string> {
+  const snap = await getDoc(doc(db, "video_material_requests", requestId));
+  if (!snap.exists()) {
+    throw new Error("신청 문서를 찾을 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.");
+  }
+  const raw = snap.data() as VideoMaterialRequestDocument;
+  if ((raw.status ?? "pending") !== "pending") {
+    throw new Error("이미 처리된 신청입니다.");
+  }
+  const authorId = (raw.submitterId ?? "").trim();
   if (!authorId) throw new Error("제출자 ID가 없습니다.");
 
   const materialType = raw.materialType;
