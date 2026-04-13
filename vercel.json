@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/copy-storage-objects.mjs": {
+      "maxDuration": 60
+    }
+  }
+}
