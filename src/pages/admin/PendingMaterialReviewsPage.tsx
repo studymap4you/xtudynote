@@ -9,7 +9,9 @@ import {
   where,
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/firebase/config";
+import { db, storage } from "@/firebase/config";
+import { getDownloadURL, ref } from "firebase/storage";
+import { normalizeStorageObjectPath } from "@/lib/copyPendingToContentsFolder";
 import {
   approveFileMaterialRequest,
   approveVideoMaterialRequest,
@@ -110,6 +112,58 @@ type BannerState =
   | { kind: "info"; text: string }
   | { kind: "success"; text: string }
   | { kind: "error"; text: string };
+
+function fileDisplayName(storagePath: string): string {
+  const base = storagePath.split("/").pop() || storagePath;
+  return base.replace(/^lm_[\d.]+_\d+_/, "").replace(/^ref_[\d.]+_\d+_/, "") || base;
+}
+
+function PendingAttachmentLinks({ raw }: { raw: MaterialRequestDocument }) {
+  const lm = raw.learningMaterialFilePaths ?? [];
+  const rf = raw.referenceMaterialFilePaths ?? [];
+  const total = lm.length + rf.length;
+  if (total === 0) return null;
+
+  async function openPath(storagePath: string) {
+    try {
+      const n = normalizeStorageObjectPath(storagePath);
+      if (!n) return;
+      const url = await getDownloadURL(ref(storage, n));
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "파일을 열 수 없습니다.");
+    }
+  }
+
+  return (
+    <div className="pending-review-files">
+      <div className="pending-review-files__head">
+        <span className="ui-en">Open attachments</span>
+        <span className="ui-ko"> 첨부 열기 ({total}개)</span>
+      </div>
+      <ul className="pending-review-files__list">
+        {lm.map((p, i) => (
+          <li key={`lm-${i}-${p.slice(-40)}`}>
+            <button type="button" className="pending-review-files__btn" onClick={() => void openPath(p)}>
+              <span className="pending-review-files__tag ui-ko">주 자료</span>
+              <span className="pending-review-files__fname">{fileDisplayName(p)}</span>
+              <span className="ui-en pending-review-files__hint">Open</span>
+            </button>
+          </li>
+        ))}
+        {rf.map((p, i) => (
+          <li key={`rf-${i}-${p.slice(-40)}`}>
+            <button type="button" className="pending-review-files__btn" onClick={() => void openPath(p)}>
+              <span className="pending-review-files__tag ui-ko">해설·참고</span>
+              <span className="pending-review-files__fname">{fileDisplayName(p)}</span>
+              <span className="ui-en pending-review-files__hint">Open</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function formatApproveError(e: unknown): string {
   if (e && typeof e === "object" && "code" in e && "message" in e) {
@@ -394,6 +448,7 @@ export function PendingMaterialReviewsPage() {
                         </td>
                         <td>
                           <strong>{r.title}</strong>
+                          {r.kind === "file" && <PendingAttachmentLinks raw={r.raw} />}
                           {r.kind === "video" &&
                             r.videoUrls.map((u, vi) => (
                               <a
