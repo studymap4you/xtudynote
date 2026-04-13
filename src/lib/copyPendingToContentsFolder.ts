@@ -1,4 +1,10 @@
-import { getBytes, ref, uploadBytes } from "firebase/storage";
+import {
+  getBytes,
+  getDownloadURL,
+  ref,
+  uploadBytes,
+  type StorageReference,
+} from "firebase/storage";
 import { storage } from "@/firebase/config";
 
 function safeFileName(name: string): string {
@@ -13,6 +19,43 @@ export function normalizeStorageObjectPath(input: string): string {
   if (gs) return gs[1];
   if (s.startsWith("/")) s = s.slice(1);
   return s;
+}
+
+/**
+ * 브라우저에서 getBytes()가 storage/retry-limit-exceeded 로 자주 실패할 수 있어,
+ * 먼저 다운로드 URL + fetch(HTTP)로 읽고, 실패 시 getBytes 로 폴백합니다.
+ */
+async function readObjectBytes(srcRef: StorageReference): Promise<ArrayBuffer> {
+  let fetchErr: unknown;
+  try {
+    const url = await getDownloadURL(srcRef);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 800 * attempt));
+      }
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        }
+        return await res.arrayBuffer();
+      } catch (e) {
+        fetchErr = e;
+      }
+    }
+  } catch (e) {
+    fetchErr = e;
+  }
+
+  try {
+    return await getBytes(srcRef);
+  } catch (eBytes: unknown) {
+    const a = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+    const b = eBytes instanceof Error ? eBytes.message : String(eBytes);
+    throw new Error(
+      `파일 읽기 실패(HTTP·SDK 모두 시도).\n다운로드 URL 방식: ${a}\ngetBytes: ${b}`
+    );
+  }
 }
 
 /**
@@ -32,7 +75,7 @@ export async function copyPendingPathsToAuthorContents(
     const srcRef = ref(storage, p);
     let bytes: ArrayBuffer;
     try {
-      bytes = await getBytes(srcRef);
+      bytes = await readObjectBytes(srcRef);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       throw new Error(
