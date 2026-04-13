@@ -3965,3 +3965,46 @@
   color: #1e3a8a;
   background: #f8fafc;
 }
+
+.learning-theme-checklist {
+  display: grid;
+  gap: 0.5rem;
+}
+.learning-theme-checklist__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.learning-theme-checklist__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.95rem;
+}
+.learning-theme-checklist__ko {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+
+.mp-vault__thumb--img {
+  padding: 0;
+  overflow: hidden;
+}
+.mp-vault__thumb--img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mp-rank__title--link {
+  color: inherit;
+  text-decoration: none;
+  flex: 1;
+  min-width: 0;
+}
+.mp-rank__title--link:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}

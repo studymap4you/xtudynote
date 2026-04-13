@@ -5,8 +5,10 @@ import { ref, uploadBytes } from "firebase/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminTopNav } from "@/components/AdminTopNav";
 import { db, storage } from "@/firebase/config";
+import { LearningThemeChecklist } from "@/components/LearningThemeChecklist";
 import { allocateUniqueHomeworkCode } from "@/lib/allocateHomeworkCode";
 import type { ContentStatus, ContentType } from "@/types/content";
+import type { LearningThemeId } from "@/types/learningTheme";
 import "@/pages/pages.css";
 
 function suggestsUniversityLecture(subject: string, audience: string, learningTopic: string): boolean {
@@ -56,6 +58,9 @@ type ContentDocumentInput = {
   homeworkCode: string | null;
   shortCode?: string | null;
   homeworkInstruction: string | null;
+  themes: LearningThemeId[];
+  clickCount: number;
+  thumbnailPath?: string | null;
   createdAt: ReturnType<typeof serverTimestamp>;
 };
 
@@ -63,7 +68,7 @@ async function uploadFilesForKind(
   files: File[],
   authorId: string,
   uploadStarted: number,
-  kindPrefix: "lm" | "ref"
+  kindPrefix: "lm" | "ref" | "thumb"
 ): Promise<string[]> {
   const paths: string[] = [];
   for (let i = 0; i < files.length; i++) {
@@ -99,6 +104,8 @@ export function AddPassage() {
   const [contentStatus, setContentStatus] = useState<ContentStatus>("approved");
   const [purchaseLink, setPurchaseLink] = useState("");
   const [homeworkInstruction, setHomeworkInstruction] = useState("");
+  const [themes, setThemes] = useState<LearningThemeId[]>([]);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,6 +147,14 @@ export function AddPassage() {
       setError("과제 타입은 과제 수행 가이드(Instruction)가 필수입니다.");
       return;
     }
+    if (themes.length === 0) {
+      setError("테마를 하나 이상 선택해 주세요.");
+      return;
+    }
+    if (contentType === "paid" && !thumbnailFile) {
+      setError("유료 자료는 썸네일 이미지를 업로드해 주세요.");
+      return;
+    }
     setError(null);
     setSaving(true);
     const authorId = firebaseUser.uid.trim();
@@ -165,6 +180,12 @@ export function AddPassage() {
         "ref"
       );
 
+      const thumbnailPaths =
+        contentType === "paid" && thumbnailFile
+          ? await uploadFilesForKind([thumbnailFile], authorId, uploadStarted + 2, "thumb")
+          : [];
+      const thumbnailPath = thumbnailPaths[0] ?? null;
+
       const common = {
         authorId,
         subject: trimmed.subject,
@@ -180,6 +201,9 @@ export function AddPassage() {
         status: contentStatus,
         purchaseLink:
           contentType === "paid" && trimmed.purchaseLink.length > 0 ? trimmed.purchaseLink : null,
+        themes,
+        clickCount: 0,
+        ...(thumbnailPath ? { thumbnailPath } : {}),
         createdAt: serverTimestamp(),
       };
 
@@ -381,6 +405,28 @@ export function AddPassage() {
                   rows={12}
                   spellCheck
                   placeholder="과제 목표, 제출 형식, 금지 사항 등을 적습니다."
+                />
+              </div>
+            )}
+          </fieldset>
+
+          <fieldset className="add-passage__fieldset">
+            <legend className="add-passage__legend">
+              <span className="ui-en">Themes</span>
+              <span className="ui-ko">테마 분류</span>
+            </legend>
+            <LearningThemeChecklist value={themes} onChange={setThemes} disabled={saving} idPrefix="adm" />
+            {contentType === "paid" && (
+              <div className="add-passage__block" style={{ marginTop: "1rem" }}>
+                <label className="auth-field">
+                  <span className="ui-en">Thumbnail (paid)</span>
+                  <span className="ui-ko">유료 썸네일 이미지 (필수)</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="add-passage__control add-passage__control--file"
+                  onChange={(ev) => setThumbnailFile(ev.target.files?.[0] ?? null)}
                 />
               </div>
             )}

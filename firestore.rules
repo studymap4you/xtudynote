@@ -53,6 +53,16 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId
           == request.auth.uid;
     }
+    function contentClickCountBefore() {
+      return 'clickCount' in resource.data ? resource.data.clickCount : 0;
+    }
+    /** 조회수 증가만 (다른 필드 불변) */
+    function isClickCountIncrementOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clickCount'])
+        && request.resource.data.clickCount is int
+        && request.resource.data.clickCount > contentClickCountBefore()
+        && request.resource.data.clickCount <= contentClickCountBefore() + 20;
+    }
 
     // ——— users ———
     match /users/{userId} {
@@ -129,11 +139,21 @@ service cloud.firestore {
         isActiveTeacher()
         && resource.data.authorId == request.auth.uid
         && request.resource.data.authorId == resource.data.authorId
+      ) || (
+        isSignedInActiveAccount()
+        && isApprovedLibraryContent()
+        && isClickCountIncrementOnly()
       );
 
       allow delete: if isActiveSuperAdmin() || (
         isActiveTeacher() && resource.data.authorId == request.auth.uid
       );
+    }
+
+    /** 홈 프리미엄 노출 순서 등 (마스터만 쓰기) */
+    match /site_config/{docId} {
+      allow read: if true;
+      allow write: if isActiveSuperAdmin();
     }
 
     /**

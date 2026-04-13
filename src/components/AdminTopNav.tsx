@@ -25,6 +25,10 @@ export function AdminTopNav() {
             <span className="admin-nav-tabs__title">콘텐츠 DB 관리</span>
             <span className="admin-nav-tabs__en">Content database</span>
           </NavLink>
+          <NavLink to="/admin/premium-vault" className={tabClassName}>
+            <span className="admin-nav-tabs__title">프리미엄 볼트</span>
+            <span className="admin-nav-tabs__en">Premium Vault</span>
+          </NavLink>
           <NavLink to="/admin" className={tabClassName} end>
             <span className="admin-nav-tabs__title">회원 관리</span>
             <span className="admin-nav-tabs__en">Members</span>

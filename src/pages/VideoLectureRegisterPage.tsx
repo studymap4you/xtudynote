@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { ref, uploadBytes } from "firebase/storage";
+import { LearningThemeChecklist } from "@/components/LearningThemeChecklist";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
-import { db } from "@/firebase/config";
+import { db, storage } from "@/firebase/config";
 import type { ContentType } from "@/types/content";
+import type { LearningThemeId } from "@/types/learningTheme";
 import type { UserProfile } from "@/types/user";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { getClassroomIfTeacher } from "@/lib/classroom";
@@ -29,6 +32,10 @@ function newUrlRow(): { id: string; value: string } {
   return { id: crypto.randomUUID(), value: "" };
 }
 
+function safeFileName(name: string): string {
+  return name.replace(/[^\w.\-가-힣]+/g, "_").slice(0, 180) || "file";
+}
+
 export function VideoLectureRegisterPage() {
   const { firebaseUser, profile, canManageMaterials, isStudent, isSuperAdmin } = useAuth();
   const [searchParams] = useSearchParams();
@@ -46,6 +53,8 @@ export function VideoLectureRegisterPage() {
   const [homeworkInstruction, setHomeworkInstruction] = useState("");
   const [videoUrlRows, setVideoUrlRows] = useState(() => [newUrlRow()]);
   const [description, setDescription] = useState("");
+  const [themes, setThemes] = useState<LearningThemeId[]>([]);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -68,6 +77,10 @@ export function VideoLectureRegisterPage() {
       window.alert("제목·과목·학년·설명은 필수입니다.");
       return;
     }
+    if (themes.length === 0) {
+      window.alert("테마를 하나 이상 선택해 주세요.");
+      return;
+    }
     if (urls.length === 0) {
       window.alert("동영상 링크를 하나 이상 입력해 주세요.");
       return;
@@ -80,6 +93,10 @@ export function VideoLectureRegisterPage() {
     }
     if (materialType === "paid" && (priceNum == null || priceNum < 0)) {
       window.alert("유료 강의는 희망 판매 가격(원)을 입력해 주세요.");
+      return;
+    }
+    if (materialType === "paid" && !thumbnailFile) {
+      window.alert("유료 강의는 썸네일 이미지를 업로드해 주세요.");
       return;
     }
     if (materialType === "homework" && !homeworkInstruction.trim()) {
@@ -99,7 +116,17 @@ export function VideoLectureRegisterPage() {
     setSaving(true);
     try {
       const reqRef = doc(collection(db, "video_material_requests"));
+      const requestId = reqRef.id;
+      const t0 = performance.now();
       const role = resolveSubmitterRole(profile);
+
+      let thumbnailPendingPath: string | null = null;
+      if (materialType === "paid" && thumbnailFile) {
+        const path = `pending_materials/${firebaseUser.uid}/${requestId}/thumb_${Math.floor(t0)}_${safeFileName(thumbnailFile.name)}`;
+        const sref = ref(storage, path);
+        await uploadBytes(sref, thumbnailFile);
+        thumbnailPendingPath = sref.fullPath;
+      }
 
       await setDoc(reqRef, {
         submitterId: firebaseUser.uid,
@@ -113,6 +140,8 @@ export function VideoLectureRegisterPage() {
         description: description.trim(),
         desiredPrice: materialType === "paid" ? priceNum : null,
         homeworkInstruction: materialType === "homework" ? homeworkInstruction.trim() : null,
+        themes,
+        ...(thumbnailPendingPath ? { thumbnailPendingPath } : {}),
         status: "pending",
         ...(classroomId ? { classroomId } : {}),
         createdAt: serverTimestamp(),
@@ -128,6 +157,8 @@ export function VideoLectureRegisterPage() {
       setHomeworkInstruction("");
       setVideoUrlRows([newUrlRow()]);
       setDescription("");
+      setThemes([]);
+      setThumbnailFile(null);
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "제출에 실패했습니다.");
     } finally {
@@ -238,22 +269,39 @@ export function VideoLectureRegisterPage() {
                 </div>
               </fieldset>
 
+              <LearningThemeChecklist value={themes} onChange={setThemes} disabled={saving} idPrefix="vid" />
+
               {showPrice && (
-                <label className="reg-form__field">
-                  <span className="reg-form__label-line">
-                    <span className="reg-form__label-en">Desired price (KRW)</span>
-                    <span className="reg-form__label-ko">희망 판매 가격 (원)</span>
-                  </span>
-                  <input
-                    className="add-passage__control material-register-form__input"
-                    type="text"
-                    inputMode="decimal"
-                    value={desiredPrice}
-                    onChange={(e) => setDesiredPrice(e.target.value)}
-                    placeholder="예: 15000"
-                    required
-                  />
-                </label>
+                <>
+                  <label className="reg-form__field">
+                    <span className="reg-form__label-line">
+                      <span className="reg-form__label-en">Desired price (KRW)</span>
+                      <span className="reg-form__label-ko">희망 판매 가격 (원)</span>
+                    </span>
+                    <input
+                      className="add-passage__control material-register-form__input"
+                      type="text"
+                      inputMode="decimal"
+                      value={desiredPrice}
+                      onChange={(e) => setDesiredPrice(e.target.value)}
+                      placeholder="예: 15000"
+                      required
+                    />
+                  </label>
+                  <label className="reg-form__field">
+                    <span className="reg-form__label-line">
+                      <span className="reg-form__label-en">Thumbnail image</span>
+                      <span className="reg-form__label-ko">썸네일 이미지 (필수)</span>
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="add-passage__control add-passage__control--file"
+                      onChange={(e) => setThumbnailFile(e.target.files?.[0] ?? null)}
+                      required
+                    />
+                  </label>
+                </>
               )}
 
               {showHomeworkNotes && (

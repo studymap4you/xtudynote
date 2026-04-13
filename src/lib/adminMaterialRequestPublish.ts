@@ -10,9 +10,17 @@ import {
 import { allocateUniqueHomeworkCode } from "@/lib/allocateHomeworkCode";
 import { copyPendingPathsToAuthorContents } from "@/lib/copyPendingToContentsFolder";
 import type { ContentStatus, ContentType } from "@/types/content";
+import type { LearningThemeId } from "@/types/learningTheme";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
+
+const THEME_IDS = new Set<LearningThemeId>(["k_entrance", "global_prep", "professional", "academic"]);
+
+function sanitizeThemes(raw: unknown): LearningThemeId[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((t): t is LearningThemeId => typeof t === "string" && THEME_IDS.has(t as LearningThemeId));
+}
 
 function buildIdentifierFromTitle(title: string): string {
   const t = title.trim().slice(0, 120);
@@ -69,6 +77,14 @@ export async function approveFileMaterialRequest(db: Firestore, requestId: strin
     "ref"
   );
 
+  const thumbPending = (raw.thumbnailPendingPath ?? "").trim();
+  const thumbnailPaths = thumbPending
+    ? await copyPendingPathsToAuthorContents([thumbPending], authorId, seed + 2, "thumb")
+    : [];
+  const thumbnailPath = thumbnailPaths[0] ?? null;
+
+  const themes = sanitizeThemes(raw.themes);
+
   const classroomId =
     raw.classroomId != null && typeof raw.classroomId === "string" && raw.classroomId.trim()
       ? raw.classroomId.trim()
@@ -88,6 +104,9 @@ export async function approveFileMaterialRequest(db: Firestore, requestId: strin
     type: materialType,
     status: "approved" as ContentStatus,
     purchaseLink: null as string | null,
+    themes,
+    clickCount: 0,
+    ...(thumbnailPath ? { thumbnailPath } : {}),
     createdAt: serverTimestamp(),
     ...(classroomId ? { classroomId } : {}),
   };
@@ -156,6 +175,7 @@ export async function approveVideoMaterialRequest(db: Firestore, requestId: stri
   }
   const authorId = (raw.submitterId ?? "").trim();
   if (!authorId) throw new Error("제출자 ID가 없습니다.");
+  const videoSeed = performance.now();
 
   const materialType = raw.materialType;
   const title = raw.title?.trim() || "제목 없음";
@@ -168,6 +188,14 @@ export async function approveVideoMaterialRequest(db: Firestore, requestId: stri
   const urls = collectVideoUrlsFromRequest(raw);
   if (urls.length === 0) throw new Error("동영상 URL이 없습니다.");
   const lectureLinkValue = urls.join("\n\n");
+
+  const thumbPending = (raw.thumbnailPendingPath ?? "").trim();
+  const thumbnailPaths = thumbPending
+    ? await copyPendingPathsToAuthorContents([thumbPending], authorId, videoSeed + 2, "thumb")
+    : [];
+  const thumbnailPath = thumbnailPaths[0] ?? null;
+
+  const themes = sanitizeThemes(raw.themes);
 
   const classroomId =
     raw.classroomId != null && typeof raw.classroomId === "string" && raw.classroomId.trim()
@@ -188,6 +216,9 @@ export async function approveVideoMaterialRequest(db: Firestore, requestId: stri
     type: materialType,
     status: "approved" as ContentStatus,
     purchaseLink: null as string | null,
+    themes,
+    clickCount: 0,
+    ...(thumbnailPath ? { thumbnailPath } : {}),
     createdAt: serverTimestamp(),
     ...(classroomId ? { classroomId } : {}),
   };

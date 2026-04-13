@@ -5,6 +5,7 @@ import {
   collection,
   doc,
   getDoc,
+  increment,
   onSnapshot,
   orderBy,
   query,
@@ -17,6 +18,7 @@ import { db } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
 import { recordStudentDownload } from "@/lib/studentDownloads";
 import { PublicShell } from "@/components/PublicShell";
+import { introductionPreview20 } from "@/lib/contentPreview";
 import type { ContentDocument } from "@/types/content";
 import "@/pages/pages.css";
 
@@ -57,6 +59,18 @@ export function ContentDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !content) return;
+    if ((content.status ?? "pending") !== "approved") return;
+    if (!firebaseUser || profile?.accountStatus !== "active") return;
+    const key = `content_view_${id}`;
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) return;
+    if (typeof sessionStorage !== "undefined") sessionStorage.setItem(key, "1");
+    void updateDoc(doc(db, "contents", id), { clickCount: increment(1) }).catch(() => {
+      if (typeof sessionStorage !== "undefined") sessionStorage.removeItem(key);
+    });
+  }, [id, content, firebaseUser, profile?.accountStatus]);
 
   useEffect(() => {
     if (!id) return;
@@ -105,6 +119,19 @@ export function ContentDetailPage() {
 
   const isUploader =
     !!profile && content && profile.accountStatus === "active" && profile.uid === content.authorId;
+
+  const showFullIntroduction =
+    !content ||
+    (content.type ?? "share") !== "paid" ||
+    isUploader ||
+    profile?.role === "super_admin";
+
+  const introductionDisplay = useMemo(() => {
+    if (!content) return "";
+    const raw = content.introduction ?? "";
+    if (showFullIntroduction) return raw;
+    return introductionPreview20(raw);
+  }, [content, showFullIntroduction]);
 
   async function submitQuestion(e: React.FormEvent) {
     e.preventDefault();
@@ -189,7 +216,14 @@ export function ContentDetailPage() {
           <h1>{displayTitle}</h1>
           <span className="ui-ko">{content.learningTopic}</span>
         </div>
-        <p className="content-detail__intro">{content.introduction}</p>
+        <div className="content-detail__intro-wrap">
+          <p className="content-detail__intro">{introductionDisplay}</p>
+          {!showFullIntroduction && (content.introduction ?? "").trim().length > introductionDisplay.length ? (
+            <p className="content-detail__intro-note" style={{ fontSize: "0.88rem", color: "var(--text-muted)" }}>
+              유료 자료는 소개의 약 20%만 미리 보여 드립니다. 구매 링크로 전체 내용을 확인해 주세요.
+            </p>
+          ) : null}
+        </div>
         {lectureUrls.length > 0 && (
           <section className="content-detail__lecture-links" aria-label="강의 영상 링크">
             <h2 className="content-detail__lecture-links-title">강의 영상 링크</h2>

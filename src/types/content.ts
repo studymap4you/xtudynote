@@ -1,3 +1,5 @@
+import type { LearningThemeId } from "@/types/learningTheme";
+
 export type ContentType = "share" | "paid" | "homework";
 export type ContentStatus = "pending" | "approved" | "rejected";
 
@@ -14,6 +16,12 @@ export interface ContentDocument {
   referenceMaterialFilePaths: string[];
   type?: ContentType;
   status?: ContentStatus;
+  /** 테마별 분류 (복수 선택) */
+  themes?: LearningThemeId[];
+  /** 유료 콘텐츠 썸네일 Storage 전체 경로 */
+  thumbnailPath?: string | null;
+  /** 상세·카드 조회 시 증가 */
+  clickCount?: number;
   purchaseLink: string | null;
   /** Set when type is homework — unique code shown to students */
   homeworkCode: string | null;

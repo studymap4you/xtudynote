@@ -1,76 +1,44 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  collection,
+  doc,
+  getDoc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from "firebase/firestore";
+import { getDownloadURL, ref } from "firebase/storage";
+import { db, storage } from "@/firebase/config";
+import { extractListedPriceKrw } from "@/lib/listedPrice";
+import { introductionPreview20 } from "@/lib/contentPreview";
+import { SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC } from "@/lib/siteConfig";
+import type { ContentDocument } from "@/types/content";
+import { LEARNING_THEME_OPTIONS, type LearningThemeId } from "@/types/learningTheme";
 
-/** 데모용 정적 데이터 — 추후 Firestore·결제 연동 시 교체 */
-const PREMIUM_ROWS = [
-  {
-    id: "1",
-    title: "2026 수능 국어 · 메타 독해 고난도 분석서 (전범위)",
-    seller: "검증 강사 · 서울 00학원",
-    price: "₩34,000",
-    tag: "베스트",
-  },
-  {
-    id: "2",
-    title: "토익 LC/RC 900+ 실전 모의고사 패키지 + 해설 영상",
-    seller: "Global Prep Lab",
-    price: "₩28,000",
-    tag: "샘플 제공",
-  },
-  {
-    id: "3",
-    title: "전기기사 필기·실기 합격 노트 (개정 반영)",
-    seller: "Pro License 아카데미",
-    price: "₩19,000",
-    tag: "전문가",
-  },
-  {
-    id: "4",
-    title: "경영학과 논문 리뷰 템플릿 & 참고문헌 DB",
-    seller: "Academic Desk",
-    price: "₩15,000",
-    tag: "신규",
-  },
-] as const;
+const THEME_ROUTE: Record<LearningThemeId, string> = {
+  k_entrance: "/library?theme=k_entrance",
+  global_prep: "/library?theme=global_prep",
+  professional: "/library?theme=professional",
+  academic: "/library?theme=academic",
+};
 
-const RANKING = [
-  { rank: 1, title: "고난도 수능 국어 비문학 분석서 (실시간 1위)", heat: "+124%" },
-  { rank: 2, title: "토스·오픽 스피킹 스크립트 120선", heat: "+98%" },
-  { rank: 3, title: "정보처리기사 기출·요약 노트 풀세트", heat: "+76%" },
-  { rank: 4, title: "텝스 400+ 독해 패턴 북", heat: "+61%" },
-  { rank: 5, title: "대학원 입학 논문 프로포절 가이드", heat: "+54%" },
-] as const;
-
-const CATEGORIES = [
-  {
-    id: "k-entrance",
-    title: "K-Entrance",
-    ko: "수능 · 내신 핵심 자료",
-    to: "/library",
-    icon: "k" as const,
-  },
-  {
-    id: "global-prep",
-    title: "Global Prep",
-    ko: "토익 · 토플 · 텝스 등 어학",
-    to: "/library",
-    icon: "g" as const,
-  },
-  {
-    id: "professional",
-    title: "Professional",
-    ko: "국가 자격증 · 취업",
-    to: "/library",
-    icon: "p" as const,
-  },
-  {
-    id: "academic",
-    title: "Academic",
-    ko: "대학 전공 · 논문 참고",
-    to: "/library",
-    icon: "a" as const,
-  },
-] as const;
+const CATEGORIES = LEARNING_THEME_OPTIONS.map((opt) => ({
+  id: opt.id,
+  title: opt.titleEn,
+  ko: opt.titleKo,
+  to: THEME_ROUTE[opt.id],
+  icon:
+    opt.id === "k_entrance"
+      ? ("k" as const)
+      : opt.id === "global_prep"
+        ? ("g" as const)
+        : opt.id === "professional"
+          ? ("p" as const)
+          : ("a" as const),
+}));
 
 function IconCategory({ name }: { name: "k" | "g" | "p" | "a" }) {
   const common = { width: 40, height: 40, viewBox: "0 0 24 24" as const, fill: "none" as const };
@@ -172,6 +140,76 @@ export function MarketplaceSearchStrip() {
 }
 
 export function PremiumVaultSection() {
+  const [ids, setIds] = useState<string[]>([]);
+  const [rows, setRows] = useState<Array<{ id: string; data: ContentDocument }>>([]);
+  const [thumbById, setThumbById] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC), (snap) => {
+      const raw = snap.data()?.premiumPaidContentIds;
+      setIds(Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []);
+    });
+    return unsub;
+  }, []);
+
+  const idKey = ids.join("|");
+  useEffect(() => {
+    if (ids.length === 0) {
+      setRows([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const snaps = await Promise.all(ids.map((contentId) => getDoc(doc(db, "contents", contentId))));
+      if (cancelled) return;
+      const list: Array<{ id: string; data: ContentDocument }> = [];
+      ids.forEach((contentId, i) => {
+        const s = snaps[i];
+        if (!s.exists()) return;
+        const data = s.data() as ContentDocument;
+        if ((data.status ?? "approved") !== "approved" || (data.type ?? "share") !== "paid") return;
+        list.push({ id: contentId, data });
+      });
+      setRows(list);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [idKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const r of rows) {
+        const p = r.data.thumbnailPath?.trim();
+        if (!p) continue;
+        try {
+          next[r.id] = await getDownloadURL(ref(storage, p));
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!cancelled) setThumbById(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [rows]);
+
+  const rowsWithPreview = useMemo(
+    () =>
+      rows.map((r, idx) => {
+        const intro = r.data.introduction ?? "";
+        const preview = introductionPreview20(intro);
+        const price = extractListedPriceKrw(intro) ?? "가격 안내";
+        const seller = `${r.data.audience ?? "—"} · ${r.data.section || "일반"}`;
+        const tag = idx === 0 ? "베스트" : r.data.thumbnailPath ? "샘플 제공" : "유료";
+        return { ...r, preview, price, seller, tag };
+      }),
+    [rows]
+  );
+
   return (
     <section id="marketplace-premium" className="mp-vault">
       <div className="mp-section-head">
@@ -181,29 +219,45 @@ export function PremiumVaultSection() {
           에듀넷과 차별화되는 큐레이션 — 샘플 미리보기로 구매 전환을 돕습니다.
         </p>
       </div>
-      <ul className="mp-vault__list">
-        {PREMIUM_ROWS.map((row) => (
-          <li key={row.id} className="mp-vault__row">
-            <div className="mp-vault__thumb" aria-hidden />
-            <div className="mp-vault__body">
-              <div className="mp-vault__meta">
-                <span className="mp-vault__tag">{row.tag}</span>
-                <span className="mp-vault__seller">{row.seller}</span>
+      {rowsWithPreview.length === 0 ? (
+        <p className="mp-section-lead" style={{ textAlign: "center" }}>
+          마스터가 선별한 유료 자료가 곧 표시됩니다.
+        </p>
+      ) : (
+        <ul className="mp-vault__list">
+          {rowsWithPreview.map((row) => (
+            <li key={row.id} className="mp-vault__row">
+              {thumbById[row.id] ? (
+                <div className="mp-vault__thumb mp-vault__thumb--img">
+                  <img src={thumbById[row.id]} alt="" width={96} height={96} loading="lazy" />
+                </div>
+              ) : (
+                <div className="mp-vault__thumb" aria-hidden />
+              )}
+              <div className="mp-vault__body">
+                <div className="mp-vault__meta">
+                  <span className="mp-vault__tag">{row.tag}</span>
+                  <span className="mp-vault__seller">{row.seller}</span>
+                </div>
+                <h3 className="mp-vault__title">{row.data.subject}</h3>
+                <p className="mp-vault__excerpt" style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>
+                  {row.preview}
+                  {row.preview.length < (row.data.introduction ?? "").trim().length ? "…" : ""}
+                </p>
+                <div className="mp-vault__foot">
+                  <span className="mp-vault__price">{row.price}</span>
+                  <Link to={`/content/${row.id}`} className="mp-vault__sample">
+                    샘플 미리보기
+                  </Link>
+                  <Link to={`/content/${row.id}`} className="mp-vault__buy">
+                    상세 보기
+                  </Link>
+                </div>
               </div>
-              <h3 className="mp-vault__title">{row.title}</h3>
-              <div className="mp-vault__foot">
-                <span className="mp-vault__price">{row.price}</span>
-                <Link to="/library" className="mp-vault__sample">
-                  샘플 미리보기
-                </Link>
-                <Link to="/library" className="mp-vault__buy">
-                  상세 보기
-                </Link>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -231,6 +285,44 @@ export function CategoryGridSection() {
 }
 
 export function LiveRankingSection() {
+  const [ranked, setRanked] = useState<Array<{ id: string; title: string; clicks: number; heat: string }>>([]);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, "contents"),
+      where("status", "==", "approved"),
+      where("type", "in", ["share", "paid", "homework"]),
+      orderBy("createdAt", "desc"),
+      limit(200)
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list: Array<{ id: string; title: string; clicks: number }> = [];
+        snap.forEach((d) => {
+          const x = d.data() as ContentDocument;
+          const clicks = typeof x.clickCount === "number" ? x.clickCount : 0;
+          list.push({
+            id: d.id,
+            title: (x.subject ?? x.learningTopic ?? "").trim() || "제목 없음",
+            clicks,
+          });
+        });
+        list.sort((a, b) => b.clicks - a.clicks);
+        const top = list.slice(0, 8);
+        const maxC = Math.max(1, ...top.map((x) => x.clicks));
+        setRanked(
+          top.map((r) => ({
+            ...r,
+            heat: `+${Math.max(1, Math.round((r.clicks / maxC) * 100))}%`,
+          }))
+        );
+      },
+      () => setRanked([])
+    );
+    return () => unsub();
+  }, []);
+
   return (
     <section id="marketplace-ranking" className="mp-rank">
       <div className="mp-section-head">
@@ -238,15 +330,23 @@ export function LiveRankingSection() {
         <h2 className="mp-section-title">실시간 인기 자료</h2>
         <p className="mp-section-lead">지금 가장 많이 찾는 고품질 콘텐츠입니다.</p>
       </div>
-      <ol className="mp-rank__list">
-        {RANKING.map((r) => (
-          <li key={r.rank} className="mp-rank__row">
-            <span className="mp-rank__num">{r.rank}</span>
-            <span className="mp-rank__title">{r.title}</span>
-            <span className="mp-rank__heat">{r.heat}</span>
-          </li>
-        ))}
-      </ol>
+      {ranked.length === 0 ? (
+        <p className="mp-section-lead" style={{ textAlign: "center" }}>
+          인기 자료를 불러오는 중이거나 아직 조회 데이터가 없습니다.
+        </p>
+      ) : (
+        <ol className="mp-rank__list">
+          {ranked.map((r, i) => (
+            <li key={r.id} className="mp-rank__row">
+              <span className="mp-rank__num">{i + 1}</span>
+              <Link to={`/content/${r.id}`} className="mp-rank__title mp-rank__title--link">
+                {r.title}
+              </Link>
+              <span className="mp-rank__heat">{r.heat}</span>
+            </li>
+          ))}
+        </ol>
+      )}
       <Link to="/library" className="mp-rank__more">
         라이브러리에서 전체 보기
       </Link>

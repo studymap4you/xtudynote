@@ -1,4 +1,5 @@
 import type { ContentType } from "@/types/content";
+import type { LearningThemeId } from "@/types/learningTheme";
 import type { UserRole } from "@/types/user";
 
 export type VideoMaterialRequestStatus = "pending" | "approved" | "rejected";
@@ -20,6 +21,8 @@ export interface VideoMaterialRequestDocument {
   desiredPrice: number | null;
   /** 과제 유형일 때만 */
   homeworkInstruction: string | null;
+  themes?: LearningThemeId[];
+  thumbnailPendingPath?: string | null;
   status: VideoMaterialRequestStatus;
   /** 강의실 연동 시 */
   classroomId?: string | null;

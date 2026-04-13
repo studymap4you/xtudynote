@@ -1,4 +1,5 @@
 import type { ContentType } from "@/types/content";
+import type { LearningThemeId } from "@/types/learningTheme";
 import type { UserRole } from "@/types/user";
 
 export type MaterialRequestStatus = "pending" | "approved" | "rejected";
@@ -21,6 +22,10 @@ export interface MaterialRequestDocument {
   homeworkInstruction: string | null;
   learningMaterialFilePaths: string[];
   referenceMaterialFilePaths: string[];
+  /** 테마 분류 */
+  themes?: LearningThemeId[];
+  /** 유료 썸네일 — 승인 시 contents로 복사 */
+  thumbnailPendingPath?: string | null;
   status: MaterialRequestStatus;
   /** 강의실 연동 시 */
   classroomId?: string | null;

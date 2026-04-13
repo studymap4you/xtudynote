@@ -8,6 +8,7 @@ import {
   where,
   Timestamp,
 } from "firebase/firestore";
+import { LEARNING_THEME_OPTIONS, type LearningThemeId } from "@/types/learningTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
@@ -97,6 +98,15 @@ export function LibraryPage() {
   const { firebaseUser, profile } = useAuth();
   const [searchParams] = useSearchParams();
   const librarySearch = (searchParams.get("q") ?? "").trim().toLowerCase();
+  const themeParam = searchParams.get("theme");
+  const themeFilter = useMemo((): LearningThemeId | null => {
+    if (!themeParam) return null;
+    return LEARNING_THEME_OPTIONS.some((o) => o.id === themeParam) ? (themeParam as LearningThemeId) : null;
+  }, [themeParam]);
+  const themeLabel = useMemo(() => {
+    if (!themeFilter) return null;
+    return LEARNING_THEME_OPTIONS.find((o) => o.id === themeFilter);
+  }, [themeFilter]);
   const [rows, setRows] = useState<LibraryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,12 +117,19 @@ export function LibraryPage() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    const q = query(
-      collection(db, "contents"),
-      where("status", "==", "approved"),
-      where("type", "in", ["share", "paid", "homework"]),
-      orderBy("createdAt", "desc")
-    );
+    const q = themeFilter
+      ? query(
+          collection(db, "contents"),
+          where("status", "==", "approved"),
+          where("themes", "array-contains", themeFilter),
+          orderBy("createdAt", "desc")
+        )
+      : query(
+          collection(db, "contents"),
+          where("status", "==", "approved"),
+          where("type", "in", ["share", "paid", "homework"]),
+          orderBy("createdAt", "desc")
+        );
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -122,6 +139,7 @@ export function LibraryPage() {
           const lm = (x.learningMaterialFilePaths as string[]) ?? [];
           const rf = (x.referenceMaterialFilePaths as string[]) ?? [];
           const t = (x.type as ContentType) ?? "share";
+          if (themeFilter && !["share", "paid", "homework"].includes(t)) return;
           list.push({
             id: d.id,
             subject: String(x.subject ?? ""),
@@ -143,7 +161,7 @@ export function LibraryPage() {
       }
     );
     return () => unsub();
-  }, []);
+  }, [themeFilter]);
 
   const toggle = useCallback((id: string) => {
     setSelected((s) => ({ ...s, [id]: !s[id] }));
@@ -214,6 +232,13 @@ export function LibraryPage() {
           <h1>Library</h1>
           <span className="ui-ko">승인된 자료 · 공유 / 유료 / 과제</span>
         </div>
+
+        {themeLabel && (
+          <p className="library-query-hint" role="status">
+            테마: <strong>{themeLabel.titleEn}</strong> ({themeLabel.titleKo}) —{" "}
+            <Link to="/library">전체 목록</Link>
+          </p>
+        )}
 
         {librarySearch && (
           <p className="library-query-hint" role="status">
