@@ -3,6 +3,8 @@ import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   collection,
+  doc,
+  getDoc,
   onSnapshot,
   query,
   Timestamp,
@@ -182,6 +184,10 @@ export function PendingMaterialReviewsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [banner, setBanner] = useState<BannerState | null>(null);
+  /** 로그인 이메일 — 키가 있으면 조회 완료(값은 빈 문자열 가능) */
+  const [submitterEmailByUid, setSubmitterEmailByUid] = useState<Record<string, string>>({});
+  /** 강의실 개설명 — 키가 있으면 조회 완료 */
+  const [classroomTitleById, setClassroomTitleById] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -272,6 +278,49 @@ export function PendingMaterialReviewsPage() {
       unsubVideo();
     };
   }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (!isSuperAdmin || rows.length === 0) return;
+    let cancelled = false;
+
+    const uids = [...new Set(rows.map((r) => r.submitterId).filter(Boolean))];
+    const roomIds = [...new Set(rows.map((r) => r.classroomId).filter((x): x is string => !!x))];
+
+    (async () => {
+      const emails: Record<string, string> = {};
+      const titles: Record<string, string> = {};
+
+      await Promise.all([
+        ...uids.map(async (uid) => {
+          try {
+            const snap = await getDoc(doc(db, "users", uid));
+            const em = snap.exists() ? String((snap.data() as { email?: string }).email ?? "").trim() : "";
+            emails[uid] = em;
+          } catch {
+            emails[uid] = "";
+          }
+        }),
+        ...roomIds.map(async (cid) => {
+          try {
+            const snap = await getDoc(doc(db, "classrooms", cid));
+            const t = snap.exists() ? String((snap.data() as { title?: string }).title ?? "").trim() : "";
+            titles[cid] = t;
+          } catch {
+            titles[cid] = "";
+          }
+        }),
+      ]);
+
+      if (!cancelled) {
+        setSubmitterEmailByUid((prev) => ({ ...prev, ...emails }));
+        setClassroomTitleById((prev) => ({ ...prev, ...titles }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuperAdmin, rows]);
 
   const pendingCount = useMemo(() => rows.length, [rows]);
 
@@ -406,8 +455,18 @@ export function PendingMaterialReviewsPage() {
                   <th>유형</th>
                   <th>제목 / 링크</th>
                   <th>과목·학년</th>
-                  <th>제출자 UID</th>
-                  <th>강의실</th>
+                  <th>
+                    <span className="ui-ko">제출자 ID (로그인 ID)</span>
+                    <span className="ui-en" style={{ display: "block", fontSize: "0.68rem", fontWeight: 500 }}>
+                      Submitter login
+                    </span>
+                  </th>
+                  <th>
+                    <span className="ui-ko">강의실 (개설명)</span>
+                    <span className="ui-en" style={{ display: "block", fontSize: "0.68rem", fontWeight: 500 }}>
+                      Classroom title
+                    </span>
+                  </th>
                   <th>접수일</th>
                   <th>액션</th>
                 </tr>
@@ -485,8 +544,60 @@ export function PendingMaterialReviewsPage() {
                             {r.audienceGrade}
                           </span>
                         </td>
-                        <td style={{ fontSize: "0.78rem", wordBreak: "break-all" }}>{r.submitterId}</td>
-                        <td>{r.classroomId ? <code>{r.classroomId}</code> : "—"}</td>
+                        <td style={{ fontSize: "0.82rem", wordBreak: "break-all" }}>
+                          {r.submitterId in submitterEmailByUid ? (
+                            <>
+                              <span>
+                                {submitterEmailByUid[r.submitterId]
+                                  ? submitterEmailByUid[r.submitterId]
+                                  : r.submitterId}
+                              </span>
+                              {submitterEmailByUid[r.submitterId] ? (
+                                <span
+                                  style={{
+                                    display: "block",
+                                    fontSize: "0.72rem",
+                                    color: "var(--text-muted)",
+                                    marginTop: "0.2rem",
+                                  }}
+                                  title="Firebase UID"
+                                >
+                                  {r.submitterId}
+                                </span>
+                              ) : null}
+                            </>
+                          ) : (
+                            <span style={{ color: "var(--text-muted)" }}>{r.submitterId}</span>
+                          )}
+                        </td>
+                        <td>
+                          {!r.classroomId ? (
+                            "—"
+                          ) : r.classroomId in classroomTitleById ? (
+                            <>
+                              <span>
+                                {classroomTitleById[r.classroomId]
+                                  ? classroomTitleById[r.classroomId]
+                                  : r.classroomId}
+                              </span>
+                              {classroomTitleById[r.classroomId] ? (
+                                <code
+                                  style={{
+                                    display: "block",
+                                    fontSize: "0.72rem",
+                                    color: "var(--text-muted)",
+                                    marginTop: "0.2rem",
+                                    wordBreak: "break-all",
+                                  }}
+                                >
+                                  {r.classroomId}
+                                </code>
+                              ) : null}
+                            </>
+                          ) : (
+                            <span style={{ color: "var(--text-muted)" }}>{r.classroomId}</span>
+                          )}
+                        </td>
                         <td>{r.createdAtLabel}</td>
                         <td>
                           <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
