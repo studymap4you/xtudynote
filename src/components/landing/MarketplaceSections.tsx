@@ -13,8 +13,10 @@ import {
 import { getDownloadURL, ref } from "firebase/storage";
 import { db, storage } from "@/firebase/config";
 import { extractListedPriceKrw } from "@/lib/listedPrice";
-import { introductionPreview20 } from "@/lib/contentPreview";
+import { stripListedPriceLine } from "@/lib/introductionDisplay";
 import { SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC } from "@/lib/siteConfig";
+import { CollapsibleDescription } from "@/components/landing/CollapsibleDescription";
+import { FileSamplePreview } from "@/components/landing/FileSamplePreview";
 import type { ContentDocument } from "@/types/content";
 import { LEARNING_THEME_OPTIONS, type LearningThemeId } from "@/types/learningTheme";
 
@@ -143,6 +145,7 @@ export function PremiumVaultSection() {
   const [ids, setIds] = useState<string[]>([]);
   const [rows, setRows] = useState<Array<{ id: string; data: ContentDocument }>>([]);
   const [thumbById, setThumbById] = useState<Record<string, string>>({});
+  const [openSampleId, setOpenSampleId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC), (snap) => {
@@ -197,15 +200,15 @@ export function PremiumVaultSection() {
     };
   }, [rows]);
 
-  const rowsWithPreview = useMemo(
+  const rowsWithMeta = useMemo(
     () =>
       rows.map((r, idx) => {
         const intro = r.data.introduction ?? "";
-        const preview = introductionPreview20(intro);
+        const introForCard = stripListedPriceLine(intro);
         const price = extractListedPriceKrw(intro) ?? "가격 안내";
         const seller = `${r.data.audience ?? "—"} · ${r.data.section || "일반"}`;
         const tag = idx === 0 ? "베스트" : r.data.thumbnailPath ? "샘플 제공" : "유료";
-        return { ...r, preview, price, seller, tag };
+        return { ...r, introForCard, price, seller, tag };
       }),
     [rows]
   );
@@ -219,41 +222,56 @@ export function PremiumVaultSection() {
           에듀넷과 차별화되는 큐레이션 — 샘플 미리보기로 구매 전환을 돕습니다.
         </p>
       </div>
-      {rowsWithPreview.length === 0 ? (
+      {rowsWithMeta.length === 0 ? (
         <p className="mp-section-lead" style={{ textAlign: "center" }}>
           마스터가 선별한 유료 자료가 곧 표시됩니다.
         </p>
       ) : (
         <ul className="mp-vault__list">
-          {rowsWithPreview.map((row) => (
-            <li key={row.id} className="mp-vault__row">
-              {thumbById[row.id] ? (
-                <div className="mp-vault__thumb mp-vault__thumb--img">
-                  <img src={thumbById[row.id]} alt="" width={96} height={96} loading="lazy" />
-                </div>
-              ) : (
-                <div className="mp-vault__thumb" aria-hidden />
-              )}
-              <div className="mp-vault__body">
-                <div className="mp-vault__meta">
-                  <span className="mp-vault__tag">{row.tag}</span>
-                  <span className="mp-vault__seller">{row.seller}</span>
-                </div>
-                <h3 className="mp-vault__title">{row.data.subject}</h3>
-                <p className="mp-vault__excerpt" style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>
-                  {row.preview}
-                  {row.preview.length < (row.data.introduction ?? "").trim().length ? "…" : ""}
-                </p>
-                <div className="mp-vault__foot">
-                  <span className="mp-vault__price">{row.price}</span>
-                  <Link to={`/content/${row.id}`} className="mp-vault__sample">
-                    샘플 미리보기
-                  </Link>
-                  <Link to={`/content/${row.id}`} className="mp-vault__buy">
-                    상세 보기
-                  </Link>
+          {rowsWithMeta.map((row) => (
+            <li key={row.id} className="mp-vault__item">
+              <div className="mp-vault__row">
+                {thumbById[row.id] ? (
+                  <div className="mp-vault__thumb mp-vault__thumb--img">
+                    <img src={thumbById[row.id]} alt="" width={96} height={96} loading="lazy" />
+                  </div>
+                ) : (
+                  <div className="mp-vault__thumb" aria-hidden />
+                )}
+                <div className="mp-vault__body">
+                  <div className="mp-vault__meta">
+                    <span className="mp-vault__tag">{row.tag}</span>
+                    <span className="mp-vault__seller">{row.seller}</span>
+                  </div>
+                  <h3 className="mp-vault__title">{row.data.subject}</h3>
+                  <CollapsibleDescription
+                    text={row.introForCard}
+                    collapsedMaxChars={200}
+                    className="mp-vault__desc"
+                  />
+                  <div className="mp-vault__foot">
+                    <span className="mp-vault__price">{row.price}</span>
+                    <button
+                      type="button"
+                      className="mp-vault__sample mp-vault__sample--btn"
+                      aria-expanded={openSampleId === row.id}
+                      onClick={() =>
+                        setOpenSampleId((cur) => (cur === row.id ? null : row.id))
+                      }
+                    >
+                      샘플 미리보기
+                    </button>
+                    <Link to={`/content/${row.id}`} className="mp-vault__buy">
+                      상세 보기
+                    </Link>
+                  </div>
                 </div>
               </div>
+              {openSampleId === row.id && (
+                <div className="mp-vault__sample-panel" role="region" aria-label="원본 미리보기">
+                  <FileSamplePreview storagePaths={row.data.learningMaterialFilePaths ?? []} />
+                </div>
+              )}
             </li>
           ))}
         </ul>
