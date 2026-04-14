@@ -214,10 +214,10 @@ export function LandingHeroAdminPage() {
           <span className="ui-ko">홈 히어로 메인 비주얼</span>
         </div>
         <p style={{ color: "var(--text-muted)", maxWidth: "42rem" }}>
-          홈 화면 <strong>왼쪽 열 상단</strong>에만 표시되는 이미지입니다. 브랜드·슬로건·
-          <strong>공유·링크 복사</strong>·강의실 안내·오른쪽 로그인/검색/바로가기는 그대로입니다. 아래에서 최대
-          너비·높이(px)를 조절할 수 있습니다. 빈 칸으로 두고 저장하면 해당 축 제한을 제거합니다(랜딩에서는 CSS
-          기본 한도 적용). PNG·JPG·WebP 등, 5MB 이하.
+          홈 왼쪽에서 <strong>브랜드·슬로건·부제 문구가 있던 영역 전체</strong>를 이 이미지가 덮고, 그{" "}
+          <strong>바로 아래</strong>부터 공유·링크 복사가 이어집니다. 오른쪽(로그인·검색·바로가기)과 그 아래
+          강의실 블록은 동일합니다. 필요 시 최대 너비·높이(px)로 블록 크기를 제한할 수 있습니다. PNG·JPG·WebP
+          등, 5MB 이하.
         </p>
 
         <section className="panel panel--light" style={{ marginTop: "1.5rem", maxWidth: "36rem" }}>

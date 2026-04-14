@@ -682,39 +682,53 @@ export function Intro() {
     else navigate("/homework");
   }
 
-  const spotStyle: CSSProperties = {};
-  if (heroMaxW != null) spotStyle.maxWidth = `${heroMaxW}px`;
-  if (heroMaxH != null) spotStyle.maxHeight = `${heroMaxH}px`;
+  const hasSpotHero = Boolean(landingHeroUrl);
+
+  const spotHeroBoxStyle: CSSProperties = { width: "100%" };
+  if (heroMaxW != null) spotHeroBoxStyle.maxWidth = `${heroMaxW}px`;
+  if (heroMaxH != null) spotHeroBoxStyle.maxHeight = `${heroMaxH}px`;
 
   return (
     <section className="intro-hero" aria-labelledby="intro-slogan">
       <div className="intro-hero__grid">
-        <div className="intro-hero__copy intro-hero__copy--fade">
-          {landingHeroUrl ? (
-            <div className="intro-hero__spot-wrap intro-hero__spot-wrap--fade">
-              <img
-                className="intro-hero__spot-img"
-                src={landingHeroUrl}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                style={Object.keys(spotStyle).length ? spotStyle : undefined}
-              />
-            </div>
-          ) : null}
-          <p className="intro-hero__brand">
-            <BrandLockup />
-          </p>
-          <h1 id="intro-slogan" className="intro-hero__slogan">
-            <span className="intro-hero__slogan-line">모두에 의한</span>
-            <span className="intro-hero__slogan-line">모두를 위한</span>
-            <span className="intro-hero__slogan-line intro-hero__slogan-line--final">
-              <span className="intro-hero__slogan-accent">모두의 학습</span>
-            </span>
-          </h1>
-          <p className="intro-hero__lede">
-            모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
-          </p>
+        <div
+          className={`intro-hero__copy intro-hero__copy--fade${hasSpotHero ? " intro-hero__copy--spot-hero" : ""}`}
+        >
+          {hasSpotHero && landingHeroUrl ? (
+            <>
+              <h1 id="intro-slogan" className="intro-hero__sr-only">
+                XtudyNote — 모두에 의한 모두를 위한 모두의 학습. 모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
+              </h1>
+              <div
+                className={`intro-hero__spot-hero intro-hero__spot-hero--fade${heroMaxW != null ? " intro-hero__spot-hero--capped-w" : ""}`}
+                style={Object.keys(spotHeroBoxStyle).length ? spotHeroBoxStyle : undefined}
+              >
+                <img
+                  className="intro-hero__spot-hero-img"
+                  src={landingHeroUrl}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="intro-hero__brand">
+                <BrandLockup />
+              </p>
+              <h1 id="intro-slogan" className="intro-hero__slogan">
+                <span className="intro-hero__slogan-line">모두에 의한</span>
+                <span className="intro-hero__slogan-line">모두를 위한</span>
+                <span className="intro-hero__slogan-line intro-hero__slogan-line--final">
+                  <span className="intro-hero__slogan-accent">모두의 학습</span>
+                </span>
+              </h1>
+              <p className="intro-hero__lede">
+                모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
+              </p>
+            </>
+          )}
           <IntroHeroShare />
           <div className="intro-hero__classroom">
             <p className="intro-hero__share-label">강의실</p>
