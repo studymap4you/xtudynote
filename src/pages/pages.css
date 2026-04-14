@@ -2104,6 +2104,12 @@
   border-radius: var(--radius-lg);
   background: var(--bg-panel);
 }
+
+/* Library list: wrap still used dark --bg-panel while cells use --light-text → unreadable */
+.library-page .admin-table-wrap {
+  background: var(--light-surface);
+  border-color: var(--light-border);
+}
 .admin-table {
   width: 100%;
   border-collapse: collapse;
