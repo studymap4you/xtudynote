@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
 import { Link, useNavigate } from "react-router-dom";
@@ -493,15 +502,14 @@ function ShortcutOrbIcon({ tone }: { tone: (typeof SHORTCUTS)[number]["tone"] })
   }
 }
 
-function IntroLandingPanel({
-  search,
-  setSearch,
-  onSearch,
-}: {
+type IntroLandingPanelProps = {
   search: string;
   setSearch: (v: string) => void;
   onSearch: (e: React.FormEvent) => void;
-}) {
+};
+
+const IntroLandingPanel = forwardRef<HTMLDivElement, IntroLandingPanelProps>(
+  function IntroLandingPanel({ search, setSearch, onSearch }, ref) {
   const { firebaseUser, logOut } = useAuth();
 
   const stack = (
@@ -614,11 +622,12 @@ function IntroLandingPanel({
   );
 
   return (
-    <div className="intro-hero__right">
+    <div ref={ref} className="intro-hero__right">
       <div className="intro-hero__panel intro-hero__panel--fade">{stack}</div>
     </div>
   );
-}
+  }
+);
 
 /**
  * 랜딩 히어로 — 비대칭 레이아웃(좌 카피 / 우 기능), XtudyNote 2.0 라이트 마켓 톤
@@ -630,6 +639,19 @@ function clampLandingHeroPx(n: unknown): number | null {
   return v;
 }
 
+function useMediaMinWidth901(): boolean {
+  const [ok, setOk] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(min-width: 901px)").matches : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 901px)");
+    const go = () => setOk(mq.matches);
+    mq.addEventListener("change", go);
+    return () => mq.removeEventListener("change", go);
+  }, []);
+  return ok;
+}
+
 export function Intro() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -637,6 +659,9 @@ export function Intro() {
   const [landingHeroUrl, setLandingHeroUrl] = useState<string | null>(null);
   const [heroMaxW, setHeroMaxW] = useState<number | null>(null);
   const [heroMaxH, setHeroMaxH] = useState<number | null>(null);
+  const rightColRef = useRef<HTMLDivElement>(null);
+  const [rightColumnPx, setRightColumnPx] = useState<number | null>(null);
+  const isDesktopTwoCol = useMediaMinWidth901();
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -675,6 +700,29 @@ export function Intro() {
     };
   }, [landingHeroPath]);
 
+  const hasSpotHero = Boolean(landingHeroUrl);
+
+  useLayoutEffect(() => {
+    if (!hasSpotHero || !isDesktopTwoCol) {
+      setRightColumnPx(null);
+      return;
+    }
+    const el = rightColRef.current;
+    if (!el) return;
+    const read = () => {
+      const h = el.getBoundingClientRect().height;
+      setRightColumnPx(h > 0 ? Math.round(h * 10) / 10 : null);
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    window.addEventListener("resize", read);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", read);
+    };
+  }, [hasSpotHero, isDesktopTwoCol, search, landingHeroUrl]);
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const n = normalizeHomeworkCode(search);
@@ -682,17 +730,27 @@ export function Intro() {
     else navigate("/homework");
   }
 
-  const hasSpotHero = Boolean(landingHeroUrl);
-
   const spotHeroBoxStyle: CSSProperties = { width: "100%" };
   if (heroMaxW != null) spotHeroBoxStyle.maxWidth = `${heroMaxW}px`;
   if (heroMaxH != null) spotHeroBoxStyle.maxHeight = `${heroMaxH}px`;
+
+  const copyMatchStyle: CSSProperties | undefined =
+    hasSpotHero && isDesktopTwoCol && rightColumnPx != null
+      ? {
+          height: rightColumnPx,
+          maxHeight: rightColumnPx,
+          overflow: "hidden",
+          minHeight: 0,
+          boxSizing: "border-box",
+        }
+      : undefined;
 
   return (
     <section className="intro-hero" aria-labelledby="intro-slogan">
       <div className={`intro-hero__grid${hasSpotHero ? " intro-hero__grid--balanced" : ""}`}>
         <div
-          className={`intro-hero__copy intro-hero__copy--fade${hasSpotHero ? " intro-hero__copy--spot-hero" : ""}`}
+          className={`intro-hero__copy intro-hero__copy--fade${hasSpotHero ? " intro-hero__copy--spot-hero" : ""}${copyMatchStyle ? " intro-hero__copy--match-right" : ""}`}
+          style={copyMatchStyle}
         >
           {hasSpotHero && landingHeroUrl ? (
             <>
@@ -755,7 +813,7 @@ export function Intro() {
           </div>
         </div>
 
-        <IntroLandingPanel search={search} setSearch={setSearch} onSearch={handleSearch} />
+        <IntroLandingPanel ref={rightColRef} search={search} setSearch={setSearch} onSearch={handleSearch} />
       </div>
     </section>
   );

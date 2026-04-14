@@ -179,28 +179,19 @@
   gap: var(--space-3);
   align-items: start;
 }
-/* 스팟 이미지 있을 때: 좌·우 열 높이 맞춤, 이미지 영역이 늘어나며 공유·강의실은 아래로 */
+/* 스팟 이미지: JS로 오른쪽 열 높이 측정 후 왼쪽에 동일 height 적용( intro-hero__copy--match-right ) */
 .intro-hero__grid--balanced {
-  align-items: stretch;
+  align-items: start;
 }
 @media (min-width: 901px) {
-  .intro-hero__grid--balanced .intro-hero__copy--spot-hero {
-    height: 100%;
-    min-height: 0;
-    align-self: stretch;
-  }
-  .intro-hero__grid--balanced .intro-hero__right {
-    min-height: 0;
-    align-self: stretch;
-  }
-  .intro-hero__grid--balanced .intro-hero__spot-hero {
+  .intro-hero__copy--match-right .intro-hero__spot-hero {
     flex: 1 1 auto;
     min-height: 0;
     aspect-ratio: unset;
     max-height: none;
   }
-  .intro-hero__grid--balanced .intro-hero__share,
-  .intro-hero__grid--balanced .intro-hero__classroom {
+  .intro-hero__copy--match-right .intro-hero__share,
+  .intro-hero__copy--match-right .intro-hero__classroom {
     flex-shrink: 0;
   }
 }
