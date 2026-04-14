@@ -1,5 +1,4 @@
 import {
-  forwardRef,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -7,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type RefObject,
 } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
@@ -506,15 +506,16 @@ type IntroLandingPanelProps = {
   search: string;
   setSearch: (v: string) => void;
   onSearch: (e: React.FormEvent) => void;
+  /** 흰 로그인 박스 — 왼쪽 히어로 이미지 높이와 맞출 때 측정용 */
+  loginCardRef?: RefObject<HTMLDivElement | null>;
 };
 
-const IntroLandingPanel = forwardRef<HTMLDivElement, IntroLandingPanelProps>(
-  function IntroLandingPanel({ search, setSearch, onSearch }, ref) {
+function IntroLandingPanel({ search, setSearch, onSearch, loginCardRef }: IntroLandingPanelProps) {
   const { firebaseUser, logOut } = useAuth();
 
   const stack = (
     <>
-      <div className="intro-login-card">
+      <div ref={loginCardRef} className="intro-login-card">
         <p className="intro-login-card__hint">서비스 이용 안내</p>
         <div className="intro-login-card__rows">
           <div className="intro-login-card__row">
@@ -622,12 +623,11 @@ const IntroLandingPanel = forwardRef<HTMLDivElement, IntroLandingPanelProps>(
   );
 
   return (
-    <div ref={ref} className="intro-hero__right">
+    <div className="intro-hero__right">
       <div className="intro-hero__panel intro-hero__panel--fade">{stack}</div>
     </div>
   );
-  }
-);
+}
 
 /**
  * 랜딩 히어로 — 비대칭 레이아웃(좌 카피 / 우 기능), XtudyNote 2.0 라이트 마켓 톤
@@ -659,8 +659,8 @@ export function Intro() {
   const [landingHeroUrl, setLandingHeroUrl] = useState<string | null>(null);
   const [heroMaxW, setHeroMaxW] = useState<number | null>(null);
   const [heroMaxH, setHeroMaxH] = useState<number | null>(null);
-  const rightColRef = useRef<HTMLDivElement>(null);
-  const [rightColumnPx, setRightColumnPx] = useState<number | null>(null);
+  const loginCardRef = useRef<HTMLDivElement>(null);
+  const [loginCardHeightPx, setLoginCardHeightPx] = useState<number | null>(null);
   const isDesktopTwoCol = useMediaMinWidth901();
 
   useEffect(() => {
@@ -704,14 +704,14 @@ export function Intro() {
 
   useLayoutEffect(() => {
     if (!hasSpotHero || !isDesktopTwoCol) {
-      setRightColumnPx(null);
+      setLoginCardHeightPx(null);
       return;
     }
-    const el = rightColRef.current;
+    const el = loginCardRef.current;
     if (!el) return;
     const read = () => {
       const h = el.getBoundingClientRect().height;
-      setRightColumnPx(h > 0 ? Math.round(h * 10) / 10 : null);
+      setLoginCardHeightPx(h > 0 ? Math.round(h * 10) / 10 : null);
     };
     read();
     const ro = new ResizeObserver(read);
@@ -732,25 +732,21 @@ export function Intro() {
 
   const spotHeroBoxStyle: CSSProperties = { width: "100%" };
   if (heroMaxW != null) spotHeroBoxStyle.maxWidth = `${heroMaxW}px`;
-  if (heroMaxH != null) spotHeroBoxStyle.maxHeight = `${heroMaxH}px`;
-
-  const copyMatchStyle: CSSProperties | undefined =
-    hasSpotHero && isDesktopTwoCol && rightColumnPx != null
-      ? {
-          height: rightColumnPx,
-          maxHeight: rightColumnPx,
-          overflow: "hidden",
-          minHeight: 0,
-          boxSizing: "border-box",
-        }
-      : undefined;
+  if (hasSpotHero && isDesktopTwoCol && loginCardHeightPx != null) {
+    const cap =
+      heroMaxH != null ? Math.min(loginCardHeightPx, heroMaxH) : loginCardHeightPx;
+    spotHeroBoxStyle.height = cap;
+    spotHeroBoxStyle.maxHeight = cap;
+    spotHeroBoxStyle.flexShrink = 0;
+  } else {
+    if (heroMaxH != null) spotHeroBoxStyle.maxHeight = `${heroMaxH}px`;
+  }
 
   return (
     <section className="intro-hero" aria-labelledby="intro-slogan">
       <div className={`intro-hero__grid${hasSpotHero ? " intro-hero__grid--balanced" : ""}`}>
         <div
-          className={`intro-hero__copy intro-hero__copy--fade${hasSpotHero ? " intro-hero__copy--spot-hero" : ""}${copyMatchStyle ? " intro-hero__copy--match-right" : ""}`}
-          style={copyMatchStyle}
+          className={`intro-hero__copy intro-hero__copy--fade${hasSpotHero ? " intro-hero__copy--spot-hero" : ""}`}
         >
           {hasSpotHero && landingHeroUrl ? (
             <>
@@ -758,7 +754,7 @@ export function Intro() {
                 XtudyNote — 모두에 의한 모두를 위한 모두의 학습. 모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
               </h1>
               <div
-                className={`intro-hero__spot-hero intro-hero__spot-hero--fade${heroMaxW != null ? " intro-hero__spot-hero--capped-w" : ""}`}
+                className={`intro-hero__spot-hero intro-hero__spot-hero--fade${heroMaxW != null ? " intro-hero__spot-hero--capped-w" : ""}${hasSpotHero && isDesktopTwoCol && loginCardHeightPx != null ? " intro-hero__spot-hero--match-card" : ""}`}
                 style={Object.keys(spotHeroBoxStyle).length ? spotHeroBoxStyle : undefined}
               >
                 <img
@@ -813,7 +809,12 @@ export function Intro() {
           </div>
         </div>
 
-        <IntroLandingPanel ref={rightColRef} search={search} setSearch={setSearch} onSearch={handleSearch} />
+        <IntroLandingPanel
+          loginCardRef={loginCardRef}
+          search={search}
+          setSearch={setSearch}
+          onSearch={handleSearch}
+        />
       </div>
     </section>
   );
