@@ -22,6 +22,9 @@
     sans-serif;
   --font-display: var(--font-sans);
   --font-body: var(--font-sans);
+  /* Rich text / 폼 본문 — Pretendard 우선 */
+  --font-editor: "Pretendard", "Noto Sans KR", "Noto Sans", "Apple SD Gothic Neo", "Malgun Gothic",
+    system-ui, sans-serif;
   /* 포인트 버튼 위 글자 (밝은 배경색 버튼용 고대비) */
   --btn-on-accent: #0a0f1a;
   --btn-on-accent-muted: rgba(10, 15, 26, 0.82);
@@ -150,6 +153,16 @@ button {
 
 input {
   font-family: inherit;
+}
+
+textarea,
+input[type="text"],
+input[type="url"],
+input[type="search"],
+input[type="password"],
+input[type="number"],
+input[type="email"] {
+  font-family: var(--font-editor);
 }
 
 .app-shell {

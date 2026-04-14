@@ -14,6 +14,7 @@ import { getDownloadURL, ref } from "firebase/storage";
 import { db, storage } from "@/firebase/config";
 import { extractListedPriceKrw } from "@/lib/listedPrice";
 import { stripListedPriceLine } from "@/lib/introductionDisplay";
+import { plainTextFromHtml } from "@/lib/richTextUtils";
 import { SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC } from "@/lib/siteConfig";
 import { CollapsibleDescription } from "@/components/landing/CollapsibleDescription";
 import { FileSamplePreview } from "@/components/landing/FileSamplePreview";
@@ -204,7 +205,8 @@ export function PremiumVaultSection() {
     () =>
       rows.map((r, idx) => {
         const intro = r.data.introduction ?? "";
-        const introForCard = stripListedPriceLine(intro);
+        const introForCard =
+          plainTextFromHtml(stripListedPriceLine(intro)) || stripListedPriceLine(intro).trim();
         const price = extractListedPriceKrw(intro) ?? "가격 안내";
         const seller = `${r.data.audience ?? "—"} · ${r.data.section || "일반"}`;
         const tag = idx === 0 ? "베스트" : r.data.thumbnailPath ? "샘플 제공" : "유료";

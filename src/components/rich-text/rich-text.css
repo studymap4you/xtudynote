@@ -1,0 +1,139 @@
+/* Quill snow — align with XtudyNote light forms */
+.rich-text-editor {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--light-border, #e5e7eb);
+  background: var(--light-surface, #fff);
+  overflow: hidden;
+  font-family: var(--font-editor, var(--font-body));
+}
+
+.rich-text-editor .ql-toolbar.ql-snow {
+  border: none;
+  border-bottom: 1px solid var(--light-border, #e5e7eb);
+  background: #f9fafb;
+  font-family: var(--font-editor, var(--font-body));
+}
+
+.rich-text-editor .ql-container.ql-snow {
+  border: none;
+  font-family: var(--font-editor, var(--font-body));
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.rich-text-editor .ql-editor {
+  min-height: 11rem;
+  padding: 0.85rem 1rem 1rem;
+  color: var(--light-text, #111827);
+}
+
+.rich-text-editor .ql-editor.ql-blank::before {
+  color: #9ca3af;
+  font-style: normal;
+}
+
+.rich-text-editor--compact .ql-editor {
+  min-height: 7rem;
+}
+
+.rich-text-editor--disabled {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+/* Rendered HTML blocks */
+.rich-html {
+  font-family: var(--font-editor, var(--font-body));
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: inherit;
+  word-break: break-word;
+}
+
+.rich-html p {
+  margin: 0 0 0.65rem;
+}
+
+.rich-html p:last-child {
+  margin-bottom: 0;
+}
+
+.rich-html h1,
+.rich-html h2,
+.rich-html h3 {
+  margin: 0.75rem 0 0.4rem;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.rich-html ul,
+.rich-html ol {
+  margin: 0.35rem 0 0.65rem;
+  padding-left: 1.35rem;
+}
+
+.rich-html a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.rich-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md, 12px);
+  margin: 0.35rem 0;
+}
+
+.rich-html blockquote {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.85rem;
+  border-left: 3px solid rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.04);
+  border-radius: 0 var(--radius-md, 12px) var(--radius-md, 12px) 0;
+}
+
+/* Collapsible rich intro */
+.collapsible-rich {
+  position: relative;
+}
+
+.collapsible-rich__inner--collapsed {
+  max-height: 11rem;
+  overflow: hidden;
+}
+
+.collapsible-rich__fade {
+  display: none;
+  pointer-events: none;
+}
+
+.collapsible-rich--collapsed .collapsible-rich__fade {
+  display: block;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3.25rem;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.92) 55%,
+    #fff
+  );
+}
+
+.collapsible-rich__more {
+  margin-top: 0.65rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2563eb;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.collapsible-rich__more:hover {
+  text-decoration: underline;
+}

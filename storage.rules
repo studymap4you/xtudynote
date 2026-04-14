@@ -53,6 +53,21 @@ service firebase.storage {
         && (isActiveSuperAdmin() || isActiveTeacher());
     }
 
+    /** Rich-text editor images (Q&A, 자료 설명 등) — 공개 URL로 삽입 */
+    match /editor_images/{uid}/{allPaths=**} {
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow read: if true;
+
+      allow delete: if request.auth != null && (
+        request.auth.uid == uid
+        || isActiveSuperAdmin()
+      );
+    }
+
     match /pending_materials/{uploaderId}/{requestId}/{allPaths=**} {
       allow create, update: if request.auth != null
         && request.auth.uid == uploaderId

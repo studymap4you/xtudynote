@@ -21,6 +21,7 @@ import {
   rejectVideoMaterialRequest,
 } from "@/lib/adminMaterialRequestPublish";
 import { AdminTopNav } from "@/components/AdminTopNav";
+import { RichHtmlView } from "@/components/RichHtmlView";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
@@ -528,13 +529,13 @@ export function PendingMaterialReviewsPage() {
                           <details style={{ marginTop: "0.4rem", fontSize: "0.85rem" }}>
                             <summary style={{ cursor: "pointer" }}>상세 설명</summary>
                             <div
+                              className="pending-review-desc-html"
                               style={{
                                 marginTop: "0.35rem",
-                                whiteSpace: "pre-wrap",
                                 color: "var(--text-muted)",
                               }}
                             >
-                              {r.description || "—"}
+                              {r.description ? <RichHtmlView html={r.description} /> : "—"}
                             </div>
                           </details>
                         </td>

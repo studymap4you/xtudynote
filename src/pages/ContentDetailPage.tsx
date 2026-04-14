@@ -18,7 +18,11 @@ import { db } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
 import { recordStudentDownload } from "@/lib/studentDownloads";
 import { PublicShell } from "@/components/PublicShell";
-import { CollapsibleDescription } from "@/components/landing/CollapsibleDescription";
+import { CollapsibleRichHtml } from "@/components/CollapsibleRichHtml";
+import { RichHtmlView } from "@/components/RichHtmlView";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { isEmptyRichText } from "@/lib/richTextUtils";
+import { sanitizeRichHtml } from "@/lib/sanitizeRichHtml";
 import { stripListedPriceLine } from "@/lib/introductionDisplay";
 import type { ContentDocument } from "@/types/content";
 import "@/pages/pages.css";
@@ -128,13 +132,15 @@ export function ContentDetailPage() {
 
   async function submitQuestion(e: React.FormEvent) {
     e.preventDefault();
-    if (!firebaseUser || !id || !question.trim()) return;
+    if (!firebaseUser || !id) return;
+    const clean = sanitizeRichHtml(question);
+    if (isEmptyRichText(clean)) return;
     setBusy(true);
     try {
       await addDoc(collection(db, "content_qa"), {
         contentId: id,
         studentId: firebaseUser.uid,
-        question: question.trim(),
+        question: clean,
         answer: null,
         createdAt: serverTimestamp(),
       });
@@ -146,10 +152,15 @@ export function ContentDetailPage() {
 
   async function saveAnswer(qaId: string, text: string) {
     if (!id) return;
+    const clean = sanitizeRichHtml(text);
+    if (isEmptyRichText(clean)) {
+      window.alert("답변 내용을 입력해 주세요.");
+      return;
+    }
     setBusy(true);
     try {
       await updateDoc(doc(db, "content_qa", qaId), {
-        answer: text,
+        answer: clean,
         answeredAt: serverTimestamp(),
       });
     } finally {
@@ -210,8 +221,8 @@ export function ContentDetailPage() {
           <span className="ui-ko">{content.learningTopic}</span>
         </div>
         <div className="content-detail__intro-wrap">
-          <CollapsibleDescription
-            text={introductionForDisplay}
+          <CollapsibleRichHtml
+            html={introductionForDisplay}
             collapsedMaxChars={480}
             className="content-detail__intro-collapsible"
           />
@@ -253,7 +264,7 @@ export function ContentDetailPage() {
           <div className="panel__head">
             <div>
               <h2 className="panel__title">Q&amp;A</h2>
-              <span className="ui-ko" style={{ fontSize: "0.8rem" }}>
+              <span className="ui-ko content-detail__qa-sub">
                 이 자료에 대한 질문 · 선생님(업로더)만 답변
               </span>
             </div>
@@ -261,18 +272,28 @@ export function ContentDetailPage() {
           <ul className="content-detail__qa-list">
             {qa.map((row) => (
               <li key={row.id} className="content-detail__qa-item">
-                <p>
-                  <strong>Q</strong> ({row.studentLabel}) {row.question}
-                </p>
+                <div className="content-detail__qa-q">
+                  <span className="content-detail__qa-badge" aria-hidden>
+                    Q
+                  </span>
+                  <div className="content-detail__qa-q-body">
+                    <span className="content-detail__qa-meta">({row.studentLabel})</span>
+                    <RichHtmlView html={row.question} />
+                  </div>
+                </div>
                 {row.answer && (
-                  <p className="content-detail__qa-answer">
-                    <strong>A</strong> {row.answer}
-                  </p>
+                  <div className="content-detail__qa-answer-block">
+                    <span className="content-detail__qa-badge content-detail__qa-badge--answer" aria-hidden>
+                      A
+                    </span>
+                    <RichHtmlView html={row.answer} className="content-detail__qa-answer" />
+                  </div>
                 )}
                 {isUploader && (
                   <AnswerEditor
                     key={`ed-${row.id}-${row.answer ?? ""}`}
                     initial={row.answer ?? ""}
+                    userId={firebaseUser?.uid}
                     disabled={busy}
                     onSave={(t) => void saveAnswer(row.id, t)}
                   />
@@ -282,21 +303,27 @@ export function ContentDetailPage() {
           </ul>
           {firebaseUser && profile?.role === "student" ? (
             <form onSubmit={(e) => void submitQuestion(e)} className="content-detail__qa-form">
-              <label className="auth-field">
-                질문 작성
-                <textarea
+              <div className="content-detail__qa-composer">
+                <span className="content-detail__qa-composer-label">질문 작성</span>
+                <p className="content-detail__qa-hint">
+                  굵게·목록·링크·이미지 삽입이 가능합니다. 이미지는 로그인 후 업로드됩니다.
+                </p>
+                <RichTextEditor
                   value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  rows={3}
-                  className="add-passage__control add-passage__intro"
+                  onChange={setQuestion}
+                  userId={firebaseUser.uid}
+                  disabled={busy}
+                  placeholder="자료에 대해 질문을 남겨 주세요."
                 />
-              </label>
-              <button type="submit" className="btn btn--primary btn--stack" disabled={busy}>
-                질문 등록
-              </button>
+                <div className="content-detail__qa-form-actions">
+                  <button type="submit" className="btn btn--primary btn--stack" disabled={busy}>
+                    질문 등록
+                  </button>
+                </div>
+              </div>
             </form>
           ) : (
-            <p style={{ color: "var(--text-muted)" }}>질문은 학생 로그인 후 작성할 수 있습니다.</p>
+            <p className="content-detail__qa-guest-hint">질문은 학생 로그인 후 작성할 수 있습니다.</p>
           )}
         </section>
 
@@ -312,23 +339,26 @@ export function ContentDetailPage() {
 
 function AnswerEditor({
   initial,
+  userId,
   disabled,
   onSave,
 }: {
   initial: string;
+  userId: string | undefined;
   disabled: boolean;
   onSave: (t: string) => void;
 }) {
   const [val, setVal] = useState(initial);
   return (
     <div className="content-detail__qa-reply">
-      <textarea
-        className="add-passage__control"
-        rows={3}
+      <span className="content-detail__qa-composer-label">답변 작성 (업로더)</span>
+      <RichTextEditor
         value={val}
+        onChange={setVal}
+        userId={userId}
         disabled={disabled}
-        onChange={(e) => setVal(e.target.value)}
-        placeholder="답변을 입력하세요."
+        compact
+        placeholder="답변을 입력하세요. 링크·이미지를 넣을 수 있습니다."
       />
       <button type="button" className="btn btn--primary btn--stack" disabled={disabled} onClick={() => onSave(val)}>
         답변 저장

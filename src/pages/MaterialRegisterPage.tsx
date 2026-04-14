@@ -6,6 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
 import { db, storage } from "@/firebase/config";
 import { LearningThemeChecklist } from "@/components/LearningThemeChecklist";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { isEmptyRichText } from "@/lib/richTextUtils";
 import type { ContentType } from "@/types/content";
 import type { LearningThemeId } from "@/types/learningTheme";
 import type { UserProfile } from "@/types/user";
@@ -84,7 +86,7 @@ export function MaterialRegisterPage() {
     e.preventDefault();
     if (!firebaseUser || !profile || !canSubmit) return;
 
-    if (!title.trim() || !subject.trim() || !audienceGrade.trim() || !description.trim()) {
+    if (!title.trim() || !subject.trim() || !audienceGrade.trim() || isEmptyRichText(description)) {
       window.alert("제목·과목·학년·상세 설명은 필수입니다.");
       return;
     }
@@ -155,7 +157,7 @@ export function MaterialRegisterPage() {
         subject: subject.trim(),
         audienceGrade: audienceGrade.trim(),
         section: "",
-        description: description.trim(),
+        description: description.trim(), // HTML (Quill)
         desiredPrice: materialType === "paid" ? priceNum : null,
         homeworkInstruction: materialType === "homework" ? homeworkInstruction.trim() : null,
         learningMaterialFilePaths,
@@ -346,18 +348,19 @@ export function MaterialRegisterPage() {
                 </label>
               )}
 
-              <label className="reg-form__field">
+              <label className="reg-form__field material-register-form__field-rich">
                 <span className="reg-form__label-line">
                   <span className="reg-form__label-en">Detailed description</span>
                   <span className="reg-form__label-ko">자료 상세 설명</span>
                 </span>
-                <textarea
-                  className="add-passage__control add-passage__intro material-register-form__textarea"
-                  rows={10}
+                <p className="material-register-form__rich-hint">
+                  서식·링크·이미지 삽입 가능 (이미지는 로그인 계정으로 스토리지에 저장됩니다).
+                </p>
+                <RichTextEditor
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  required
-                  spellCheck
+                  onChange={setDescription}
+                  userId={firebaseUser?.uid}
+                  placeholder="자료 구성, 활용 방법, 목차 등을 작성해 주세요."
                 />
               </label>
 

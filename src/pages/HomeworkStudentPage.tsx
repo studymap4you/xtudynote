@@ -11,6 +11,7 @@ import {
   where,
 } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
+import { RichHtmlView } from "@/components/RichHtmlView";
 import { useAuth } from "@/contexts/AuthContext";
 import { db, storage } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
@@ -174,9 +175,9 @@ export function HomeworkStudentPage() {
               <h2 className="panel__title">과제 수행 가이드 및 주의사항</h2>
               <pre className="homework-student__pre">{snap.homeworkInstruction || "—"}</pre>
             </section>
-            <section className="panel">
+            <section className="panel homework-student__intro-panel">
               <h2 className="panel__title">자료 소개</h2>
-              <p>{snap.introduction}</p>
+              <RichHtmlView html={snap.introduction} />
               <p style={{ color: "var(--text-muted)", marginTop: "0.5rem" }}>
                 {snap.subject} · {snap.learningTopic}
               </p>

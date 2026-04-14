@@ -31,7 +31,12 @@ function appendPriceNote(introduction: string, desiredPrice: number | null, type
   if (type !== "paid" || desiredPrice == null || !Number.isFinite(desiredPrice)) {
     return introduction;
   }
-  return `${introduction.trim()}\n\n[등록 희망 가격: ${Math.round(desiredPrice).toLocaleString("ko-KR")}원]`;
+  const line = `[등록 희망 가격: ${Math.round(desiredPrice).toLocaleString("ko-KR")}원]`;
+  const trimmed = introduction.trim();
+  if (/<[a-z][\s\S]*>/i.test(trimmed)) {
+    return `${trimmed}<p>${line}</p>`;
+  }
+  return `${trimmed}\n\n${line}`;
 }
 
 function resolveSubmitterId(raw: MaterialRequestDocument): string {

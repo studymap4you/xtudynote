@@ -10,10 +10,13 @@
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
+    "dompurify": "^3.3.3",
     "firebase": "^11.6.0",
     "firebase-admin": "^13.0.0",
+    "quill": "^2.0.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-quill": "^2.0.0",
     "react-router-dom": "^7.5.0"
   },
   "devDependencies": {

@@ -3,6 +3,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
 import { LearningThemeChecklist } from "@/components/LearningThemeChecklist";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { isEmptyRichText } from "@/lib/richTextUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
 import { db, storage } from "@/firebase/config";
@@ -73,7 +75,7 @@ export function VideoLectureRegisterPage() {
     if (!firebaseUser || !profile || !canSubmit) return;
 
     const urls = videoUrlRows.map((r) => r.value.trim()).filter(Boolean);
-    if (!title.trim() || !subject.trim() || !audienceGrade.trim() || !description.trim()) {
+    if (!title.trim() || !subject.trim() || !audienceGrade.trim() || isEmptyRichText(description)) {
       window.alert("제목·과목·학년·설명은 필수입니다.");
       return;
     }
@@ -367,18 +369,18 @@ export function VideoLectureRegisterPage() {
                 </div>
               </div>
 
-              <label className="reg-form__field">
+              <label className="reg-form__field material-register-form__field-rich">
                 <span className="reg-form__label-line">
                   <span className="reg-form__label-en">Description</span>
                   <span className="reg-form__label-ko">강의 소개·목차</span>
                 </span>
-                <textarea
-                  className="add-passage__control add-passage__intro material-register-form__textarea"
-                  rows={8}
+                <p className="material-register-form__rich-hint">
+                  서식·링크·이미지 삽입 가능합니다.
+                </p>
+                <RichTextEditor
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  required
-                  spellCheck
+                  onChange={setDescription}
+                  userId={firebaseUser?.uid}
                   placeholder="학습자에게 보여질 요약, 단원 구성, 주의사항 등"
                 />
               </label>
