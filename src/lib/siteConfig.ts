@@ -4,5 +4,7 @@ export const SITE_CONFIG_HOME_DOC = "home";
 /** 홈 프리미엄 볼트에 노출할 유료 contents 문서 ID 순서 */
 export interface SiteConfigHomeDocument {
   premiumPaidContentIds?: string[];
+  /** Firebase Storage full path (e.g. site_assets/landing_hero/…). Public read. */
+  landingHeroImagePath?: string | null;
   updatedAt?: unknown;
 }

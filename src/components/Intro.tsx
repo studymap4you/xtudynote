@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { getDownloadURL, ref } from "firebase/storage";
 import { Link, useNavigate } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
+import { db, storage } from "@/firebase/config";
 import { normalizeHomeworkCode } from "@/lib/homeworkCode";
+import { SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC } from "@/lib/siteConfig";
 
 const SHORTCUTS = [
   { to: "/library", label: "라이브러리", tone: "a" as const },
@@ -493,6 +497,38 @@ export function Intro() {
   const navigate = useNavigate();
   const { firebaseUser, logOut } = useAuth();
   const [search, setSearch] = useState("");
+  const [landingHeroPath, setLandingHeroPath] = useState<string | null>(null);
+  const [landingHeroUrl, setLandingHeroUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC),
+      (snap) => {
+        const p = snap.data()?.landingHeroImagePath;
+        setLandingHeroPath(typeof p === "string" && p.length > 0 ? p : null);
+      },
+      () => setLandingHeroPath(null)
+    );
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!landingHeroPath) {
+      setLandingHeroUrl(null);
+      return;
+    }
+    let cancelled = false;
+    getDownloadURL(ref(storage, landingHeroPath))
+      .then((url) => {
+        if (!cancelled) setLandingHeroUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setLandingHeroUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [landingHeroPath]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -544,7 +580,19 @@ export function Intro() {
           </div>
         </div>
 
-        <div className="intro-hero__panel intro-hero__panel--fade">
+        <div className="intro-hero__right">
+          {landingHeroUrl ? (
+            <div className="intro-hero__visual intro-hero__visual--fade" aria-hidden>
+              <img
+                className="intro-hero__hero-img"
+                src={landingHeroUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          ) : null}
+          <div className="intro-hero__panel intro-hero__panel--fade">
           <div className="intro-login-card">
             <p className="intro-login-card__hint">서비스 이용 안내</p>
             <div className="intro-login-card__rows">
@@ -649,6 +697,7 @@ export function Intro() {
               })}
             </ul>
           </nav>
+        </div>
         </div>
       </div>
     </section>

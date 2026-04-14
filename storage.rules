@@ -102,5 +102,16 @@ service firebase.storage {
         || isActiveSuperAdmin()
       );
     }
+
+    /** Site-wide images (landing hero 등) — 공개 읽기, 마스터만 쓰기 */
+    match /site_assets/{allPaths=**} {
+      allow create, update: if isActiveSuperAdmin()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow read: if true;
+
+      allow delete: if isActiveSuperAdmin();
+    }
   }
 }

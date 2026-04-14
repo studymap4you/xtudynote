@@ -185,6 +185,31 @@
     gap: var(--space-3);
   }
 }
+.intro-hero__right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.intro-hero__visual {
+  border-radius: var(--radius-ui);
+  overflow: hidden;
+  border: 1px solid var(--intro-silk-border);
+  background: rgba(248, 250, 252, 0.9);
+  box-shadow: var(--intro-silk-shadow);
+}
+.intro-hero__visual--fade {
+  opacity: 0;
+  animation: introFadeIn 0.95s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
+}
+.intro-hero__hero-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(52vh, 28rem);
+  object-fit: cover;
+  vertical-align: top;
+}
 .intro-hero__copy {
   padding-top: var(--space-2);
   text-align: left;
