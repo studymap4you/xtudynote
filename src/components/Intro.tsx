@@ -490,12 +490,150 @@ function ShortcutOrbIcon({ tone }: { tone: (typeof SHORTCUTS)[number]["tone"] })
   }
 }
 
+function IntroLandingPanel({
+  layout,
+  search,
+  setSearch,
+  onSearch,
+}: {
+  layout: "aside" | "belowBanner";
+  search: string;
+  setSearch: (v: string) => void;
+  onSearch: (e: React.FormEvent) => void;
+}) {
+  const { firebaseUser, logOut } = useAuth();
+
+  const stack = (
+    <>
+      <div className="intro-login-card">
+        <p className="intro-login-card__hint">서비스 이용 안내</p>
+        <div className="intro-login-card__rows">
+          <div className="intro-login-card__row">
+            <span className="intro-login-card__icon intro-login-card__icon--student">
+              <IconStudent />
+            </span>
+            <span className="intro-login-card__row-text">
+              <span className="intro-login-card__row-title">학습자 · 일반 · 학부모</span>
+              <span className="intro-login-card__row-sub">피드백·과제·학습 로그</span>
+            </span>
+          </div>
+          <div className="intro-login-card__row">
+            <span className="intro-login-card__icon intro-login-card__icon--teacher">
+              <IconTeacher />
+            </span>
+            <span className="intro-login-card__row-text">
+              <span className="intro-login-card__row-title">교육자 · 전문가</span>
+              <span className="intro-login-card__row-sub">자료·과제·CRM (승인 후)</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="intro-login-card__actions">
+          {firebaseUser ? (
+            <>
+              <Link to="/dashboard" className="intro-login-card__btn intro-login-card__btn--primary">
+                대시보드
+              </Link>
+              <button
+                type="button"
+                className="intro-login-card__btn intro-login-card__btn--secondary"
+                onClick={() => void logOut()}
+              >
+                로그아웃
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="intro-login-card__btn intro-login-card__btn--primary">
+                로그인
+              </Link>
+              <Link
+                to="/register"
+                className="intro-login-card__btn intro-login-card__btn--secondary"
+              >
+                회원가입
+              </Link>
+            </>
+          )}
+        </div>
+
+        <div className="intro-login-card__links" aria-label="계정 관련 링크">
+          {firebaseUser ? (
+            <Link to="/dashboard" className="intro-login-card__mini">
+              내 학습 홈 (대시보드)
+            </Link>
+          ) : (
+            <Link to="/login" className="intro-login-card__mini">
+              아이디 · 비밀번호 안내
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <form className="intro-search" onSubmit={onSearch} role="search">
+        <label className="intro-search__label" htmlFor="intro-search-input">
+          <span className="intro-search__label-text">통합 검색</span>
+        </label>
+        <div className="intro-search__shell">
+          <input
+            id="intro-search-input"
+            className="intro-search__input"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="과제 번호로 바로 이동 (예: HW-…)"
+            autoComplete="off"
+            enterKeyHint="search"
+          />
+          <button type="submit" className="intro-search__submit" aria-label="검색 실행">
+            <IconSend />
+          </button>
+        </div>
+      </form>
+
+      <nav className="intro-shortcuts" aria-label="주요 메뉴 바로가기">
+        <ul className="intro-shortcuts__list">
+          {SHORTCUTS.map((s) => {
+            const isLogin = s.to === "/login";
+            const to = firebaseUser && isLogin ? "/dashboard" : s.to;
+            const label = firebaseUser && isLogin ? "대시보드" : s.label;
+            return (
+              <li key={s.to}>
+                <Link to={to} className={`intro-shortcut intro-shortcut--${s.tone}`}>
+                  <span className="intro-shortcut__orb" aria-hidden>
+                    <ShortcutOrbIcon tone={s.tone} />
+                  </span>
+                  <span className="intro-shortcut__label">{label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </>
+  );
+
+  if (layout === "aside") {
+    return (
+      <div className="intro-hero__right">
+        <div className="intro-hero__panel intro-hero__panel--fade">{stack}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="intro-hero__post">
+      <div className="intro-hero__post-inner">
+        <div className="intro-hero__panel intro-hero__panel--fade">{stack}</div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * 랜딩 히어로 — 비대칭 레이아웃(좌 카피 / 우 기능), XtudyNote 2.0 라이트 마켓 톤
  */
 export function Intro() {
   const navigate = useNavigate();
-  const { firebaseUser, logOut } = useAuth();
   const [search, setSearch] = useState("");
   const [landingHeroPath, setLandingHeroPath] = useState<string | null>(null);
   const [landingHeroUrl, setLandingHeroUrl] = useState<string | null>(null);
@@ -539,179 +677,82 @@ export function Intro() {
 
   const useCustomHero = Boolean(landingHeroUrl);
 
-  return (
-    <section
-      className={`intro-hero${useCustomHero ? " intro-hero--custom-visual" : ""}`}
-      aria-labelledby="intro-slogan"
-    >
-      {useCustomHero ? (
+  if (useCustomHero && landingHeroUrl) {
+    return (
+      <section className="intro-hero intro-hero--custom-visual" aria-labelledby="intro-slogan">
         <h1 id="intro-slogan" className="intro-hero__sr-title">
           XtudyNote — 모두에 의한 모두를 위한 모두의 학습
         </h1>
-      ) : null}
-      <div
-        className={`intro-hero__grid${useCustomHero ? " intro-hero__grid--custom-visual" : ""}`}
-      >
-        {useCustomHero && landingHeroUrl ? (
-          <div className="intro-hero__visual intro-hero__visual--primary intro-hero__visual--fade">
+        <div className="intro-hero__fullbleed intro-hero__fullbleed--fade">
+          <div className="intro-hero__fullbleed-frame">
             <img
-              className="intro-hero__hero-img intro-hero__hero-img--primary"
+              className="intro-hero__hero-img intro-hero__hero-img--fullbleed"
               src={landingHeroUrl}
               alt=""
               loading="lazy"
               decoding="async"
             />
           </div>
-        ) : (
-          <div className="intro-hero__copy intro-hero__copy--fade">
-            <p className="intro-hero__brand">
-              <BrandLockup />
-            </p>
-            <h1 id="intro-slogan" className="intro-hero__slogan">
-              <span className="intro-hero__slogan-line">모두에 의한</span>
-              <span className="intro-hero__slogan-line">모두를 위한</span>
-              <span className="intro-hero__slogan-line intro-hero__slogan-line--final">
-                <span className="intro-hero__slogan-accent">모두의 학습</span>
-              </span>
-            </h1>
-            <p className="intro-hero__lede">
-              모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
-            </p>
-            <IntroHeroShare />
-            <div className="intro-hero__classroom">
-              <p className="intro-hero__share-label">강의실</p>
-              <div className="intro-hero__classroom-row">
-                <Link
-                  to="/classroom"
-                  className="intro-hero__classroom-btn intro-hero__classroom-btn--enter"
-                >
-                  <span className="intro-hero__classroom-btn-en">Enter</span>
-                  <span className="intro-hero__classroom-btn-ko">강의실 입장</span>
-                </Link>
-                <Link
-                  to="/classroom/new"
-                  className="intro-hero__classroom-btn intro-hero__classroom-btn--create"
-                >
-                  <span className="intro-hero__classroom-btn-en">Create</span>
-                  <span className="intro-hero__classroom-btn-ko">강의실 개설</span>
-                </Link>
-              </div>
-              <p className="intro-hero__classroom-hint">
-                입장은 로그인 후 목록에서 선택합니다. 개설은{" "}
-                <strong>승인된 선생님</strong> 계정에서 가능합니다.
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="intro-hero__right">
-          <div className="intro-hero__panel intro-hero__panel--fade">
-          <div className="intro-login-card">
-            <p className="intro-login-card__hint">서비스 이용 안내</p>
-            <div className="intro-login-card__rows">
-              <div className="intro-login-card__row">
-                <span className="intro-login-card__icon intro-login-card__icon--student">
-                  <IconStudent />
-                </span>
-                <span className="intro-login-card__row-text">
-                  <span className="intro-login-card__row-title">학습자 · 일반 · 학부모</span>
-                  <span className="intro-login-card__row-sub">피드백·과제·학습 로그</span>
-                </span>
-              </div>
-              <div className="intro-login-card__row">
-                <span className="intro-login-card__icon intro-login-card__icon--teacher">
-                  <IconTeacher />
-                </span>
-                <span className="intro-login-card__row-text">
-                  <span className="intro-login-card__row-title">교육자 · 전문가</span>
-                  <span className="intro-login-card__row-sub">자료·과제·CRM (승인 후)</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="intro-login-card__actions">
-              {firebaseUser ? (
-                <>
-                  <Link to="/dashboard" className="intro-login-card__btn intro-login-card__btn--primary">
-                    대시보드
-                  </Link>
-                  <button
-                    type="button"
-                    className="intro-login-card__btn intro-login-card__btn--secondary"
-                    onClick={() => void logOut()}
-                  >
-                    로그아웃
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link to="/login" className="intro-login-card__btn intro-login-card__btn--primary">
-                    로그인
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="intro-login-card__btn intro-login-card__btn--secondary"
-                  >
-                    회원가입
-                  </Link>
-                </>
-              )}
-            </div>
-
-            <div className="intro-login-card__links" aria-label="계정 관련 링크">
-              {firebaseUser ? (
-                <Link to="/dashboard" className="intro-login-card__mini">
-                  내 학습 홈 (대시보드)
-                </Link>
-              ) : (
-                <Link to="/login" className="intro-login-card__mini">
-                  아이디 · 비밀번호 안내
-                </Link>
-              )}
-            </div>
-          </div>
-
-          <form className="intro-search" onSubmit={handleSearch} role="search">
-            <label className="intro-search__label" htmlFor="intro-search-input">
-              <span className="intro-search__label-text">통합 검색</span>
-            </label>
-            <div className="intro-search__shell">
-              <input
-                id="intro-search-input"
-                className="intro-search__input"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="과제 번호로 바로 이동 (예: HW-…)"
-                autoComplete="off"
-                enterKeyHint="search"
-              />
-              <button type="submit" className="intro-search__submit" aria-label="검색 실행">
-                <IconSend />
-              </button>
-            </div>
-          </form>
-
-          <nav className="intro-shortcuts" aria-label="주요 메뉴 바로가기">
-            <ul className="intro-shortcuts__list">
-              {SHORTCUTS.map((s) => {
-                const isLogin = s.to === "/login";
-                const to = firebaseUser && isLogin ? "/dashboard" : s.to;
-                const label = firebaseUser && isLogin ? "대시보드" : s.label;
-                return (
-                  <li key={s.to}>
-                    <Link to={to} className={`intro-shortcut intro-shortcut--${s.tone}`}>
-                      <span className="intro-shortcut__orb" aria-hidden>
-                        <ShortcutOrbIcon tone={s.tone} />
-                      </span>
-                      <span className="intro-shortcut__label">{label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
         </div>
+        <IntroLandingPanel
+          layout="belowBanner"
+          search={search}
+          setSearch={setSearch}
+          onSearch={handleSearch}
+        />
+      </section>
+    );
+  }
+
+  return (
+    <section className="intro-hero" aria-labelledby="intro-slogan">
+      <div className="intro-hero__grid">
+        <div className="intro-hero__copy intro-hero__copy--fade">
+          <p className="intro-hero__brand">
+            <BrandLockup />
+          </p>
+          <h1 id="intro-slogan" className="intro-hero__slogan">
+            <span className="intro-hero__slogan-line">모두에 의한</span>
+            <span className="intro-hero__slogan-line">모두를 위한</span>
+            <span className="intro-hero__slogan-line intro-hero__slogan-line--final">
+              <span className="intro-hero__slogan-accent">모두의 학습</span>
+            </span>
+          </h1>
+          <p className="intro-hero__lede">
+            모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
+          </p>
+          <IntroHeroShare />
+          <div className="intro-hero__classroom">
+            <p className="intro-hero__share-label">강의실</p>
+            <div className="intro-hero__classroom-row">
+              <Link
+                to="/classroom"
+                className="intro-hero__classroom-btn intro-hero__classroom-btn--enter"
+              >
+                <span className="intro-hero__classroom-btn-en">Enter</span>
+                <span className="intro-hero__classroom-btn-ko">강의실 입장</span>
+              </Link>
+              <Link
+                to="/classroom/new"
+                className="intro-hero__classroom-btn intro-hero__classroom-btn--create"
+              >
+                <span className="intro-hero__classroom-btn-en">Create</span>
+                <span className="intro-hero__classroom-btn-ko">강의실 개설</span>
+              </Link>
+            </div>
+            <p className="intro-hero__classroom-hint">
+              입장은 로그인 후 목록에서 선택합니다. 개설은{" "}
+              <strong>승인된 선생님</strong> 계정에서 가능합니다.
+            </p>
+          </div>
         </div>
+
+        <IntroLandingPanel
+          layout="aside"
+          search={search}
+          setSearch={setSearch}
+          onSearch={handleSearch}
+        />
       </div>
     </section>
   );

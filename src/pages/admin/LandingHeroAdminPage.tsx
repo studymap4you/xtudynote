@@ -144,9 +144,9 @@ export function LandingHeroAdminPage() {
           <span className="ui-ko">홈 히어로 메인 비주얼</span>
         </div>
         <p style={{ color: "var(--text-muted)", maxWidth: "42rem" }}>
-          이미지를 등록하면 홈 화면에서 <strong>왼쪽 슬로건·브랜드 영역은 숨겨지고</strong>, 그 자리를 이 이미지가
-          채웁니다. 오른쪽(로그인 카드·검색·바로가기)은 그대로입니다. 이미지를 제거하면 예전 텍스트 히어로로
-          돌아갑니다. PNG·JPG·WebP 등, 5MB 이하를 권장합니다.
+          이미지를 등록하면 <strong>상단 네비 아래부터</strong> 화면 <strong>왼쪽~오른쪽 전체 너비</strong>를 이
+          배너가 채우고, 그 <strong>아래</strong>에 로그인 안내·통합 검색·바로가기 링크가 이어집니다. 이미지를
+          제거하면 예전 텍스트 히어로(좌·우 2열)로 돌아갑니다. 가로형 배너 PNG·JPG·WebP 등, 5MB 이하를 권장합니다.
         </p>
 
         <section className="panel panel--light" style={{ marginTop: "1.5rem", maxWidth: "36rem" }}>
