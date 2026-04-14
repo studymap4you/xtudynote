@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   deleteField,
   doc,
-  getDoc,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -119,19 +118,14 @@ export function LandingHeroAdminPage() {
       try {
         await uploadBytes(ref(storage, objectPath), file, { contentType: file.type });
         const homeRef = doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC);
-        const before = await getDoc(homeRef);
-        const bd = before.data();
-        const payload: Record<string, unknown> = {
-          landingHeroImagePath: objectPath,
-          updatedAt: serverTimestamp(),
-        };
-        if (bd?.landingHeroImageMaxWidthPx == null) {
-          payload.landingHeroImageMaxWidthPx = LANDING_HERO_DEFAULT_MAX_W_PX;
-        }
-        if (bd?.landingHeroImageMaxHeightPx == null) {
-          payload.landingHeroImageMaxHeightPx = LANDING_HERO_DEFAULT_MAX_H_PX;
-        }
-        await setDoc(homeRef, payload, { merge: true });
+        await setDoc(
+          homeRef,
+          {
+            landingHeroImagePath: objectPath,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
         await tryDeleteStoragePath(prev);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "업로드에 실패했습니다.");
@@ -257,6 +251,11 @@ export function LandingHeroAdminPage() {
               }}
             >
               <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 600 }}>표시 크기 (px)</p>
+              <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)", lineHeight: 1.45 }}>
+                예전에 자동으로 320×200이 들어갔다면 화면이 작은 사각형으로만 보일 수 있습니다.{" "}
+                <strong>너비·높이를 비운 뒤 「크기 저장」</strong>하면 왼쪽 열 전체 너비·기본 높이로 다시
+                맞춥니다.
+              </p>
               <label className="auth-field" style={{ margin: 0 }}>
                 <span className="ui-ko">최대 너비</span>
                 <input
