@@ -690,7 +690,7 @@ export function Intro() {
 
   return (
     <section className="intro-hero" aria-labelledby="intro-slogan">
-      <div className="intro-hero__grid">
+      <div className={`intro-hero__grid${hasSpotHero ? " intro-hero__grid--balanced" : ""}`}>
         <div
           className={`intro-hero__copy intro-hero__copy--fade${hasSpotHero ? " intro-hero__copy--spot-hero" : ""}`}
         >
