@@ -2626,9 +2626,96 @@ button.top-nav__auth-link--logout:hover {
   flex-direction: column;
   gap: 1rem;
 }
+.content-detail__qa-flash {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.content-detail__qa-flash--ok {
+  background: rgba(5, 150, 105, 0.1);
+  border: 1px solid rgba(5, 150, 105, 0.35);
+  color: #065f46;
+}
+.content-detail__qa-flash--err {
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  color: #991b1b;
+}
+.content-detail__qa-list-wrap {
+  margin-bottom: 1.5rem;
+}
+.content-detail__qa-list-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--light-text, #111827);
+}
+.content-detail__qa-empty {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--light-border, #e5e7eb);
+  background: #f9fafb;
+  color: var(--light-text-muted, #6b7280);
+  font-size: 0.9rem;
+}
+.content-detail__qa-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.65rem;
+}
+.content-detail__qa-num {
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+.content-detail__qa-date {
+  font-size: 0.78rem;
+  color: var(--light-text-muted, #6b7280);
+}
+.content-detail__qa-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+}
+.content-detail__qa-status--wait {
+  background: rgba(234, 179, 8, 0.2);
+  color: #a16207;
+}
+.content-detail__qa-status--done {
+  background: rgba(5, 150, 105, 0.15);
+  color: #047857;
+}
+.content-detail__qa-meta-inline {
+  font-size: 0.78rem;
+  color: var(--light-text-muted, #6b7280);
+}
+.content-detail__qa-await {
+  margin: 0.5rem 0 0 2.3rem;
+  font-size: 0.82rem;
+  color: var(--light-text-muted, #6b7280);
+}
+.content-detail__qa-form-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--light-text, #111827);
+}
+.content-detail__qa-form {
+  margin-top: 0.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--light-border, #e5e7eb);
+}
 .content-detail__qa-item {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 1rem;
+  border: 1px solid var(--light-border, #e5e7eb);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+  background: #fafbfc;
 }
 .content-detail__qa-answer {
   margin-top: 0.5rem;

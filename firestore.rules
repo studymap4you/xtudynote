@@ -180,7 +180,14 @@ service cloud.firestore {
 
     // ——— content_qa ———
     match /content_qa/{qaId} {
-      allow read: if signedIn();
+      /** 본인 질문 또는 해당 자료 업로더(답변)·슈퍼관리자만 조회 */
+      allow read: if signedIn()
+        && (
+          resource.data.studentId == request.auth.uid
+          || get(/databases/$(database)/documents/contents/$(resource.data.contentId)).data.authorId
+            == request.auth.uid
+          || isActiveSuperAdmin()
+        );
       allow create: if signedIn()
         && request.resource.data.studentId == request.auth.uid
         && request.resource.data.keys().hasAll(['contentId', 'studentId', 'question', 'createdAt'])

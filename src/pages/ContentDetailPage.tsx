@@ -10,6 +10,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  Timestamp,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -29,10 +30,23 @@ import "@/pages/pages.css";
 
 type QRow = {
   id: string;
+  studentId: string;
   question: string;
   answer: string | null;
   studentLabel: string;
+  createdAtLabel: string;
 };
+
+function formatQaTime(raw: unknown): string {
+  if (raw instanceof Timestamp) {
+    try {
+      return raw.toDate().toLocaleString("ko-KR");
+    } catch {
+      return "—";
+    }
+  }
+  return "—";
+}
 
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +56,7 @@ export function ContentDetailPage() {
   const [qa, setQa] = useState<QRow[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
+  const [qaNotice, setQaNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -77,24 +92,43 @@ export function ContentDetailPage() {
     });
   }, [id, content, firebaseUser, profile?.accountStatus]);
 
+  const canSeeAllQa = useMemo(() => {
+    if (!content || !firebaseUser) return false;
+    if (profile?.role === "super_admin" && profile.accountStatus === "active") return true;
+    return content.authorId === firebaseUser.uid;
+  }, [content, firebaseUser, profile?.role, profile?.accountStatus]);
+
   useEffect(() => {
-    if (!id) return;
-    const q = query(
-      collection(db, "content_qa"),
-      where("contentId", "==", id),
-      orderBy("createdAt", "asc")
-    );
+    if (!id || !content) {
+      setQa([]);
+      return;
+    }
+    if (!firebaseUser) {
+      setQa([]);
+      return;
+    }
+    const q = canSeeAllQa
+      ? query(collection(db, "content_qa"), where("contentId", "==", id), orderBy("createdAt", "asc"))
+      : query(
+          collection(db, "content_qa"),
+          where("contentId", "==", id),
+          where("studentId", "==", firebaseUser.uid),
+          orderBy("createdAt", "asc")
+        );
     const unsub = onSnapshot(
       q,
       (snap) => {
         const list: QRow[] = [];
         snap.forEach((d) => {
           const x = d.data();
+          const sid = String(x.studentId ?? "");
           list.push({
             id: d.id,
+            studentId: sid,
             question: String(x.question ?? ""),
             answer: x.answer != null ? String(x.answer) : null,
-            studentLabel: String(x.studentId ?? "").slice(0, 8) + "…",
+            studentLabel: sid.slice(0, 8) + "…",
+            createdAtLabel: formatQaTime(x.createdAt),
           });
         });
         setQa(list);
@@ -102,7 +136,7 @@ export function ContentDetailPage() {
       () => setQa([])
     );
     return () => unsub();
-  }, [id]);
+  }, [id, content, firebaseUser, canSeeAllQa]);
 
   const displayTitle = useMemo(() => {
     if (!content) return "";
@@ -136,8 +170,9 @@ export function ContentDetailPage() {
     const clean = sanitizeRichHtml(question);
     if (isEmptyRichText(clean)) return;
     setBusy(true);
+    setQaNotice(null);
     try {
-      await addDoc(collection(db, "content_qa"), {
+      const docRef = await addDoc(collection(db, "content_qa"), {
         contentId: id,
         studentId: firebaseUser.uid,
         question: clean,
@@ -145,6 +180,19 @@ export function ContentDetailPage() {
         createdAt: serverTimestamp(),
       });
       setQuestion("");
+      setQaNotice({
+        type: "success",
+        message: "질문이 등록되었습니다. 아래 목록에서 상태를 확인할 수 있습니다.",
+      });
+      window.setTimeout(() => {
+        const el = document.getElementById(`qa-item-${docRef.id}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 300);
+    } catch (e) {
+      setQaNotice({
+        type: "error",
+        message: e instanceof Error ? e.message : "등록에 실패했습니다.",
+      });
     } finally {
       setBusy(false);
     }
@@ -162,6 +210,12 @@ export function ContentDetailPage() {
       await updateDoc(doc(db, "content_qa", qaId), {
         answer: clean,
         answeredAt: serverTimestamp(),
+      });
+      setQaNotice({ type: "success", message: "답변이 저장되었습니다." });
+    } catch (e) {
+      setQaNotice({
+        type: "error",
+        message: e instanceof Error ? e.message : "저장에 실패했습니다.",
       });
     } finally {
       setBusy(false);
@@ -265,65 +319,124 @@ export function ContentDetailPage() {
             <div>
               <h2 className="panel__title">Q&amp;A</h2>
               <span className="ui-ko content-detail__qa-sub">
-                이 자료에 대한 질문 · 선생님(업로더)만 답변
+                {canSeeAllQa
+                  ? "이 자료에 등록된 질문입니다. 선생님(업로더)만 답변할 수 있습니다."
+                  : "내가 남긴 질문만 보입니다. 다른 학습자의 질문은 표시되지 않습니다."}
               </span>
             </div>
           </div>
-          <ul className="content-detail__qa-list">
-            {qa.map((row) => (
-              <li key={row.id} className="content-detail__qa-item">
-                <div className="content-detail__qa-q">
-                  <span className="content-detail__qa-badge" aria-hidden>
-                    Q
-                  </span>
-                  <div className="content-detail__qa-q-body">
-                    <span className="content-detail__qa-meta">({row.studentLabel})</span>
-                    <RichHtmlView html={row.question} />
-                  </div>
-                </div>
-                {row.answer && (
-                  <div className="content-detail__qa-answer-block">
-                    <span className="content-detail__qa-badge content-detail__qa-badge--answer" aria-hidden>
-                      A
-                    </span>
-                    <RichHtmlView html={row.answer} className="content-detail__qa-answer" />
-                  </div>
-                )}
-                {isUploader && (
-                  <AnswerEditor
-                    key={`ed-${row.id}-${row.answer ?? ""}`}
-                    initial={row.answer ?? ""}
-                    userId={firebaseUser?.uid}
-                    disabled={busy}
-                    onSave={(t) => void saveAnswer(row.id, t)}
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
-          {firebaseUser && profile?.role === "student" ? (
-            <form onSubmit={(e) => void submitQuestion(e)} className="content-detail__qa-form">
-              <div className="content-detail__qa-composer">
-                <span className="content-detail__qa-composer-label">질문 작성</span>
-                <p className="content-detail__qa-hint">
-                  굵게·목록·링크·이미지 삽입이 가능합니다. 이미지는 로그인 후 업로드됩니다.
-                </p>
-                <RichTextEditor
-                  value={question}
-                  onChange={setQuestion}
-                  userId={firebaseUser.uid}
-                  disabled={busy}
-                  placeholder="자료에 대해 질문을 남겨 주세요."
-                />
-                <div className="content-detail__qa-form-actions">
-                  <button type="submit" className="btn btn--primary btn--stack" disabled={busy}>
-                    질문 등록
-                  </button>
-                </div>
-              </div>
-            </form>
+
+          {qaNotice && (
+            <div
+              className={
+                qaNotice.type === "success"
+                  ? "content-detail__qa-flash content-detail__qa-flash--ok"
+                  : "content-detail__qa-flash content-detail__qa-flash--err"
+              }
+              role="status"
+            >
+              {qaNotice.message}
+            </div>
+          )}
+
+          {!firebaseUser ? (
+            <p className="content-detail__qa-guest-hint">
+              질문·답변 목록은 로그인 후 확인할 수 있습니다. 질문은 학생 로그인 후 작성할 수 있습니다.
+            </p>
           ) : (
-            <p className="content-detail__qa-guest-hint">질문은 학생 로그인 후 작성할 수 있습니다.</p>
+            <>
+              <div className="content-detail__qa-list-wrap">
+                <h3 className="content-detail__qa-list-title">
+                  {canSeeAllQa ? "질문 목록 (전체)" : "내 질문·답변 목록"}
+                </h3>
+                {qa.length === 0 ? (
+                  <p className="content-detail__qa-empty">
+                    {profile?.role === "student"
+                      ? "아직 등록한 질문이 없습니다. 아래에서 새 질문을 남겨 보세요."
+                      : "아직 등록된 질문이 없습니다."}
+                  </p>
+                ) : (
+                  <ul className="content-detail__qa-list">
+                    {qa.map((row, idx) => (
+                      <li key={row.id} id={`qa-item-${row.id}`} className="content-detail__qa-item">
+                        <div className="content-detail__qa-item-head">
+                          <span className="content-detail__qa-num">#{idx + 1}</span>
+                          <time className="content-detail__qa-date">{row.createdAtLabel}</time>
+                          <span
+                            className={
+                              row.answer
+                                ? "content-detail__qa-status content-detail__qa-status--done"
+                                : "content-detail__qa-status content-detail__qa-status--wait"
+                            }
+                          >
+                            {row.answer ? "답변 등록됨" : "답변 대기"}
+                          </span>
+                          {canSeeAllQa && (
+                            <span className="content-detail__qa-meta-inline">학습자 {row.studentLabel}</span>
+                          )}
+                        </div>
+                        <div className="content-detail__qa-q">
+                          <span className="content-detail__qa-badge" aria-hidden>
+                            Q
+                          </span>
+                          <div className="content-detail__qa-q-body">
+                            <RichHtmlView html={row.question} />
+                          </div>
+                        </div>
+                        {row.answer ? (
+                          <div className="content-detail__qa-answer-block">
+                            <span
+                              className="content-detail__qa-badge content-detail__qa-badge--answer"
+                              aria-hidden
+                            >
+                              A
+                            </span>
+                            <RichHtmlView html={row.answer} className="content-detail__qa-answer" />
+                          </div>
+                        ) : (
+                          !canSeeAllQa && (
+                            <p className="content-detail__qa-await">업로더 답변을 기다리는 중입니다.</p>
+                          )
+                        )}
+                        {isUploader && (
+                          <AnswerEditor
+                            key={`ed-${row.id}-${row.answer ?? ""}`}
+                            initial={row.answer ?? ""}
+                            userId={firebaseUser?.uid}
+                            disabled={busy}
+                            onSave={(t) => void saveAnswer(row.id, t)}
+                          />
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {profile?.role === "student" ? (
+                <form onSubmit={(e) => void submitQuestion(e)} className="content-detail__qa-form">
+                  <h3 className="content-detail__qa-form-title">새 질문 작성</h3>
+                  <div className="content-detail__qa-composer">
+                    <span className="content-detail__qa-composer-label">질문 작성</span>
+                    <p className="content-detail__qa-hint">
+                      굵게·목록·링크·이미지 삽입이 가능합니다. 이미지는 로그인 후 업로드됩니다.
+                    </p>
+                    <RichTextEditor
+                      value={question}
+                      onChange={setQuestion}
+                      userId={firebaseUser.uid}
+                      disabled={busy}
+                      placeholder="자료에 대해 질문을 남겨 주세요."
+                    />
+                    <div className="content-detail__qa-form-actions">
+                      <button type="submit" className="btn btn--primary btn--stack" disabled={busy}>
+                        질문 등록
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              ) : null}
+            </>
           )}
         </section>
 

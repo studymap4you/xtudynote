@@ -44,6 +44,15 @@
       ]
     },
     {
+      "collectionGroup": "content_qa",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "contentId", "order": "ASCENDING" },
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "student_downloads",
       "queryScope": "COLLECTION",
       "fields": [
