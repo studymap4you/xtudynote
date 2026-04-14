@@ -537,61 +537,74 @@ export function Intro() {
     else navigate("/homework");
   }
 
+  const useCustomHero = Boolean(landingHeroUrl);
+
   return (
-    <section className="intro-hero" aria-labelledby="intro-slogan">
-      <div className="intro-hero__grid">
-        <div className="intro-hero__copy intro-hero__copy--fade">
-          <p className="intro-hero__brand">
-            <BrandLockup />
-          </p>
-          <h1 id="intro-slogan" className="intro-hero__slogan">
-            <span className="intro-hero__slogan-line">모두에 의한</span>
-            <span className="intro-hero__slogan-line">모두를 위한</span>
-            <span className="intro-hero__slogan-line intro-hero__slogan-line--final">
-              <span className="intro-hero__slogan-accent">모두의 학습</span>
-            </span>
-          </h1>
-          <p className="intro-hero__lede">
-            모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
-          </p>
-          <IntroHeroShare />
-          <div className="intro-hero__classroom">
-            <p className="intro-hero__share-label">강의실</p>
-            <div className="intro-hero__classroom-row">
-              <Link
-                to="/classroom"
-                className="intro-hero__classroom-btn intro-hero__classroom-btn--enter"
-              >
-                <span className="intro-hero__classroom-btn-en">Enter</span>
-                <span className="intro-hero__classroom-btn-ko">강의실 입장</span>
-              </Link>
-              <Link
-                to="/classroom/new"
-                className="intro-hero__classroom-btn intro-hero__classroom-btn--create"
-              >
-                <span className="intro-hero__classroom-btn-en">Create</span>
-                <span className="intro-hero__classroom-btn-ko">강의실 개설</span>
-              </Link>
-            </div>
-            <p className="intro-hero__classroom-hint">
-              입장은 로그인 후 목록에서 선택합니다. 개설은{" "}
-              <strong>승인된 선생님</strong> 계정에서 가능합니다.
-            </p>
+    <section
+      className={`intro-hero${useCustomHero ? " intro-hero--custom-visual" : ""}`}
+      aria-labelledby="intro-slogan"
+    >
+      {useCustomHero ? (
+        <h1 id="intro-slogan" className="intro-hero__sr-title">
+          XtudyNote — 모두에 의한 모두를 위한 모두의 학습
+        </h1>
+      ) : null}
+      <div
+        className={`intro-hero__grid${useCustomHero ? " intro-hero__grid--custom-visual" : ""}`}
+      >
+        {useCustomHero && landingHeroUrl ? (
+          <div className="intro-hero__visual intro-hero__visual--primary intro-hero__visual--fade">
+            <img
+              className="intro-hero__hero-img intro-hero__hero-img--primary"
+              src={landingHeroUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
           </div>
-        </div>
+        ) : (
+          <div className="intro-hero__copy intro-hero__copy--fade">
+            <p className="intro-hero__brand">
+              <BrandLockup />
+            </p>
+            <h1 id="intro-slogan" className="intro-hero__slogan">
+              <span className="intro-hero__slogan-line">모두에 의한</span>
+              <span className="intro-hero__slogan-line">모두를 위한</span>
+              <span className="intro-hero__slogan-line intro-hero__slogan-line--final">
+                <span className="intro-hero__slogan-accent">모두의 학습</span>
+              </span>
+            </h1>
+            <p className="intro-hero__lede">
+              모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
+            </p>
+            <IntroHeroShare />
+            <div className="intro-hero__classroom">
+              <p className="intro-hero__share-label">강의실</p>
+              <div className="intro-hero__classroom-row">
+                <Link
+                  to="/classroom"
+                  className="intro-hero__classroom-btn intro-hero__classroom-btn--enter"
+                >
+                  <span className="intro-hero__classroom-btn-en">Enter</span>
+                  <span className="intro-hero__classroom-btn-ko">강의실 입장</span>
+                </Link>
+                <Link
+                  to="/classroom/new"
+                  className="intro-hero__classroom-btn intro-hero__classroom-btn--create"
+                >
+                  <span className="intro-hero__classroom-btn-en">Create</span>
+                  <span className="intro-hero__classroom-btn-ko">강의실 개설</span>
+                </Link>
+              </div>
+              <p className="intro-hero__classroom-hint">
+                입장은 로그인 후 목록에서 선택합니다. 개설은{" "}
+                <strong>승인된 선생님</strong> 계정에서 가능합니다.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="intro-hero__right">
-          {landingHeroUrl ? (
-            <div className="intro-hero__visual intro-hero__visual--fade" aria-hidden>
-              <img
-                className="intro-hero__hero-img"
-                src={landingHeroUrl}
-                alt=""
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-          ) : null}
           <div className="intro-hero__panel intro-hero__panel--fade">
           <div className="intro-login-card">
             <p className="intro-login-card__hint">서비스 이용 안내</p>

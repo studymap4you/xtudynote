@@ -141,11 +141,12 @@ export function LandingHeroAdminPage() {
       <main className="admin-layout admin-layout--light">
         <div className="admin-layout__title-row">
           <h1>Landing hero image</h1>
-          <span className="ui-ko">홈 랜딩 오른쪽 영역 이미지</span>
+          <span className="ui-ko">홈 히어로 메인 비주얼</span>
         </div>
         <p style={{ color: "var(--text-muted)", maxWidth: "42rem" }}>
-          메인 페이지 히어로에서 <strong>왼쪽 카피는 그대로</strong> 두고, <strong>오른쪽 상단</strong>에만 표시되는
-          이미지를 교체합니다. PNG·JPG·WebP 등, 5MB 이하를 권장합니다.
+          이미지를 등록하면 홈 화면에서 <strong>왼쪽 슬로건·브랜드 영역은 숨겨지고</strong>, 그 자리를 이 이미지가
+          채웁니다. 오른쪽(로그인 카드·검색·바로가기)은 그대로입니다. 이미지를 제거하면 예전 텍스트 히어로로
+          돌아갑니다. PNG·JPG·WebP 등, 5MB 이하를 권장합니다.
         </p>
 
         <section className="panel panel--light" style={{ marginTop: "1.5rem", maxWidth: "36rem" }}>
