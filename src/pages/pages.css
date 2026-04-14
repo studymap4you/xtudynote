@@ -185,58 +185,27 @@
     gap: var(--space-3);
   }
 }
-.intro-hero__sr-title {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+.intro-hero__spot-wrap {
+  margin: 0 0 var(--space-2);
+  max-width: 100%;
+  align-self: flex-start;
 }
-.intro-hero--custom-visual {
-  position: relative;
-  max-width: none;
-  width: calc(100% + 2 * var(--space-2));
-  margin-left: calc(-1 * var(--space-2));
-  margin-right: calc(-1 * var(--space-2));
-  margin-bottom: var(--space-3);
-  padding: 0;
-}
-.intro-hero__fullbleed {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-  background: #f1f5f9;
-}
-.intro-hero__fullbleed--fade {
+.intro-hero__spot-wrap--fade {
   opacity: 0;
-  animation: introFadeIn 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
+  animation: introFadeIn 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.06s forwards;
 }
-.intro-hero__fullbleed-frame {
+.intro-hero__spot-img {
   display: block;
-  width: 100%;
-  line-height: 0;
-}
-.intro-hero__hero-img--fullbleed {
-  display: block;
-  width: 100%;
+  width: auto;
   height: auto;
-  max-height: min(68vh, 640px);
-  object-fit: cover;
-  object-position: center top;
-  vertical-align: top;
-}
-.intro-hero__post {
-  width: 100%;
-  padding: var(--space-3) var(--space-2) 0;
-  box-sizing: border-box;
-}
-.intro-hero__post-inner {
-  max-width: 72rem;
-  margin: 0 auto;
+  max-width: 100%;
+  max-height: min(42vh, 320px);
+  object-fit: contain;
+  object-position: left top;
+  border-radius: var(--radius-ui);
+  border: 1px solid var(--intro-silk-border);
+  box-shadow: var(--intro-silk-shadow);
+  background: rgba(248, 250, 252, 0.95);
 }
 .intro-hero__right {
   display: flex;
@@ -244,26 +213,10 @@
   gap: var(--space-2);
   min-width: 0;
 }
-.intro-hero__visual {
-  border-radius: var(--radius-ui);
-  overflow: hidden;
-  border: 1px solid var(--intro-silk-border);
-  background: rgba(248, 250, 252, 0.9);
-  box-shadow: var(--intro-silk-shadow);
-}
-.intro-hero__visual--fade {
-  opacity: 0;
-  animation: introFadeIn 0.95s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
-}
-.intro-hero__hero-img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: min(52vh, 28rem);
-  object-fit: cover;
-  vertical-align: top;
-}
 .intro-hero__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   padding-top: var(--space-2);
   text-align: left;
 }

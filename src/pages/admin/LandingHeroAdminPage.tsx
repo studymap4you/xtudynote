@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   deleteField,
   doc,
+  getDoc,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -10,7 +11,12 @@ import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage
 import { Link } from "react-router-dom";
 import { AdminTopNav } from "@/components/AdminTopNav";
 import { db, storage } from "@/firebase/config";
-import { SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC } from "@/lib/siteConfig";
+import {
+  LANDING_HERO_DEFAULT_MAX_H_PX,
+  LANDING_HERO_DEFAULT_MAX_W_PX,
+  SITE_CONFIG_COLLECTION,
+  SITE_CONFIG_HOME_DOC,
+} from "@/lib/siteConfig";
 import "@/pages/pages.css";
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -30,28 +36,49 @@ async function tryDeleteStoragePath(path: string | null | undefined) {
   }
 }
 
+function clampPxInput(n: number): boolean {
+  return Number.isFinite(n) && n >= 40 && n <= 2000;
+}
+
 export function LandingHeroAdminPage() {
   const [storagePath, setStoragePath] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [maxWPx, setMaxWPx] = useState<number | null>(null);
+  const [maxHPx, setMaxHPx] = useState<number | null>(null);
+  const [wInput, setWInput] = useState("");
+  const [hInput, setHInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [savingDims, setSavingDims] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(
       doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC),
       (snap) => {
-        const p = snap.data()?.landingHeroImagePath;
+        const d = snap.data();
+        const p = d?.landingHeroImagePath;
         setStoragePath(typeof p === "string" && p.length > 0 ? p : null);
+        const w = d?.landingHeroImageMaxWidthPx;
+        const h = d?.landingHeroImageMaxHeightPx;
+        setMaxWPx(typeof w === "number" && clampPxInput(w) ? w : null);
+        setMaxHPx(typeof h === "number" && clampPxInput(h) ? h : null);
         setLoading(false);
       },
       () => {
         setStoragePath(null);
+        setMaxWPx(null);
+        setMaxHPx(null);
         setLoading(false);
       }
     );
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    setWInput(maxWPx != null ? String(maxWPx) : "");
+    setHInput(maxHPx != null ? String(maxHPx) : "");
+  }, [maxWPx, maxHPx]);
 
   useEffect(() => {
     if (!storagePath) {
@@ -91,14 +118,20 @@ export function LandingHeroAdminPage() {
       const objectPath = `site_assets/landing_hero/${Date.now()}_${safeBaseName(file.name)}.${ext}`;
       try {
         await uploadBytes(ref(storage, objectPath), file, { contentType: file.type });
-        await setDoc(
-          doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC),
-          {
-            landingHeroImagePath: objectPath,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
+        const homeRef = doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC);
+        const before = await getDoc(homeRef);
+        const bd = before.data();
+        const payload: Record<string, unknown> = {
+          landingHeroImagePath: objectPath,
+          updatedAt: serverTimestamp(),
+        };
+        if (bd?.landingHeroImageMaxWidthPx == null) {
+          payload.landingHeroImageMaxWidthPx = LANDING_HERO_DEFAULT_MAX_W_PX;
+        }
+        if (bd?.landingHeroImageMaxHeightPx == null) {
+          payload.landingHeroImageMaxHeightPx = LANDING_HERO_DEFAULT_MAX_H_PX;
+        }
+        await setDoc(homeRef, payload, { merge: true });
         await tryDeleteStoragePath(prev);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "업로드에 실패했습니다.");
@@ -114,6 +147,41 @@ export function LandingHeroAdminPage() {
     [storagePath]
   );
 
+  async function saveDims() {
+    setError(null);
+    const wt = wInput.trim();
+    const ht = hInput.trim();
+    const payload: Record<string, unknown> = { updatedAt: serverTimestamp() };
+    if (wt === "") {
+      payload.landingHeroImageMaxWidthPx = deleteField();
+    } else {
+      const w = Number.parseInt(wt, 10);
+      if (!clampPxInput(w)) {
+        setError("너비는 40~2000 사이 정수로 입력해 주세요. 제한 없음은 빈 칸으로 두세요.");
+        return;
+      }
+      payload.landingHeroImageMaxWidthPx = w;
+    }
+    if (ht === "") {
+      payload.landingHeroImageMaxHeightPx = deleteField();
+    } else {
+      const h = Number.parseInt(ht, 10);
+      if (!clampPxInput(h)) {
+        setError("높이는 40~2000 사이 정수로 입력해 주세요. 제한 없음은 빈 칸으로 두세요.");
+        return;
+      }
+      payload.landingHeroImageMaxHeightPx = h;
+    }
+    setSavingDims(true);
+    try {
+      await setDoc(doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC), payload, { merge: true });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "저장에 실패했습니다.");
+    } finally {
+      setSavingDims(false);
+    }
+  }
+
   async function clearHero() {
     setError(null);
     const prev = storagePath;
@@ -123,6 +191,8 @@ export function LandingHeroAdminPage() {
         doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC),
         {
           landingHeroImagePath: deleteField(),
+          landingHeroImageMaxWidthPx: deleteField(),
+          landingHeroImageMaxHeightPx: deleteField(),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -144,9 +214,10 @@ export function LandingHeroAdminPage() {
           <span className="ui-ko">홈 히어로 메인 비주얼</span>
         </div>
         <p style={{ color: "var(--text-muted)", maxWidth: "42rem" }}>
-          이미지를 등록하면 <strong>상단 네비 아래부터</strong> 화면 <strong>왼쪽~오른쪽 전체 너비</strong>를 이
-          배너가 채우고, 그 <strong>아래</strong>에 로그인 안내·통합 검색·바로가기 링크가 이어집니다. 이미지를
-          제거하면 예전 텍스트 히어로(좌·우 2열)로 돌아갑니다. 가로형 배너 PNG·JPG·WebP 등, 5MB 이하를 권장합니다.
+          홈 화면 <strong>왼쪽 열 상단</strong>에만 표시되는 이미지입니다. 브랜드·슬로건·
+          <strong>공유·링크 복사</strong>·강의실 안내·오른쪽 로그인/검색/바로가기는 그대로입니다. 아래에서 최대
+          너비·높이(px)를 조절할 수 있습니다. 빈 칸으로 두고 저장하면 해당 축 제한을 제거합니다(랜딩에서는 CSS
+          기본 한도 적용). PNG·JPG·WebP 등, 5MB 이하.
         </p>
 
         <section className="panel panel--light" style={{ marginTop: "1.5rem", maxWidth: "36rem" }}>
@@ -171,8 +242,55 @@ export function LandingHeroAdminPage() {
               />
             </div>
           ) : (
-            <p style={{ color: "var(--text-muted)" }}>등록된 이미지가 없습니다. 랜딩 오른쪽은 비어 있는 상태입니다.</p>
+            <p style={{ color: "var(--text-muted)" }}>등록된 이미지가 없습니다.</p>
           )}
+
+          {storagePath ? (
+            <div
+              style={{
+                marginTop: "1.25rem",
+                paddingTop: "1rem",
+                borderTop: "1px solid rgba(15,23,42,0.08)",
+                display: "grid",
+                gap: "0.75rem",
+                maxWidth: "22rem",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 600 }}>표시 크기 (px)</p>
+              <label className="auth-field" style={{ margin: 0 }}>
+                <span className="ui-ko">최대 너비</span>
+                <input
+                  className="add-passage__control"
+                  type="text"
+                  inputMode="numeric"
+                  value={wInput}
+                  onChange={(e) => setWInput(e.target.value)}
+                  placeholder={`예: ${LANDING_HERO_DEFAULT_MAX_W_PX} (빈 칸 = 제한 없음)`}
+                  autoComplete="off"
+                />
+              </label>
+              <label className="auth-field" style={{ margin: 0 }}>
+                <span className="ui-ko">최대 높이</span>
+                <input
+                  className="add-passage__control"
+                  type="text"
+                  inputMode="numeric"
+                  value={hInput}
+                  onChange={(e) => setHInput(e.target.value)}
+                  placeholder={`예: ${LANDING_HERO_DEFAULT_MAX_H_PX} (빈 칸 = 제한 없음)`}
+                  autoComplete="off"
+                />
+              </label>
+              <button
+                type="button"
+                className="btn btn--primary btn--stack"
+                disabled={savingDims || loading}
+                onClick={() => void saveDims()}
+              >
+                {savingDims ? "저장 중…" : "크기 저장"}
+              </button>
+            </div>
+          ) : null}
 
           <div style={{ marginTop: "1rem", display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
             <label className="btn btn--primary btn--stack" style={{ cursor: uploading ? "wait" : "pointer" }}>

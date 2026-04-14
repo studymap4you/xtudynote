@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
 import { Link, useNavigate } from "react-router-dom";
@@ -6,7 +6,10 @@ import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
 import { db, storage } from "@/firebase/config";
 import { normalizeHomeworkCode } from "@/lib/homeworkCode";
-import { SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC } from "@/lib/siteConfig";
+import {
+  SITE_CONFIG_COLLECTION,
+  SITE_CONFIG_HOME_DOC,
+} from "@/lib/siteConfig";
 
 const SHORTCUTS = [
   { to: "/library", label: "라이브러리", tone: "a" as const },
@@ -491,12 +494,10 @@ function ShortcutOrbIcon({ tone }: { tone: (typeof SHORTCUTS)[number]["tone"] })
 }
 
 function IntroLandingPanel({
-  layout,
   search,
   setSearch,
   onSearch,
 }: {
-  layout: "aside" | "belowBanner";
   search: string;
   setSearch: (v: string) => void;
   onSearch: (e: React.FormEvent) => void;
@@ -612,19 +613,9 @@ function IntroLandingPanel({
     </>
   );
 
-  if (layout === "aside") {
-    return (
-      <div className="intro-hero__right">
-        <div className="intro-hero__panel intro-hero__panel--fade">{stack}</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="intro-hero__post">
-      <div className="intro-hero__post-inner">
-        <div className="intro-hero__panel intro-hero__panel--fade">{stack}</div>
-      </div>
+    <div className="intro-hero__right">
+      <div className="intro-hero__panel intro-hero__panel--fade">{stack}</div>
     </div>
   );
 }
@@ -632,20 +623,36 @@ function IntroLandingPanel({
 /**
  * 랜딩 히어로 — 비대칭 레이아웃(좌 카피 / 우 기능), XtudyNote 2.0 라이트 마켓 톤
  */
+function clampLandingHeroPx(n: unknown): number | null {
+  if (typeof n !== "number" || !Number.isFinite(n)) return null;
+  const v = Math.round(n);
+  if (v < 40 || v > 2000) return null;
+  return v;
+}
+
 export function Intro() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [landingHeroPath, setLandingHeroPath] = useState<string | null>(null);
   const [landingHeroUrl, setLandingHeroUrl] = useState<string | null>(null);
+  const [heroMaxW, setHeroMaxW] = useState<number | null>(null);
+  const [heroMaxH, setHeroMaxH] = useState<number | null>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(
       doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC),
       (snap) => {
-        const p = snap.data()?.landingHeroImagePath;
+        const d = snap.data();
+        const p = d?.landingHeroImagePath;
         setLandingHeroPath(typeof p === "string" && p.length > 0 ? p : null);
+        setHeroMaxW(clampLandingHeroPx(d?.landingHeroImageMaxWidthPx));
+        setHeroMaxH(clampLandingHeroPx(d?.landingHeroImageMaxHeightPx));
       },
-      () => setLandingHeroPath(null)
+      () => {
+        setLandingHeroPath(null);
+        setHeroMaxW(null);
+        setHeroMaxH(null);
+      }
     );
     return () => unsub();
   }, []);
@@ -675,39 +682,26 @@ export function Intro() {
     else navigate("/homework");
   }
 
-  const useCustomHero = Boolean(landingHeroUrl);
-
-  if (useCustomHero && landingHeroUrl) {
-    return (
-      <section className="intro-hero intro-hero--custom-visual" aria-labelledby="intro-slogan">
-        <h1 id="intro-slogan" className="intro-hero__sr-title">
-          XtudyNote — 모두에 의한 모두를 위한 모두의 학습
-        </h1>
-        <div className="intro-hero__fullbleed intro-hero__fullbleed--fade">
-          <div className="intro-hero__fullbleed-frame">
-            <img
-              className="intro-hero__hero-img intro-hero__hero-img--fullbleed"
-              src={landingHeroUrl}
-              alt=""
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
-        </div>
-        <IntroLandingPanel
-          layout="belowBanner"
-          search={search}
-          setSearch={setSearch}
-          onSearch={handleSearch}
-        />
-      </section>
-    );
-  }
+  const spotStyle: CSSProperties = {};
+  if (heroMaxW != null) spotStyle.maxWidth = `${heroMaxW}px`;
+  if (heroMaxH != null) spotStyle.maxHeight = `${heroMaxH}px`;
 
   return (
     <section className="intro-hero" aria-labelledby="intro-slogan">
       <div className="intro-hero__grid">
         <div className="intro-hero__copy intro-hero__copy--fade">
+          {landingHeroUrl ? (
+            <div className="intro-hero__spot-wrap intro-hero__spot-wrap--fade">
+              <img
+                className="intro-hero__spot-img"
+                src={landingHeroUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                style={Object.keys(spotStyle).length ? spotStyle : undefined}
+              />
+            </div>
+          ) : null}
           <p className="intro-hero__brand">
             <BrandLockup />
           </p>
@@ -747,12 +741,7 @@ export function Intro() {
           </div>
         </div>
 
-        <IntroLandingPanel
-          layout="aside"
-          search={search}
-          setSearch={setSearch}
-          onSearch={handleSearch}
-        />
+        <IntroLandingPanel search={search} setSearch={setSearch} onSearch={handleSearch} />
       </div>
     </section>
   );
