@@ -220,9 +220,6 @@ export function PremiumVaultSection() {
       <div className="mp-section-head">
         <span className="mp-badge mp-badge--royal">Premium Vault</span>
         <h2 className="mp-section-title">검증된 전문가의 고품격 유료 자료</h2>
-        <p className="mp-section-lead">
-          에듀넷과 차별화되는 큐레이션 — 샘플 미리보기로 구매 전환을 돕습니다.
-        </p>
       </div>
       {rowsWithMeta.length === 0 ? (
         <p className="mp-section-lead" style={{ textAlign: "center" }}>
