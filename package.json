@@ -13,7 +13,6 @@
     "dompurify": "^3.3.3",
     "firebase": "^11.6.0",
     "firebase-admin": "^13.0.0",
-    "quill": "^2.0.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-quill": "^2.0.0",
@@ -25,5 +24,8 @@
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "~5.7.2",
     "vite": "^6.0.3"
+  },
+  "overrides": {
+    "quill": "1.3.7"
   }
 }
