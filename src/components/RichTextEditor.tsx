@@ -1,61 +1,38 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import type ReactQuill from "react-quill";
+import { useCallback, useEffect } from "react";
+import type { Editor } from "@tiptap/core";
+import { EditorContent, useEditor } from "@tiptap/react";
+import { StarterKit } from "@tiptap/starter-kit";
+import { Image } from "@tiptap/extension-image";
+import { Placeholder } from "@tiptap/extension-placeholder";
 import { uploadEditorImage } from "@/lib/uploadEditorImage";
 import "@/components/rich-text/rich-text.css";
-
-type ReactQuillComponent = typeof ReactQuill;
 
 type Props = {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
-  /** Firebase Auth uid — required for image upload */
   userId: string | undefined;
   disabled?: boolean;
   compact?: boolean;
   id?: string;
 };
 
-function PlainFallback({
-  value,
-  onChange,
-  placeholder,
-  disabled,
-  compact,
-  id,
-}: Props) {
-  const rows = compact ? 8 : 14;
-  return (
-    <div id={id} className={`rich-text-editor rich-text-editor--fallback${compact ? " rich-text-editor--compact" : ""}`}>
-      <textarea
-        className="add-passage__control add-passage__intro rich-text-editor__fallback-textarea"
-        rows={rows}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        spellCheck
-      />
-      <p className="rich-text-editor__fallback-note" role="status">
-        서식 도구를 불러오지 못했습니다. 위 입력란에 HTML을 직접 쓰거나, 페이지를 새로고침해 보세요.
-      </p>
-    </div>
-  );
+function normalizeHtml(s: string): string {
+  const t = s?.trim() ?? "";
+  return t || "<p></p>";
 }
 
-function QuillEditorInner({
-  RQ,
-  value,
-  onChange,
-  placeholder,
+function MenuBar({
+  editor,
   userId,
   disabled,
-  compact,
-  id,
-}: Props & { RQ: ReactQuillComponent }) {
-  const quillRef = useRef<ReactQuill | null>(null);
-
-  const imageHandler = useCallback(() => {
+}: {
+  editor: Editor;
+  userId: string | undefined;
+  disabled?: boolean;
+}) {
+  const addImage = useCallback(() => {
+    if (disabled) return;
     if (!userId) {
       window.alert("이미지를 넣으려면 로그인이 필요합니다.");
       return;
@@ -72,102 +49,183 @@ function QuillEditorInner({
       }
       try {
         const url = await uploadEditorImage(userId, file);
-        const editor = quillRef.current?.getEditor();
-        if (!editor) return;
-        const range = editor.getSelection(true);
-        const index = range ? range.index : editor.getLength();
-        editor.insertEmbed(index, "image", url, "user");
-        editor.setSelection(index + 1, 0);
+        editor.chain().focus().setImage({ src: url }).run();
       } catch (e) {
         window.alert(e instanceof Error ? e.message : "이미지 업로드에 실패했습니다.");
       }
     };
     input.click();
-  }, [userId]);
+  }, [editor, userId, disabled]);
 
-  const modules: ComponentProps<ReactQuillComponent>["modules"] = useMemo(
-    () => ({
-      toolbar: {
-        container: [
-          [{ header: [1, 2, false] }],
-          ["bold", "italic", "underline", "strike"],
-          [{ list: "ordered" }, { list: "bullet" }],
-          ["link", "image"],
-          ["clean"],
-        ],
-        handlers: {
-          image: imageHandler,
-        },
-      },
-      clipboard: {
-        matchVisual: false,
-      },
-    }),
-    [imageHandler]
-  );
-
-  const formats: ComponentProps<ReactQuillComponent>["formats"] = [
-    "header",
-    "bold",
-    "italic",
-    "underline",
-    "strike",
-    "list",
-    "bullet",
-    "link",
-    "image",
-  ];
+  const setLink = useCallback(() => {
+    if (disabled) return;
+    const prev = editor.getAttributes("link").href as string | undefined;
+    const next = window.prompt("링크 URL (비우면 링크 제거)", prev ?? "https://");
+    if (next === null) return;
+    const trimmed = next.trim();
+    if (trimmed === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: trimmed }).run();
+  }, [editor, disabled]);
 
   return (
-    <div
-      id={id}
-      className={`rich-text-editor${compact ? " rich-text-editor--compact" : ""}${disabled ? " rich-text-editor--disabled" : ""}`}
-    >
-      <RQ
-        ref={quillRef}
-        theme="snow"
-        value={value}
-        onChange={onChange}
-        modules={modules}
-        formats={formats}
-        placeholder={placeholder}
-        readOnly={disabled}
-      />
+    <div className="rich-text-editor__toolbar" role="toolbar" aria-label="텍스트 서식">
+      <button
+        type="button"
+        className={editor.isActive("heading", { level: 2 }) ? "is-active" : undefined}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        disabled={disabled}
+        title="제목"
+      >
+        H2
+      </button>
+      <button
+        type="button"
+        className={editor.isActive("bold") ? "is-active" : undefined}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        disabled={disabled}
+        title="굵게"
+      >
+        <strong>B</strong>
+      </button>
+      <button
+        type="button"
+        className={editor.isActive("italic") ? "is-active" : undefined}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        disabled={disabled}
+        title="기울임"
+      >
+        <em>I</em>
+      </button>
+      <button
+        type="button"
+        className={editor.isActive("underline") ? "is-active" : undefined}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        disabled={disabled}
+        title="밑줄"
+      >
+        U
+      </button>
+      <button
+        type="button"
+        className={editor.isActive("strike") ? "is-active" : undefined}
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        disabled={disabled}
+        title="취소선"
+      >
+        S
+      </button>
+      <button
+        type="button"
+        className={editor.isActive("bulletList") ? "is-active" : undefined}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        disabled={disabled}
+        title="글머리"
+      >
+        • 목록
+      </button>
+      <button
+        type="button"
+        className={editor.isActive("orderedList") ? "is-active" : undefined}
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        disabled={disabled}
+        title="번호"
+      >
+        1. 목록
+      </button>
+      <button
+        type="button"
+        className={editor.isActive("link") ? "is-active" : undefined}
+        onClick={setLink}
+        disabled={disabled}
+        title="링크"
+      >
+        링크
+      </button>
+      <button type="button" onClick={addImage} disabled={disabled} title="이미지">
+        이미지
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={disabled || !editor.can().undo()}
+        title="실행 취소"
+      >
+        ↩
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={disabled || !editor.can().redo()}
+        title="다시 실행"
+      >
+        ↪
+      </button>
     </div>
   );
 }
 
 /**
- * Quill은 동적 import — 메인 번들에서 제외해 초기 로드/호환 문제로 전체 앱이 멈추는 것을 방지합니다.
+ * React 19에서 제거된 `findDOMNode`를 쓰는 react-quill 대신 TipTap 사용.
  */
-export function RichTextEditor(props: Props) {
-  const [RQ, setRQ] = useState<ReactQuillComponent | null>(null);
-  const [failed, setFailed] = useState(false);
+export function RichTextEditor({ value, onChange, placeholder, userId, disabled, compact, id }: Props) {
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit.configure({
+          heading: { levels: [2, 3] },
+          link: {
+            openOnClick: false,
+            autolink: true,
+            defaultProtocol: "https",
+            HTMLAttributes: {
+              rel: "noopener noreferrer",
+              target: "_blank",
+            },
+          },
+        }),
+        Image.configure({
+          inline: false,
+          allowBase64: false,
+        }),
+        Placeholder.configure({
+          placeholder: placeholder ?? "내용을 입력하세요.",
+        }),
+      ],
+      content: normalizeHtml(value),
+      editable: !disabled,
+      onUpdate: ({ editor: ed }) => {
+        onChange(ed.getHTML());
+      },
+      editorProps: {
+        attributes: {
+          class: "tiptap",
+        },
+      },
+    },
+    [placeholder]
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        await import("react-quill/dist/quill.snow.css");
-        const m = await import("react-quill");
-        if (!cancelled) setRQ(() => m.default);
-      } catch {
-        if (!cancelled) setFailed(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (!editor) return;
+    editor.setEditable(!disabled);
+  }, [editor, disabled]);
 
-  if (failed) {
-    return <PlainFallback {...props} />;
-  }
-  if (!RQ) {
+  useEffect(() => {
+    if (!editor) return;
+    const next = normalizeHtml(value);
+    const cur = editor.getHTML();
+    if (next === cur) return;
+    editor.commands.setContent(next, { emitUpdate: false });
+  }, [value, editor]);
+
+  if (!editor) {
     return (
       <div
-        id={props.id}
-        className={`rich-text-editor rich-text-editor--loading${props.compact ? " rich-text-editor--compact" : ""}`}
+        id={id}
+        className={`rich-text-editor rich-text-editor--loading${compact ? " rich-text-editor--compact" : ""}`}
         aria-busy="true"
       >
         <span className="rich-text-editor__loading-text">에디터 준비 중…</span>
@@ -175,5 +233,13 @@ export function RichTextEditor(props: Props) {
     );
   }
 
-  return <QuillEditorInner RQ={RQ} {...props} />;
+  return (
+    <div
+      id={id}
+      className={`rich-text-editor${compact ? " rich-text-editor--compact" : ""}${disabled ? " rich-text-editor--disabled" : ""}`}
+    >
+      <MenuBar editor={editor} userId={userId} disabled={disabled} />
+      <EditorContent editor={editor} />
+    </div>
+  );
 }

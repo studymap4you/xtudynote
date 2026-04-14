@@ -1,4 +1,4 @@
-/* Quill snow — align with XtudyNote light forms */
+/* TipTap — XtudyNote light forms */
 .rich-text-editor {
   border-radius: var(--radius-md);
   border: 1px solid var(--light-border, #e5e7eb);
@@ -7,32 +7,67 @@
   font-family: var(--font-editor, var(--font-body));
 }
 
-.rich-text-editor .ql-toolbar.ql-snow {
-  border: none;
+.rich-text-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem;
   border-bottom: 1px solid var(--light-border, #e5e7eb);
   background: #f9fafb;
-  font-family: var(--font-editor, var(--font-body));
 }
 
-.rich-text-editor .ql-container.ql-snow {
-  border: none;
-  font-family: var(--font-editor, var(--font-body));
-  font-size: 0.95rem;
-  line-height: 1.65;
+.rich-text-editor__toolbar button {
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--light-border, #e5e7eb);
+  background: #fff;
+  color: var(--light-text, #111827);
+  cursor: pointer;
+  line-height: 1.2;
 }
 
-.rich-text-editor .ql-editor {
+.rich-text-editor__toolbar button:hover:not(:disabled) {
+  border-color: rgba(37, 99, 235, 0.45);
+  color: #1d4ed8;
+}
+
+.rich-text-editor__toolbar button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rich-text-editor__toolbar button.is-active {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #1d4ed8;
+}
+
+.rich-text-editor .tiptap {
   min-height: 11rem;
   padding: 0.85rem 1rem 1rem;
+  font-size: 0.95rem;
+  line-height: 1.65;
   color: var(--light-text, #111827);
+  outline: none;
 }
 
-.rich-text-editor .ql-editor.ql-blank::before {
+.rich-text-editor .tiptap:focus {
+  outline: none;
+}
+
+.rich-text-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
   color: #9ca3af;
-  font-style: normal;
+  float: left;
+  height: 0;
+  pointer-events: none;
 }
 
-.rich-text-editor--compact .ql-editor {
+.rich-text-editor--compact .tiptap {
   min-height: 7rem;
 }
 
