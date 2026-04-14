@@ -41,6 +41,28 @@
   pointer-events: none;
 }
 
+.rich-text-editor--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 11rem;
+  background: #f9fafb;
+  color: var(--light-text-muted, #6b7280);
+  font-size: 0.88rem;
+}
+
+.rich-text-editor--fallback .rich-text-editor__fallback-textarea {
+  width: 100%;
+  font-family: var(--font-editor, var(--font-body));
+  resize: vertical;
+}
+
+.rich-text-editor__fallback-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: #b45309;
+}
+
 /* Rendered HTML blocks */
 .rich-html {
   font-family: var(--font-editor, var(--font-body));

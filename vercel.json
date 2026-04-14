@@ -3,5 +3,6 @@
     "api/copy-storage-objects.mjs": {
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

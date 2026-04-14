@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useRef, type ComponentProps } from "react";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import type ReactQuill from "react-quill";
 import { uploadEditorImage } from "@/lib/uploadEditorImage";
 import "@/components/rich-text/rich-text.css";
+
+type ReactQuillComponent = typeof ReactQuill;
 
 type Props = {
   value: string;
@@ -15,7 +16,35 @@ type Props = {
   id?: string;
 };
 
-export function RichTextEditor({
+function PlainFallback({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  compact,
+  id,
+}: Props) {
+  const rows = compact ? 8 : 14;
+  return (
+    <div id={id} className={`rich-text-editor rich-text-editor--fallback${compact ? " rich-text-editor--compact" : ""}`}>
+      <textarea
+        className="add-passage__control add-passage__intro rich-text-editor__fallback-textarea"
+        rows={rows}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        spellCheck
+      />
+      <p className="rich-text-editor__fallback-note" role="status">
+        서식 도구를 불러오지 못했습니다. 위 입력란에 HTML을 직접 쓰거나, 페이지를 새로고침해 보세요.
+      </p>
+    </div>
+  );
+}
+
+function QuillEditorInner({
+  RQ,
   value,
   onChange,
   placeholder,
@@ -23,8 +52,8 @@ export function RichTextEditor({
   disabled,
   compact,
   id,
-}: Props) {
-  const quillRef = useRef<ReactQuill>(null);
+}: Props & { RQ: ReactQuillComponent }) {
+  const quillRef = useRef<ReactQuill | null>(null);
 
   const imageHandler = useCallback(() => {
     if (!userId) {
@@ -56,7 +85,7 @@ export function RichTextEditor({
     input.click();
   }, [userId]);
 
-  const modules: ComponentProps<typeof ReactQuill>["modules"] = useMemo(
+  const modules: ComponentProps<ReactQuillComponent>["modules"] = useMemo(
     () => ({
       toolbar: {
         container: [
@@ -77,7 +106,7 @@ export function RichTextEditor({
     [imageHandler]
   );
 
-  const formats: ComponentProps<typeof ReactQuill>["formats"] = [
+  const formats: ComponentProps<ReactQuillComponent>["formats"] = [
     "header",
     "bold",
     "italic",
@@ -94,7 +123,7 @@ export function RichTextEditor({
       id={id}
       className={`rich-text-editor${compact ? " rich-text-editor--compact" : ""}${disabled ? " rich-text-editor--disabled" : ""}`}
     >
-      <ReactQuill
+      <RQ
         ref={quillRef}
         theme="snow"
         value={value}
@@ -106,4 +135,45 @@ export function RichTextEditor({
       />
     </div>
   );
+}
+
+/**
+ * Quill은 동적 import — 메인 번들에서 제외해 초기 로드/호환 문제로 전체 앱이 멈추는 것을 방지합니다.
+ */
+export function RichTextEditor(props: Props) {
+  const [RQ, setRQ] = useState<ReactQuillComponent | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        await import("react-quill/dist/quill.snow.css");
+        const m = await import("react-quill");
+        if (!cancelled) setRQ(() => m.default);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (failed) {
+    return <PlainFallback {...props} />;
+  }
+  if (!RQ) {
+    return (
+      <div
+        id={props.id}
+        className={`rich-text-editor rich-text-editor--loading${props.compact ? " rich-text-editor--compact" : ""}`}
+        aria-busy="true"
+      >
+        <span className="rich-text-editor__loading-text">에디터 준비 중…</span>
+      </div>
+    );
+  }
+
+  return <QuillEditorInner RQ={RQ} {...props} />;
 }
