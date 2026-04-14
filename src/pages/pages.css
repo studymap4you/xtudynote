@@ -2818,6 +2818,8 @@ button.top-nav__auth-link--logout:hover {
   --light-text: #111827;
   --light-text-muted: #4b5563;
   --light-accent-ok: #047857;
+  /* 랜딩 마켓플레이스 블록 공통 가로 (유료자료 등) */
+  --mp-landing-max: 56rem;
 }
 
 .app-shell--light {
@@ -3796,7 +3798,7 @@ button.top-nav__auth-link--logout:hover {
 /* —— XtudyNote 2.0 Marketplace (landing) —— */
 .mp-search {
   width: 100%;
-  max-width: 44rem;
+  max-width: var(--mp-landing-max);
   margin: 0 auto var(--space-3);
   padding: 0 var(--space-2);
 }
@@ -3883,6 +3885,12 @@ button.top-nav__auth-link--logout:hover {
   margin-left: auto;
   margin-right: auto;
 }
+.mp-vault > .mp-section-head,
+.mp-categories > .mp-section-head,
+.mp-rank > .mp-section-head {
+  max-width: 100%;
+  width: 100%;
+}
 .mp-section-head--tight {
   margin-bottom: var(--space-2);
   text-align: left;
@@ -3926,7 +3934,7 @@ button.top-nav__auth-link--logout:hover {
 
 .mp-vault {
   width: 100%;
-  max-width: 56rem;
+  max-width: var(--mp-landing-max);
   margin: 0 auto var(--space-3);
   padding: 0 var(--space-2);
 }
@@ -4086,7 +4094,7 @@ button.top-nav__auth-link--logout:hover {
 
 .mp-categories {
   width: 100%;
-  max-width: 56rem;
+  max-width: var(--mp-landing-max);
   margin: 0 auto var(--space-3);
   padding: 0 var(--space-2);
 }
@@ -4165,13 +4173,14 @@ button.top-nav__auth-link--logout:hover {
 
 .mp-rank {
   width: 100%;
-  max-width: 40rem;
+  max-width: var(--mp-landing-max);
   margin: 0 auto var(--space-3);
   padding: var(--space-3) var(--space-2);
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.75);
   border: 1px solid var(--premium-border);
   box-shadow: var(--premium-shadow-card);
+  box-sizing: border-box;
 }
 .mp-rank__list {
   list-style: none;
@@ -4232,9 +4241,13 @@ button.top-nav__auth-link--logout:hover {
 
 .mp-creator {
   width: 100%;
-  max-width: 56rem;
+  max-width: var(--mp-landing-max);
   margin: 0 auto var(--space-3);
   padding: 0 var(--space-2);
+}
+.mp-creator .mp-section-head {
+  max-width: 100%;
+  width: 100%;
 }
 .mp-creator__glass {
   padding: var(--space-3);
