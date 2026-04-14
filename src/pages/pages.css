@@ -1008,6 +1008,10 @@
   text-align: center;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
+button.intro-login-card__btn {
+  font-family: inherit;
+  cursor: pointer;
+}
 .intro-login-card__btn--primary {
   background: linear-gradient(180deg, var(--premium-accent-muted) 0%, var(--premium-accent) 100%);
   border: 1px solid rgba(29, 78, 216, 0.35);
@@ -1217,6 +1221,29 @@
   font-weight: 500;
 }
 .top-nav__auth-link--login:hover {
+  color: var(--premium-ink);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.top-nav__auth-link--dashboard {
+  border: 1px solid #1d4ed8;
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(29, 78, 216, 0.28);
+}
+.top-nav__auth-link--dashboard:hover {
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+}
+button.top-nav__auth-link--logout {
+  border: 1px solid transparent;
+  color: var(--premium-ink-muted);
+  font-weight: 500;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+button.top-nav__auth-link--logout:hover {
   color: var(--premium-ink);
   background: rgba(255, 255, 255, 0.05);
 }

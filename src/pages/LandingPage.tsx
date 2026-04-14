@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
+import { useAuth } from "@/contexts/AuthContext";
 import { Intro } from "@/components/Intro";
 import {
   MarketplaceSearchStrip,
@@ -30,6 +31,8 @@ const FEATURES = [
 ] as const;
 
 export function LandingPage() {
+  const { firebaseUser, logOut } = useAuth();
+
   return (
     <div className="app-shell app-shell--landing">
       <header className="top-nav top-nav--landing">
@@ -49,15 +52,32 @@ export function LandingPage() {
             <span className="ui-en">Homework</span>
             <span className="ui-ko">과제 번호</span>
           </Link>
-          <Link
-            to="/register"
-            className="top-nav__auth-link top-nav__auth-link--register"
-          >
-            회원가입
-          </Link>
-          <Link to="/login" className="top-nav__auth-link top-nav__auth-link--login">
-            로그인
-          </Link>
+          {firebaseUser ? (
+            <>
+              <Link to="/dashboard" className="top-nav__auth-link top-nav__auth-link--dashboard">
+                대시보드
+              </Link>
+              <button
+                type="button"
+                className="top-nav__auth-link top-nav__auth-link--logout"
+                onClick={() => void logOut()}
+              >
+                로그아웃
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/register"
+                className="top-nav__auth-link top-nav__auth-link--register"
+              >
+                회원가입
+              </Link>
+              <Link to="/login" className="top-nav__auth-link top-nav__auth-link--login">
+                로그인
+              </Link>
+            </>
+          )}
         </div>
       </header>
       <main className="landing">
@@ -110,9 +130,13 @@ export function LandingPage() {
           </Link>
         </div>
         <p id="landing-footer" className="landing__footer">
-          <Link to="/login">
-            <span className="ui-en">Already have an account? Log in</span>
-            <span className="ui-ko">이미 계정이 있으신가요? 로그인</span>
+          <Link to={firebaseUser ? "/dashboard" : "/login"}>
+            <span className="ui-en">
+              {firebaseUser ? "Go to your dashboard" : "Already have an account? Log in"}
+            </span>
+            <span className="ui-ko">
+              {firebaseUser ? "대시보드로 이동" : "이미 계정이 있으신가요? 로그인"}
+            </span>
           </Link>
         </p>
       </main>

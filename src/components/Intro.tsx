@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
+import { useAuth } from "@/contexts/AuthContext";
 import { normalizeHomeworkCode } from "@/lib/homeworkCode";
 
 const SHORTCUTS = [
@@ -490,6 +491,7 @@ function ShortcutOrbIcon({ tone }: { tone: (typeof SHORTCUTS)[number]["tone"] })
  */
 export function Intro() {
   const navigate = useNavigate();
+  const { firebaseUser, logOut } = useAuth();
   const [search, setSearch] = useState("");
 
   function handleSearch(e: React.FormEvent) {
@@ -567,21 +569,44 @@ export function Intro() {
             </div>
 
             <div className="intro-login-card__actions">
-              <Link to="/login" className="intro-login-card__btn intro-login-card__btn--primary">
-                로그인
-              </Link>
-              <Link
-                to="/register"
-                className="intro-login-card__btn intro-login-card__btn--secondary"
-              >
-                회원가입
-              </Link>
+              {firebaseUser ? (
+                <>
+                  <Link to="/dashboard" className="intro-login-card__btn intro-login-card__btn--primary">
+                    대시보드
+                  </Link>
+                  <button
+                    type="button"
+                    className="intro-login-card__btn intro-login-card__btn--secondary"
+                    onClick={() => void logOut()}
+                  >
+                    로그아웃
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" className="intro-login-card__btn intro-login-card__btn--primary">
+                    로그인
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="intro-login-card__btn intro-login-card__btn--secondary"
+                  >
+                    회원가입
+                  </Link>
+                </>
+              )}
             </div>
 
             <div className="intro-login-card__links" aria-label="계정 관련 링크">
-              <Link to="/login" className="intro-login-card__mini">
-                아이디 · 비밀번호 안내
-              </Link>
+              {firebaseUser ? (
+                <Link to="/dashboard" className="intro-login-card__mini">
+                  내 학습 홈 (대시보드)
+                </Link>
+              ) : (
+                <Link to="/login" className="intro-login-card__mini">
+                  아이디 · 비밀번호 안내
+                </Link>
+              )}
             </div>
           </div>
 
@@ -607,19 +632,21 @@ export function Intro() {
 
           <nav className="intro-shortcuts" aria-label="주요 메뉴 바로가기">
             <ul className="intro-shortcuts__list">
-              {SHORTCUTS.map((s) => (
-                <li key={s.label}>
-                  <Link
-                    to={s.to}
-                    className={`intro-shortcut intro-shortcut--${s.tone}`}
-                  >
-                    <span className="intro-shortcut__orb" aria-hidden>
-                      <ShortcutOrbIcon tone={s.tone} />
-                    </span>
-                    <span className="intro-shortcut__label">{s.label}</span>
-                  </Link>
-                </li>
-              ))}
+              {SHORTCUTS.map((s) => {
+                const isLogin = s.to === "/login";
+                const to = firebaseUser && isLogin ? "/dashboard" : s.to;
+                const label = firebaseUser && isLogin ? "대시보드" : s.label;
+                return (
+                  <li key={s.to}>
+                    <Link to={to} className={`intro-shortcut intro-shortcut--${s.tone}`}>
+                      <span className="intro-shortcut__orb" aria-hidden>
+                        <ShortcutOrbIcon tone={s.tone} />
+                      </span>
+                      <span className="intro-shortcut__label">{label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </nav>
         </div>
