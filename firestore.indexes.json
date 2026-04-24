@@ -100,6 +100,22 @@
         { "fieldPath": "themes", "arrayConfig": "CONTAINS" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "assignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "targetStudentIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "distributedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "teacherId", "order": "ASCENDING" },
+        { "fieldPath": "distributedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

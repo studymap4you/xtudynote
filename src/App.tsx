@@ -25,6 +25,10 @@ import { ClassroomListPage } from "@/pages/classroom/ClassroomListPage";
 import { ClassroomDetailPage } from "@/pages/classroom/ClassroomDetailPage";
 import { ClassroomCreatePage } from "@/pages/classroom/ClassroomCreatePage";
 import { ClassroomManagePage } from "@/pages/classroom/ClassroomManagePage";
+import { StudentWorksheetPage } from "@/pages/assignments/StudentWorksheetPage";
+import { TeacherAssignmentsPage } from "@/pages/assignments/TeacherAssignmentsPage";
+import { TeacherAssignmentNewPage } from "@/pages/assignments/TeacherAssignmentNewPage";
+import { TeacherAssignmentDetailPage } from "@/pages/assignments/TeacherAssignmentDetailPage";
 
 export default function App() {
   return (
@@ -43,6 +47,38 @@ export default function App() {
           <ProtectedRoute>
             <DashboardPage />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/assignment/:assignmentId"
+        element={
+          <ProtectedRoute>
+            <StudentWorksheetPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/assignments/new"
+        element={
+          <TeacherRoute>
+            <TeacherAssignmentNewPage />
+          </TeacherRoute>
+        }
+      />
+      <Route
+        path="/teacher/assignments/:assignmentId"
+        element={
+          <TeacherRoute>
+            <TeacherAssignmentDetailPage />
+          </TeacherRoute>
+        }
+      />
+      <Route
+        path="/teacher/assignments"
+        element={
+          <TeacherRoute>
+            <TeacherAssignmentsPage />
+          </TeacherRoute>
         }
       />
       <Route

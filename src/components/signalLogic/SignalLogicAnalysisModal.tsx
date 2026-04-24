@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { SignalLogicAnalysisPreview } from "@/components/signalLogic/SignalLogicAnalysisPreview";
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
@@ -21,7 +22,7 @@ type Props = {
 
 export function SignalLogicAnalysisModal({ open, onClose }: Props) {
   const titleId = useId();
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, canManageMaterials } = useAuth();
   const [phase, setPhase] = useState<Phase>("input");
   const [passage, setPassage] = useState("");
   const [report, setReport] = useState<SignalLogicAnalysisReportJson | null>(null);
@@ -32,6 +33,7 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
   const [pdfLayoutLock, setPdfLayoutLock] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
+  const [signalReportFirestoreId, setSignalReportFirestoreId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -40,6 +42,7 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
     if (!open) return;
     setError(null);
     setSaveNote(null);
+    setSignalReportFirestoreId(null);
     setPhase("input");
     setReport(null);
     setAnalysisModel("");
@@ -109,12 +112,15 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
 
       if (firebaseUser?.uid) {
         try {
-          await saveSignalLogicReport(firebaseUser.uid, text, r, meta.model);
+          const { id } = await saveSignalLogicReport(firebaseUser.uid, text, r, meta.model);
+          setSignalReportFirestoreId(id);
           setSaveNote("저장됨 · Firestore 분석 리포트에 기록되었습니다.");
         } catch (se) {
+          setSignalReportFirestoreId(null);
           setSaveNote(`저장 실패: ${se instanceof Error ? se.message : String(se)}`);
         }
       } else {
+        setSignalReportFirestoreId(null);
         setSaveNote("로그인하면 같은 결과가 Firestore에 자동 저장됩니다.");
       }
     } catch (err) {
@@ -239,6 +245,16 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
         </div>
 
         <footer className={styles.footer}>
+          {phase === "done" && report && canManageMaterials && signalReportFirestoreId ? (
+            <Link
+              to={`/teacher/assignments/new?signalReportId=${signalReportFirestoreId}`}
+              className={styles.analyzeBtn}
+              style={{ textDecoration: "none", textAlign: "center" }}
+              onClick={() => onClose()}
+            >
+              학습지로 배포
+            </Link>
+          ) : null}
           <button type="button" className={styles.btnGhost} onClick={onClose}>
             닫기
           </button>

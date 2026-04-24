@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { StudentAssignmentsPanel } from "@/components/assignments/StudentAssignmentsPanel";
 import { AddMaterialButton } from "@/components/AddMaterialButton";
 import { StudentLearningVault } from "@/components/StudentLearningVault";
 import { StudentSalesSection } from "@/components/StudentSalesSection";
@@ -36,6 +37,8 @@ export function StudentDashboard() {
             <AddMaterialButton />
           </div>
         </section>
+
+        <StudentAssignmentsPanel />
 
         <StudentLearningVault />
 
