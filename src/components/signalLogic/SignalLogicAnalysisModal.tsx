@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { getDriveReadonlyAccessToken } from "@/lib/google/driveAccessToken";
-import { fetchDriveFilePlainText } from "@/lib/google/fetchDriveFilePlainText";
-import { readGoogleOAuthClientId, readGooglePickerDeveloperKey } from "@/lib/google/googlePickerEnv";
-import { openDriveFilePicker } from "@/lib/google/openDriveFilePicker";
+import { createPortal, flushSync } from "react-dom";
+import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import styles from "@/components/signalLogic/signalLogicAnalysisModal.module.css";
 
-type TabId = "passage" | "drive";
+const LOCAL_ACCEPT =
+  ".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 type Props = {
   open: boolean;
@@ -15,11 +13,11 @@ type Props = {
 
 export function SignalLogicAnalysisModal({ open, onClose }: Props) {
   const titleId = useId();
-  const [tab, setTab] = useState<TabId>("passage");
   const [passage, setPassage] = useState("");
-  const [driveBusy, setDriveBusy] = useState(false);
+  const [fileBusy, setFileBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -28,44 +26,47 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
     return () => cancelAnimationFrame(t);
   }, [open]);
 
-  const onPickFromDrive = useCallback(async () => {
+  const onLocalFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+
+    const ta = textareaRef.current;
+    const start = ta ? ta.selectionStart : 0;
+    const end = ta ? ta.selectionEnd : 0;
+
     setError(null);
-    const clientId = readGoogleOAuthClientId();
-    const apiKey = readGooglePickerDeveloperKey();
-    if (!clientId) {
-      setError(
-        ".env.local에 NEXT_PUBLIC_GOOGLE_CLIENT_ID(또는 VITE_GOOGLE_CLIENT_ID)를 넣고, 개발 서버는 http://localhost:3000 으로 실행해 주세요.",
-      );
-      return;
-    }
-    if (!apiKey) {
-      setError(
-        "Picker에 필요한 브라우저 API 키가 없습니다. Google Cloud Console → 사용자 인증 정보 → API 키(애플리케이션 제한: HTTP 리퍼러)를 만든 뒤 .env.local에 VITE_GOOGLE_API_KEY=... 를 추가하고 개발 서버를 다시 실행하세요.",
-      );
-      return;
-    }
-    setDriveBusy(true);
+    setFileBusy(true);
     try {
-      const token = await getDriveReadonlyAccessToken(clientId, false);
-      const picked = await openDriveFilePicker(token, apiKey);
-      if (!picked) {
+      const body = (await extractPlainTextFromLocalFile(file)).trim();
+      const insert = `${file.name ? `【${file.name}】\n\n` : ""}${body}`.trim();
+      if (!insert) {
+        setError("파일에서 읽을 텍스트가 없습니다.");
         return;
       }
-      const text = await fetchDriveFilePlainText(picked.id, picked.mimeType, token);
-      const header = picked.name ? `【${picked.name}】\n\n` : "";
-      setPassage((prev) => {
-        const body = (text || "").trim();
-        if (!body) return prev;
-        if (!prev.trim()) return `${header}${body}`;
-        return `${prev.trim()}\n\n---\n\n${header}${body}`;
+
+      let caret = 0;
+      flushSync(() => {
+        setPassage((prev) => {
+          const prefix = prev.slice(0, start);
+          const suffix = prev.slice(end);
+          const sep = prefix.length > 0 && !/\n$/.test(prefix) ? "\n\n" : "";
+          const next = `${prefix}${sep}${insert}${suffix}`;
+          caret = prefix.length + sep.length + insert.length;
+          return next;
+        });
       });
-      setTab("passage");
-      requestAnimationFrame(() => textareaRef.current?.focus());
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
+
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.selectionStart = el.selectionEnd = Math.min(caret, el.value.length);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setDriveBusy(false);
+      setFileBusy(false);
     }
   }, []);
 
@@ -94,72 +95,51 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
             <h2 id={titleId} className={styles.title}>
               Signal Logic <span className={styles.titleAccent}>분석</span>
             </h2>
-            <p className={styles.sub}>지문을 입력하거나 Google Drive에서 가져옵니다.</p>
+            <p className={styles.sub}>지문을 직접 입력하거나, 컴퓨터의 파일에서 텍스트를 불러옵니다.</p>
           </div>
           <button type="button" className={styles.close} aria-label="닫기" onClick={onClose}>
             ×
           </button>
         </header>
 
-        <div className={styles.tabs} role="tablist" aria-label="입력 방식">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "passage"}
-            className={`${styles.tab} ${tab === "passage" ? styles.tabActive : ""}`}
-            onClick={() => setTab("passage")}
-          >
-            지문 직접 입력
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "drive"}
-            className={`${styles.tab} ${tab === "drive" ? styles.tabActive : ""}`}
-            onClick={() => setTab("drive")}
-          >
-            Google Drive
-          </button>
-        </div>
-
         <div className={styles.body}>
-          {tab === "passage" && (
-            <div className={styles.panel}>
+          <div className={styles.panel}>
+            <div className={styles.labelRow}>
               <label className={styles.label} htmlFor="sl-passage-textarea">
                 지문
               </label>
-              <textarea
-                id="sl-passage-textarea"
-                ref={textareaRef}
-                className={styles.textarea}
-                value={passage}
-                onChange={(e) => setPassage(e.target.value)}
-                placeholder="지문 원문을 붙여 넣거나, Drive 탭에서 문서를 불러오세요."
-              />
-            </div>
-          )}
-
-          {tab === "drive" && (
-            <div className={styles.panel}>
-              <p className={styles.hint}>
-                버튼을 누르면 Google 로그인·권한 창이 열리고, 이어서 Drive에서 <strong>Google 문서</strong> 또는{" "}
-                <strong>PDF</strong>를 고를 수 있는 Picker가 표시됩니다. 선택한 파일의 본문이{" "}
-                <strong>「지문 직접 입력」</strong> 탭의 지문란에 자동으로 들어갑니다.
-              </p>
-              <button type="button" className={styles.driveBtn} disabled={driveBusy} onClick={() => void onPickFromDrive()}>
-                {driveBusy ? "연결 중…" : "구글 드라이브에서 파일 선택"}
+              <button
+                type="button"
+                className={styles.fileBtn}
+                disabled={fileBusy}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {fileBusy ? "불러오는 중…" : "파일 불러오기"}
               </button>
-              {error ? <p className={styles.error}>{error}</p> : null}
             </div>
-          )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={LOCAL_ACCEPT}
+              className={styles.visuallyHidden}
+              aria-label="텍스트, PDF, Word 파일 선택"
+              onChange={(ev) => void onLocalFileChange(ev)}
+            />
+            <textarea
+              id="sl-passage-textarea"
+              ref={textareaRef}
+              className={styles.textarea}
+              value={passage}
+              onChange={(e) => setPassage(e.target.value)}
+              placeholder=".txt · .pdf · .docx 파일을 불러오거나, 지문을 직접 붙여 넣으세요."
+            />
+            {error ? <p className={styles.error}>{error}</p> : null}
+          </div>
         </div>
 
         <footer className={styles.footer}>
           <button type="button" className={styles.btnGhost} onClick={onClose}>
             닫기
-          </button>
-          <button type="button" className={styles.btnPrimary} onClick={() => setTab("passage")}>
-            지문 입력으로 이동
           </button>
         </footer>
       </div>
