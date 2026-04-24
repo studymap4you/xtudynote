@@ -21,7 +21,7 @@ import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest"
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
 import "@/pages/pages.css";
 
-type TabId = "intro" | "materials" | "video" | "qa";
+type TabId = "intro" | "materials" | "video" | "qa" | "members";
 
 function tsLabel(t: unknown): string {
   if (t && typeof t === "object" && "toMillis" in t && typeof (t as { toMillis: () => number }).toMillis === "function") {
@@ -47,6 +47,10 @@ function Inner() {
   const [materialRows, setMaterialRows] = useState<{ id: string; data: MaterialRequestDocument }[]>([]);
   const [videoRows, setVideoRows] = useState<{ id: string; data: VideoMaterialRequestDocument }[]>([]);
   const [listsLoading, setListsLoading] = useState(false);
+
+  const [memberIdsText, setMemberIdsText] = useState("");
+  const [savingMembers, setSavingMembers] = useState(false);
+  const [membersErr, setMembersErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -78,6 +82,12 @@ function Inner() {
       cancelled = true;
     };
   }, [id, firebaseUser]);
+
+  useEffect(() => {
+    if (room) {
+      setMemberIdsText((room.memberStudentIds ?? []).join("\n"));
+    }
+  }, [room]);
 
   useEffect(() => {
     if (!id || !room) return;
@@ -115,6 +125,26 @@ function Inner() {
   }, [id, room]);
 
   const q = (path: string) => `${path}?classroomId=${encodeURIComponent(id ?? "")}`;
+
+  async function saveMembers(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !room) return;
+    const raw = memberIdsText
+      .split(/[\s,;]+/g)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const uniq = [...new Set(raw)].slice(0, 120);
+    setSavingMembers(true);
+    setMembersErr(null);
+    try {
+      await updateDoc(doc(db, "classrooms", id), { memberStudentIds: uniq });
+      setRoom({ ...room, memberStudentIds: uniq });
+    } catch (err) {
+      setMembersErr(err instanceof Error ? err.message : "저장에 실패했습니다.");
+    } finally {
+      setSavingMembers(false);
+    }
+  }
 
   async function saveIntro(e: React.FormEvent) {
     e.preventDefault();
@@ -171,6 +201,7 @@ function Inner() {
     { id: "materials", label: "강의 자료", sub: "파일 업로드·신청 현황" },
     { id: "video", label: "강의 영상", sub: "영상 URL 등록·신청 현황" },
     { id: "qa", label: "질의응답", sub: "게시판" },
+    { id: "members", label: "학습지 멤버", sub: "학생 UID 목록" },
   ];
 
   return (
@@ -373,6 +404,42 @@ function Inner() {
               </h2>
               <p className="classroom-hub__hint">학습자와 소통합니다. 부적절한 글은 삭제할 수 있습니다.</p>
               <ClassroomQaBoard classroomId={id} isClassroomTeacher />
+            </section>
+          )}
+
+          {tab === "members" && id && (
+            <section className="classroom-hub__section" aria-labelledby="hub-mem-h">
+              <h2 id="hub-mem-h" className="classroom-hub__section-title">
+                학습지 배포용 멤버 UID
+              </h2>
+              <p className="classroom-hub__hint">
+                각 학생의 <strong>Firebase 로그인 UID</strong>를 한 줄에 하나씩 저장해 두면, 학습지 배포 화면에서 이
+                강의실을 고르고 한 번에 대상 목록에 넣을 수 있습니다. (최대 120명)
+              </p>
+              {membersErr ? <p className="auth-error">{membersErr}</p> : null}
+              <form className="classroom-hub__form" onSubmit={(e) => void saveMembers(e)}>
+                <label className="auth-field">
+                  <span className="classroom-hub__field-label">학생 UID (줄바꿈·쉼표 구분)</span>
+                  <textarea
+                    className="classroom-hub__intro-textarea"
+                    rows={10}
+                    value={memberIdsText}
+                    onChange={(e) => setMemberIdsText(e.target.value)}
+                    placeholder="학생 계정의 Auth UID"
+                  />
+                </label>
+                <div className="add-passage__actions" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+                  <button type="submit" className="btn btn--primary btn--stack" disabled={savingMembers}>
+                    {savingMembers ? "저장 중…" : "멤버 목록 저장"}
+                  </button>
+                  <Link
+                    to={`/teacher/assignments/new?classroomId=${encodeURIComponent(id)}`}
+                    className="btn btn--ghost btn--stack"
+                  >
+                    <span className="ui-ko">학습지 배포 화면 열기</span>
+                  </Link>
+                </div>
+              </form>
             </section>
           )}
         </div>

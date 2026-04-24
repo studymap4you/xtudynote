@@ -509,6 +509,21 @@ service cloud.firestore {
             || request.resource.data.submittedAt is timestamp
           );
       }
+
+      /** 학생 최종 제출 시 append-only 이벤트 (선생님 과제 상세에서 알림 목록) */
+      match /submission_events/{eid} {
+        allow read: if isActiveSuperAdmin()
+          || (isActiveTeacher() && assignData().teacherId == request.auth.uid);
+
+        allow create: if isActiveStudent()
+          && assignData().targetStudentIds.hasAny([request.auth.uid])
+          && request.auth.uid == request.resource.data.studentId
+          && request.resource.data.kind == 'submitted'
+          && request.resource.data.keys().hasAll(['studentId', 'kind', 'createdAt'])
+          && request.resource.data.createdAt != null;
+
+        allow update, delete: if false;
+      }
     }
 
     // ——— homework_dispatches ———

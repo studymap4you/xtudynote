@@ -4,6 +4,7 @@ import { HandwritingCanvas } from "@/components/assignments/HandwritingCanvas";
 import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAssignment, getStudentWork, saveStudentWorkSubmission } from "@/lib/worksheet/assignmentApi";
+import { compressHandwritingAnswers } from "@/lib/worksheet/compressInkImage";
 import { exportWorksheetPdfFromElement } from "@/lib/worksheet/exportWorksheetPdf";
 import type { WorksheetAssignmentDoc, WorksheetItem } from "@/types/worksheetAssignment";
 import styles from "@/pages/assignments/assignmentPages.module.css";
@@ -97,7 +98,9 @@ export function StudentWorksheetPage() {
     setBusy(true);
     setMsg(null);
     try {
-      await saveStudentWorkSubmission(assignmentId, uid, answers, "draft");
+      const packed = await compressHandwritingAnswers(answers);
+      await saveStudentWorkSubmission(assignmentId, uid, packed, "draft");
+      setAnswers(packed);
       setMsg("임시 저장되었습니다.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e));
@@ -108,7 +111,8 @@ export function StudentWorksheetPage() {
 
   const submit = useCallback(async () => {
     if (!assignmentId || !uid || !canEdit) return;
-    const sz = payloadSize(answers);
+    const packed = await compressHandwritingAnswers(answers);
+    const sz = payloadSize(packed);
     if (sz > 900_000) {
       setMsg("답안 용량이 너무 큽니다. 손글씨를 지우고 다시 시도해 주세요.");
       return;
@@ -116,7 +120,8 @@ export function StudentWorksheetPage() {
     setBusy(true);
     setMsg(null);
     try {
-      await saveStudentWorkSubmission(assignmentId, uid, answers, "submitted");
+      await saveStudentWorkSubmission(assignmentId, uid, packed, "submitted");
+      setAnswers(packed);
       setStatus("submitted");
       setMsg("과제가 제출되었습니다.");
     } catch (e) {

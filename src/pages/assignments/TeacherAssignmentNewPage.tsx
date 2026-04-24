@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
+import { listClassroomsByTeacher, type ClassroomRow } from "@/lib/classroom/listTeacherClassrooms";
 import { db } from "@/firebase/config";
 import { createWorksheetAssignment } from "@/lib/worksheet/assignmentApi";
 import { buildDefaultWorksheetItems, buildWorksheetItemsFromAnalysis } from "@/lib/worksheet/buildWorksheetItems";
@@ -21,6 +22,7 @@ export function TeacherAssignmentNewPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const signalReportId = params.get("signalReportId")?.trim() ?? "";
+  const classroomIdParam = params.get("classroomId")?.trim() ?? "";
   const { firebaseUser } = useAuth();
   const uid = firebaseUser?.uid ?? "";
 
@@ -36,6 +38,24 @@ export function TeacherAssignmentNewPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [loadNote, setLoadNote] = useState<string | null>(null);
+
+  const [classrooms, setClassrooms] = useState<ClassroomRow[]>([]);
+  const [selectedClassroomId, setSelectedClassroomId] = useState("");
+
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    listClassroomsByTeacher(uid).then((rows) => {
+      if (!cancelled) setClassrooms(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
+
+  useEffect(() => {
+    if (classroomIdParam) setSelectedClassroomId(classroomIdParam);
+  }, [classroomIdParam]);
 
   useEffect(() => {
     if (!signalReportId || !uid) {
@@ -72,6 +92,19 @@ export function TeacherAssignmentNewPage() {
     };
   }, [signalReportId, uid]);
 
+  const mergeClassroomMemberIds = useCallback(() => {
+    const row = classrooms.find((c) => c.id === selectedClassroomId);
+    const incoming = row?.data.memberStudentIds ?? [];
+    if (incoming.length === 0) {
+      setMsg("선택한 강의실에 저장된 멤버 UID가 없습니다. 강의실 관리 →「학습지 멤버」에서 먼저 등록하세요.");
+      return;
+    }
+    setMsg(null);
+    const existing = parseStudentIds(targetsRaw);
+    const merged = [...new Set([...existing, ...incoming])];
+    setTargetsRaw(merged.join("\n"));
+  }, [classrooms, selectedClassroomId, targetsRaw]);
+
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -83,7 +116,7 @@ export function TeacherAssignmentNewPage() {
       }
       const targets = parseStudentIds(targetsRaw);
       if (targets.length === 0) {
-        setMsg("대상 학생 UID를 한 줄에 하나씩 입력해 주세요.");
+        setMsg("대상 학생 UID를 한 줄에 하나씩 입력하거나, 강의실 멤버를 끼워 넣어 주세요.");
         return;
       }
       const dist = new Date(distributedLocal);
@@ -124,9 +157,50 @@ export function TeacherAssignmentNewPage() {
         </h1>
         <p className={styles.meta}>
           대상 학생은 Firebase 로그인 UID여야 합니다. 학생은 <strong>/dashboard</strong> 과제함에서 카드를 눌러
-          들어옵니다.
+          들어옵니다. 강의실에 멤버 UID를 저장해 두면 아래에서 한 번에 넣을 수 있습니다.
         </p>
         {loadNote ? <p className={styles.ok}>{loadNote}</p> : null}
+
+        <div
+          style={{
+            marginTop: "1rem",
+            padding: "0.85rem 1rem",
+            borderRadius: 10,
+            border: "1px solid rgba(15, 23, 42, 0.1)",
+            background: "rgba(59, 130, 246, 0.04)",
+          }}
+        >
+          <div className={styles.itemLabel}>강의실 멤버 UID 자동 입력</div>
+          <p className={styles.prompt} style={{ marginBottom: "0.5rem" }}>
+            개설한 강의실을 고른 뒤「멤버 UID 끼워 넣기」를 누르면, 해당 강의실에 등록된 학생 UID가 대상 칸에 합쳐
+            집니다. (중복 제거)
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+            <select
+              className={styles.input}
+              style={{ maxWidth: "100%", width: "min(420px, 100%)" }}
+              value={selectedClassroomId}
+              onChange={(e) => setSelectedClassroomId(e.target.value)}
+              aria-label="강의실 선택"
+            >
+              <option value="">강의실 선택…</option>
+              {classrooms.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.data.title}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="btn btn--ghost btn--stack" onClick={mergeClassroomMemberIds}>
+              <span className="ui-ko">멤버 UID 끼워 넣기</span>
+            </button>
+          </div>
+          {classrooms.length === 0 ? (
+            <p className={styles.meta} style={{ marginTop: "0.5rem", marginBottom: 0 }}>
+              등록된 강의실이 없습니다.{" "}
+              <Link to="/classroom/new">강의실 개설</Link> 후 관리 화면에서 멤버 UID를 저장하세요.
+            </p>
+          ) : null}
+        </div>
 
         <form onSubmit={(ev) => void onSubmit(ev)} className={styles.grid2} style={{ marginTop: "1rem" }}>
           <div style={{ gridColumn: "1 / -1" }}>

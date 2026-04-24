@@ -5,8 +5,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   getAssignment,
   listStudentWorksForAssignment,
+  subscribeSubmissionEvents,
 } from "@/lib/worksheet/assignmentApi";
-import type { StudentWorkDoc, WorksheetAssignmentDoc } from "@/types/worksheetAssignment";
+import type {
+  StudentWorkDoc,
+  WorksheetAssignmentDoc,
+  WorksheetSubmissionEventDoc,
+} from "@/types/worksheetAssignment";
 import styles from "@/pages/assignments/assignmentPages.module.css";
 
 function formatTs(at: unknown): string {
@@ -40,6 +45,7 @@ export function TeacherAssignmentDetailPage() {
 
   const [assignment, setAssignment] = useState<WorksheetAssignmentDoc | null>(null);
   const [works, setWorks] = useState<{ studentId: string; data: StudentWorkDoc }[]>([]);
+  const [submissionEvents, setSubmissionEvents] = useState<{ id: string; data: WorksheetSubmissionEventDoc }[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
   const owned = useMemo(() => assignment && uid && assignment.teacherId === uid, [assignment, uid]);
@@ -65,6 +71,16 @@ export function TeacherAssignmentDetailPage() {
       cancelled = true;
     };
   }, [assignmentId]);
+
+  useEffect(() => {
+    if (!assignmentId || !owned) return;
+    const unsub = subscribeSubmissionEvents(
+      assignmentId,
+      (rows) => setSubmissionEvents(rows),
+      () => {},
+    );
+    return () => unsub();
+  }, [assignmentId, owned]);
 
   if (!assignmentId) {
     return (
@@ -123,6 +139,34 @@ export function TeacherAssignmentDetailPage() {
         <p className={styles.meta}>
           배포 {formatTs(assignment.distributedAt)} · 대상 {assignment.targetStudentIds.length}명
         </p>
+
+        <h2 className={styles.captureTitle} style={{ marginTop: "1.25rem" }}>
+          제출 알림
+        </h2>
+        <p className={styles.meta} style={{ marginTop: "-0.35rem" }}>
+          학생이「과제 제출」을 완료할 때마다 아래에 기록됩니다. (실시간)
+        </p>
+        {submissionEvents.length === 0 ? (
+          <p style={{ fontSize: "0.9rem" }}>아직 제출 이벤트가 없습니다.</p>
+        ) : (
+          <ul className={styles.cardList} style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {submissionEvents.map((ev) => (
+              <li
+                key={ev.id}
+                style={{
+                  fontSize: "0.88rem",
+                  padding: "0.45rem 0.55rem",
+                  borderRadius: 8,
+                  border: "1px solid rgba(15, 23, 42, 0.1)",
+                  background: "rgba(16, 185, 129, 0.06)",
+                }}
+              >
+                <strong style={{ fontFamily: "monospace", fontWeight: 600 }}>{ev.data.studentId}</strong>
+                <span style={{ color: "#64748b", marginLeft: "0.5rem" }}>{formatTs(ev.data.createdAt)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <h2 className={styles.captureTitle} style={{ marginTop: "1.25rem" }}>
           학생별 현황

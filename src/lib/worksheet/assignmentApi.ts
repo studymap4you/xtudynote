@@ -9,13 +9,18 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  setDoc,
   where,
+  writeBatch,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
-import type { StudentWorkDoc, WorksheetAssignmentDoc, WorksheetItem } from "@/types/worksheetAssignment";
+import type {
+  StudentWorkDoc,
+  WorksheetAssignmentDoc,
+  WorksheetItem,
+  WorksheetSubmissionEventDoc,
+} from "@/types/worksheetAssignment";
 
 const ASSIGNMENTS = "assignments";
 
@@ -89,6 +94,27 @@ export async function listStudentWorksForAssignment(
   return out;
 }
 
+export function subscribeSubmissionEvents(
+  assignmentId: string,
+  onData: (rows: { id: string; data: WorksheetSubmissionEventDoc }[]) => void,
+  onError?: (e: Error) => void,
+): Unsubscribe {
+  const q = query(
+    collection(db, ASSIGNMENTS, assignmentId, "submission_events"),
+    orderBy("createdAt", "desc"),
+    limit(40),
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rows: { id: string; data: WorksheetSubmissionEventDoc }[] = [];
+      snap.forEach((d) => rows.push({ id: d.id, data: d.data() as WorksheetSubmissionEventDoc }));
+      onData(rows);
+    },
+    (e) => onError?.(e instanceof Error ? e : new Error(String(e))),
+  );
+}
+
 export type CreateWorksheetAssignmentInput = {
   teacherId: string;
   title: string;
@@ -125,7 +151,7 @@ export async function saveStudentWorkSubmission(
   answers: Record<string, string>,
   status: "draft" | "submitted",
 ): Promise<void> {
-  const ref = doc(db, ASSIGNMENTS, assignmentId, "student_work", studentUid);
+  const swRef = doc(db, ASSIGNMENTS, assignmentId, "student_work", studentUid);
   const payload: Record<string, unknown> = {
     studentId: studentUid,
     answers,
@@ -135,5 +161,15 @@ export async function saveStudentWorkSubmission(
   if (status === "submitted") {
     payload.submittedAt = serverTimestamp();
   }
-  await setDoc(ref, payload, { merge: true });
+  const batch = writeBatch(db);
+  batch.set(swRef, payload, { merge: true });
+  if (status === "submitted") {
+    const evRef = doc(collection(db, ASSIGNMENTS, assignmentId, "submission_events"));
+    batch.set(evRef, {
+      studentId: studentUid,
+      kind: "submitted",
+      createdAt: serverTimestamp(),
+    });
+  }
+  await batch.commit();
 }

@@ -6,6 +6,8 @@ export interface ClassroomDocument {
   description: string;
   /** 강의 소개 본문 (관리 화면에서 편집, 비어 있으면 description 표시) */
   introduction?: string;
+  /** 학습지 배포 등에 쓸 학생 Firebase Auth UID 목록 (선생님이 관리 화면에서 편집) */
+  memberStudentIds?: string[];
   createdAt: unknown;
 }
 

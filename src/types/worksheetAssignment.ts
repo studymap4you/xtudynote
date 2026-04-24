@@ -33,6 +33,13 @@ export type WorksheetAssignmentDoc = {
 
 export type StudentWorkStatus = "draft" | "submitted";
 
+/** `assignments/{id}/submission_events/{eventId}` — 학생 제출 시 기록, 선생님 알림용 */
+export type WorksheetSubmissionEventDoc = {
+  studentId: string;
+  kind: "submitted";
+  createdAt: unknown;
+};
+
 /** `assignments/{id}/student_work/{studentUid}` */
 export type StudentWorkDoc = {
   studentId: string;
