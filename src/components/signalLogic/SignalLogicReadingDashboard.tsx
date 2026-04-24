@@ -1,58 +1,74 @@
+import { SIGNAL_LOGIC_SAMPLE_ANALYSES } from "@/data/signalLogicReadingSamples";
+import type { SignalLogicPassageAnalysis } from "@/types/signalLogicReading";
 import styles from "@/pages/logicDashboard.module.css";
 
-const RECENT_PASSAGES = [
-  {
-    id: "1",
-    title: "인공지능 규제와 창의적 파괴의 경계",
-    analyzedAt: "2026.04.22",
-    snippet: "핵심 논지는 정책 간 충돌을 전제로 한 반례 구조를 어떻게 수렴시키는지에 있습니다.",
-  },
-  {
-    id: "2",
-    title: "기후 적응 전략: 비용·공정성 프레임",
-    analyzedAt: "2026.04.18",
-    snippet: "‘분배 정의’와 ‘효율’이 대립할 때 출제자가 요구하는 논증 단계를 정리했습니다.",
-  },
-  {
-    id: "3",
-    title: "디지털 주권과 데이터 거버넌스",
-    analyzedAt: "2026.04.10",
-    snippet: "법조문형 지문에서 조건절·예외 조항이 논리 골격에 미치는 영향을 시각화했습니다.",
-  },
-] as const;
+function clipText(text: string, maxChars: number): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (t.length <= maxChars) return t;
+  return `${t.slice(0, maxChars).trim()}…`;
+}
+
+function PassageCard({ analysis }: { analysis: SignalLogicPassageAnalysis }) {
+  const { vocabulary, binaryLogic, signals, correctAnswer, originalText, analyzedAt, title } =
+    analysis;
+  const preview = clipText(originalText, 118);
+  const binaryPreview = binaryLogic.slice(0, 4);
+  const signalPreview = signals.slice(0, 2);
+
+  return (
+    <article className={styles.card} title={`해석 미리보기: ${clipText(analysis.translation, 160)}`}>
+      <div className={styles.cardLabel}>Recent passage</div>
+      <h3 className={styles.cardTitle}>{title}</h3>
+      <p className={styles.cardMeta}>분석일 {analyzedAt}</p>
+      <p className={styles.cardPreview}>{preview}</p>
+      <div className={styles.cardFooter}>
+        <span className={`${styles.chip} ${styles.chipBinary}`}>정답 {correctAnswer.option}번</span>
+        <span className={`${styles.chip} ${styles.chipMuted}`}>어휘 {vocabulary.length}</span>
+        {binaryPreview.map((b, i) => (
+          <span key={`${analysis.id}-b-${i}`} className={styles.chip}>
+            [{b.bucket}] {b.keyword}
+          </span>
+        ))}
+        {signalPreview.map((s, i) => (
+          <span key={`${analysis.id}-s-${i}`} className={`${styles.chip} ${styles.chipMuted}`}>
+            {s.word}·{s.logicRole}
+          </span>
+        ))}
+      </div>
+    </article>
+  );
+}
 
 export function SignalLogicReadingDashboard() {
   return (
     <main className={styles.main}>
       <header className={styles.titleBlock}>
-        <h1>Signal Logic Reading</h1>
+        <h1>
+          Signal Logic <span className={styles.titleAccent}>Reading</span>
+        </h1>
         <span className={styles.leadEn}>Unified logic-reading dashboard</span>
         <span className={styles.leadKo}>
-          논리 독해 통합 대시보드 — 지문 분석 기록과 새 분석을 한곳에서 관리합니다.
+          논리 독해 통합 대시보드 — 원문·해석·어휘·이분 논리·시그널·정답 데이터를 한 구조로 묶어
+          관리합니다.
         </span>
       </header>
 
       <section className={styles.recentSection} aria-labelledby="logic-recent-heading">
         <h2 id="logic-recent-heading" className={styles.sectionHeading}>
-          최근 분석한 지문
+          최근 분석 지문
           <span className={styles.sectionHeadingKo}>Recently analyzed passages</span>
         </h2>
         <div className={styles.cardGrid}>
-          {RECENT_PASSAGES.map((item) => (
-            <article key={item.id} className={styles.card}>
-              <div className={styles.cardLabel}>Passage</div>
-              <h3 className={styles.cardTitle}>{item.title}</h3>
-              <p className={styles.cardMeta}>분석일 {item.analyzedAt}</p>
-              <p className={styles.cardSnippet}>{item.snippet}</p>
-            </article>
+          {SIGNAL_LOGIC_SAMPLE_ANALYSES.map((item) => (
+            <PassageCard key={item.id} analysis={item} />
           ))}
         </div>
       </section>
 
-      <div className={styles.ctaWrap}>
+      <div className={styles.ctaRegion}>
         <button type="button" className={styles.ctaLarge}>
-          <span className={styles.ctaPrimary}>새 지문 분석 시작</span>
-          <span className={styles.ctaSecondary}>Start new passage analysis</span>
+          <span className={styles.ctaPrimary}>새 분석 시작</span>
+          <span className={styles.ctaSecondary}>새 지문 분석 시작 · Start passage analysis</span>
         </button>
       </div>
     </main>
