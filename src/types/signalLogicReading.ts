@@ -41,6 +41,6 @@ export type SignalLogicPassageAnalysis = {
   binaryLogic: SignalLogicBinaryKeyword[];
   /** 시그널 단어 및 논리 기능 */
   signals: SignalLogicSignal[];
-  /** 정답 번호 및 해설 */
-  correctAnswer: SignalLogicCorrectAnswer;
+  /** 정답 번호 및 해설 (데모·구 스키마만; AI 리포트 저장분에는 없을 수 있음) */
+  correctAnswer?: SignalLogicCorrectAnswer;
 };

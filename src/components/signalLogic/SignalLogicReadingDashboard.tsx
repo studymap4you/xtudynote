@@ -1,6 +1,18 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  type QuerySnapshot,
+} from "firebase/firestore";
 import { SIGNAL_LOGIC_SAMPLE_ANALYSES } from "@/data/signalLogicReadingSamples";
 import { SignalLogicAnalysisModal } from "@/components/signalLogic/SignalLogicAnalysisModal";
+import { useAuth } from "@/contexts/AuthContext";
+import { db } from "@/firebase/config";
+import { savedReportDocToPassageAnalysis } from "@/lib/signalLogic/savedReportToPassageCard";
+import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
 import type { SignalLogicPassageAnalysis } from "@/types/signalLogicReading";
 import styles from "@/pages/logicDashboard.module.css";
 
@@ -24,7 +36,11 @@ function PassageCard({ analysis }: { analysis: SignalLogicPassageAnalysis }) {
       <p className={styles.cardMeta}>분석일 {analyzedAt}</p>
       <p className={styles.cardPreview}>{preview}</p>
       <div className={styles.cardFooter}>
-        <span className={`${styles.chip} ${styles.chipBinary}`}>정답 {correctAnswer.option}번</span>
+        {correctAnswer != null ? (
+          <span className={`${styles.chip} ${styles.chipBinary}`}>정답 {correctAnswer.option}번</span>
+        ) : (
+          <span className={`${styles.chip} ${styles.chipMuted}`}>AI 분석 리포트</span>
+        )}
         <span className={`${styles.chip} ${styles.chipMuted}`}>어휘 {vocabulary.length}</span>
         {binaryPreview.map((b, i) => (
           <span key={`${analysis.id}-b-${i}`} className={styles.chip}>
@@ -41,8 +57,62 @@ function PassageCard({ analysis }: { analysis: SignalLogicPassageAnalysis }) {
   );
 }
 
+const RECENT_REPORTS_LIMIT = 12;
+
+function mapSnapshotToAnalyses(snap: QuerySnapshot): SignalLogicPassageAnalysis[] {
+  const out: SignalLogicPassageAnalysis[] = [];
+  snap.forEach((d) => {
+    const x = d.data();
+    const passage = typeof x.passage === "string" ? x.passage : "";
+    const analysis = x.analysis as SignalLogicAnalysisReportJson | undefined;
+    if (!passage || !analysis || analysis.schemaVersion !== 1) return;
+    try {
+      out.push(savedReportDocToPassageAnalysis(d.id, passage, analysis, x.createdAt));
+    } catch {
+      /* malformed doc — skip */
+    }
+  });
+  return out;
+}
+
 export function SignalLogicReadingDashboard() {
+  const { firebaseUser } = useAuth();
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [savedAnalyses, setSavedAnalyses] = useState<SignalLogicPassageAnalysis[]>([]);
+  const [savedLoading, setSavedLoading] = useState(false);
+
+  useEffect(() => {
+    const uid = firebaseUser?.uid;
+    if (!uid) {
+      setSavedAnalyses([]);
+      setSavedLoading(false);
+      return;
+    }
+    setSavedLoading(true);
+    const q = query(
+      collection(db, "users", uid, "signal_logic_reports"),
+      orderBy("createdAt", "desc"),
+      limit(RECENT_REPORTS_LIMIT),
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setSavedAnalyses(mapSnapshotToAnalyses(snap));
+        setSavedLoading(false);
+      },
+      () => {
+        setSavedLoading(false);
+      },
+    );
+    return () => unsub();
+  }, [firebaseUser?.uid]);
+
+  const cardItems = useMemo(() => {
+    if (firebaseUser?.uid) {
+      return savedAnalyses;
+    }
+    return SIGNAL_LOGIC_SAMPLE_ANALYSES;
+  }, [firebaseUser?.uid, savedAnalyses]);
 
   return (
     <main className={styles.main}>
@@ -62,10 +132,28 @@ export function SignalLogicReadingDashboard() {
           최근 분석 지문
           <span className={styles.sectionHeadingKo}>Recently analyzed passages</span>
         </h2>
+        <p style={{ marginTop: "-0.25rem", marginBottom: "0.75rem", fontSize: "0.9rem", opacity: 0.9 }}>
+          {firebaseUser?.uid ? (
+            <>
+              <span className="ui-ko">로그인 계정에 저장된 분석이 최신순으로 표시됩니다.</span>
+              {savedLoading ? (
+                <span className="ui-ko" style={{ marginLeft: "0.5rem" }}>
+                  불러오는 중…
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <span className="ui-ko">로그인하면 여기에 내 분석 기록이 쌓입니다. 아래는 예시 지문입니다.</span>
+          )}
+        </p>
         <div className={styles.cardGrid}>
-          {SIGNAL_LOGIC_SAMPLE_ANALYSES.map((item) => (
-            <PassageCard key={item.id} analysis={item} />
-          ))}
+          {cardItems.length === 0 && firebaseUser?.uid && !savedLoading ? (
+            <p className="ui-ko" style={{ gridColumn: "1 / -1", opacity: 0.85 }}>
+              아직 저장된 분석이 없습니다. 아래「새 분석 시작」으로 지문을 분석해 보세요.
+            </p>
+          ) : (
+            cardItems.map((item) => <PassageCard key={item.id} analysis={item} />)
+          )}
         </div>
       </section>
 
