@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
+import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
@@ -20,14 +21,7 @@ export function PublicShell({
           <BrandLockup />
         </Link>
         <nav className="top-nav__actions" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
-          <Link to="/library" className="btn btn--ghost btn--stack">
-            <span className="ui-en">Library</span>
-            <span className="ui-ko">라이브러리</span>
-          </Link>
-          <Link to="/homework" className="btn btn--ghost btn--stack">
-            <span className="ui-en">Homework</span>
-            <span className="ui-ko">과제 번호</span>
-          </Link>
+          <TopNavMainLinks />
           {firebaseUser ? (
             <Link to="/dashboard" className="btn btn--primary btn--stack">
               <span className="ui-en">Dashboard</span>

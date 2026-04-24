@@ -10,6 +10,7 @@ import { LandingHeroAdminPage } from "@/pages/admin/LandingHeroAdminPage";
 import { ContentsListPage } from "@/pages/admin/ContentsListPage";
 import { PendingMaterialReviewsPage } from "@/pages/admin/PendingMaterialReviewsPage";
 import { LibraryPage } from "@/pages/LibraryPage";
+import { LogicDashboardPage } from "@/pages/LogicDashboardPage";
 import { ContentDetailPage } from "@/pages/ContentDetailPage";
 import { HomeworkSearchPage } from "@/pages/HomeworkSearchPage";
 import { HomeworkStudentPage } from "@/pages/HomeworkStudentPage";
@@ -32,6 +33,7 @@ export default function App() {
       <Route path="/library" element={<LibraryPage />} />
       <Route path="/content/:id" element={<ContentDetailPage />} />
       <Route path="/homework" element={<HomeworkSearchPage />} />
+      <Route path="/logic-dashboard" element={<LogicDashboardPage />} />
       <Route path="/homework/:code" element={<HomeworkStudentPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />

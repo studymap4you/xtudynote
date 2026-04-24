@@ -1424,6 +1424,16 @@ button.top-nav__auth-link--logout:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.top-nav__link-en-with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.top-nav__link-en-with-icon svg {
+  flex-shrink: 0;
+  opacity: 0.92;
+}
 
 /* 관리자 공통 상단: 콘텐츠 DB 관리 ↔ 회원 관리 */
 .admin-top-nav {
