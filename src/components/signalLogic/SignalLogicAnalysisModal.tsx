@@ -33,7 +33,9 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
     const clientId = readGoogleOAuthClientId();
     const apiKey = readGooglePickerDeveloperKey();
     if (!clientId) {
-      setError("VITE_GOOGLE_CLIENT_ID(또는 NEXT_PUBLIC_GOOGLE_CLIENT_ID)를 .env.local에 설정해 주세요.");
+      setError(
+        ".env.local에 NEXT_PUBLIC_GOOGLE_CLIENT_ID(또는 VITE_GOOGLE_CLIENT_ID)를 넣고, 개발 서버는 http://localhost:3000 으로 실행해 주세요.",
+      );
       return;
     }
     if (!apiKey) {
