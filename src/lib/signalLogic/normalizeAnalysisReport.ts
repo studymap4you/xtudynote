@@ -17,10 +17,11 @@ function normalizeSignals(raw: unknown): SignalLogicCoreSignalWord[] {
       const o = x as Record<string, unknown>;
       const word = asString(o.word).trim();
       if (!word) return null;
+      const ft = asString(o.functionTag).trim();
       return {
         word,
         role: asString(o.role).trim() || "시그널",
-        functionTag: asString(o.functionTag).trim() || undefined,
+        ...(ft ? { functionTag: ft } : {}),
       };
     })
     .filter(Boolean) as SignalLogicCoreSignalWord[];
@@ -63,16 +64,17 @@ function normalizeNotes(raw: unknown): string[] | undefined {
   return list.length ? list : undefined;
 }
 
-/** AI JSON을 고정 스키마로 정규화 (누락 필드 보정). */
+/** AI JSON을 고정 스키마로 정규화 (누락 필드 보정). Firestore 저장 시 undefined 키를 넣지 않음. */
 export function normalizeAnalysisReport(raw: unknown): SignalLogicAnalysisReportJson {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  return {
+  const notes = normalizeNotes(o.signalOneShotNotes);
+  const base: SignalLogicAnalysisReportJson = {
     schemaVersion: 1,
     topicThesis: asString(o.topicThesis).trim() || "주제문을 추출하지 못했습니다.",
     coreSignalWords: normalizeSignals(o.coreSignalWords),
     binaryOppositions: normalizeBinary(o.binaryOppositions),
     analysisNarrative: asString(o.analysisNarrative).trim() || "",
     vocabularyItems: normalizeVocab(o.vocabularyItems),
-    signalOneShotNotes: normalizeNotes(o.signalOneShotNotes),
   };
+  return notes?.length ? { ...base, signalOneShotNotes: notes } : base;
 }
