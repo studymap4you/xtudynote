@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { SIGNAL_LOGIC_SAMPLE_ANALYSES } from "@/data/signalLogicReadingSamples";
+import { SignalLogicAnalysisModal } from "@/components/signalLogic/SignalLogicAnalysisModal";
 import type { SignalLogicPassageAnalysis } from "@/types/signalLogicReading";
 import styles from "@/pages/logicDashboard.module.css";
 
@@ -40,6 +42,8 @@ function PassageCard({ analysis }: { analysis: SignalLogicPassageAnalysis }) {
 }
 
 export function SignalLogicReadingDashboard() {
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+
   return (
     <main className={styles.main}>
       <header className={styles.titleBlock}>
@@ -66,11 +70,13 @@ export function SignalLogicReadingDashboard() {
       </section>
 
       <div className={styles.ctaRegion}>
-        <button type="button" className={styles.ctaLarge}>
+        <button type="button" className={styles.ctaLarge} onClick={() => setAnalysisOpen(true)}>
           <span className={styles.ctaPrimary}>새 분석 시작</span>
           <span className={styles.ctaSecondary}>새 지문 분석 시작 · Start passage analysis</span>
         </button>
       </div>
+
+      <SignalLogicAnalysisModal open={analysisOpen} onClose={() => setAnalysisOpen(false)} />
     </main>
   );
 }
