@@ -9,7 +9,7 @@ export type PickedDriveFile = {
 };
 
 /**
- * Opens the Google Picker (Docs + PDF views). Resolves when the user picks a file or cancels.
+ * Opens Google Picker (Drive: Google Docs + PDF). Resolves when the user picks or cancels.
  */
 export async function openDriveFilePicker(
   accessToken: string,
@@ -21,22 +21,17 @@ export async function openDriveFilePicker(
   await loadGooglePickerDeps();
 
   return new Promise((resolve, reject) => {
+    const driveView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+      .setIncludeFolders(false)
+      .setMode(google.picker.DocsViewMode.LIST)
+      .setMimeTypes("application/vnd.google-apps.document,application/pdf");
+
     const picker = new google.picker.PickerBuilder()
       .setOAuthToken(accessToken)
       .setDeveloperKey(developerKey)
       .setLocale("ko")
       .setTitle("Google Drive에서 파일 선택")
-      .addView(
-        new google.picker.DocsView(google.picker.ViewId.DOCUMENTS)
-          .setIncludeFolders(false)
-          .setMode(google.picker.DocsViewMode.LIST)
-          .setMimeTypes("application/vnd.google-apps.document"),
-      )
-      .addView(
-        new google.picker.DocsView(google.picker.ViewId.PDFS)
-          .setIncludeFolders(false)
-          .setMode(google.picker.DocsViewMode.LIST),
-      )
+      .addView(driveView)
       .setCallback((data: google.picker.ResponseObject) => {
         const action = data[google.picker.Response.ACTION];
         if (action === google.picker.Action.ERROR) {

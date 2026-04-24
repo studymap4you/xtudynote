@@ -38,7 +38,7 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
     }
     if (!apiKey) {
       setError(
-        "Google Picker용 API 키가 필요합니다. Cloud Console에서 브라우저 키를 만들고 VITE_GOOGLE_API_KEY로 설정해 주세요.",
+        "Picker에 필요한 브라우저 API 키가 없습니다. Google Cloud Console → 사용자 인증 정보 → API 키(애플리케이션 제한: HTTP 리퍼러)를 만든 뒤 .env.local에 VITE_GOOGLE_API_KEY=... 를 추가하고 개발 서버를 다시 실행하세요.",
       );
       return;
     }
@@ -140,8 +140,9 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
           {tab === "drive" && (
             <div className={styles.panel}>
               <p className={styles.hint}>
-                Google 계정으로 로그인한 뒤 Picker에서 <strong>Google 문서</strong> 또는{" "}
-                <strong>Drive에 저장된 PDF</strong>를 선택하세요. 본문 텍스트가 아래 지문 입력란에 채워집니다.
+                버튼을 누르면 Google 로그인·권한 창이 열리고, 이어서 Drive에서 <strong>Google 문서</strong> 또는{" "}
+                <strong>PDF</strong>를 고를 수 있는 Picker가 표시됩니다. 선택한 파일의 본문이{" "}
+                <strong>「지문 직접 입력」</strong> 탭의 지문란에 자동으로 들어갑니다.
               </p>
               <button type="button" className={styles.driveBtn} disabled={driveBusy} onClick={() => void onPickFromDrive()}>
                 {driveBusy ? "연결 중…" : "구글 드라이브에서 파일 선택"}

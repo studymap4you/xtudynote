@@ -8,4 +8,13 @@ export default defineConfig({
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
+  /** OAuth 승인된 JavaScript 원본과 맞춤 (Google Console: http://localhost:3000) */
+  server: {
+    port: 3000,
+    strictPort: true,
+  },
+  preview: {
+    port: 3000,
+    strictPort: true,
+  },
 });

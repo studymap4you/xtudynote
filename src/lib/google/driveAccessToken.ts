@@ -1,3 +1,5 @@
+import { loadGooglePickerDeps } from "@/lib/google/loadGooglePickerDeps";
+
 const DRIVE_READONLY = "https://www.googleapis.com/auth/drive.readonly";
 
 type Cached = { token: string; expiresAtMs: number };
@@ -35,6 +37,7 @@ export async function getDriveReadonlyAccessToken(clientId: string, forceConsent
   if (!clientId) {
     throw new Error("Google OAuth Client ID is not configured.");
   }
+  await loadGooglePickerDeps();
   const now = Date.now();
   if (!forceConsent && cached && now < cached.expiresAtMs - 60_000) {
     return cached.token;
