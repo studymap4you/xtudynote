@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   collection,
   limit,
@@ -76,7 +77,7 @@ function mapSnapshotToAnalyses(snap: QuerySnapshot): SignalLogicPassageAnalysis[
 }
 
 export function SignalLogicReadingDashboard() {
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, canManageMaterials } = useAuth();
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [savedAnalyses, setSavedAnalyses] = useState<SignalLogicPassageAnalysis[]>([]);
   const [savedLoading, setSavedLoading] = useState(false);
@@ -126,6 +127,31 @@ export function SignalLogicReadingDashboard() {
           관리합니다.
         </span>
       </header>
+
+      {firebaseUser && canManageMaterials ? (
+        <section className={styles.worksheetHub} aria-labelledby="logic-worksheet-hub-heading">
+          <h2 id="logic-worksheet-hub-heading" className={styles.worksheetHubTitle}>
+            Logic worksheets
+            <span className={styles.sectionHeadingKo} style={{ marginTop: "0.15rem" }}>
+              학습지 배포·현황 · 마스터·교육자 공통
+            </span>
+          </h2>
+          <p className={styles.worksheetHubKo}>
+            분석 리포트를 바탕으로 학습지 과제를 배포하고, 학생 제출·알림을 확인합니다. 상단「Signal Logic」메뉴로
+            들어온 이 화면에서 바로 이용할 수 있습니다.
+          </p>
+          <div className={styles.worksheetHubActions}>
+            <Link to="/teacher/assignments" className="btn btn--primary btn--stack">
+              <span className="ui-en">Open worksheet hub</span>
+              <span className="ui-ko">학습지 목록·현황</span>
+            </Link>
+            <Link to="/teacher/assignments/new" className="btn btn--ghost btn--stack">
+              <span className="ui-en">New worksheet</span>
+              <span className="ui-ko">새 학습지 배포</span>
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className={styles.recentSection} aria-labelledby="logic-recent-heading">
         <h2 id="logic-recent-heading" className={styles.sectionHeading}>

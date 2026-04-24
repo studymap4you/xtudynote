@@ -69,11 +69,7 @@ export function ApprovedTeacherDashboard() {
           </div>
           <div className="badge-row" style={{ flexWrap: "wrap" }}>
             <AddMaterialButton />
-            <Link to="/teacher/assignments" className="btn btn--primary btn--stack">
-              <span className="ui-en">Logic worksheets</span>
-              <span className="ui-ko">학습지 배포·현황</span>
-            </Link>
-            <Link to="/teacher/homework/new" className="btn btn--ghost btn--stack">
+            <Link to="/teacher/homework/new" className="btn btn--primary btn--stack">
               <span className="ui-en">New homework</span>
               <span className="ui-ko">과제 출제</span>
             </Link>
