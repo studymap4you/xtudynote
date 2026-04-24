@@ -116,6 +116,28 @@ service cloud.firestore {
             )
           )
         );
+
+      /** Signal Logic — KSAT 스타일 분석 리포트 (본인만 읽기·쓰기) */
+      match /signal_logic_reports/{reportId} {
+        allow read: if signedIn() && request.auth.uid == userId;
+
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && request.resource.data.keys().hasAll(['passage', 'analysis', 'schemaVersion', 'createdAt', 'model'])
+          && request.resource.data.passage is string
+          && request.resource.data.passage.size() > 0
+          && request.resource.data.passage.size() <= 120000
+          && request.resource.data.analysis is map
+          && request.resource.data.schemaVersion is int
+          && request.resource.data.schemaVersion == 1
+          && request.resource.data.model is string
+          && request.resource.data.model.size() <= 120;
+
+        allow delete: if signedIn() && request.auth.uid == userId;
+
+        allow update: if false;
+      }
     }
 
     // ——— contents (라이브러리·강의실 연동 시 classroomId 검증) ———

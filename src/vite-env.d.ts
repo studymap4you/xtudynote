@@ -17,6 +17,9 @@ interface ImportMetaEnv {
   /** Browser API key for Google Picker `setDeveloperKey`. */
   readonly VITE_GOOGLE_API_KEY?: string;
   readonly NEXT_PUBLIC_GOOGLE_API_KEY?: string;
+  /** OpenAI — Signal Logic 분석 (클라이언트 키는 배포 시 서버 프록시 권장) */
+  readonly VITE_OPENAI_API_KEY?: string;
+  readonly VITE_OPENAI_MODEL?: string;
 }
 
 interface ImportMeta {

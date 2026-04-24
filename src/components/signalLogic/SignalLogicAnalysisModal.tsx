@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { SignalLogicAnalysisPreview } from "@/components/signalLogic/SignalLogicAnalysisPreview";
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
+import { exportSignalLogicPdfFromElement } from "@/lib/signalLogic/exportSignalLogicPdf";
+import { requestSignalLogicAnalysis } from "@/lib/signalLogic/requestSignalLogicAnalysis";
+import { saveSignalLogicReport } from "@/lib/signalLogic/saveSignalLogicReport";
+import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
 import styles from "@/components/signalLogic/signalLogicAnalysisModal.module.css";
 
 const LOCAL_ACCEPT =
   ".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+type Phase = "input" | "running" | "done";
 
 type Props = {
   open: boolean;
@@ -13,15 +21,28 @@ type Props = {
 
 export function SignalLogicAnalysisModal({ open, onClose }: Props) {
   const titleId = useId();
+  const { firebaseUser } = useAuth();
+  const [phase, setPhase] = useState<Phase>("input");
   const [passage, setPassage] = useState("");
+  const [report, setReport] = useState<SignalLogicAnalysisReportJson | null>(null);
+  const [analysisModel, setAnalysisModel] = useState("");
   const [fileBusy, setFileBusy] = useState(false);
+  const [runBusy, setRunBusy] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfLayoutLock, setPdfLayoutLock] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setSaveNote(null);
+    setPhase("input");
+    setReport(null);
+    setAnalysisModel("");
     const t = requestAnimationFrame(() => textareaRef.current?.focus());
     return () => cancelAnimationFrame(t);
   }, [open]);
@@ -70,6 +91,56 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
     }
   }, []);
 
+  const runAnalysis = useCallback(async () => {
+    const text = passage.trim();
+    if (!text) {
+      setError("지문을 입력한 뒤 분석을 실행해 주세요.");
+      return;
+    }
+    setError(null);
+    setSaveNote(null);
+    setRunBusy(true);
+    setPhase("running");
+    try {
+      const { report: r, meta } = await requestSignalLogicAnalysis(text);
+      setReport(r);
+      setAnalysisModel(meta.model);
+      setPhase("done");
+
+      if (firebaseUser?.uid) {
+        try {
+          await saveSignalLogicReport(firebaseUser.uid, text, r, meta.model);
+          setSaveNote("저장됨 · Firestore 분석 리포트에 기록되었습니다.");
+        } catch (se) {
+          setSaveNote(`저장 실패: ${se instanceof Error ? se.message : String(se)}`);
+        }
+      } else {
+        setSaveNote("로그인하면 같은 결과가 Firestore에 자동 저장됩니다.");
+      }
+    } catch (err) {
+      setPhase("input");
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRunBusy(false);
+    }
+  }, [passage, firebaseUser?.uid]);
+
+  const onExportPdf = useCallback(async () => {
+    const el = previewRef.current;
+    if (!el || !report) return;
+    setPdfBusy(true);
+    setPdfLayoutLock(true);
+    await new Promise((r) => requestAnimationFrame(r));
+    try {
+      await exportSignalLogicPdfFromElement(el, "XtudyNote_KSAT_Analysis_Report.pdf");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPdfLayoutLock(false);
+      setPdfBusy(false);
+    }
+  }, [report]);
+
   useEffect(() => {
     if (!open) return;
     function onKey(ev: KeyboardEvent) {
@@ -95,7 +166,7 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
             <h2 id={titleId} className={styles.title}>
               Signal Logic <span className={styles.titleAccent}>분석</span>
             </h2>
-            <p className={styles.sub}>지문을 직접 입력하거나, 컴퓨터의 파일에서 텍스트를 불러옵니다.</p>
+            <p className={styles.sub}>지문 입력 → AI 분석 및 문서 생성 · XtudyNote KSAT 리포트 규격</p>
           </div>
           <button type="button" className={styles.close} aria-label="닫기" onClick={onClose}>
             ×
@@ -111,7 +182,7 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
               <button
                 type="button"
                 className={styles.fileBtn}
-                disabled={fileBusy}
+                disabled={fileBusy || runBusy}
                 onClick={() => fileInputRef.current?.click()}
               >
                 {fileBusy ? "불러오는 중…" : "파일 불러오기"}
@@ -131,10 +202,40 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
               className={styles.textarea}
               value={passage}
               onChange={(e) => setPassage(e.target.value)}
+              disabled={phase === "running"}
               placeholder=".txt · .pdf · .docx 파일을 불러오거나, 지문을 직접 붙여 넣으세요."
             />
+
+            <div className={styles.analyzeRow}>
+              <button
+                type="button"
+                className={styles.analyzeBtn}
+                disabled={runBusy || !passage.trim()}
+                onClick={() => void runAnalysis()}
+              >
+                {runBusy ? "분석 중…" : "분석 및 문서 생성"}
+              </button>
+              {analysisModel ? (
+                <span className={styles.modelTag}>모델: {analysisModel}</span>
+              ) : null}
+            </div>
+
             {error ? <p className={styles.error}>{error}</p> : null}
           </div>
+
+          {phase === "done" && report ? (
+            <div className={styles.previewWrap}>
+              <SignalLogicAnalysisPreview
+                ref={previewRef}
+                passage={passage}
+                report={report}
+                onExportPdf={() => void onExportPdf()}
+                pdfBusy={pdfBusy}
+                saveMessage={saveNote}
+                captureMode={pdfLayoutLock}
+              />
+            </div>
+          ) : null}
         </div>
 
         <footer className={styles.footer}>

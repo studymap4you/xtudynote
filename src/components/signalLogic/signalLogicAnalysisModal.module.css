@@ -11,7 +11,7 @@
 }
 
 .dialog {
-  width: min(100%, 38rem);
+  width: min(100%, 52rem);
   margin: 2vh auto 2rem;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -167,6 +167,51 @@
   font-size: 0.8rem;
   color: #b91c1c;
   line-height: 1.4;
+}
+
+.analyzeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.analyzeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  border: 1px solid #1d4ed8;
+  border-radius: 9px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
+}
+
+.analyzeBtn:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.analyzeBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modelTag {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.previewWrap {
+  margin-top: 1rem;
+  max-height: min(70vh, 48rem);
+  overflow: auto;
+  padding: 0.15rem;
 }
 
 .footer {

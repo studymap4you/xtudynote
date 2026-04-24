@@ -1,0 +1,236 @@
+.root {
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.1rem 1.15rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+/* PDF 캡처용 고정 폭 (A4 @96dpi 근사) */
+.rootCapture {
+  width: 794px;
+  max-width: none;
+}
+
+.brandBar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  padding-bottom: 0.65rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 2px solid #1d4ed8;
+}
+
+.brandMain {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.brandAccent {
+  color: #2563eb;
+}
+
+.brandSub {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 860px) {
+  .grid3 {
+    grid-template-columns: 1fr 1.1fr 0.95fr;
+    gap: 0.85rem;
+  }
+}
+
+.col {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  background: #fafafa;
+}
+
+.colTitle {
+  margin: 0 0 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #2563eb;
+}
+
+.passageBody {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.65;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.topicLine {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #0f172a;
+}
+
+.analysisNarrative {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.binaryList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0 0 0.65rem;
+  padding: 0;
+  list-style: none;
+}
+
+.binaryBlock {
+  list-style: none;
+  margin: 0;
+}
+
+.binaryItem {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.axisInline {
+  flex-shrink: 0;
+  font-weight: 800;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.axisCaption {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.pole {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.signalList {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.signalList li {
+  margin-bottom: 0.25rem;
+}
+
+.notes {
+  margin: 0.5rem 0 0;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #475569;
+  background: #f1f5f9;
+  border-radius: 6px;
+  border: 1px dashed #cbd5e1;
+}
+
+.vocabTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.vocabTable th,
+.vocabTable td {
+  border: 1px solid #e2e8f0;
+  padding: 0.35rem 0.45rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.vocabTable th {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+}
+
+.pdfRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.pdfBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  border: 1px solid #1d4ed8;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.pdfBtn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.pdfBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.saveHint {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.saveOk {
+  color: #15803d;
+}
+
+.saveErr {
+  color: #b91c1c;
+}
