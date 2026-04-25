@@ -9,6 +9,7 @@ import {
   type QuerySnapshot,
 } from "firebase/firestore";
 import { SIGNAL_LOGIC_SAMPLE_ANALYSES } from "@/data/signalLogicReadingSamples";
+import { PassageDeepAnalysisModal } from "@/components/signalLogic/PassageDeepAnalysisModal";
 import { SignalLogicAnalysisModal } from "@/components/signalLogic/SignalLogicAnalysisModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
@@ -79,6 +80,7 @@ function mapSnapshotToAnalyses(snap: QuerySnapshot): SignalLogicPassageAnalysis[
 export function SignalLogicReadingDashboard() {
   const { firebaseUser, canManageMaterials } = useAuth();
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [deepOpen, setDeepOpen] = useState(false);
   const [savedAnalyses, setSavedAnalyses] = useState<SignalLogicPassageAnalysis[]>([]);
   const [savedLoading, setSavedLoading] = useState(false);
 
@@ -175,7 +177,7 @@ export function SignalLogicReadingDashboard() {
         <div className={styles.cardGrid}>
           {cardItems.length === 0 && firebaseUser?.uid && !savedLoading ? (
             <p className="ui-ko" style={{ gridColumn: "1 / -1", opacity: 0.85 }}>
-              아직 저장된 분석이 없습니다. 아래「새 분석 시작」으로 지문을 분석해 보세요.
+              아직 저장된 분석이 없습니다. 아래「분석 도구」에서 Signal Logic 또는 지문 심층 분석을 시작해 보세요.
             </p>
           ) : (
             cardItems.map((item) => <PassageCard key={item.id} analysis={item} />)
@@ -183,14 +185,28 @@ export function SignalLogicReadingDashboard() {
         </div>
       </section>
 
-      <div className={styles.ctaRegion}>
-        <button type="button" className={styles.ctaLarge} onClick={() => setAnalysisOpen(true)}>
-          <span className={styles.ctaPrimary}>새 분석 시작</span>
-          <span className={styles.ctaSecondary}>새 지문 분석 시작 · Start passage analysis</span>
-        </button>
-      </div>
+      <section className={styles.analysisActions} aria-labelledby="logic-analysis-actions-heading">
+        <h2 id="logic-analysis-actions-heading" className={styles.analysisActionsTitle}>
+          분석 도구
+          <span className={styles.sectionHeadingKo}>Signal Logic · 지문 심층</span>
+        </h2>
+        <p className={styles.analysisActionsKo}>
+          시그널 로직은 이분법·원샷 시그널 중심 리포트를, 지문 심층 분석은 문장·의미 단위(/)와 직독·해석·어휘·문법 정리를 생성합니다. 둘 다 PDF(인쇄) 저장을 지원합니다.
+        </p>
+        <div className={styles.ctaPair}>
+          <button type="button" className={styles.ctaLarge} onClick={() => setAnalysisOpen(true)}>
+            <span className={styles.ctaPrimary}>Signal Logic 분석</span>
+            <span className={styles.ctaSecondary}>이분법 · 원샷 시그널 · 어휘 리포트</span>
+          </button>
+          <button type="button" className={`${styles.ctaLarge} ${styles.ctaDeep}`} onClick={() => setDeepOpen(true)}>
+            <span className={styles.ctaPrimary}>지문 심층 분석</span>
+            <span className={styles.ctaSecondary}>문장·의미(/) · 직독·해석·문법</span>
+          </button>
+        </div>
+      </section>
 
       <SignalLogicAnalysisModal open={analysisOpen} onClose={() => setAnalysisOpen(false)} />
+      <PassageDeepAnalysisModal open={deepOpen} onClose={() => setDeepOpen(false)} />
     </main>
   );
 }

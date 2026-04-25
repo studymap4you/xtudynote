@@ -229,6 +229,37 @@
   font-variant-numeric: tabular-nums;
 }
 
+.analysisActions {
+  margin-top: 0.5rem;
+  padding: 1rem 1.1rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--sl-border);
+  background: var(--sl-card);
+  box-shadow: var(--sl-shadow-sm);
+}
+
+.analysisActionsTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  color: var(--sl-text);
+}
+
+.analysisActionsKo {
+  font-size: 0.8rem;
+  color: var(--sl-text-muted);
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.ctaPair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  align-items: stretch;
+}
+
 .ctaRegion {
   flex: 1;
   display: flex;
@@ -240,6 +271,7 @@
 
 .ctaLarge {
   display: inline-flex;
+  flex: 1 1 240px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -260,7 +292,27 @@
     box-shadow 0.15s ease;
 }
 
-.ctaLarge:hover {
+.ctaDeep {
+  border-color: #99f6e4;
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.ctaDeep:hover {
+  background: #99f6e4;
+  border-color: #5eead4;
+  box-shadow: 0 2px 6px rgb(15 118 110 / 0.12);
+}
+
+.ctaDeep .ctaPrimary {
+  color: #115e59;
+}
+
+.ctaDeep .ctaSecondary {
+  color: #0f766e;
+}
+
+.ctaLarge:not(.ctaDeep):hover {
   background: #bfdbfe;
   border-color: #93c5fd;
   box-shadow: 0 2px 6px rgb(37 99 235 / 0.12);
