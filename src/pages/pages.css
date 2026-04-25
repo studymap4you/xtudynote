@@ -825,6 +825,27 @@
   word-break: keep-all;
   color: #1e293b;
 }
+.classroom-hub__save-feedback {
+  margin-top: var(--space-2);
+  min-height: 0;
+}
+.classroom-hub__save-feedback p {
+  margin: 0;
+}
+.classroom-hub__save-feedback--ok {
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.38);
+}
+.classroom-hub__save-feedback--err {
+  padding: 0.35rem 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
 .classroom-hub__cta-row {
   display: flex;
   flex-wrap: wrap;

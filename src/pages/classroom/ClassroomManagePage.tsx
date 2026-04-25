@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { FirebaseError } from "firebase/app";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   collection,
@@ -45,6 +46,8 @@ function Inner() {
   const [introduction, setIntroduction] = useState("");
   const [savingIntro, setSavingIntro] = useState(false);
   const [introErr, setIntroErr] = useState<string | null>(null);
+  const [introSaveOk, setIntroSaveOk] = useState<string | null>(null);
+  const introFeedbackRef = useRef<HTMLDivElement>(null);
 
   const [materialRows, setMaterialRows] = useState<{ id: string; data: MaterialRequestDocument }[]>([]);
   const [videoRows, setVideoRows] = useState<{ id: string; data: VideoMaterialRequestDocument }[]>([]);
@@ -126,6 +129,17 @@ function Inner() {
     };
   }, [id, room]);
 
+  useEffect(() => {
+    if (!introSaveOk) return;
+    const t = window.setTimeout(() => setIntroSaveOk(null), 6000);
+    return () => window.clearTimeout(t);
+  }, [introSaveOk]);
+
+  useEffect(() => {
+    if (!introErr && !introSaveOk) return;
+    introFeedbackRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [introErr, introSaveOk]);
+
   const q = (path: string) => `${path}?classroomId=${encodeURIComponent(id ?? "")}`;
 
   async function saveMembers(e: React.FormEvent) {
@@ -148,16 +162,25 @@ function Inner() {
     }
   }
 
+  function introSaveErrorMessage(err: unknown): string {
+    if (err instanceof FirebaseError && err.code === "permission-denied") {
+      return "저장 권한이 없습니다. 계정 역할·강의실 소유를 확인해 주세요.";
+    }
+    return err instanceof Error ? err.message : "저장에 실패했습니다.";
+  }
+
   async function saveIntro(e: React.FormEvent) {
     e.preventDefault();
     if (!id || !firebaseUser || !room) return;
     const t = title.trim();
     if (!t) {
+      setIntroSaveOk(null);
       setIntroErr("강의실 이름을 입력해 주세요.");
       return;
     }
     setSavingIntro(true);
     setIntroErr(null);
+    setIntroSaveOk(null);
     try {
       await updateDoc(doc(db, "classrooms", id), {
         title: t,
@@ -165,8 +188,9 @@ function Inner() {
         introduction: introduction.trim(),
       });
       setRoom({ ...room, title: t, description: description.trim(), introduction: introduction.trim() });
+      setIntroSaveOk("저장했습니다. 입장 화면에도 곧바로 반영됩니다.");
     } catch (err) {
-      setIntroErr(err instanceof Error ? err.message : "저장에 실패했습니다.");
+      setIntroErr(introSaveErrorMessage(err));
     } finally {
       setSavingIntro(false);
     }
@@ -262,7 +286,6 @@ function Inner() {
                   </span>
                 </p>
               ) : null}
-              {introErr && <p className="auth-error">{introErr}</p>}
               <form className="classroom-hub__form" onSubmit={(e) => void saveIntro(e)}>
                 <label className="auth-field">
                   <span className="classroom-hub__field-label">강의실 이름</span>
@@ -310,6 +333,18 @@ function Inner() {
                   <button type="submit" className="btn btn--primary btn--stack" disabled={savingIntro}>
                     {savingIntro ? "저장 중…" : "저장"}
                   </button>
+                </div>
+                <div
+                  ref={introFeedbackRef}
+                  className="classroom-hub__save-feedback"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {introErr ? <p className="classroom-hub__save-feedback--err">{introErr}</p> : null}
+                  {introSaveOk && !introErr ? (
+                    <p className="classroom-hub__save-feedback--ok">{introSaveOk}</p>
+                  ) : null}
                 </div>
               </form>
             </section>
