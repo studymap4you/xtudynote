@@ -1,0 +1,22 @@
+/**
+ * 앱 전역 인쇄(Ctrl+P 등) 시에도 A4·여백을 맞추고 배경색이 사라지지 않게 합니다.
+ * react-to-print는 별도 iframe에 pageStyle을 넣으므로, 이 파일은 브라우저 전체 인쇄용입니다.
+ */
+@page {
+  size: A4 portrait;
+  margin: 20mm;
+  @bottom-center {
+    font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+    font-size: 8.5pt;
+    color: #64748b;
+    content: "[XtudyNote - 지식 큐레이터 엑스플로어] | " counter(page);
+  }
+}
+
+@media print {
+  html,
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

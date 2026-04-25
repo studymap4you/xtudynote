@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useReactToPrint } from "react-to-print";
 import { HandwritingCanvas } from "@/components/assignments/HandwritingCanvas";
 import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
+import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { getAssignment, getStudentWork, saveStudentWorkSubmission } from "@/lib/worksheet/assignmentApi";
 import { compressHandwritingAnswers } from "@/lib/worksheet/compressInkImage";
-import { exportWorksheetPdfFromElement } from "@/lib/worksheet/exportWorksheetPdf";
 import type { WorksheetAssignmentDoc, WorksheetItem } from "@/types/worksheetAssignment";
 import styles from "@/pages/assignments/assignmentPages.module.css";
 
@@ -36,6 +37,22 @@ export function StudentWorksheetPage() {
   const { firebaseUser, isStudent } = useAuth();
   const uid = firebaseUser?.uid ?? "";
   const captureRef = useRef<HTMLDivElement>(null);
+
+  const printWorksheet = useReactToPrint({
+    contentRef: captureRef,
+    documentTitle: () => (assignmentId ? `XtudyNote_Worksheet_${assignmentId.slice(0, 8)}` : "XtudyNote_Worksheet"),
+    pageStyle: REACT_TO_PRINT_A4_PAGE_STYLE,
+    onBeforePrint: async () => {
+      setPdfBusy(true);
+    },
+    onAfterPrint: () => {
+      setPdfBusy(false);
+    },
+    onPrintError: (_loc, err) => {
+      setMsg(err.message);
+      setPdfBusy(false);
+    },
+  });
 
   const [assignment, setAssignment] = useState<WorksheetAssignmentDoc | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -131,19 +148,9 @@ export function StudentWorksheetPage() {
     }
   }, [assignmentId, uid, canEdit, answers]);
 
-  const downloadPdf = useCallback(async () => {
-    const el = captureRef.current;
-    if (!el) return;
-    setPdfBusy(true);
-    await new Promise((r) => requestAnimationFrame(r));
-    try {
-      await exportWorksheetPdfFromElement(el, `XtudyNote_Worksheet_${assignmentId?.slice(0, 8)}.pdf`);
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : String(e));
-    } finally {
-      setPdfBusy(false);
-    }
-  }, [assignmentId]);
+  const downloadPdf = useCallback(() => {
+    printWorksheet();
+  }, [printWorksheet]);
 
   if (!assignmentId) {
     return (
@@ -207,13 +214,19 @@ export function StudentWorksheetPage() {
           </p>
         ) : null}
 
-        <div ref={captureRef} className={styles.capture}>
+        <div ref={captureRef} className={`${styles.capture} ${styles.captureA4}`}>
+          <header className={styles.captureBrand}>
+            <span className={styles.captureBrandMain}>
+              XtudyNote <span className={styles.captureBrandAccent}>|</span> 학습지
+            </span>
+            <span className={styles.captureBrandSub}>학생용 · 정답·모범답 미포함</span>
+          </header>
           <h2 className={styles.captureTitle}>학습지</h2>
           <p className={styles.captureSub}>학생용 — 정답·모범답은 포함되지 않습니다.</p>
-          <div className={styles.passage}>{assignment.passage}</div>
+          <div className={`${styles.passage} ${styles.captureSection}`}>{assignment.passage}</div>
 
           {itemsStudentView.map((item) => (
-            <div key={item.id} className={styles.item}>
+            <div key={item.id} className={`${styles.item} ${styles.captureItem}`}>
               <div className={styles.itemLabel}>
                 {item.kind === "blank" ? "빈칸" : item.kind === "short" ? "주관식" : "손글씨·도식"}
               </div>
@@ -244,10 +257,19 @@ export function StudentWorksheetPage() {
               )}
             </div>
           ))}
+          <p className={styles.captureScreenHint}>
+            화면에는 A4 본문 영역 높이마다 옅은 가이드선이 표시됩니다. PDF·인쇄 시에는 사라집니다.
+          </p>
+          <footer
+            className={styles.capturePrintFooter}
+            title="Chromium·Edge 등에서는 인쇄 대화상자의「머리글 및 바닥글」에서도 페이지 번호를 켤 수 있습니다."
+          >
+            [XtudyNote - 지식 큐레이터 엑스플로어]
+          </footer>
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className="btn btn--ghost btn--stack" disabled={pdfBusy} onClick={() => void downloadPdf()}>
+          <button type="button" className="btn btn--ghost btn--stack" disabled={pdfBusy} onClick={downloadPdf}>
             <span className="ui-ko">{pdfBusy ? "PDF 생성 중…" : "과제 PDF 다운로드"}</span>
             <span className="ui-en" style={{ fontSize: "0.75rem" }}>
               Print-friendly (no answer key)

@@ -160,3 +160,124 @@
 .table th {
   background: rgba(15, 23, 42, 0.05);
 }
+
+/* ——— 학습지 A4 문서(캡처 블록): 화면·인쇄 동일 레이아웃 ——— */
+.captureA4 {
+  position: relative;
+  box-sizing: border-box;
+  max-width: 170mm;
+  margin-left: auto;
+  margin-right: auto;
+  font-family:
+    "Pretendard Variable",
+    Pretendard,
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    sans-serif;
+  color: #0f172a;
+  line-height: 1.55;
+  background-color: #fff;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(257mm - 1px),
+    rgba(148, 163, 184, 0.28) calc(257mm - 1px),
+    rgba(148, 163, 184, 0.28) 257mm
+  );
+}
+
+.captureBrand {
+  padding: 0.55rem 0.75rem;
+  margin: 0 0 0.85rem;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f0f6ff 0%, #e8f1fc 100%);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.captureBrandMain {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.captureBrandAccent {
+  color: #2563eb;
+}
+
+.captureBrandSub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.captureSection {
+  border: 1px solid #e8eaed;
+  border-radius: 10px;
+  background: #fafbfc;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.captureItem {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.captureA4 .item {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #e8eaed;
+  border-radius: 10px;
+  background: #fafbfc;
+  border-bottom: 1px solid #e8eaed;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+}
+
+.captureA4 .item:last-of-type {
+  margin-bottom: 0;
+}
+
+.captureScreenHint {
+  margin: 0.75rem 0 0;
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.capturePrintFooter {
+  display: none;
+}
+
+@media print {
+  .captureA4 {
+    max-width: none;
+    margin: 0;
+    padding-bottom: 16mm;
+    background-image: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .captureScreenHint {
+    display: none;
+  }
+
+  .capturePrintFooter {
+    display: block;
+    position: fixed;
+    bottom: 12mm;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 8.5pt;
+    font-weight: 500;
+    color: #64748b;
+  }
+}

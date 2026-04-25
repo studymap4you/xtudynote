@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { Link } from "react-router-dom";
+import { useReactToPrint } from "react-to-print";
 import { useAuth } from "@/contexts/AuthContext";
 import { SignalLogicAnalysisPreview } from "@/components/signalLogic/SignalLogicAnalysisPreview";
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
-import { exportSignalLogicPdfFromElement } from "@/lib/signalLogic/exportSignalLogicPdf";
+import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { requestSignalLogicAnalysis } from "@/lib/signalLogic/requestSignalLogicAnalysis";
 import { saveSignalLogicReport } from "@/lib/signalLogic/saveSignalLogicReport";
 import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
@@ -30,13 +31,28 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
   const [fileBusy, setFileBusy] = useState(false);
   const [runBusy, setRunBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
-  const [pdfLayoutLock, setPdfLayoutLock] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   const [signalReportFirestoreId, setSignalReportFirestoreId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  const printAnalysis = useReactToPrint({
+    contentRef: previewRef,
+    documentTitle: "XtudyNote_KSAT_Analysis_Report",
+    pageStyle: REACT_TO_PRINT_A4_PAGE_STYLE,
+    onBeforePrint: async () => {
+      setPdfBusy(true);
+    },
+    onAfterPrint: () => {
+      setPdfBusy(false);
+    },
+    onPrintError: (_loc, err) => {
+      setError(err.message);
+      setPdfBusy(false);
+    },
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -131,21 +147,10 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
     }
   }, [passage, firebaseUser?.uid]);
 
-  const onExportPdf = useCallback(async () => {
-    const el = previewRef.current;
-    if (!el || !report) return;
-    setPdfBusy(true);
-    setPdfLayoutLock(true);
-    await new Promise((r) => requestAnimationFrame(r));
-    try {
-      await exportSignalLogicPdfFromElement(el, "XtudyNote_KSAT_Analysis_Report.pdf");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setPdfLayoutLock(false);
-      setPdfBusy(false);
-    }
-  }, [report]);
+  const onExportPdf = useCallback(() => {
+    if (!report) return;
+    printAnalysis();
+  }, [report, printAnalysis]);
 
   useEffect(() => {
     if (!open) return;
@@ -235,10 +240,9 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
                 ref={previewRef}
                 passage={passage}
                 report={report}
-                onExportPdf={() => void onExportPdf()}
+                onExportPdf={onExportPdf}
                 pdfBusy={pdfBusy}
                 saveMessage={saveNote}
-                captureMode={pdfLayoutLock}
               />
             </div>
           ) : null}
