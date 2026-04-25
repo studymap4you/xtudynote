@@ -518,24 +518,44 @@ function IntroLandingPanel({ search, setSearch, onSearch, loginCardRef }: IntroL
       <div ref={loginCardRef} className="intro-login-card">
         <p className="intro-login-card__hint">서비스 이용 안내</p>
         <div className="intro-login-card__rows">
-          <div className="intro-login-card__row">
-            <span className="intro-login-card__icon intro-login-card__icon--student">
+          <Link
+            to={firebaseUser ? "/dashboard" : "/login?audience=learner"}
+            className="intro-login-card__row intro-login-card__row--interactive"
+            aria-label={
+              firebaseUser
+                ? "대시보드로 이동 (학습자·일반·학부모)"
+                : "학습자·일반·학부모로 로그인 후 내 대시보드로 이동"
+            }
+          >
+            <span className="intro-login-card__icon intro-login-card__icon--student" aria-hidden>
               <IconStudent />
             </span>
             <span className="intro-login-card__row-text">
               <span className="intro-login-card__row-title">학습자 · 일반 · 학부모</span>
-              <span className="intro-login-card__row-sub">피드백·과제·학습 로그</span>
+              <span className="intro-login-card__row-sub">
+                {firebaseUser ? "클릭하여 내 대시보드로" : "로그인 후 피드백·과제·학습 로그"}
+              </span>
             </span>
-          </div>
-          <div className="intro-login-card__row">
-            <span className="intro-login-card__icon intro-login-card__icon--teacher">
+          </Link>
+          <Link
+            to={firebaseUser ? "/dashboard" : "/login?audience=educator"}
+            className="intro-login-card__row intro-login-card__row--interactive"
+            aria-label={
+              firebaseUser
+                ? "대시보드로 이동 (교육자·전문가)"
+                : "교육자·전문가로 로그인 후 내 대시보드로 이동"
+            }
+          >
+            <span className="intro-login-card__icon intro-login-card__icon--teacher" aria-hidden>
               <IconTeacher />
             </span>
             <span className="intro-login-card__row-text">
               <span className="intro-login-card__row-title">교육자 · 전문가</span>
-              <span className="intro-login-card__row-sub">자료·과제·CRM (승인 후)</span>
+              <span className="intro-login-card__row-sub">
+                {firebaseUser ? "클릭하여 내 대시보드로" : "로그인 후 자료·과제·CRM (승인 후)"}
+              </span>
             </span>
-          </div>
+          </Link>
         </div>
 
         <div className="intro-login-card__actions">

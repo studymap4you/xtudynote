@@ -1,5 +1,5 @@
-import { FormEvent, useState } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { FormEvent, useMemo, useState } from "react";
+import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { FirebaseError } from "firebase/app";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,7 +50,19 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
+
+  const audienceHint = useMemo(() => {
+    const a = searchParams.get("audience");
+    if (a === "learner") {
+      return "학습자 · 일반 · 학부모 계정으로 로그인하면 역할에 맞는 대시보드로 이동합니다.";
+    }
+    if (a === "educator") {
+      return "교육자 · 전문가 계정으로 로그인하면 역할에 맞는 대시보드로 이동합니다. (승인 대기 중이면 일부 기능이 제한될 수 있습니다.)";
+    }
+    return null;
+  }, [searchParams]);
 
   const authBusy = busy || googleBusy;
 
@@ -104,6 +116,22 @@ export function LoginPage() {
               구글로 로그인하거나, 등록한 이메일과 비밀번호로 로그인하세요.
             </span>
           </p>
+          {audienceHint ? (
+            <p
+              className="auth-card__hint"
+              style={{
+                marginTop: "0.65rem",
+                padding: "0.55rem 0.65rem",
+                borderRadius: "8px",
+                background: "rgba(37, 99, 235, 0.08)",
+                border: "1px solid rgba(37, 99, 235, 0.2)",
+                fontSize: "0.88rem",
+                color: "var(--text, #0f172a)",
+              }}
+            >
+              <span className="ui-ko">{audienceHint}</span>
+            </p>
+          ) : null}
           {error && <p className="auth-error">{error}</p>}
           <form onSubmit={onSubmit}>
             <div className="auth-field">
