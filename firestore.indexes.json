@@ -116,11 +116,6 @@
         { "fieldPath": "teacherId", "order": "ASCENDING" },
         { "fieldPath": "distributedAt", "order": "DESCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "video_catalog",
-      "queryScope": "COLLECTION",
-      "fields": [{ "fieldPath": "createdAt", "order": "DESCENDING" }]
     }
   ],
   "fieldOverrides": []
