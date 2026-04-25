@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   collection,
+  deleteDoc,
+  doc,
   limit,
   onSnapshot,
   orderBy,
@@ -24,7 +26,14 @@ function clipText(text: string, maxChars: number): string {
   return `${t.slice(0, maxChars).trim()}…`;
 }
 
-function PassageCard({ analysis }: { analysis: SignalLogicPassageAnalysis }) {
+type PassageCardProps = {
+  analysis: SignalLogicPassageAnalysis;
+  selectable: boolean;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
+};
+
+function PassageCard({ analysis, selectable, selected, onToggleSelect }: PassageCardProps) {
   const { vocabulary, binaryLogic, signals, correctAnswer, originalText, analyzedAt, title } =
     analysis;
   const preview = clipText(originalText, 118);
@@ -32,30 +41,45 @@ function PassageCard({ analysis }: { analysis: SignalLogicPassageAnalysis }) {
   const signalPreview = signals.slice(0, 2);
 
   return (
-    <article className={styles.card} title={`해석 미리보기: ${clipText(analysis.translation, 160)}`}>
-      <div className={styles.cardLabel}>Recent passage</div>
-      <h3 className={styles.cardTitle}>{title}</h3>
-      <p className={styles.cardMeta}>분석일 {analyzedAt}</p>
-      <p className={styles.cardPreview}>{preview}</p>
-      <div className={styles.cardFooter}>
-        {correctAnswer != null ? (
-          <span className={`${styles.chip} ${styles.chipBinary}`}>정답 {correctAnswer.option}번</span>
-        ) : (
-          <span className={`${styles.chip} ${styles.chipMuted}`}>AI 분석 리포트</span>
-        )}
-        <span className={`${styles.chip} ${styles.chipMuted}`}>어휘 {vocabulary.length}</span>
-        {binaryPreview.map((b, i) => (
-          <span key={`${analysis.id}-b-${i}`} className={styles.chip}>
-            [{b.bucket}] {b.keyword}
-          </span>
-        ))}
-        {signalPreview.map((s, i) => (
-          <span key={`${analysis.id}-s-${i}`} className={`${styles.chip} ${styles.chipMuted}`}>
-            {s.word}·{s.logicRole}
-          </span>
-        ))}
-      </div>
-    </article>
+    <div
+      className={`${styles.cardWrap} ${selectable ? styles.cardWrapSelectable : ""} ${selected ? styles.cardWrapSelected : ""}`}
+    >
+      {selectable ? (
+        <label className={styles.cardCheck} htmlFor={`logic-card-${analysis.id}`}>
+          <input
+            id={`logic-card-${analysis.id}`}
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(analysis.id)}
+            aria-label={`「${title}」분석 선택`}
+          />
+        </label>
+      ) : null}
+      <article className={styles.card} title={`해석 미리보기: ${clipText(analysis.translation, 160)}`}>
+        <div className={styles.cardLabel}>Recent passage</div>
+        <h3 className={styles.cardTitle}>{title}</h3>
+        <p className={styles.cardMeta}>분석일 {analyzedAt}</p>
+        <p className={styles.cardPreview}>{preview}</p>
+        <div className={styles.cardFooter}>
+          {correctAnswer != null ? (
+            <span className={`${styles.chip} ${styles.chipBinary}`}>정답 {correctAnswer.option}번</span>
+          ) : (
+            <span className={`${styles.chip} ${styles.chipMuted}`}>AI 분석 리포트</span>
+          )}
+          <span className={`${styles.chip} ${styles.chipMuted}`}>어휘 {vocabulary.length}</span>
+          {binaryPreview.map((b, i) => (
+            <span key={`${analysis.id}-b-${i}`} className={styles.chip}>
+              [{b.bucket}] {b.keyword}
+            </span>
+          ))}
+          {signalPreview.map((s, i) => (
+            <span key={`${analysis.id}-s-${i}`} className={`${styles.chip} ${styles.chipMuted}`}>
+              {s.word}·{s.logicRole}
+            </span>
+          ))}
+        </div>
+      </article>
+    </div>
   );
 }
 
@@ -79,16 +103,20 @@ function mapSnapshotToAnalyses(snap: QuerySnapshot): SignalLogicPassageAnalysis[
 
 export function SignalLogicReadingDashboard() {
   const { firebaseUser, canManageMaterials } = useAuth();
+  const uid = firebaseUser?.uid ?? "";
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [deepOpen, setDeepOpen] = useState(false);
   const [savedAnalyses, setSavedAnalyses] = useState<SignalLogicPassageAnalysis[]>([]);
   const [savedLoading, setSavedLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const uid = firebaseUser?.uid;
     if (!uid) {
       setSavedAnalyses([]);
       setSavedLoading(false);
+      setSelectedIds(new Set());
       return;
     }
     setSavedLoading(true);
@@ -108,14 +136,66 @@ export function SignalLogicReadingDashboard() {
       },
     );
     return () => unsub();
-  }, [firebaseUser?.uid]);
+  }, [uid]);
 
   const cardItems = useMemo(() => {
-    if (firebaseUser?.uid) {
+    if (uid) {
       return savedAnalyses;
     }
     return SIGNAL_LOGIC_SAMPLE_ANALYSES;
-  }, [firebaseUser?.uid, savedAnalyses]);
+  }, [uid, savedAnalyses]);
+
+  const selectable = Boolean(uid);
+
+  useEffect(() => {
+    if (!uid) return;
+    const valid = new Set(savedAnalyses.map((a) => a.id));
+    setSelectedIds((prev) => {
+      const next = new Set([...prev].filter((id) => valid.has(id)));
+      if (next.size !== prev.size) return next;
+      for (const id of prev) {
+        if (!next.has(id)) return next;
+      }
+      return prev;
+    });
+  }, [uid, savedAnalyses]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setDeleteErr(null);
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(cardItems.map((c) => c.id)));
+    setDeleteErr(null);
+  }, [cardItems]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setDeleteErr(null);
+  }, []);
+
+  const deleteSelected = useCallback(async () => {
+    if (!uid || selectedIds.size === 0) return;
+    setDeleteBusy(true);
+    setDeleteErr(null);
+    try {
+      const ids = [...selectedIds];
+      await Promise.all(ids.map((id) => deleteDoc(doc(db, "users", uid, "signal_logic_reports", id))));
+      setSelectedIds(new Set());
+    } catch (e) {
+      setDeleteErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [uid, selectedIds]);
+
+  const selectedCount = selectedIds.size;
 
   return (
     <main className={styles.main}>
@@ -155,13 +235,35 @@ export function SignalLogicReadingDashboard() {
         </section>
       ) : null}
 
+      {uid && canManageMaterials ? (
+        <div className={styles.sectionRhythm} aria-hidden="true">
+          <span className={styles.sectionRhythmLine} />
+          <span className={styles.sectionRhythmBadge}>
+            <span className={styles.sectionRhythmDot} aria-hidden />
+            Saved analyses
+          </span>
+          <span className={styles.sectionRhythmLine} />
+        </div>
+      ) : uid ? (
+        <div className={styles.sectionRhythm} aria-hidden="true">
+          <span className={styles.sectionRhythmLine} />
+          <span className={styles.sectionRhythmBadge}>
+            <span className={styles.sectionRhythmDot} aria-hidden />
+            My library
+          </span>
+          <span className={styles.sectionRhythmLine} />
+        </div>
+      ) : (
+        <div style={{ height: "1.25rem" }} aria-hidden />
+      )}
+
       <section className={styles.recentSection} aria-labelledby="logic-recent-heading">
         <h2 id="logic-recent-heading" className={styles.sectionHeading}>
           최근 분석 지문
           <span className={styles.sectionHeadingKo}>Recently analyzed passages</span>
         </h2>
-        <p style={{ marginTop: "-0.25rem", marginBottom: "0.75rem", fontSize: "0.9rem", opacity: 0.9 }}>
-          {firebaseUser?.uid ? (
+        <p className={styles.recentSectionDesc}>
+          {uid ? (
             <>
               <span className="ui-ko">로그인 계정에 저장된 분석이 최신순으로 표시됩니다.</span>
               {savedLoading ? (
@@ -169,18 +271,69 @@ export function SignalLogicReadingDashboard() {
                   불러오는 중…
                 </span>
               ) : null}
+              {selectable && cardItems.length > 0 ? (
+                <>
+                  {" "}
+                  <span className="ui-ko" style={{ color: "#64748b" }}>
+                    카드 오른쪽 체크 후「선택 삭제」로 기록을 지울 수 있습니다.
+                  </span>
+                </>
+              ) : null}
             </>
           ) : (
             <span className="ui-ko">로그인하면 여기에 내 분석 기록이 쌓입니다. 아래는 예시 지문입니다.</span>
           )}
         </p>
+
+        {selectable && cardItems.length > 0 ? (
+          <>
+            {deleteErr ? <p className={styles.deleteErr}>{deleteErr}</p> : null}
+            <div className={styles.recentToolbar} role="toolbar" aria-label="분석 기록 선택">
+              <div className={styles.recentToolbarLeft}>
+                <button
+                  type="button"
+                  className={styles.toolbarLinkBtn}
+                  disabled={deleteBusy || cardItems.length === 0}
+                  onClick={selectAll}
+                >
+                  전체 선택
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolbarLinkBtn}
+                  disabled={deleteBusy || selectedCount === 0}
+                  onClick={clearSelection}
+                >
+                  선택 해제
+                </button>
+              </div>
+              <button
+                type="button"
+                className={styles.deleteSelectedBtn}
+                disabled={deleteBusy || selectedCount === 0}
+                onClick={() => void deleteSelected()}
+              >
+                {deleteBusy ? "삭제 중…" : `선택 삭제 (${selectedCount})`}
+              </button>
+            </div>
+          </>
+        ) : null}
+
         <div className={styles.cardGrid}>
-          {cardItems.length === 0 && firebaseUser?.uid && !savedLoading ? (
+          {cardItems.length === 0 && uid && !savedLoading ? (
             <p className="ui-ko" style={{ gridColumn: "1 / -1", opacity: 0.85 }}>
               아직 저장된 분석이 없습니다. 아래「분석 도구」에서 Signal Logic 또는 지문 심층 분석을 시작해 보세요.
             </p>
           ) : (
-            cardItems.map((item) => <PassageCard key={item.id} analysis={item} />)
+            cardItems.map((item) => (
+              <PassageCard
+                key={item.id}
+                analysis={item}
+                selectable={selectable}
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={toggleSelect}
+              />
+            ))
           )}
         </div>
       </section>

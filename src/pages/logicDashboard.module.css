@@ -104,9 +104,189 @@
   align-items: center;
 }
 
+/* Logic worksheets ↔ 최근 분석 지문 사이 시각적 리듬 */
+.sectionRhythm {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 2.35rem 0 1.85rem;
+  padding: 0 0.25rem;
+}
+
+.sectionRhythmLine {
+  flex: 1;
+  height: 1px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent 0%, #cbd5e1 18%, #94a3b8 50%, #cbd5e1 82%, transparent 100%);
+  opacity: 0.85;
+}
+
+.sectionRhythmBadge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.sectionRhythmDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sl-blue-600);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
 .recentSection {
   flex-shrink: 0;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1.75rem;
+  margin-top: 0.25rem;
+  padding: 1.35rem 1.25rem 1.5rem;
+  border-radius: calc(var(--radius-md) + 4px);
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(165deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
+  box-shadow:
+    0 1px 3px rgb(15 23 42 / 0.05),
+    inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+.recentSectionDesc {
+  margin: -0.15rem 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.recentToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.recentToolbarLeft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toolbarLinkBtn {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.55rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sl-blue-700);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.toolbarLinkBtn:hover {
+  color: var(--sl-blue-600);
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.toolbarLinkBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.deleteSelectedBtn {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%);
+  color: #b91c1c;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.deleteSelectedBtn:hover:not(:disabled) {
+  background: #fecaca;
+  border-color: #f87171;
+}
+
+.deleteSelectedBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deleteErr {
+  width: 100%;
+  margin: 0 0 0.65rem;
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
+.cardWrap {
+  position: relative;
+  border-radius: var(--radius-md);
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.cardWrapSelectable .card {
+  padding-right: 2.4rem;
+}
+
+.cardWrapSelected {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+}
+
+.cardWrapSelected .card {
+  border-color: #93c5fd;
+  background: #fafbff;
+}
+
+.cardCheck {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: 0;
+  cursor: pointer;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+.cardCheck input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--sl-blue-600);
 }
 
 .sectionHeading {
@@ -114,7 +294,7 @@
   font-size: 1rem;
   font-weight: 700;
   color: var(--sl-text);
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.5rem;
   letter-spacing: -0.02em;
 }
 
