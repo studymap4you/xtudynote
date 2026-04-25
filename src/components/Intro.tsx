@@ -313,7 +313,7 @@ function IconStudent() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
-        d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"
+        d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0 -3 -3H2zM22 3h-6a4 4 0 0 0 -4 4v14a3 3 0 0 1 3 -3h7z"
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
@@ -410,7 +410,7 @@ function IconShortcutPaid() {
         strokeLinejoin="round"
       />
       <path d="M3 6h18" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M16 10a4 4 0 0 1-8 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M16 10 a4 4 0 0 1 -8 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
