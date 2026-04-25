@@ -12,9 +12,15 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
+    headers: {
+      "Cross-Origin-Opener-Policy": "unsafe-none",
+    },
   },
   preview: {
     port: 3000,
     strictPort: true,
+    headers: {
+      "Cross-Origin-Opener-Policy": "unsafe-none",
+    },
   },
 });
