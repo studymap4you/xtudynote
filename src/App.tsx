@@ -19,6 +19,7 @@ import { HomeworkFeedbackPage } from "@/pages/teacher/HomeworkFeedbackPage";
 import { TeacherStatsPage } from "@/pages/teacher/TeacherStatsPage";
 import { MaterialRegisterPage } from "@/pages/MaterialRegisterPage";
 import { VideoLectureRegisterPage } from "@/pages/VideoLectureRegisterPage";
+import { VideoCatalogPage } from "@/pages/VideoCatalogPage";
 import { ProtectedRoute, SuperAdminRoute } from "@/components/ProtectedRoute";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { ClassroomListPage } from "@/pages/classroom/ClassroomListPage";
@@ -38,6 +39,7 @@ export default function App() {
       <Route path="/content/:id" element={<ContentDetailPage />} />
       <Route path="/homework" element={<HomeworkSearchPage />} />
       <Route path="/logic-dashboard" element={<LogicDashboardPage />} />
+      <Route path="/videos" element={<VideoCatalogPage />} />
       <Route path="/homework/:code" element={<HomeworkStudentPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />

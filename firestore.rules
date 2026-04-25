@@ -178,6 +178,53 @@ service cloud.firestore {
       allow write: if isActiveSuperAdmin();
     }
 
+    /** 공개 동영상 링크 목록 (랜딩 /videos) */
+    match /video_catalog/{vid} {
+      allow read: if true;
+
+      allow create: if (isActiveSuperAdmin() || isActiveTeacher())
+        && request.auth.uid == request.resource.data.createdBy
+        && request.resource.data.keys().hasAll(['title', 'watchUrl', 'createdAt', 'createdBy'])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 240
+        && request.resource.data.watchUrl is string
+        && request.resource.data.watchUrl.size() > 8
+        && request.resource.data.watchUrl.size() <= 2048
+        && request.resource.data.watchUrl.matches('https?://.*')
+        && request.resource.data.createdBy is string
+        && (
+          !('description' in request.resource.data)
+          || (
+            request.resource.data.description is string
+            && request.resource.data.description.size() <= 2000
+          )
+        );
+
+      allow update: if isActiveSuperAdmin()
+        || (
+          isActiveTeacher()
+          && resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 240
+          && request.resource.data.watchUrl is string
+          && request.resource.data.watchUrl.size() > 8
+          && request.resource.data.watchUrl.matches('https?://.*')
+          && (
+            !('description' in request.resource.data)
+            || (
+              request.resource.data.description is string
+              && request.resource.data.description.size() <= 2000
+            )
+          )
+        );
+
+      allow delete: if isActiveSuperAdmin()
+        || (isActiveTeacher() && resource.data.createdBy == request.auth.uid);
+    }
+
     /**
      * homework_codes — 문서 ID = 전체 과제코드(HW-…).
      * read: get + shortCode 등 쿼리(list). 승인된 과제만 조회 가능.
