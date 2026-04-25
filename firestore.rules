@@ -465,7 +465,7 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/knowledge_curations/$(curationId)).data.ownerId == request.auth.uid
           && request.resource.data.keys().hasAll(['type', 'title', 'url', 'savedAt'])
           && request.resource.data.type is string
-          && request.resource.data.type in ['youtube', 'paper', 'news']
+          && request.resource.data.type in ['youtube', 'paper', 'news', 'file']
           && request.resource.data.title is string
           && request.resource.data.title.size() > 0
           && request.resource.data.title.size() <= 500
@@ -474,7 +474,8 @@ service cloud.firestore {
           && request.resource.data.url.size() <= 2000
           && request.resource.data.savedAt != null
           && (!('snippet' in request.resource.data) || (request.resource.data.snippet is string && request.resource.data.snippet.size() <= 2000))
-          && (!('sourceLabel' in request.resource.data) || (request.resource.data.sourceLabel is string && request.resource.data.sourceLabel.size() <= 200));
+          && (!('sourceLabel' in request.resource.data) || (request.resource.data.sourceLabel is string && request.resource.data.sourceLabel.size() <= 200))
+          && (!('storagePath' in request.resource.data) || (request.resource.data.storagePath is string && request.resource.data.storagePath.size() > 0 && request.resource.data.storagePath.size() <= 500));
 
         allow delete: if isActiveSuperAdmin()
           && get(/databases/$(database)/documents/knowledge_curations/$(curationId)).data.ownerId == request.auth.uid;

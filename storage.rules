@@ -103,6 +103,17 @@ service firebase.storage {
       );
     }
 
+    /** 지식 큐레이션 — 마스터가 강의실·큐레이션에 붙일 파일 업로드 */
+    match /knowledge_curation_uploads/{uid}/{curationId}/{allPaths=**} {
+      allow create, update: if isActiveSuperAdmin()
+        && request.auth.uid == uid
+        && request.resource.size < 45 * 1024 * 1024;
+
+      allow read: if request.auth != null;
+
+      allow delete: if isActiveSuperAdmin() && request.auth.uid == uid;
+    }
+
     /** Site-wide images (landing hero 등) — 공개 읽기, 마스터만 쓰기 */
     match /site_assets/{allPaths=**} {
       allow create, update: if isActiveSuperAdmin()

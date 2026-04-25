@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -12,7 +13,8 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
-import { db } from "@/firebase/config";
+import { deleteObject, ref } from "firebase/storage";
+import { db, storage } from "@/firebase/config";
 import type {
   KnowledgeCurationDoc,
   KnowledgeCurationItem,
@@ -66,6 +68,19 @@ export async function listCurationItems(curationId: string): Promise<KnowledgeCu
   return out;
 }
 
+async function deleteStorageIfFileItem(curationId: string, itemId: string): Promise<void> {
+  const s = await getDoc(doc(db, CUR, curationId, "items", itemId));
+  if (!s.exists()) return;
+  const d = s.data() as { type?: string; storagePath?: string };
+  if (d.type === "file" && d.storagePath) {
+    try {
+      await deleteObject(ref(storage, d.storagePath));
+    } catch {
+      /* 이미 삭제됨 등 */
+    }
+  }
+}
+
 export async function appendCurationItems(
   curationId: string,
   hits: KnowledgeSearchHit[],
@@ -75,26 +90,68 @@ export async function appendCurationItems(
   const col = collection(db, CUR, curationId, "items");
   for (const h of hits) {
     const r = doc(col);
-    batch.set(r, {
+    const payload: Record<string, unknown> = {
       type: h.type,
       title: h.title,
       url: h.url,
       snippet: h.snippet ?? "",
       sourceLabel: h.sourceLabel ?? "",
       savedAt: serverTimestamp(),
-    });
+    };
+    if (h.storagePath) payload.storagePath = h.storagePath;
+    batch.set(r, payload);
   }
   await batch.commit();
   await updateDoc(doc(db, CUR, curationId), { updatedAt: serverTimestamp() });
 }
 
 export async function deleteCurationItems(curationId: string, itemIds: string[]): Promise<void> {
+  for (const id of itemIds) {
+    await deleteStorageIfFileItem(curationId, id);
+  }
   const batch = writeBatch(db);
   for (const id of itemIds) {
     batch.delete(doc(db, CUR, curationId, "items", id));
   }
   await batch.commit();
   await updateDoc(doc(db, CUR, curationId), { updatedAt: serverTimestamp() });
+}
+
+const ITEM_DELETE_CHUNK = 400;
+
+/**
+ * 큐레이션 문서와 하위 items 전부 삭제. `file` 항목은 Storage 객체도 제거합니다.
+ */
+export async function deleteCurations(ownerId: string, curationIds: string[]): Promise<void> {
+  for (const cid of curationIds) {
+    const cref = doc(db, CUR, cid);
+    const cs = await getDoc(cref);
+    if (!cs.exists()) continue;
+    const data = cs.data() as KnowledgeCurationDoc;
+    if (data.ownerId !== ownerId) continue;
+
+    const itemsSnap = await getDocs(collection(db, CUR, cid, "items"));
+    const itemDocs = itemsSnap.docs;
+    for (let i = 0; i < itemDocs.length; i += ITEM_DELETE_CHUNK) {
+      const chunk = itemDocs.slice(i, i + ITEM_DELETE_CHUNK);
+      for (const d of chunk) {
+        const it = d.data() as { type?: string; storagePath?: string };
+        if (it.type === "file" && it.storagePath) {
+          try {
+            await deleteObject(ref(storage, it.storagePath));
+          } catch {
+            /* */
+          }
+        }
+      }
+      const batch = writeBatch(db);
+      for (const d of chunk) {
+        batch.delete(d.ref);
+      }
+      await batch.commit();
+    }
+    await deleteDoc(cref);
+  }
 }
 
 export async function saveKnowledgeMaterial(input: {
@@ -147,5 +204,22 @@ export function buildManualHit(
     url: url.trim(),
     snippet: snippet?.trim(),
     sourceLabel: "직접 입력",
+  };
+}
+
+export function buildFileHit(input: {
+  title: string;
+  downloadUrl: string;
+  storagePath: string;
+  originalName?: string;
+}): KnowledgeSearchHit {
+  return {
+    tempId: `file-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type: "file",
+    title: input.title.trim(),
+    url: input.downloadUrl,
+    snippet: input.originalName ? `원본 파일명: ${input.originalName}` : undefined,
+    sourceLabel: "로컬 업로드",
+    storagePath: input.storagePath,
   };
 }

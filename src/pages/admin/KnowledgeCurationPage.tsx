@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminTopNav } from "@/components/AdminTopNav";
@@ -6,19 +6,37 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { generateKnowledgeMaterialMarkdown } from "@/lib/knowledgeCuration/generateKnowledgeMaterial";
 import {
   appendCurationItems,
+  buildFileHit,
   buildManualHit,
   createCuration,
   deleteCurationItems,
+  deleteCurations,
   listCurationItems,
   listCurations,
   listKnowledgeMaterials,
   saveKnowledgeMaterial,
 } from "@/lib/knowledgeCuration/knowledgeCurationApi";
+import { uploadKnowledgeCurationFile } from "@/lib/knowledgeCuration/uploadKnowledgeCurationFile";
 import { searchKnowledgeSources } from "@/lib/knowledgeCuration/searchKnowledgeSources";
 import type { KnowledgeCurationDoc, KnowledgeCurationItem, KnowledgeMaterialDoc } from "@/types/knowledgeCuration";
 import type { KnowledgeSearchHit, KnowledgeSourceType } from "@/types/knowledgeCuration";
 import styles from "@/pages/admin/knowledgeCurationPage.module.css";
 import "@/pages/pages.css";
+
+function sourceTypeLabel(t: KnowledgeSourceType): string {
+  switch (t) {
+    case "youtube":
+      return "YouTube";
+    case "paper":
+      return "논문";
+    case "news":
+      return "뉴스";
+    case "file":
+      return "파일";
+    default:
+      return t;
+  }
+}
 
 function Inner() {
   const { firebaseUser } = useAuth();
@@ -47,6 +65,9 @@ function Inner() {
   const [manualType, setManualType] = useState<KnowledgeSourceType>("youtube");
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
+  const [curationDeleteSelected, setCurationDeleteSelected] = useState<Set<string>>(() => new Set());
+  const [uploadTitle, setUploadTitle] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [matTitle, setMatTitle] = useState("");
   const [matExtra, setMatExtra] = useState("");
@@ -183,6 +204,67 @@ function Inner() {
     }
   };
 
+  const deleteSelectedCurations = async () => {
+    if (curationDeleteSelected.size === 0) return;
+    const ids = [...curationDeleteSelected];
+    const ok = window.confirm(
+      `선택한 큐레이션 ${ids.length}개와 그 안의 모든 자료·업로드 파일을 삭제합니다. 계속할까요?`,
+    );
+    if (!ok) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await deleteCurations(uid, ids);
+      setCurationDeleteSelected(new Set());
+      if (selectedId && ids.includes(selectedId)) {
+        setSelectedId(null);
+      }
+      setMsg("선택한 큐레이션을 삭제했습니다.");
+      await refreshCurations();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uploadLocalToStaging = async () => {
+    if (!selectedId) {
+      setErr("왼쪽에서 큐레이션을 먼저 선택한 뒤 파일을 올려 주세요.");
+      return;
+    }
+    const input = fileInputRef.current;
+    const file = input?.files?.[0];
+    if (!file) {
+      setErr("파일을 선택하세요.");
+      return;
+    }
+    if (file.size > 45 * 1024 * 1024) {
+      setErr("파일은 45MB 이하만 업로드할 수 있습니다.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const { downloadUrl, storagePath } = await uploadKnowledgeCurationFile(uid, selectedId, file);
+      const title = uploadTitle.trim() || file.name;
+      const hit = buildFileHit({
+        title,
+        downloadUrl,
+        storagePath,
+        originalName: file.name,
+      });
+      setStaging((s) => [hit, ...s]);
+      setUploadTitle("");
+      if (input) input.value = "";
+      setMsg("업로드한 파일을 스테이징에 추가했습니다.「체크 제외하고 큐에 저장」으로 확정하세요.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const createNewCuration = async () => {
     if (!uid) return;
     const t = newTitle.trim();
@@ -291,20 +373,49 @@ function Inner() {
               </p>
             ) : (
               curations.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`${styles.sideBtn} ${selectedId === c.id ? styles.sideBtnActive : ""}`}
-                  onClick={() => {
-                    setSelectedId(c.id);
-                    setErr(null);
-                    setMsg(null);
-                  }}
-                >
-                  {c.data.title}
-                </button>
+                <div key={c.id} className={styles.sideRow}>
+                  <label className={styles.sideCheck}>
+                    <input
+                      type="checkbox"
+                      checked={curationDeleteSelected.has(c.id)}
+                      onChange={() =>
+                        setCurationDeleteSelected((prev) => {
+                          const n = new Set(prev);
+                          if (n.has(c.id)) n.delete(c.id);
+                          else n.add(c.id);
+                          return n;
+                        })
+                      }
+                      aria-label={`「${c.data.title}」삭제 대상으로 선택`}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className={`${styles.sideRowBtn} ${selectedId === c.id ? styles.sideBtnActive : ""}`}
+                    onClick={() => {
+                      setSelectedId(c.id);
+                      setErr(null);
+                      setMsg(null);
+                    }}
+                  >
+                    {c.data.title}
+                  </button>
+                </div>
               ))
             )}
+            {curations.length > 0 ? (
+              <div className={styles.sideToolbar}>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  style={{ width: "100%", fontSize: "0.78rem" }}
+                  disabled={busy || curationDeleteSelected.size === 0}
+                  onClick={() => void deleteSelectedCurations()}
+                >
+                  선택한 큐레이션 삭제 ({curationDeleteSelected.size})
+                </button>
+              </div>
+            ) : null}
           </aside>
 
           <div className={styles.main}>
@@ -362,6 +473,29 @@ function Inner() {
                   </button>
                 </div>
 
+                <div className={styles.sectionLabel}>내 PC에서 파일 업로드</div>
+                <p style={{ fontSize: "0.75rem", color: "#64748b", margin: "0 0 0.5rem" }}>
+                  현재 선택한 큐레이션에 연결되어 Storage에 저장됩니다. (최대 45MB · 마스터만 업로드 가능)
+                </p>
+                <div className={styles.row}>
+                  <div className={styles.field} style={{ flex: 1 }}>
+                    <label htmlFor="kc-upload-title">표시 제목 (선택)</label>
+                    <input
+                      id="kc-upload-title"
+                      value={uploadTitle}
+                      onChange={(e) => setUploadTitle(e.target.value)}
+                      placeholder="비우면 파일 이름이 제목으로 들어갑니다"
+                    />
+                  </div>
+                  <div className={styles.field} style={{ flex: 1 }}>
+                    <label htmlFor="kc-file">파일</label>
+                    <input id="kc-file" ref={fileInputRef} type="file" className="add-passage__control" />
+                  </div>
+                  <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void uploadLocalToStaging()}>
+                    업로드 후 스테이징에 추가
+                  </button>
+                </div>
+
                 {staging.length > 0 ? (
                   <>
                     <div className={styles.sectionLabel}>스테이징 (체크 = 큐에 넣지 않음 / 제외)</div>
@@ -392,7 +526,7 @@ function Inner() {
                                 aria-label="큐 저장에서 제외"
                               />
                             </td>
-                            <td>{h.type}</td>
+                            <td>{sourceTypeLabel(h.type)}</td>
                             <td>{h.title}</td>
                             <td>
                               <a href={h.url} target="_blank" rel="noreferrer">
@@ -451,7 +585,7 @@ function Inner() {
                                 aria-label="영구 삭제 대상"
                               />
                             </td>
-                            <td>{it.type}</td>
+                            <td>{sourceTypeLabel(it.type)}</td>
                             <td>{it.title}</td>
                             <td>
                               <a href={it.url} target="_blank" rel="noreferrer">
