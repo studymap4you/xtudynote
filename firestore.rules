@@ -436,6 +436,84 @@ service cloud.firestore {
         || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
     }
 
+    // ——— 지식 큐레이션 (마스터 전용) ———
+    match /knowledge_curations/{curationId} {
+      allow read: if isActiveSuperAdmin();
+
+      allow create: if isActiveSuperAdmin()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.keys().hasAll(['ownerId', 'title', 'topicDomain', 'createdAt', 'updatedAt'])
+        && request.resource.data.ownerId is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.topicDomain is string
+        && request.resource.data.topicDomain.size() <= 400
+        && request.resource.data.createdAt != null
+        && request.resource.data.updatedAt != null;
+
+      allow update: if isActiveSuperAdmin()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      allow delete: if isActiveSuperAdmin() && resource.data.ownerId == request.auth.uid;
+
+      match /items/{itemId} {
+        allow read: if isActiveSuperAdmin();
+
+        allow create: if isActiveSuperAdmin()
+          && get(/databases/$(database)/documents/knowledge_curations/$(curationId)).data.ownerId == request.auth.uid
+          && request.resource.data.keys().hasAll(['type', 'title', 'url', 'savedAt'])
+          && request.resource.data.type is string
+          && request.resource.data.type in ['youtube', 'paper', 'news']
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 500
+          && request.resource.data.url is string
+          && request.resource.data.url.size() > 0
+          && request.resource.data.url.size() <= 2000
+          && request.resource.data.savedAt != null
+          && (!('snippet' in request.resource.data) || (request.resource.data.snippet is string && request.resource.data.snippet.size() <= 2000))
+          && (!('sourceLabel' in request.resource.data) || (request.resource.data.sourceLabel is string && request.resource.data.sourceLabel.size() <= 200));
+
+        allow delete: if isActiveSuperAdmin()
+          && get(/databases/$(database)/documents/knowledge_curations/$(curationId)).data.ownerId == request.auth.uid;
+
+        allow update: if false;
+      }
+    }
+
+    match /knowledge_materials/{materialId} {
+      allow read: if isActiveSuperAdmin();
+
+      allow create: if isActiveSuperAdmin()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'ownerId',
+          'curationId',
+          'title',
+          'bodyMarkdown',
+          'sourceItemIds',
+          'createdAt'
+        ])
+        && request.resource.data.ownerId is string
+        && request.resource.data.curationId is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.bodyMarkdown is string
+        && request.resource.data.bodyMarkdown.size() > 0
+        && request.resource.data.bodyMarkdown.size() <= 900000
+        && request.resource.data.sourceItemIds is list
+        && request.resource.data.createdAt != null;
+
+      allow update: if isActiveSuperAdmin()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      allow delete: if isActiveSuperAdmin() && resource.data.ownerId == request.auth.uid;
+    }
+
     // ——— classrooms (강의실 개설·입장) ———
     match /classrooms/{classroomId} {
       allow read: if isSignedInActiveAccount();
@@ -444,7 +522,9 @@ service cloud.firestore {
         && request.resource.data.teacherId == request.auth.uid
         && request.resource.data.title is string
         && request.resource.data.description is string
-        && request.resource.data.keys().hasAll(['teacherId', 'title', 'description', 'createdAt']);
+        && request.resource.data.keys().hasAll(['teacherId', 'title', 'description', 'createdAt'])
+        && (!('introduction' in request.resource.data) || (request.resource.data.introduction is string && request.resource.data.introduction.size() <= 950000))
+        && (!('knowledgeMaterialId' in request.resource.data) || (request.resource.data.knowledgeMaterialId is string && request.resource.data.knowledgeMaterialId.size() <= 200));
 
       allow update: if isActiveSuperAdmin()
         || (

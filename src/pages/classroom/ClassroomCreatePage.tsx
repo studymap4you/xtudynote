@@ -1,20 +1,47 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { DashboardShell } from "@/components/DashboardShell";
 import { db } from "@/firebase/config";
+import { getKnowledgeMaterial, listKnowledgeMaterials } from "@/lib/knowledgeCuration/knowledgeCurationApi";
+import type { KnowledgeMaterialDoc } from "@/types/knowledgeCuration";
 import "@/pages/pages.css";
 
+const INTRO_MERGE_MAX = 85_000;
+
 function Inner() {
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, isSuperAdmin } = useAuth();
   const nav = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [introduction, setIntroduction] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const [knowledgeMaterials, setKnowledgeMaterials] = useState<{ id: string; data: KnowledgeMaterialDoc }[]>([]);
+  const [knowledgeMaterialId, setKnowledgeMaterialId] = useState<string>("");
+
+  useEffect(() => {
+    if (!isSuperAdmin || !firebaseUser?.uid) {
+      setKnowledgeMaterials([]);
+      setKnowledgeMaterialId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await listKnowledgeMaterials(firebaseUser.uid);
+        if (!cancelled) setKnowledgeMaterials(list);
+      } catch {
+        if (!cancelled) setKnowledgeMaterials([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuperAdmin, firebaseUser?.uid]);
 
   const previewIntro = introduction.trim() || description.trim();
 
@@ -29,13 +56,29 @@ function Inner() {
     setSaving(true);
     setErr(null);
     try {
-      const ref = await addDoc(collection(db, "classrooms"), {
+      let intro = introduction.trim();
+      const matId = knowledgeMaterialId.trim();
+      if (isSuperAdmin && matId) {
+        const mat = await getKnowledgeMaterial(matId);
+        if (mat?.bodyMarkdown) {
+          const block = `\n\n---\n## 큐레이션 기반 학습자료\n\n${mat.bodyMarkdown}`;
+          const merged = intro ? `${intro}${block}` : block.slice(2);
+          intro = merged.length > INTRO_MERGE_MAX ? `${merged.slice(0, INTRO_MERGE_MAX)}\n\n_(일부 생략)_` : merged;
+        }
+      }
+
+      const payload: Record<string, unknown> = {
         teacherId: firebaseUser.uid,
         title: t,
         description: description.trim(),
-        introduction: introduction.trim(),
+        introduction: intro,
         createdAt: serverTimestamp(),
-      });
+      };
+      if (isSuperAdmin && matId) {
+        payload.knowledgeMaterialId = matId;
+      }
+
+      const ref = await addDoc(collection(db, "classrooms"), payload);
       nav(`/classroom/${ref.id}/manage`, { replace: true });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "저장에 실패했습니다.");
@@ -61,6 +104,12 @@ function Inner() {
           <span className="ui-ko">
             아래에서 이름과 소개를 입력하면 <strong>강의실 허브</strong>로 이동합니다. 자료·영상은 검수 정책에 따라
             신청·연결됩니다.
+            {isSuperAdmin ? (
+              <>
+                {" "}
+                마스터는 <strong>지식 큐레이션</strong>에서 만든 학습자료를 선택하면 강의 소개에 자동으로 붙입니다.
+              </>
+            ) : null}
           </span>
         </p>
 
@@ -117,10 +166,32 @@ function Inner() {
                   placeholder="예: 고2 통합수학 A반 · 2026 봄"
                 />
               </label>
+              {isSuperAdmin && knowledgeMaterials.length > 0 ? (
+                <label className="auth-field">
+                  <span className="classroom-hub__field-label">지식 큐레이션 학습자료 (선택)</span>
+                  <span className="classroom-hub__field-hint">
+                    선택 시 개설 직후「강의 소개」본문 끝에 마크다운 자료가 합쳐지며, 문서 ID가 강의실에 기록됩니다.
+                  </span>
+                  <select
+                    className="add-passage__control"
+                    value={knowledgeMaterialId}
+                    onChange={(e) => setKnowledgeMaterialId(e.target.value)}
+                  >
+                    <option value="">연결 안 함</option>
+                    {knowledgeMaterials.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.data.title} · {m.id.slice(0, 8)}…
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
               <label className="auth-field classroom-hub__field classroom-hub__field--intro">
                 <span className="classroom-hub__field-label">강의 소개 (선택)</span>
                 <span className="classroom-hub__field-hint">
                   목표·주차·과제·시험 정책 등을 넉넉히 적을수록 학습자에게 도움이 됩니다.
+                  {isSuperAdmin && knowledgeMaterialId ? " 큐레이션 자료는 제출 시 아래 미리보기에 합쳐져 저장됩니다." : ""}
                 </span>
                 <textarea
                   className="classroom-hub__intro-textarea"

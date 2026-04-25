@@ -8,6 +8,8 @@ export interface ClassroomDocument {
   introduction?: string;
   /** 학습지 배포 등에 쓸 학생 Firebase Auth UID 목록 (선생님이 관리 화면에서 편집) */
   memberStudentIds?: string[];
+  /** 마스터 지식 큐레이션에서 생성한 학습자료 문서 ID (선택) */
+  knowledgeMaterialId?: string;
   createdAt: unknown;
 }
 

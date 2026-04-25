@@ -47,6 +47,14 @@ export function SuperAdminDashboard() {
             <span className="ui-en">Content database (approved items)</span>
             <span className="ui-ko">콘텐츠 DB 관리</span>
           </Link>
+          <Link
+            to="/admin/knowledge-curation"
+            className="btn btn--ghost btn--stack"
+            style={{ marginTop: "0.65rem" }}
+          >
+            <span className="ui-en">Knowledge curation</span>
+            <span className="ui-ko">지식 큐레이션 · 검색·저장·학습자료</span>
+          </Link>
         </section>
         <section className="panel">
           <div className="panel__head">

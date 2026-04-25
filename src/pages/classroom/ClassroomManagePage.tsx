@@ -252,6 +252,14 @@ function Inner() {
                 학습자 입장 화면 상단에 표시됩니다. <strong>요약</strong>은 짧은 한 줄, <strong>강의 소개</strong>는 목표·주차
                 안내 등을 자유롭게 작성하세요.
               </p>
+              {room.knowledgeMaterialId ? (
+                <p className="classroom-hub__hint" style={{ borderLeft: "3px solid #2563eb", paddingLeft: "0.65rem" }}>
+                  <span className="ui-ko">
+                    개설 시 <strong>지식 큐레이션</strong> 학습자료가 본문에 합쳐졌습니다. 참조 ID:{" "}
+                    <code style={{ fontSize: "0.85em" }}>{room.knowledgeMaterialId}</code>
+                  </span>
+                </p>
+              ) : null}
               {introErr && <p className="auth-error">{introErr}</p>}
               <form className="classroom-hub__form" onSubmit={(e) => void saveIntro(e)}>
                 <label className="auth-field">

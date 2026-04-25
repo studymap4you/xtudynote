@@ -9,6 +9,7 @@ import { PremiumVaultPage } from "@/pages/admin/PremiumVaultPage";
 import { LandingHeroAdminPage } from "@/pages/admin/LandingHeroAdminPage";
 import { ContentsListPage } from "@/pages/admin/ContentsListPage";
 import { PendingMaterialReviewsPage } from "@/pages/admin/PendingMaterialReviewsPage";
+import { KnowledgeCurationPage } from "@/pages/admin/KnowledgeCurationPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { LogicDashboardPage } from "@/pages/LogicDashboardPage";
 import { ContentDetailPage } from "@/pages/ContentDetailPage";
@@ -104,6 +105,14 @@ export default function App() {
         element={
           <SuperAdminRoute>
             <PendingMaterialReviewsPage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/knowledge-curation"
+        element={
+          <SuperAdminRoute>
+            <KnowledgeCurationPage />
           </SuperAdminRoute>
         }
       />

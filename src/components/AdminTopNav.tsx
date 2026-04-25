@@ -33,6 +33,10 @@ export function AdminTopNav() {
             <span className="admin-nav-tabs__title">랜딩 히어로</span>
             <span className="admin-nav-tabs__en">Landing hero</span>
           </NavLink>
+          <NavLink to="/admin/knowledge-curation" className={tabClassName}>
+            <span className="admin-nav-tabs__title">지식 큐레이션</span>
+            <span className="admin-nav-tabs__en">Knowledge curation</span>
+          </NavLink>
           <NavLink to="/admin" className={tabClassName} end>
             <span className="admin-nav-tabs__title">회원 관리</span>
             <span className="admin-nav-tabs__en">Members</span>

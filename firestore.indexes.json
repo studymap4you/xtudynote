@@ -116,6 +116,22 @@
         { "fieldPath": "teacherId", "order": "ASCENDING" },
         { "fieldPath": "distributedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "knowledge_curations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "knowledge_materials",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
