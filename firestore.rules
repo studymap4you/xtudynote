@@ -519,7 +519,8 @@ service cloud.firestore {
     match /classrooms/{classroomId} {
       allow read: if isSignedInActiveAccount();
 
-      allow create: if isActiveTeacher()
+      /** 승인 선생님 또는 슈퍼관리자(앱의 TeacherRoute·자료 관리와 동일) */
+      allow create: if (isActiveTeacher() || isActiveSuperAdmin())
         && request.resource.data.teacherId == request.auth.uid
         && request.resource.data.title is string
         && request.resource.data.description is string
