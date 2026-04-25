@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
 import { DashboardShell } from "@/components/DashboardShell";
+import { RichHtmlView } from "@/components/RichHtmlView";
 import { db } from "@/firebase/config";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import type { ClassroomDocument } from "@/types/classroom";
@@ -183,7 +184,9 @@ export function ClassroomDetailPage() {
                 <section className="classroom-hub__section">
                   <h2 className="classroom-hub__section-title">강의 소개</h2>
                   {introBody ? (
-                    <div className="classroom-hub__intro-body">{introBody}</div>
+                    <div className="classroom-hub__intro-body">
+                      <RichHtmlView html={introBody} />
+                    </div>
                   ) : (
                     <p style={{ color: "var(--light-text-muted, #6b7280)" }}>
                       등록된 강의 소개가 없습니다. 선생님이 관리 화면에서 작성할 수 있습니다.

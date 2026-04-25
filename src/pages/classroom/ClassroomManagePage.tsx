@@ -12,6 +12,8 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { DashboardShell } from "@/components/DashboardShell";
+import { RichHtmlView } from "@/components/RichHtmlView";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
 import { db } from "@/firebase/config";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
@@ -283,24 +285,26 @@ function Inner() {
                 <label className="auth-field classroom-hub__field classroom-hub__field--intro">
                   <span className="classroom-hub__field-label">강의 소개</span>
                   <span className="classroom-hub__field-hint">
-                    여백을 충분히 두고 작성해 보세요. 줄바꿈은 입장 화면에 그대로 반영됩니다.
+                    굵게·링크·이미지 등 서식을 쓸 수 있습니다. 입장 화면에 동일하게 표시됩니다.
                   </span>
-                  <textarea
-                    className="classroom-hub__intro-textarea"
-                    rows={10}
+                  <RichTextEditor
                     value={introduction}
-                    onChange={(e) => setIntroduction(e.target.value)}
+                    onChange={setIntroduction}
                     placeholder="수업 목표, 주차별 안내, 과제·시험 정책 등을 적어 주세요."
+                    userId={firebaseUser?.uid}
                   />
                 </label>
                 <p className="classroom-hub__preview-label">미리보기 (입장 화면과 동일)</p>
                 <div className="classroom-hub__preview">
-                  {getClassroomIntroBody({
-                    ...room,
-                    title,
-                    description,
-                    introduction,
-                  }) || "소개 글이 비어 있으면 요약만 표시됩니다."}
+                  {(() => {
+                    const body = getClassroomIntroBody({
+                      ...room,
+                      title,
+                      description,
+                      introduction,
+                    });
+                    return body ? <RichHtmlView html={body} /> : "소개 글이 비어 있으면 요약만 표시됩니다.";
+                  })()}
                 </div>
                 <div className="add-passage__actions">
                   <button type="submit" className="btn btn--primary btn--stack" disabled={savingIntro}>

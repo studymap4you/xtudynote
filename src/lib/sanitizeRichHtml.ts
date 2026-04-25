@@ -31,6 +31,8 @@ const CONFIG = {
     "img",
     "span",
     "div",
+    "hr",
+    "pre",
   ],
   ALLOWED_ATTR: ["href", "target", "rel", "src", "alt", "title", "class"],
   ALLOW_DATA_ATTR: false,

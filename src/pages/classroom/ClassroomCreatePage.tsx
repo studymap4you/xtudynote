@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { DashboardShell } from "@/components/DashboardShell";
+import { RichHtmlView } from "@/components/RichHtmlView";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { db } from "@/firebase/config";
+import { mergeIntroductionWithKnowledgeMaterial, knowledgeMaterialAppendHtml } from "@/lib/classroomIntroMerge";
 import { getKnowledgeMaterial, listKnowledgeMaterials } from "@/lib/knowledgeCuration/knowledgeCurationApi";
 import type { KnowledgeMaterialDoc } from "@/types/knowledgeCuration";
 import "@/pages/pages.css";
-
-const INTRO_MERGE_MAX = 85_000;
 
 function Inner() {
   const { firebaseUser, isSuperAdmin } = useAuth();
@@ -22,6 +23,7 @@ function Inner() {
 
   const [knowledgeMaterials, setKnowledgeMaterials] = useState<{ id: string; data: KnowledgeMaterialDoc }[]>([]);
   const [knowledgeMaterialId, setKnowledgeMaterialId] = useState<string>("");
+  const [mergeBlockHtml, setMergeBlockHtml] = useState("");
 
   useEffect(() => {
     if (!isSuperAdmin || !firebaseUser?.uid) {
@@ -43,7 +45,33 @@ function Inner() {
     };
   }, [isSuperAdmin, firebaseUser?.uid]);
 
-  const previewIntro = introduction.trim() || description.trim();
+  useEffect(() => {
+    if (!isSuperAdmin || !knowledgeMaterialId.trim()) {
+      setMergeBlockHtml("");
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const mat = await getKnowledgeMaterial(knowledgeMaterialId.trim());
+        if (cancelled) return;
+        if (mat?.bodyMarkdown) setMergeBlockHtml(knowledgeMaterialAppendHtml(mat.bodyMarkdown));
+        else setMergeBlockHtml("");
+      } catch {
+        if (!cancelled) setMergeBlockHtml("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuperAdmin, knowledgeMaterialId]);
+
+  const previewHtml = useMemo(() => {
+    const base = introduction.trim() || description.trim();
+    if (!base && !mergeBlockHtml) return "";
+    const core = base || "";
+    return mergeBlockHtml ? (core ? `${core}${mergeBlockHtml}` : mergeBlockHtml) : core;
+  }, [introduction, description, mergeBlockHtml]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,9 +89,7 @@ function Inner() {
       if (isSuperAdmin && matId) {
         const mat = await getKnowledgeMaterial(matId);
         if (mat?.bodyMarkdown) {
-          const block = `\n\n---\n## 큐레이션 기반 학습자료\n\n${mat.bodyMarkdown}`;
-          const merged = intro ? `${intro}${block}` : block.slice(2);
-          intro = merged.length > INTRO_MERGE_MAX ? `${merged.slice(0, INTRO_MERGE_MAX)}\n\n_(일부 생략)_` : merged;
+          intro = mergeIntroductionWithKnowledgeMaterial(intro, mat.bodyMarkdown);
         }
       }
 
@@ -170,7 +196,7 @@ function Inner() {
                 <label className="auth-field">
                   <span className="classroom-hub__field-label">지식 큐레이션 학습자료 (선택)</span>
                   <span className="classroom-hub__field-hint">
-                    선택 시 개설 직후「강의 소개」본문 끝에 마크다운 자료가 합쳐지며, 문서 ID가 강의실에 기록됩니다.
+                    선택 시 개설 직후「강의 소개」본문 끝에 큐레이션 학습자료가 합쳐지며, 문서 ID가 강의실에 기록됩니다.
                   </span>
                   <select
                     className="add-passage__control"
@@ -190,20 +216,24 @@ function Inner() {
               <label className="auth-field classroom-hub__field classroom-hub__field--intro">
                 <span className="classroom-hub__field-label">강의 소개 (선택)</span>
                 <span className="classroom-hub__field-hint">
-                  목표·주차·과제·시험 정책 등을 넉넉히 적을수록 학습자에게 도움이 됩니다.
-                  {isSuperAdmin && knowledgeMaterialId ? " 큐레이션 자료는 제출 시 아래 미리보기에 합쳐져 저장됩니다." : ""}
+                  굵게·링크·이미지 등 서식을 쓸 수 있습니다. 목표·주차·과제·시험 정책 등을 넉넉히 적을수록 학습자에게
+                  도움이 됩니다.
+                  {isSuperAdmin && knowledgeMaterialId ? " 큐레이션 자료는 아래 미리보기에 합쳐진 뒤 저장됩니다." : ""}
                 </span>
-                <textarea
-                  className="classroom-hub__intro-textarea"
-                  rows={10}
+                <RichTextEditor
                   value={introduction}
-                  onChange={(e) => setIntroduction(e.target.value)}
+                  onChange={setIntroduction}
                   placeholder="수업 목표, 주차 안내, 과제·시험 정책 등"
+                  userId={firebaseUser?.uid}
                 />
               </label>
               <p className="classroom-hub__preview-label">미리보기 (입장·관리 화면과 동일)</p>
               <div className="classroom-hub__preview">
-                {previewIntro || "소개 글이 비어 있으면 요약만 표시됩니다."}
+                {previewHtml ? (
+                  <RichHtmlView html={previewHtml} />
+                ) : (
+                  "소개 글이 비어 있으면 요약만 표시됩니다."
+                )}
               </div>
               <div className="add-passage__actions">
                 <button type="submit" className="btn btn--primary btn--stack" disabled={saving}>
