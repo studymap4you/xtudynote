@@ -109,20 +109,61 @@
   word-break: break-word;
 }
 
-.metaLine {
-  margin: 0 0 0.45rem;
-  font-size: 0.92rem;
-  line-height: 1.55;
+.metaBlock {
+  margin-bottom: 0.85rem;
 }
 
-.metaLine:last-child {
+.metaBlock:last-child {
   margin-bottom: 0;
 }
 
 .metaLabel {
+  display: block;
+  font-size: 0.72rem;
   font-weight: 800;
   color: var(--pd-accent-deep);
-  margin-right: 0.35rem;
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.04em;
+}
+
+.bilingual {
+  padding: 0.5rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--pd-border);
+  background: #fff;
+}
+
+.bEn {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #1e3a8a;
+}
+
+.bKo {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 450;
+  line-height: 1.6;
+  color: #334155;
+  white-space: pre-wrap;
+}
+
+.vocabList {
+  margin: 0;
+  padding-left: 1rem;
+  list-style: disc;
+}
+
+.vocabItem {
+  margin-bottom: 0.5rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.vocabItem:last-child {
+  margin-bottom: 0;
 }
 
 .sentenceCard {

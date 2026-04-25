@@ -1,5 +1,8 @@
 import { forwardRef } from "react";
-import type { PassageDeepAnalysisReportJson } from "@/types/passageDeepAnalysisReport";
+import type {
+  PassageDeepAnalysisReportJson,
+  PassageDeepBilingualBlock,
+} from "@/types/passageDeepAnalysisReport";
 import styles from "@/components/signalLogic/passageDeepAnalysisPreview.module.css";
 
 type Props = {
@@ -9,6 +12,19 @@ type Props = {
   pdfBusy: boolean;
   saveMessage: string | null;
 };
+
+function BilingualBlockView({ block }: { block: PassageDeepBilingualBlock }) {
+  return (
+    <div className={styles.bilingual}>
+      <p className={styles.bEn} lang="en">
+        {block.english}
+      </p>
+      <p className={styles.bKo} lang="ko">
+        {block.koreanExplanation}
+      </p>
+    </div>
+  );
+}
 
 export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(function PassageDeepAnalysisPreview(
   { passage, report, onExportPdf, pdfBusy, saveMessage },
@@ -35,14 +51,14 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
           <h3 id="pd-theme-title" className={styles.sectionTitle}>
             주제 · 제목
           </h3>
-          <p className={styles.metaLine}>
+          <div className={styles.metaBlock}>
             <span className={styles.metaLabel}>1. 주제</span>
-            {report.theme}
-          </p>
-          <p className={styles.metaLine}>
+            <BilingualBlockView block={report.theme} />
+          </div>
+          <div className={styles.metaBlock}>
             <span className={styles.metaLabel}>2. 제목</span>
-            {report.passageTitle}
-          </p>
+            <BilingualBlockView block={report.passageTitle} />
+          </div>
         </section>
 
         <section className={styles.sectionBlock} aria-labelledby="pd-deep">
@@ -68,8 +84,14 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
                   <p className={styles.subText}>{s.professionalInterpretation}</p>
                 </div>
                 <div className={styles.subBlock}>
-                  <div className={styles.subLabel}>주요 어휘·표현</div>
-                  <p className={styles.subText}>{s.keyVocabOrExpressions}</p>
+                  <div className={styles.subLabel}>주요 어휘·표현 (영문 + 한국어 해설)</div>
+                  <ul className={styles.vocabList}>
+                    {s.keyVocabItems.map((item, j) => (
+                      <li key={`${s.sentenceIndex}-v-${j}`} className={styles.vocabItem}>
+                        <BilingualBlockView block={item} />
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </article>
             ))
@@ -81,12 +103,12 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
             4. 핵심 표현 정리 · 5. 핵심 문법·구문
           </h3>
           <div className={styles.subBlock}>
-            <div className={styles.subLabel}>4. 핵심 표현 정리</div>
-            <p className={styles.subText}>{report.keyExpressionsSummary}</p>
+            <div className={styles.subLabel}>4. 핵심 표현 정리 (영문 + 한국어 해설)</div>
+            <BilingualBlockView block={report.keyExpressionsSummary} />
           </div>
           <div className={styles.subBlock}>
-            <div className={styles.subLabel}>5. 핵심 문법·구문</div>
-            <p className={styles.subText}>{report.keyGrammarSyntax}</p>
+            <div className={styles.subLabel}>5. 핵심 문법·구문 (영문 + 한국어 해설)</div>
+            <BilingualBlockView block={report.keyGrammarSyntax} />
           </div>
         </section>
       </div>
