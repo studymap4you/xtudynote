@@ -75,7 +75,10 @@ function Inner() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!firebaseUser) return;
+    if (!firebaseUser) {
+      setErr("로그인 정보가 없습니다. 새로고침 후 다시 시도해 주세요.");
+      return;
+    }
     const t = title.trim();
     if (!t) {
       setErr("강의실 이름을 입력해 주세요.");
@@ -213,7 +216,7 @@ function Inner() {
                 </label>
               ) : null}
 
-              <label className="auth-field classroom-hub__field classroom-hub__field--intro">
+              <div className="auth-field classroom-hub__field classroom-hub__field--intro">
                 <span className="classroom-hub__field-label">강의 소개 (선택)</span>
                 <span className="classroom-hub__field-hint">
                   굵게·링크·이미지 등 서식을 쓸 수 있습니다. 목표·주차·과제·시험 정책 등을 넉넉히 적을수록 학습자에게
@@ -226,7 +229,7 @@ function Inner() {
                   placeholder="수업 목표, 주차 안내, 과제·시험 정책 등"
                   userId={firebaseUser?.uid}
                 />
-              </label>
+              </div>
               <p className="classroom-hub__preview-label">미리보기 (입장·관리 화면과 동일)</p>
               <div className="classroom-hub__preview">
                 {previewHtml ? (

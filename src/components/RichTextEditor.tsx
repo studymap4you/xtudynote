@@ -22,6 +22,15 @@ function normalizeHtml(s: string): string {
   return t || "<p></p>";
 }
 
+/** 태그 사이 공백만 무시 — 본문 단어 공백은 유지해 setContent 루프만 끊음 */
+function compactBetweenTags(s: string): string {
+  return normalizeHtml(s).trim().replace(/>\s+</g, "><");
+}
+
+function htmlLooselyEqual(a: string, b: string): boolean {
+  return compactBetweenTags(a) === compactBetweenTags(b);
+}
+
 function MenuBar({
   editor,
   userId,
@@ -217,7 +226,7 @@ export function RichTextEditor({ value, onChange, placeholder, userId, disabled,
     if (!editor) return;
     const next = normalizeHtml(value);
     const cur = editor.getHTML();
-    if (next === cur) return;
+    if (htmlLooselyEqual(next, cur)) return;
     editor.commands.setContent(next, { emitUpdate: false });
   }, [value, editor]);
 

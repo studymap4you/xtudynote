@@ -282,7 +282,7 @@ function Inner() {
                     placeholder="예: 고2 통합수학 A반 · 2026 봄"
                   />
                 </label>
-                <label className="auth-field classroom-hub__field classroom-hub__field--intro">
+                <div className="auth-field classroom-hub__field classroom-hub__field--intro">
                   <span className="classroom-hub__field-label">강의 소개</span>
                   <span className="classroom-hub__field-hint">
                     굵게·링크·이미지 등 서식을 쓸 수 있습니다. 입장 화면에 동일하게 표시됩니다.
@@ -293,7 +293,7 @@ function Inner() {
                     placeholder="수업 목표, 주차별 안내, 과제·시험 정책 등을 적어 주세요."
                     userId={firebaseUser?.uid}
                   />
-                </label>
+                </div>
                 <p className="classroom-hub__preview-label">미리보기 (입장 화면과 동일)</p>
                 <div className="classroom-hub__preview">
                   {(() => {

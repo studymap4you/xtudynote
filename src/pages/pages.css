@@ -748,7 +748,8 @@
   gap: 0.35rem;
   margin-bottom: 1.15rem;
 }
-.classroom-hub label.auth-field.classroom-hub__field--intro {
+.classroom-hub label.auth-field.classroom-hub__field--intro,
+.classroom-hub .classroom-hub__field--intro.auth-field {
   gap: 0.4rem;
   margin-bottom: 1.35rem;
   padding: 1rem 1.1rem 1.15rem;
