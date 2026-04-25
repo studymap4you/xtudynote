@@ -200,14 +200,14 @@ export function LandingHeroAdminPage() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell app-shell--admin">
       <AdminTopNav />
       <main className="admin-layout admin-layout--light">
         <div className="admin-layout__title-row">
           <h1>Landing hero image</h1>
           <span className="ui-ko">홈 히어로 메인 비주얼</span>
         </div>
-        <p style={{ color: "var(--text-muted)", maxWidth: "42rem" }}>
+        <p style={{ color: "var(--light-text-muted)", maxWidth: "42rem" }}>
           홈 왼쪽에서 <strong>브랜드·슬로건·부제 문구가 있던 영역 전체</strong>를 이 이미지가 덮고, 그{" "}
           <strong>바로 아래</strong>부터 공유·링크 복사가 이어집니다. 오른쪽(로그인·검색·바로가기)과 그 아래
           강의실 블록은 동일합니다. 필요 시 최대 너비·높이(px)로 블록 크기를 제한할 수 있습니다. PNG·JPG·WebP

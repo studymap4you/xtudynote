@@ -16,12 +16,14 @@ export function PublicShell({
 
   return (
     <div className={light ? "app-shell app-shell--light" : "app-shell"}>
-      <header className="top-nav">
+      <header className="top-nav top-nav--split">
         <Link to="/" className="top-nav__brand">
           <BrandLockup />
         </Link>
-        <nav className="top-nav__actions" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+        <nav className="top-nav__center" aria-label="주요 메뉴">
           <TopNavMainLinks />
+        </nav>
+        <div className="top-nav__tail">
           {firebaseUser ? (
             <Link to="/dashboard" className="btn btn--primary btn--stack">
               <span className="ui-en">Dashboard</span>
@@ -33,7 +35,7 @@ export function PublicShell({
               <span className="ui-ko">로그인</span>
             </Link>
           )}
-        </nav>
+        </div>
       </header>
       {children}
     </div>

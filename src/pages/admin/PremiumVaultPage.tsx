@@ -125,14 +125,14 @@ export function PremiumVaultPage() {
   }, [pool, selectedIds]);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell app-shell--admin">
       <AdminTopNav />
       <main className="admin-layout admin-layout--light">
         <div className="admin-layout__title-row">
           <h1>Premium Vault</h1>
           <span className="ui-ko">홈 화면 프리미엄 유료 자료 선별</span>
         </div>
-        <p style={{ color: "var(--text-muted)", maxWidth: "42rem" }}>
+        <p style={{ color: "var(--light-text-muted)", maxWidth: "42rem" }}>
           승인된 <strong>유료</strong> 콘텐츠만 후보로 표시됩니다. 순서대로 저장하면 랜딩의 Premium Vault에 실시간
           반영됩니다.
         </p>

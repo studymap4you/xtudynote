@@ -3,7 +3,7 @@ import "@/pages/pages.css";
 
 export function SuperAdminDashboard() {
   return (
-    <main className="dashboard">
+    <main className="dashboard dashboard--elevated">
       <div className="dashboard__title-wrap">
         <h1 className="dashboard__title">Super Admin</h1>
         <span className="ui-ko">슈퍼 관리자</span>

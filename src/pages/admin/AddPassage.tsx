@@ -255,7 +255,7 @@ export function AddPassage() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell app-shell--admin">
       <AdminTopNav />
       <main className="admin-layout add-passage">
         <div className="admin-layout__title-row">

@@ -130,7 +130,7 @@ export function ContentsListPage() {
   }, []);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell app-shell--admin">
       <AdminTopNav />
       <main className="admin-layout contents-list">
         <div className="admin-layout__title-row">

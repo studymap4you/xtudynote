@@ -328,7 +328,7 @@ function Inner() {
   };
 
   return (
-    <DashboardShell light>
+    <DashboardShell light adminChrome>
       <AdminTopNav />
       <main className={`admin-layout classroom-page admin-layout--light ${styles.page}`}>
         <nav className="classroom-page__breadcrumb">
