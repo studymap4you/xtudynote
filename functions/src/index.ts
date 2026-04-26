@@ -200,6 +200,16 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
 
   const distributedAt = Timestamp.fromMillis(distributedAtMs);
 
+  const csRaw = request.data?.contentSource;
+  const contentSource = csRaw === "ai" || csRaw === "local" ? csRaw : null;
+  const laRaw = request.data?.localAttachment as { storagePath?: unknown; originalName?: unknown } | undefined;
+  let localAttachment: { storagePath: string; originalName: string } | undefined;
+  if (laRaw && typeof laRaw.storagePath === "string" && typeof laRaw.originalName === "string") {
+    const sp = laRaw.storagePath.trim().slice(0, 500);
+    const on = laRaw.originalName.trim().slice(0, 240);
+    if (sp && on) localAttachment = { storagePath: sp, originalName: on };
+  }
+
   const assignRef = await db.collection("assignments").add({
     schemaVersion: 1,
     teacherId,
@@ -216,6 +226,8 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
     })),
     createdAt: FieldValue.serverTimestamp(),
     outreachEmailSent: 0,
+    ...(contentSource ? { contentSource } : {}),
+    ...(localAttachment ? { localAttachment } : {}),
   });
   const assignmentId = assignRef.id;
   const recipientsCol = db.collection("assignments").doc(assignmentId).collection("distribution_recipients");

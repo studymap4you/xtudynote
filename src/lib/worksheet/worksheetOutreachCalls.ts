@@ -1,7 +1,7 @@
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase/functionsClient";
 import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
-import type { WorksheetItem } from "@/types/worksheetAssignment";
+import type { WorksheetItem, WorksheetLocalAttachment } from "@/types/worksheetAssignment";
 
 export type OutreachRecipientInput = {
   displayName: string;
@@ -17,6 +17,8 @@ export type DeployWorksheetOutreachInput = {
   worksheetItems: WorksheetItem[];
   selectedStudentUids: string[];
   recipients: OutreachRecipientInput[];
+  contentSource?: "ai" | "local";
+  localAttachment?: WorksheetLocalAttachment;
 };
 
 export type DeployWorksheetOutreachResult = {
@@ -35,6 +37,8 @@ export async function deployWorksheetOutreach(input: DeployWorksheetOutreachInpu
     worksheetItems: input.worksheetItems,
     selectedStudentUids: input.selectedStudentUids,
     recipients: input.recipients,
+    ...(input.contentSource ? { contentSource: input.contentSource } : {}),
+    ...(input.localAttachment ? { localAttachment: input.localAttachment } : {}),
   });
   const data = res.data as DeployWorksheetOutreachResult;
   if (!data?.assignmentId) throw new Error("배포 응답이 올바르지 않습니다.");

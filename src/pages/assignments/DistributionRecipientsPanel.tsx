@@ -102,12 +102,12 @@ export function DistributionRecipientsPanel({ rows, onChangeRows, disabled }: Pr
   };
 
   return (
-    <section className={styles.panel} aria-label="연락처 명단 배포">
-      <h2 className={styles.title}>연락처로 배포</h2>
+    <section className={styles.panel} aria-label="외부 이메일 수신자">
+      <h2 className={styles.title}>외부 이메일 수신자</h2>
       <p className={styles.sub}>
-        이름(별명), 전화번호, 이메일을 입력해 추가하거나 CSV/엑셀을 불러오세요. 이메일이 Firebase에 등록된 계정과 일치하면
-        <strong> 가입됨</strong>으로 표시되며 과제함에 바로 나타납니다. 미가입 이메일에는 안내 메일(학습지 링크)이
-        발송됩니다. (SMTP는 서버에서 설정)
+        이름·전화·이메일을 입력하거나 CSV/엑셀을 불러오세요. 이메일이 Firebase 계정과 일치하면 <strong>가입</strong>으로
+        표시되며 과제함에도 반영됩니다. <strong>미가입</strong> 이메일에는 학습지 링크 안내 메일이 발송됩니다. (실제 발송은
+        Cloud Functions + SMTP)
       </p>
 
       <div className={styles.toolbar}>
@@ -169,7 +169,7 @@ export function DistributionRecipientsPanel({ rows, onChangeRows, disabled }: Pr
               <th>이름(별명)</th>
               <th>전화</th>
               <th>이메일</th>
-              <th>가입</th>
+              <th>가입 여부</th>
               <th aria-label="삭제" />
             </tr>
           </thead>
@@ -181,13 +181,15 @@ export function DistributionRecipientsPanel({ rows, onChangeRows, disabled }: Pr
                 <td style={{ wordBreak: "break-all" }}>{r.email || "—"}</td>
                 <td>
                   {!r.email ? (
-                    <span className={`${styles.badge} ${styles.badgeNo}`}>—</span>
+                    <span className={styles.regDash}>—</span>
                   ) : r.registered === true ? (
-                    <span className={`${styles.badge} ${styles.badgeOk}`}>가입됨</span>
+                    <span className={`${styles.badge} ${styles.badgeOk}`}>가입</span>
                   ) : r.registered === false ? (
                     <span className={`${styles.badge} ${styles.badgeNo}`}>미가입</span>
                   ) : (
-                    <span className={`${styles.badge} ${styles.badgeNo}`}>확인 실패</span>
+                    <span className={styles.regDash} title="이메일 가입 여부를 확인하지 못했습니다.">
+                      —
+                    </span>
                   )}
                 </td>
                 <td>

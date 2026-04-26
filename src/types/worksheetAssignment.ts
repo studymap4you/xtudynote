@@ -14,6 +14,12 @@ export type WorksheetItem = {
 
 export type AssignmentSchemaVersion = 1;
 
+/** 로컬에서 올린 PDF/DOCX 메타 (Storage 경로) */
+export type WorksheetLocalAttachment = {
+  storagePath: string;
+  originalName: string;
+};
+
 /** 최상위 `assignments` 컬렉션 문서 */
 export type WorksheetAssignmentDoc = {
   schemaVersion: AssignmentSchemaVersion;
@@ -31,6 +37,10 @@ export type WorksheetAssignmentDoc = {
   createdAt: unknown;
   /** 이메일로 발송 완료된 미가입 수신자 수 (서버 기록) */
   outreachEmailSent?: number;
+  /** 과제 본문 출처 표시 */
+  contentSource?: "ai" | "local";
+  /** 로컬 파일 첨부 시 Storage 위치 */
+  localAttachment?: WorksheetLocalAttachment;
 };
 
 /** `assignments/{id}/distribution_recipients/{docId}` — PII, 교사·슈퍼관리자만 읽기 */

@@ -20,6 +20,7 @@ import type {
   StudentWorkDoc,
   WorksheetAssignmentDoc,
   WorksheetItem,
+  WorksheetLocalAttachment,
   WorksheetSubmissionEventDoc,
 } from "@/types/worksheetAssignment";
 
@@ -129,14 +130,16 @@ export type CreateWorksheetAssignmentInput = {
   teacherId: string;
   title: string;
   passage: string;
-  analysis: SignalLogicAnalysisReportJson;
+  analysis: SignalLogicAnalysisReportJson | Record<string, unknown>;
   distributedAt: Date;
   targetStudentIds: string[];
   worksheetItems: WorksheetItem[];
+  contentSource?: "ai" | "local";
+  localAttachment?: WorksheetLocalAttachment;
 };
 
 export async function createWorksheetAssignment(input: CreateWorksheetAssignmentInput): Promise<string> {
-  const ref = await addDoc(collection(db, ASSIGNMENTS), {
+  const payload: Record<string, unknown> = {
     schemaVersion: 1,
     teacherId: input.teacherId,
     title: input.title.trim(),
@@ -151,7 +154,17 @@ export async function createWorksheetAssignment(input: CreateWorksheetAssignment
       ...(w.answerKey != null && w.answerKey !== "" ? { answerKey: w.answerKey } : {}),
     })),
     createdAt: serverTimestamp(),
-  });
+  };
+  if (input.contentSource === "ai" || input.contentSource === "local") {
+    payload.contentSource = input.contentSource;
+  }
+  if (input.localAttachment?.storagePath && input.localAttachment?.originalName) {
+    payload.localAttachment = {
+      storagePath: input.localAttachment.storagePath,
+      originalName: input.localAttachment.originalName,
+    };
+  }
+  const ref = await addDoc(collection(db, ASSIGNMENTS), payload);
   return ref.id;
 }
 

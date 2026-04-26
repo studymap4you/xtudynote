@@ -691,7 +691,23 @@ service cloud.firestore {
         && request.resource.data.targetStudentIds.size() <= 120
         && request.resource.data.worksheetItems is list
         && request.resource.data.worksheetItems.size() > 0
-        && request.resource.data.worksheetItems.size() <= 60;
+        && request.resource.data.worksheetItems.size() <= 60
+        && (!('contentSource' in request.resource.data)
+          || (
+            request.resource.data.contentSource is string
+            && request.resource.data.contentSource in ['ai', 'local']
+          ))
+        && (!('localAttachment' in request.resource.data)
+          || (
+            request.resource.data.localAttachment is map
+            && request.resource.data.localAttachment.keys().hasAll(['storagePath', 'originalName'])
+            && request.resource.data.localAttachment.storagePath is string
+            && request.resource.data.localAttachment.storagePath.size() > 0
+            && request.resource.data.localAttachment.storagePath.size() <= 500
+            && request.resource.data.localAttachment.originalName is string
+            && request.resource.data.localAttachment.originalName.size() > 0
+            && request.resource.data.localAttachment.originalName.size() <= 240
+          ));
 
       allow update: if (isActiveTeacher() || isActiveSuperAdmin())
         && resource.data.teacherId == request.auth.uid

@@ -82,6 +82,24 @@ service firebase.storage {
       );
     }
 
+    /** 학습지 배포용 로컬 PDF/DOCX (본인·마스터만) */
+    match /worksheet_uploads/{uid}/{allPaths=**} {
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && (isActiveTeacher() || isActiveSuperAdmin())
+        && request.resource.size < 35 * 1024 * 1024;
+
+      allow read: if request.auth != null && (
+        request.auth.uid == uid
+        || isActiveSuperAdmin()
+      );
+
+      allow delete: if request.auth != null && (
+        request.auth.uid == uid
+        || isActiveSuperAdmin()
+      );
+    }
+
     match /pending_materials/{uploaderId}/{requestId}/{allPaths=**} {
       allow create, update: if request.auth != null
         && request.auth.uid == uploaderId

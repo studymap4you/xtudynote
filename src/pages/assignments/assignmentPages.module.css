@@ -97,106 +97,162 @@
   margin-bottom: 0.75rem;
 }
 
-/* ——— 학습지 배포: 구성·발송 안내 ——— */
-.deployConfig {
-  margin-top: 0.85rem;
-  padding: 1rem 1.1rem 1.05rem;
-  border-radius: 12px;
-  border: 1px solid rgba(37, 99, 235, 0.22);
-  background: linear-gradient(165deg, rgba(239, 246, 255, 0.65) 0%, rgba(248, 250, 252, 0.98) 100%);
+/* ——— 학습지 배포: 탭 ——— */
+.deployTrackWrap {
+  margin-top: 1rem;
 }
 
-.deployConfigTitle {
-  font-size: 1.02rem;
-  font-weight: 800;
-  margin: 0 0 0.35rem;
-  color: #0f172a;
-  letter-spacing: -0.02em;
+.deployTabBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.45);
+  margin-bottom: 0.65rem;
 }
 
-.deployConfigLead {
-  margin: 0 0 0.75rem;
+.deployTab {
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: rgba(248, 250, 252, 0.95);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.deployTab:hover {
+  color: #1d4ed8;
+}
+
+.deployTab[aria-selected="true"] {
+  background: #fff;
+  border-color: rgba(148, 163, 184, 0.45);
+  border-bottom-color: #fff;
+  margin-bottom: -1px;
+  color: #1d4ed8;
+}
+
+.deployTabPanel {
+  padding: 0.35rem 0 0.5rem;
+}
+
+.internalHint {
   font-size: 0.82rem;
   color: #64748b;
+  margin: 0 0 0.65rem;
   line-height: 1.45;
 }
 
-.deployOptionList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.deployOptionRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.5rem 0.6rem;
+.internalTableWrap {
+  max-height: 320px;
+  overflow: auto;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.38);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: #fff;
 }
 
-.deployOptionRow:hover {
-  border-color: rgba(59, 130, 246, 0.4);
+.internalTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
 }
 
-.deployOptionBadge {
-  flex-shrink: 0;
-  width: 1.6rem;
-  height: 1.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-  color: #fff;
+.internalTable th,
+.internalTable td {
+  border-bottom: 1px solid rgba(226, 232, 240, 1);
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.internalTable th {
+  position: sticky;
+  top: 0;
+  background: rgba(241, 245, 249, 0.98);
+  font-weight: 600;
+  color: #334155;
+  z-index: 1;
+}
+
+.regBadge {
+  display: inline-block;
+  padding: 0.1rem 0.38rem;
+  border-radius: 6px;
   font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.deployOptionBody {
-  flex: 1;
-  min-width: 0;
-  position: relative;
-  cursor: help;
-  outline: none;
-}
-
-.deployOptionName {
-  display: block;
-  font-size: 0.88rem;
   font-weight: 700;
+}
+
+.regYes {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+}
+
+.regNo {
+  background: rgba(241, 245, 249, 1);
+  color: #64748b;
+  border: 1px solid rgba(203, 213, 225, 0.85);
+}
+
+.regDash {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.attachSection {
+  margin-top: 1rem;
+  padding: 1rem 1.05rem;
+  border-radius: 12px;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.55) 0%, #fff 55%);
+}
+
+.attachSectionTitle {
+  margin: 0 0 0.5rem;
+  font-size: 0.98rem;
+  font-weight: 800;
   color: #0f172a;
 }
 
-.deployOptionHint {
-  display: block;
-  font-size: 0.76rem;
-  color: #64748b;
-  margin-top: 0.12rem;
+.attachRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
 }
 
-.deployOptionBody[data-tooltip]:hover::after,
-.deployOptionBody[data-tooltip]:focus-visible::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  left: 0;
-  top: calc(100% + 6px);
-  z-index: 30;
-  max-width: min(380px, 94vw);
-  padding: 0.5rem 0.65rem;
-  font-size: 0.78rem;
-  font-weight: 500;
+.attachBtn {
+  padding: 0.45rem 0.85rem;
+  border-radius: 9px;
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  background: rgba(255, 255, 255, 0.95);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+
+.attachBtn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.attachBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.attachBtnPrimary {
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  border-color: rgba(37, 99, 235, 0.45);
+}
+
+.attachStatus {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #475569;
   line-height: 1.45;
-  color: #f1f5f9;
-  background: rgba(15, 23, 42, 0.94);
-  border-radius: 8px;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
-  pointer-events: none;
 }
 
 .grid2 {

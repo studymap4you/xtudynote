@@ -145,6 +145,11 @@
   border: 1px solid rgba(203, 213, 225, 0.9);
 }
 
+.regDash {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
 .rm {
   border: none;
   background: transparent;
