@@ -103,13 +103,6 @@
   color: var(--premium-ink-muted);
 }
 
-.top-nav--landing {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--premium-border);
-  background: var(--premium-surface-glass);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
 .top-nav__brand--landing {
   color: var(--premium-ink);
   font-weight: 700;
@@ -135,6 +128,97 @@
   background: #ffffff;
   border-color: rgba(29, 78, 216, 0.18);
   color: var(--premium-ink);
+}
+/* 랜딩 상단 메뉴: 세로 여유 · 필 네비 */
+.app-shell--landing .top-nav.top-nav--landing .top-nav__actions--landing-tier {
+  align-items: center;
+  gap: 0.65rem 1rem;
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__main-cluster {
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__main-cluster .btn.btn--ghost.btn--stack {
+  padding: 0.55rem 1rem 0.52rem;
+  min-height: 2.65rem;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 2px 6px rgba(15, 23, 42, 0.05);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    transform 0.15s ease;
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__main-cluster .btn.btn--ghost.btn--stack:hover {
+  background: #ffffff;
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 4px 14px -4px rgba(37, 99, 235, 0.22);
+  transform: translateY(-1px);
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__main-cluster .btn.btn--ghost.btn--stack .ui-en {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__main-cluster .btn.btn--ghost.btn--stack .ui-ko {
+  font-size: 0.68rem;
+  font-weight: 500;
+  opacity: 0.92;
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__nav-warm {
+  border-color: rgba(234, 88, 12, 0.22) !important;
+  background: linear-gradient(180deg, rgba(255, 247, 237, 0.95) 0%, rgba(254, 243, 199, 0.45) 100%) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 2px 8px rgba(234, 88, 12, 0.08) !important;
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__nav-warm:hover {
+  border-color: rgba(234, 88, 12, 0.38) !important;
+  background: linear-gradient(180deg, #fffbeb 0%, rgba(254, 243, 199, 0.65) 100%) !important;
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link {
+  padding: 0.52rem 1.05rem;
+  font-size: 0.83rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-radius: 999px;
+  transition:
+    box-shadow 0.18s ease,
+    transform 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--register,
+.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--dashboard {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 4px 16px -4px rgba(29, 78, 216, 0.45);
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--register:hover,
+.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--dashboard:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 8px 22px -6px rgba(29, 78, 216, 0.42);
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--login,
+.app-shell--landing .top-nav.top-nav--landing button.top-nav__auth-link--logout {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.65);
+  color: #475569;
+}
+.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--login:hover,
+.app-shell--landing .top-nav.top-nav--landing button.top-nav__auth-link--logout:hover {
+  color: #0f172a;
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
 }
 .app-shell--landing
   a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn):not(.mp-btn) {
@@ -1380,6 +1464,20 @@ button.top-nav__auth-link--logout:hover {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
 }
 
+/* 홈 상단: 기본 .top-nav 보다 뒤에 두어 배경·패딩이 확실히 적용되도록 */
+.top-nav.top-nav--landing {
+  padding: 1.05rem 1.5rem 1.1rem;
+  min-height: 4.25rem;
+  align-items: center;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 250, 252, 0.94) 100%);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.92) inset,
+    0 8px 28px -12px rgba(15, 23, 42, 0.08);
+}
+
 /* 대시보드·라이브러리 셸: 브랜드 · 중앙 메뉴 · 계정 */
 .top-nav--split {
   display: grid;
@@ -1423,32 +1521,9 @@ button.top-nav__auth-link--logout:hover {
 .top-nav__main-cluster {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   gap: 0.35rem 0.45rem;
-}
-.top-nav__signal-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 17rem;
-  text-align: center;
-  gap: 0.12rem;
-}
-.top-nav__signal-link {
-  width: 100%;
-}
-.top-nav__signal-sub {
-  margin: 0;
-  font-size: 0.58rem;
-  line-height: 1.35;
-  letter-spacing: 0.03em;
-  color: #64748b;
-  max-width: 16.5rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 .top-nav__nav-warm {
   border-color: rgba(255, 149, 0, 0.38) !important;
@@ -3451,9 +3526,6 @@ button.top-nav__auth-link--logout:hover {
   backdrop-filter: saturate(1.15) blur(16px);
   -webkit-backdrop-filter: saturate(1.15) blur(16px);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
-}
-.app-shell--light .top-nav__signal-sub {
-  color: #64748b;
 }
 .app-shell--light .top-nav--split .top-nav__center .btn--ghost {
   border-color: rgba(15, 23, 42, 0.08);
