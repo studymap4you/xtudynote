@@ -1,24 +1,8 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type RefObject,
-} from "react";
-import { doc, onSnapshot } from "firebase/firestore";
-import { getDownloadURL, ref } from "firebase/storage";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
-import { db, storage } from "@/firebase/config";
 import { normalizeHomeworkCode } from "@/lib/homeworkCode";
-import {
-  SITE_CONFIG_COLLECTION,
-  SITE_CONFIG_HOME_DOC,
-} from "@/lib/siteConfig";
 import {
   BRAND_HERO_SUBLINE_1,
   BRAND_HERO_SUBLINE_2,
@@ -512,16 +496,14 @@ type IntroLandingPanelProps = {
   search: string;
   setSearch: (v: string) => void;
   onSearch: (e: React.FormEvent) => void;
-  /** 흰 로그인 박스 — 왼쪽 히어로 이미지 높이와 맞출 때 측정용 */
-  loginCardRef?: RefObject<HTMLDivElement | null>;
 };
 
-function IntroLandingPanel({ search, setSearch, onSearch, loginCardRef }: IntroLandingPanelProps) {
+function IntroLandingPanel({ search, setSearch, onSearch }: IntroLandingPanelProps) {
   const { firebaseUser, logOut } = useAuth();
 
   const stack = (
     <>
-      <div ref={loginCardRef} className="intro-login-card">
+      <div className="intro-login-card">
         <p className="intro-login-card__hint">서비스 이용 안내</p>
         <div className="intro-login-card__rows">
           <Link
@@ -658,97 +640,10 @@ function IntroLandingPanel({ search, setSearch, onSearch, loginCardRef }: IntroL
 /**
  * 랜딩 히어로 — Xtudy-Universe 브라이트 마켓 톤
  */
-function clampLandingHeroPx(n: unknown): number | null {
-  if (typeof n !== "number" || !Number.isFinite(n)) return null;
-  const v = Math.round(n);
-  if (v < 40 || v > 2000) return null;
-  return v;
-}
-
-function useMediaMinWidth901(): boolean {
-  const [ok, setOk] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(min-width: 901px)").matches : false
-  );
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 901px)");
-    const go = () => setOk(mq.matches);
-    mq.addEventListener("change", go);
-    return () => mq.removeEventListener("change", go);
-  }, []);
-  return ok;
-}
-
 export function Intro() {
   const { isTeacherApproved } = useAuth();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [landingHeroPath, setLandingHeroPath] = useState<string | null>(null);
-  const [landingHeroUrl, setLandingHeroUrl] = useState<string | null>(null);
-  const [heroMaxW, setHeroMaxW] = useState<number | null>(null);
-  const [heroMaxH, setHeroMaxH] = useState<number | null>(null);
-  const loginCardRef = useRef<HTMLDivElement>(null);
-  const [loginCardHeightPx, setLoginCardHeightPx] = useState<number | null>(null);
-  const isDesktopTwoCol = useMediaMinWidth901();
-
-  useEffect(() => {
-    const unsub = onSnapshot(
-      doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC),
-      (snap) => {
-        const d = snap.data();
-        const p = d?.landingHeroImagePath;
-        setLandingHeroPath(typeof p === "string" && p.length > 0 ? p : null);
-        setHeroMaxW(clampLandingHeroPx(d?.landingHeroImageMaxWidthPx));
-        setHeroMaxH(clampLandingHeroPx(d?.landingHeroImageMaxHeightPx));
-      },
-      () => {
-        setLandingHeroPath(null);
-        setHeroMaxW(null);
-        setHeroMaxH(null);
-      }
-    );
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    if (!landingHeroPath) {
-      setLandingHeroUrl(null);
-      return;
-    }
-    let cancelled = false;
-    getDownloadURL(ref(storage, landingHeroPath))
-      .then((url) => {
-        if (!cancelled) setLandingHeroUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setLandingHeroUrl(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [landingHeroPath]);
-
-  const hasSpotHero = Boolean(landingHeroUrl);
-
-  useLayoutEffect(() => {
-    if (!hasSpotHero || !isDesktopTwoCol) {
-      setLoginCardHeightPx(null);
-      return;
-    }
-    const el = loginCardRef.current;
-    if (!el) return;
-    const read = () => {
-      const h = el.getBoundingClientRect().height;
-      setLoginCardHeightPx(h > 0 ? Math.round(h * 10) / 10 : null);
-    };
-    read();
-    const ro = new ResizeObserver(read);
-    ro.observe(el);
-    window.addEventListener("resize", read);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", read);
-    };
-  }, [hasSpotHero, isDesktopTwoCol, search, landingHeroUrl]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -757,56 +652,20 @@ export function Intro() {
     else navigate("/homework");
   }
 
-  const spotHeroBoxStyle: CSSProperties = { width: "100%" };
-  if (heroMaxW != null) spotHeroBoxStyle.maxWidth = `${heroMaxW}px`;
-  if (hasSpotHero && isDesktopTwoCol && loginCardHeightPx != null) {
-    const cap =
-      heroMaxH != null ? Math.min(loginCardHeightPx, heroMaxH) : loginCardHeightPx;
-    spotHeroBoxStyle.height = cap;
-    spotHeroBoxStyle.maxHeight = cap;
-    spotHeroBoxStyle.flexShrink = 0;
-  } else {
-    if (heroMaxH != null) spotHeroBoxStyle.maxHeight = `${heroMaxH}px`;
-  }
-
   return (
     <section className="intro-hero" aria-labelledby="intro-slogan">
-      <div className={`intro-hero__grid${hasSpotHero ? " intro-hero__grid--balanced" : ""}`}>
-        <div
-          className={`intro-hero__copy intro-hero__copy--fade${hasSpotHero ? " intro-hero__copy--spot-hero" : ""}`}
-        >
-          {hasSpotHero && landingHeroUrl ? (
-            <>
-              <h1 id="intro-slogan" className="intro-hero__sr-only">
-                {BRAND_HERO_TITLE}. {BRAND_HERO_SUBLINE_1} {BRAND_HERO_SUBLINE_2}
-              </h1>
-              <div
-                className={`intro-hero__spot-hero intro-hero__spot-hero--fade${heroMaxW != null ? " intro-hero__spot-hero--capped-w" : ""}${hasSpotHero && isDesktopTwoCol && loginCardHeightPx != null ? " intro-hero__spot-hero--match-card" : ""}`}
-                style={Object.keys(spotHeroBoxStyle).length ? spotHeroBoxStyle : undefined}
-              >
-                <img
-                  className="intro-hero__spot-hero-img"
-                  src={landingHeroUrl}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="intro-hero__brand">
-                <BrandLockup />
-              </p>
-              <h1 id="intro-slogan" className="intro-hero__slogan intro-hero__slogan--universe">
-                <span className="intro-hero__slogan-line intro-hero__slogan-line--final">{BRAND_HERO_TITLE}</span>
-              </h1>
-              <p className="intro-hero__lede intro-hero__lede--universe">{BRAND_HERO_SUBLINE_1}</p>
-              <p className="intro-hero__lede intro-hero__lede--universe intro-hero__lede--second">
-                {BRAND_HERO_SUBLINE_2}
-              </p>
-            </>
-          )}
+      <div className="intro-hero__grid">
+        <div className="intro-hero__copy intro-hero__copy--fade">
+          <p className="intro-hero__brand">
+            <BrandLockup />
+          </p>
+          <h1 id="intro-slogan" className="intro-hero__slogan intro-hero__slogan--universe">
+            <span className="intro-hero__slogan-line intro-hero__slogan-line--final">{BRAND_HERO_TITLE}</span>
+          </h1>
+          <p className="intro-hero__lede intro-hero__lede--universe">{BRAND_HERO_SUBLINE_1}</p>
+          <p className="intro-hero__lede intro-hero__lede--universe intro-hero__lede--second">
+            {BRAND_HERO_SUBLINE_2}
+          </p>
           <IntroHeroShare />
           <div className="intro-hero__classroom">
             <p className="intro-hero__share-label">내 강의실</p>
@@ -834,12 +693,7 @@ export function Intro() {
           </div>
         </div>
 
-        <IntroLandingPanel
-          loginCardRef={loginCardRef}
-          search={search}
-          setSearch={setSearch}
-          onSearch={handleSearch}
-        />
+        <IntroLandingPanel search={search} setSearch={setSearch} onSearch={handleSearch} />
       </div>
     </section>
   );

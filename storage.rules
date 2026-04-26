@@ -146,18 +146,17 @@ service firebase.storage {
       allow delete: if isActiveSuperAdmin() && request.auth.uid == uid;
     }
 
-    /** 랜딩 왼쪽 히어로 스팟 — 이미지 5MB 이하, 공개 읽기 */
+    /**
+     * 레거시 `landing_hero/` 객체 — 신규 업로드는 앱에서 제거됨.
+     * 공개 읽기만 유지(이미 배포된 URL 깨짐 방지). 삭제는 마스터만.
+     */
     match /site_assets/landing_hero/{allPaths=**} {
-      allow create, update: if isActiveSuperAdmin()
-        && request.resource.contentType.matches('image/.*')
-        && request.resource.size < 5 * 1024 * 1024;
-
       allow read: if true;
-
+      allow create, update: if false;
       allow delete: if isActiveSuperAdmin();
     }
 
-    /** 홈 전체 배경 — 이미지 10MB·동영상 40MB 이하, 공개 읽기 (경로별 match로 규칙 명확화) */
+    /** 홈 전체 배경 — 이미지 10MB·동영상 40MB 이하, 공개 읽기 */
     match /site_assets/landing_page_bg/{allPaths=**} {
       allow create, update: if isActiveSuperAdmin()
         && (

@@ -26,8 +26,8 @@ export function AdminTopNav() {
             <span className="admin-nav-tabs__en">Content database</span>
           </NavLink>
           <NavLink to="/admin/landing-hero" className={tabClassName}>
-            <span className="admin-nav-tabs__title">랜딩·홈 배경</span>
-            <span className="admin-nav-tabs__en">Landing / background</span>
+            <span className="admin-nav-tabs__title">홈 배경</span>
+            <span className="admin-nav-tabs__en">Home background</span>
           </NavLink>
           <NavLink to="/admin/knowledge-curation" className={tabClassName}>
             <span className="admin-nav-tabs__title">지식 큐레이션</span>
