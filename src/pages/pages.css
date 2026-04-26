@@ -92,10 +92,48 @@
     #1d4ed8 100%
   );
   min-height: 100%;
+  position: relative;
   background: var(--premium-bg-silk);
   color: var(--premium-ink);
   color-scheme: light;
 }
+
+/* 홈 전체 배경(어드민 업로드) — fixed, 본문·헤더는 z-index로 위 */
+.landing-page-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.landing-page-bg__media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+.landing-page-bg--video {
+  position: relative;
+}
+.landing-page-bg--video::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(248, 250, 252, 0.22) 45%,
+    rgba(241, 245, 249, 0.35) 100%
+  );
+}
+.app-shell--landing > .top-nav.top-nav--landing,
+.app-shell--landing > main.landing {
+  position: relative;
+  z-index: 1;
+}
+
 .app-shell--landing .ui-en {
   color: var(--premium-ink);
 }

@@ -13,5 +13,11 @@ export interface SiteConfigHomeDocument {
   landingHeroImageMaxWidthPx?: number | null;
   /** 좌측 상단 스팟 이미지 최대 높이(px). 없으면 CSS 기본. */
   landingHeroImageMaxHeightPx?: number | null;
+  /**
+   * 홈 화면 전체 배경 — `site_assets/landing_page_bg/…` 권장.
+   * `landingPageBackgroundMedia`로 image | video 구분(동영상은 muted loop 재생).
+   */
+  landingPageBackgroundPath?: string | null;
+  landingPageBackgroundMedia?: "image" | "video" | null;
   updatedAt?: unknown;
 }

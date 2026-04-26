@@ -4,6 +4,7 @@ import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Intro } from "@/components/Intro";
 import { CategoryGridSection } from "@/components/landing/MarketplaceSections";
+import { LandingPageBackground } from "@/components/landing/LandingPageBackground";
 import "@/pages/pages.css";
 
 const FEATURES = [
@@ -26,6 +27,7 @@ export function LandingPage() {
 
   return (
     <div className="app-shell app-shell--landing">
+      <LandingPageBackground />
       <header className="top-nav top-nav--landing">
         <Link
           to="/"

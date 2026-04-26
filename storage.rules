@@ -146,11 +146,33 @@ service firebase.storage {
       allow delete: if isActiveSuperAdmin() && request.auth.uid == uid;
     }
 
-    /** Site-wide images (landing hero 등) — 공개 읽기, 마스터만 쓰기 */
-    match /site_assets/{allPaths=**} {
+    /**
+     * Site-wide assets — 공개 읽기, 마스터만 쓰기
+     * - landing_hero 등: 이미지 5MB 이하
+     * - landing_page_bg: 홈 전체 배경용 이미지(10MB)·짧은 동영상(40MB)
+     */
+    match /site_assets/{path=**} {
       allow create, update: if isActiveSuperAdmin()
-        && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && (
+          (
+            request.resource.contentType.matches('image/.*')
+            && request.resource.size < 5 * 1024 * 1024
+            && !path.matches('^landing_page_bg/.*')
+          )
+          || (
+            path.matches('^landing_page_bg/.*')
+            && (
+              (
+                request.resource.contentType.matches('image/.*')
+                && request.resource.size < 10 * 1024 * 1024
+              )
+              || (
+                request.resource.contentType.matches('video/.*')
+                && request.resource.size < 40 * 1024 * 1024
+              )
+            )
+          )
+        );
 
       allow read: if true;
 
