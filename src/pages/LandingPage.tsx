@@ -81,36 +81,6 @@ export function LandingPage() {
             </li>
           ))}
         </ul>
-        <div id="landing-choices" className="landing__choices">
-          <Link
-            to="/register?role=teacher"
-            className="landing__choice landing__choice--teacher"
-          >
-            Teacher
-            <span className="landing__choice-sub">
-              <span className="ui-en" style={{ fontWeight: 700 }}>
-                Educator / expert workspace
-              </span>
-              <span className="ui-ko">
-                교육자·전문가 — 콘텐츠·학습 그룹 관리 (승인 후 전체 기능)
-              </span>
-            </span>
-          </Link>
-          <Link
-            to="/register?role=student"
-            className="landing__choice landing__choice--student"
-          >
-            Student
-            <span className="landing__choice-sub">
-              <span className="ui-en" style={{ fontWeight: 700 }}>
-                Learner dashboard
-              </span>
-              <span className="ui-ko">
-                학습자 — 피드백·로그·자료 중심의 학습 홈
-              </span>
-            </span>
-          </Link>
-        </div>
       </main>
     </div>
   );

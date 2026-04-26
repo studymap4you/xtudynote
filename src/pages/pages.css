@@ -2035,13 +2035,11 @@ button.top-nav__auth-link--logout:hover {
   color: var(--premium-ink);
 }
 .landing .landing__features,
-.landing .landing__choices,
 .landing .landing__footer {
   align-self: center;
   width: 100%;
 }
 #landing-features,
-#landing-choices,
 #landing-footer,
 #marketplace-premium,
 #marketplace-categories,
