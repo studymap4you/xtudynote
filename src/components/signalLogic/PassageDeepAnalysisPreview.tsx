@@ -65,7 +65,10 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
           <p className={styles.passageBody}>{passage.trim() || "—"}</p>
         </section>
 
-        <section className={styles.sectionBlock} aria-labelledby="pd-theme-title">
+        <section
+          className={`${styles.sectionBlock} ${styles.sectionBlockKeep}`}
+          aria-labelledby="pd-theme-title"
+        >
           <h3 id="pd-theme-title" className={styles.sectionTitle}>
             주제 · 제목
           </h3>
@@ -106,7 +109,7 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
                   <div className={styles.subLabel}>전문 해석</div>
                   <p className={styles.subText}>{s.professionalInterpretation}</p>
                 </div>
-                <div className={styles.subBlock}>
+                <div className={styles.printCategory}>
                   <div className={styles.subLabel}>주요 어휘·표현</div>
                   <ul className={styles.exprList}>
                     {s.keyVocabItems.map((item, j) => (
@@ -119,7 +122,7 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
           )}
         </section>
 
-        <section className={styles.sectionBlock} aria-labelledby="pd-expr">
+        <section className={`${styles.sectionBlock} ${styles.sectionBlockKeep}`} aria-labelledby="pd-expr">
           <h3 id="pd-expr" className={styles.sectionTitle}>
             4. 핵심 표현 정리
           </h3>
@@ -130,7 +133,7 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
           </ul>
         </section>
 
-        <section className={styles.sectionBlock} aria-labelledby="pd-grm">
+        <section className={`${styles.sectionBlock} ${styles.sectionBlockKeep}`} aria-labelledby="pd-grm">
           <h3 id="pd-grm" className={styles.sectionTitle}>
             5. 핵심 문법·구문
           </h3>

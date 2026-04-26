@@ -83,8 +83,19 @@
   border-radius: 10px;
   padding: 0.85rem 0.95rem;
   background: #fafbfc;
+  break-inside: auto;
+  page-break-inside: auto;
+}
+
+/* 짧은 블록(주제·제목, 4·5번 등)은 한 페이지에 묶이도록 */
+.sectionBlockKeep {
   break-inside: avoid;
   page-break-inside: avoid;
+}
+
+/* 문장 카드 안: 소제목+어휘 목록을 한 덩어리로 */
+.printCategory {
+  margin-top: 0.45rem;
 }
 
 .sectionTitle {
@@ -339,8 +350,8 @@
     max-width: none;
     width: 100%;
     margin: 0;
-    /* react-to-print pageStyle의 body 패딩과 겹치지 않도록 인쇄 시 본문 박스 패딩은 0 */
-    padding: 0;
+    /* 여백은 react-to-print pageStyle의 body 패딩으로 확보 — 이 박스는 패딩 없이 채움 */
+    padding: 0 !important;
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -356,12 +367,13 @@
     display: none;
   }
 
+  /* position:fixed 는 PDF에서 본문 위에 겹침 → 문서 끝 한 번만 표시 */
   .printRunningFooter {
     display: block;
-    position: fixed;
-    bottom: 10mm;
-    left: 25mm;
-    right: 25mm;
+    position: static;
+    margin-top: 12mm;
+    padding-top: 6mm;
+    border-top: 1px solid #cbd5e1;
     text-align: center;
     font-size: 8.5pt;
     font-weight: 500;
@@ -373,16 +385,22 @@
     page-break-inside: avoid;
   }
 
-  /* 긴 본문은 페이지를 넘길 수 있게 하고, @page 상단 여백이 새 장에서도 적용되도록 큰 블록 고정 분해 해제 */
-  :global(.passage-deep-print) .sectionBlock,
-  :global(.passage-deep-print) .sentenceCard {
-    break-inside: auto;
-    page-break-inside: auto;
-  }
-
-  :global(.passage-deep-print) .pairRow,
-  :global(.passage-deep-print) .exprItem {
+  .sentenceCard {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .printCategory {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .pairRow {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .sentenceHead {
+    margin-bottom: 0.55rem;
   }
 }
