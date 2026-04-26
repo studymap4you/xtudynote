@@ -20,7 +20,7 @@ export function TopNavMainLinks({ homeworkKo = "과제함" }: TopNavMainLinksPro
         <span className="ui-ko">시그널 로직</span>
       </Link>
 
-      <Link to="/videos" className="btn btn--ghost btn--stack top-nav__nav-warm">
+      <Link to="/library" className="btn btn--ghost btn--stack top-nav__nav-warm">
         <span className="ui-en">Courses</span>
         <span className="ui-ko">강의 신청</span>
       </Link>
