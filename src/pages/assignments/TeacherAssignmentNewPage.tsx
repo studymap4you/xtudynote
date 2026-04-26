@@ -157,11 +157,71 @@ export function TeacherAssignmentNewPage() {
         <h1 className={styles.title} style={{ marginTop: "0.75rem" }}>
           학습지 배포
         </h1>
-        <p className={styles.meta}>
-          가입 학생은 <strong>/dashboard</strong> 과제함에 바로 표시되고, 미가입 이메일에는 학습지 링크가 담긴 안내
-          메일이 발송됩니다. (메일은 Firebase Cloud Functions + SMTP 설정이 필요합니다.) 연락처 정보는 담당 교사·마스터
+        <p className={styles.meta} style={{ marginBottom: "0.65rem" }}>
+          아래 <strong>과제 구성 및 발송 설정</strong>에서 A~C를 조합해 배포합니다. 연락처(전화·이메일)는 담당 교사·마스터
           계정만 조회할 수 있습니다.
         </p>
+
+        <section className={styles.deployConfig} aria-labelledby="deploy-config-heading">
+          <h2 id="deploy-config-heading" className={styles.deployConfigTitle}>
+            과제 구성 및 발송 설정
+          </h2>
+          <p className={styles.deployConfigLead}>
+            각 옵션 줄에 마우스를 올리거나(Tab으로 포커스 시) 짧은 설명이 뜹니다. 동일 안내는 브라우저 기본 툴팁에도
+            들어 있습니다.
+          </p>
+          <ul className={styles.deployOptionList}>
+            <li className={styles.deployOptionRow}>
+              <span className={styles.deployOptionBadge} aria-hidden>
+                A
+              </span>
+              <span
+                className={styles.deployOptionBody}
+                tabIndex={0}
+                data-tooltip="가입한 학생의 UID를 대상에 넣으면, 배포 직후 해당 학생의 /dashboard 과제함에 학습지 카드가 생깁니다."
+                title="가입한 학생의 UID를 대상에 넣으면, 배포 직후 해당 학생의 /dashboard 과제함에 학습지 카드가 생깁니다."
+              >
+                <span className={styles.deployOptionName}>
+                  옵션 A: <strong>학생용 학습지 자동 생성</strong>
+                </span>
+                <span className={styles.deployOptionHint}>(앱 내 과제함 전달)</span>
+              </span>
+            </li>
+            <li className={styles.deployOptionRow}>
+              <span className={styles.deployOptionBadge} aria-hidden>
+                B
+              </span>
+              <span
+                className={styles.deployOptionBody}
+                tabIndex={0}
+                data-tooltip="과제 문서에 지문·문항과 Signal Logic 분석 JSON이 함께 저장됩니다. 학생·이메일 링크로 연 화면에서 인쇄하거나 PDF로 저장할 수 있는 출력용 학습지 레이아웃이 제공됩니다."
+                title="과제 문서에 지문·문항과 Signal Logic 분석 JSON이 함께 저장됩니다. 학생·이메일 링크로 연 화면에서 인쇄하거나 PDF로 저장할 수 있는 출력용 학습지 레이아웃이 제공됩니다."
+              >
+                <span className={styles.deployOptionName}>
+                  옵션 B: <strong>PDF 분석 리포트 생성</strong>
+                </span>
+                <span className={styles.deployOptionHint}>(출력용 문서 포함)</span>
+              </span>
+            </li>
+            <li className={styles.deployOptionRow}>
+              <span className={styles.deployOptionBadge} aria-hidden>
+                C
+              </span>
+              <span
+                className={styles.deployOptionBody}
+                tabIndex={0}
+                data-tooltip="연락처 명단의 이메일이 Firebase에 없으면, 학습지 링크가 담긴 안내 메일을 보냅니다. 발송에는 Cloud Functions와 SMTP(메일 서버) 설정이 필요합니다."
+                title="연락처 명단의 이메일이 Firebase에 없으면, 학습지 링크가 담긴 안내 메일을 보냅니다. 발송에는 Cloud Functions와 SMTP(메일 서버) 설정이 필요합니다."
+              >
+                <span className={styles.deployOptionName}>
+                  옵션 C: <strong>외부 이메일 발송</strong>
+                </span>
+                <span className={styles.deployOptionHint}>(미가입 학생 대상)</span>
+              </span>
+            </li>
+          </ul>
+        </section>
+
         {loadNote ? <p className={styles.ok}>{loadNote}</p> : null}
 
         <div
