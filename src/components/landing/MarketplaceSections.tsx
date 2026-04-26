@@ -1,8 +1,4 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
-import { db } from "@/firebase/config";
-import type { ContentDocument } from "@/types/content";
 import { LEARNING_THEME_OPTIONS, type LearningThemeId } from "@/types/learningTheme";
 
 const THEME_ROUTE: Record<LearningThemeId, string> = {
@@ -86,7 +82,7 @@ function IconCategory({ name }: { name: "k" | "g" | "p" | "a" }) {
   );
 }
 
-/** Xtudy-Universe — 랜딩 마켓플레이스(카테고리 · 랭킹 · 크리에이터) */
+/** Xtudy-Universe — 랜딩 테마별 카테고리 그리드 */
 
 export function CategoryGridSection() {
   return (
@@ -105,107 +101,6 @@ export function CategoryGridSection() {
             <span className="mp-cat-card__ko">{c.ko}</span>
           </Link>
         ))}
-      </div>
-    </section>
-  );
-}
-
-export function LiveRankingSection() {
-  const [ranked, setRanked] = useState<Array<{ id: string; title: string; clicks: number; heat: string }>>([]);
-
-  useEffect(() => {
-    const q = query(
-      collection(db, "contents"),
-      where("status", "==", "approved"),
-      where("type", "in", ["share", "paid", "homework"]),
-      orderBy("createdAt", "desc"),
-      limit(200)
-    );
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const list: Array<{ id: string; title: string; clicks: number }> = [];
-        snap.forEach((d) => {
-          const x = d.data() as ContentDocument;
-          const clicks = typeof x.clickCount === "number" ? x.clickCount : 0;
-          list.push({
-            id: d.id,
-            title: (x.subject ?? x.learningTopic ?? "").trim() || "제목 없음",
-            clicks,
-          });
-        });
-        list.sort((a, b) => b.clicks - a.clicks);
-        const top = list.slice(0, 8);
-        const maxC = Math.max(1, ...top.map((x) => x.clicks));
-        setRanked(
-          top.map((r) => ({
-            ...r,
-            heat: `+${Math.max(1, Math.round((r.clicks / maxC) * 100))}%`,
-          }))
-        );
-      },
-      () => setRanked([])
-    );
-    return () => unsub();
-  }, []);
-
-  return (
-    <section id="marketplace-ranking" className="mp-rank">
-      <div className="mp-section-head">
-        <span className="mp-badge mp-badge--emerald">Live</span>
-        <h2 className="mp-section-title">실시간 인기 자료</h2>
-        <p className="mp-section-lead">지금 가장 많이 찾는 고품질 콘텐츠입니다.</p>
-      </div>
-      {ranked.length === 0 ? (
-        <p className="mp-section-lead" style={{ textAlign: "center" }}>
-          인기 자료를 불러오는 중이거나 아직 조회 데이터가 없습니다.
-        </p>
-      ) : (
-        <ol className="mp-rank__list">
-          {ranked.map((r, i) => (
-            <li key={r.id} className="mp-rank__row">
-              <span className="mp-rank__num">{i + 1}</span>
-              <Link to={`/content/${r.id}`} className="mp-rank__title mp-rank__title--link">
-                {r.title}
-              </Link>
-              <span className="mp-rank__heat">{r.heat}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-      <Link to="/library" className="mp-rank__more">
-        라이브러리에서 전체 보기
-      </Link>
-    </section>
-  );
-}
-
-export function CreatorCenterSection() {
-  return (
-    <section id="marketplace-creator" className="mp-creator">
-      <div className="mp-creator__glass">
-        <div className="mp-section-head mp-section-head--tight">
-          <h2 className="mp-section-title">크리에이터 센터 · Seller Center</h2>
-          <p className="mp-section-lead">
-            일반 회원도 노하우를 등록·판매할 수 있습니다. 판매 통계와 정산은 대시보드에서 관리합니다.
-          </p>
-        </div>
-        <ul className="mp-creator__bullets">
-          <li>자료 등록 · 가격 설정 · 샘플 구간 노출</li>
-          <li>판매 실적 요약 · 정산 내역 (교육자 워크스페이스)</li>
-          <li>검증 교사·기관은 라이브러리·강의실 노출 우선 혜택</li>
-        </ul>
-        <div className="mp-creator__actions">
-          <Link to="/register?role=teacher" className="mp-btn mp-btn--royal">
-            판매자로 시작하기
-          </Link>
-          <Link to="/dashboard" className="mp-btn mp-btn--emerald-ghost">
-            내 판매 · 통계 (로그인)
-          </Link>
-          <Link to="/material/register" className="mp-btn mp-btn--outline">
-            새 학습 자료 등록
-          </Link>
-        </div>
       </div>
     </section>
   );

@@ -3,11 +3,7 @@ import { BrandLockup } from "@/components/BrandLockup";
 import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Intro } from "@/components/Intro";
-import {
-  CategoryGridSection,
-  LiveRankingSection,
-  CreatorCenterSection,
-} from "@/components/landing/MarketplaceSections";
+import { CategoryGridSection } from "@/components/landing/MarketplaceSections";
 import "@/pages/pages.css";
 
 const FEATURES = [
@@ -18,10 +14,6 @@ const FEATURES = [
   {
     title: "Category-rich library",
     ko: "수능·어학·자격증·전공까지 테마별 큐레이션 라이브러리",
-  },
-  {
-    title: "Creator economics",
-    ko: "크리에이터 센터 — 등록·판매·정산을 한곳에서",
   },
   {
     title: "Learning logs",
@@ -75,8 +67,6 @@ export function LandingPage() {
       <main className="landing">
         <Intro />
         <CategoryGridSection />
-        <LiveRankingSection />
-        <CreatorCenterSection />
         <ul
           id="landing-features"
           className="landing__features"
@@ -119,16 +109,6 @@ export function LandingPage() {
             </span>
           </Link>
         </div>
-        <p id="landing-footer" className="landing__footer">
-          <Link to={firebaseUser ? "/dashboard" : "/login"}>
-            <span className="ui-en">
-              {firebaseUser ? "Go to your dashboard" : "Already have an account? Log in"}
-            </span>
-            <span className="ui-ko">
-              {firebaseUser ? "대시보드로 이동" : "이미 계정이 있으신가요? 로그인"}
-            </span>
-          </Link>
-        </p>
       </main>
     </div>
   );
