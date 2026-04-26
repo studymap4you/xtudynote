@@ -29,7 +29,7 @@ import {
 const SHORTCUTS = [
   { to: "/library", label: "라이브러리", tone: "a" as const },
   { to: "/homework", label: "과제 검색", tone: "b" as const },
-  { to: "/#marketplace-premium", label: "유료 자료관", tone: "c" as const },
+  { to: "/classroom", label: "내 강의실", tone: "c" as const },
   { to: "/#marketplace-categories", label: "테마별 자료", tone: "d" as const },
   { to: "/material/register", label: "새자료 등록", tone: "e" as const },
   { to: "/videos", label: "동영상 강의", tone: "f" as const },

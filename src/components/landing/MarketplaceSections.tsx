@@ -1,23 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  collection,
-  doc,
-  getDoc,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  where,
-} from "firebase/firestore";
-import { getDownloadURL, ref } from "firebase/storage";
-import { db, storage } from "@/firebase/config";
-import { extractListedPriceKrw } from "@/lib/listedPrice";
-import { stripListedPriceLine } from "@/lib/introductionDisplay";
-import { plainTextFromHtml } from "@/lib/richTextUtils";
-import { SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC } from "@/lib/siteConfig";
-import { CollapsibleDescription } from "@/components/landing/CollapsibleDescription";
-import { FileSamplePreview } from "@/components/landing/FileSamplePreview";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { db } from "@/firebase/config";
 import type { ContentDocument } from "@/types/content";
 import { LEARNING_THEME_OPTIONS, type LearningThemeId } from "@/types/learningTheme";
 
@@ -102,182 +86,7 @@ function IconCategory({ name }: { name: "k" | "g" | "p" | "a" }) {
   );
 }
 
-/**
- * Xtudy-Universe — 중앙 검색 · 프리미엄 볼트 · 카테고리 · 랭킹 · 크리에이터
- */
-export function MarketplaceSearchStrip() {
-  const [q, setQ] = useState("");
-  const navigate = useNavigate();
-
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const t = q.trim();
-    if (t) navigate(`/library?q=${encodeURIComponent(t)}`);
-    else navigate("/library");
-  }
-
-  return (
-    <section className="mp-search" aria-label="통합 자료 검색">
-      <div className="mp-search__inner">
-        <p className="mp-search__eyebrow">Knowledge search</p>
-        <h2 className="mp-search__title">방대한 카테고리에서 원하는 자료를 바로 찾아보세요</h2>
-        <form className="mp-search__form" onSubmit={onSubmit}>
-          <input
-            className="mp-search__input"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="수능·어학·자격증·전공 키워드로 검색"
-            autoComplete="off"
-            aria-label="자료 통합 검색"
-          />
-          <button type="submit" className="mp-search__btn">
-            검색
-          </button>
-        </form>
-        <p className="mp-search__hint">
-          결제 전 <strong>고화질 샘플</strong>로 내용을 확인할 수 있습니다.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-export function PremiumVaultSection() {
-  const [ids, setIds] = useState<string[]>([]);
-  const [rows, setRows] = useState<Array<{ id: string; data: ContentDocument }>>([]);
-  const [thumbById, setThumbById] = useState<Record<string, string>>({});
-  const [openSampleId, setOpenSampleId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC), (snap) => {
-      const raw = snap.data()?.premiumPaidContentIds;
-      setIds(Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []);
-    });
-    return unsub;
-  }, []);
-
-  const idKey = ids.join("|");
-  useEffect(() => {
-    if (ids.length === 0) {
-      setRows([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const snaps = await Promise.all(ids.map((contentId) => getDoc(doc(db, "contents", contentId))));
-      if (cancelled) return;
-      const list: Array<{ id: string; data: ContentDocument }> = [];
-      ids.forEach((contentId, i) => {
-        const s = snaps[i];
-        if (!s.exists()) return;
-        const data = s.data() as ContentDocument;
-        if ((data.status ?? "approved") !== "approved" || (data.type ?? "share") !== "paid") return;
-        list.push({ id: contentId, data });
-      });
-      setRows(list);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [idKey]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const next: Record<string, string> = {};
-      for (const r of rows) {
-        const p = r.data.thumbnailPath?.trim();
-        if (!p) continue;
-        try {
-          next[r.id] = await getDownloadURL(ref(storage, p));
-        } catch {
-          /* ignore */
-        }
-      }
-      if (!cancelled) setThumbById(next);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [rows]);
-
-  const rowsWithMeta = useMemo(
-    () =>
-      rows.map((r, idx) => {
-        const intro = r.data.introduction ?? "";
-        const introForCard =
-          plainTextFromHtml(stripListedPriceLine(intro)) || stripListedPriceLine(intro).trim();
-        const price = extractListedPriceKrw(intro) ?? "가격 안내";
-        const seller = `${r.data.audience ?? "—"} · ${r.data.section || "일반"}`;
-        const tag = idx === 0 ? "베스트" : r.data.thumbnailPath ? "샘플 제공" : "유료";
-        return { ...r, introForCard, price, seller, tag };
-      }),
-    [rows]
-  );
-
-  return (
-    <section id="marketplace-premium" className="mp-vault">
-      <div className="mp-section-head">
-        <span className="mp-badge mp-badge--royal">Premium Vault</span>
-        <h2 className="mp-section-title">검증된 전문가의 고품격 유료 자료</h2>
-      </div>
-      {rowsWithMeta.length === 0 ? (
-        <p className="mp-section-lead" style={{ textAlign: "center" }}>
-          마스터가 선별한 유료 자료가 곧 표시됩니다.
-        </p>
-      ) : (
-        <ul className="mp-vault__list">
-          {rowsWithMeta.map((row) => (
-            <li key={row.id} className="mp-vault__item">
-              <div className="mp-vault__row">
-                {thumbById[row.id] ? (
-                  <div className="mp-vault__thumb mp-vault__thumb--img">
-                    <img src={thumbById[row.id]} alt="" width={96} height={96} loading="lazy" />
-                  </div>
-                ) : (
-                  <div className="mp-vault__thumb" aria-hidden />
-                )}
-                <div className="mp-vault__body">
-                  <div className="mp-vault__meta">
-                    <span className="mp-vault__tag">{row.tag}</span>
-                    <span className="mp-vault__seller">{row.seller}</span>
-                  </div>
-                  <h3 className="mp-vault__title">{row.data.subject}</h3>
-                  <CollapsibleDescription
-                    text={row.introForCard}
-                    collapsedMaxChars={200}
-                    className="mp-vault__desc"
-                  />
-                  <div className="mp-vault__foot">
-                    <span className="mp-vault__price">{row.price}</span>
-                    <button
-                      type="button"
-                      className="mp-vault__sample mp-vault__sample--btn"
-                      aria-expanded={openSampleId === row.id}
-                      onClick={() =>
-                        setOpenSampleId((cur) => (cur === row.id ? null : row.id))
-                      }
-                    >
-                      샘플 미리보기
-                    </button>
-                    <Link to={`/content/${row.id}`} className="mp-vault__buy">
-                      상세 보기
-                    </Link>
-                  </div>
-                </div>
-              </div>
-              {openSampleId === row.id && (
-                <div className="mp-vault__sample-panel" role="region" aria-label="원본 미리보기">
-                  <FileSamplePreview storagePaths={row.data.learningMaterialFilePaths ?? []} />
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
+/** Xtudy-Universe — 랜딩 마켓플레이스(카테고리 · 랭킹 · 크리에이터) */
 
 export function CategoryGridSection() {
   return (
@@ -384,7 +193,7 @@ export function CreatorCenterSection() {
         <ul className="mp-creator__bullets">
           <li>자료 등록 · 가격 설정 · 샘플 구간 노출</li>
           <li>판매 실적 요약 · 정산 내역 (교육자 워크스페이스)</li>
-          <li>검증 교사·기관은 Premium Vault 우선 노출 혜택</li>
+          <li>검증 교사·기관은 라이브러리·강의실 노출 우선 혜택</li>
         </ul>
         <div className="mp-creator__actions">
           <Link to="/register?role=teacher" className="mp-btn mp-btn--royal">

@@ -4,8 +4,6 @@ import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Intro } from "@/components/Intro";
 import {
-  MarketplaceSearchStrip,
-  PremiumVaultSection,
   CategoryGridSection,
   LiveRankingSection,
   CreatorCenterSection,
@@ -76,8 +74,6 @@ export function LandingPage() {
       </header>
       <main className="landing">
         <Intro />
-        <MarketplaceSearchStrip />
-        <PremiumVaultSection />
         <CategoryGridSection />
         <LiveRankingSection />
         <CreatorCenterSection />

@@ -5,7 +5,6 @@ import { RegisterPage } from "@/pages/RegisterPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { AdminPanelPage } from "@/pages/AdminPanelPage";
 import { AddPassage } from "@/pages/admin/AddPassage";
-import { PremiumVaultPage } from "@/pages/admin/PremiumVaultPage";
 import { LandingHeroAdminPage } from "@/pages/admin/LandingHeroAdminPage";
 import { ContentsListPage } from "@/pages/admin/ContentsListPage";
 import { PendingMaterialReviewsPage } from "@/pages/admin/PendingMaterialReviewsPage";
@@ -115,14 +114,6 @@ export default function App() {
         element={
           <SuperAdminRoute>
             <KnowledgeCurationPage />
-          </SuperAdminRoute>
-        }
-      />
-      <Route
-        path="/admin/premium-vault"
-        element={
-          <SuperAdminRoute>
-            <PremiumVaultPage />
           </SuperAdminRoute>
         }
       />

@@ -5,9 +5,8 @@ export const SITE_CONFIG_HOME_DOC = "home";
 export const LANDING_HERO_DEFAULT_MAX_W_PX = 320;
 export const LANDING_HERO_DEFAULT_MAX_H_PX = 200;
 
-/** 홈 프리미엄 볼트에 노출할 유료 contents 문서 ID 순서 */
+/** 랜딩 `site_config/home` 문서 스키마 */
 export interface SiteConfigHomeDocument {
-  premiumPaidContentIds?: string[];
   /** Firebase Storage full path (e.g. site_assets/landing_hero/…). Public read. */
   landingHeroImagePath?: string | null;
   /** 좌측 상단 스팟 이미지 최대 너비(px). 없으면 CSS 기본. */

@@ -7,7 +7,6 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { Link } from "react-router-dom";
 import { AdminTopNav } from "@/components/AdminTopNav";
 import { db, storage } from "@/firebase/config";
 import {
@@ -320,11 +319,6 @@ export function LandingHeroAdminPage() {
           ) : null}
         </section>
 
-        <p style={{ marginTop: "1.5rem" }}>
-          <Link to="/admin/premium-vault" className="btn btn--ghost btn--stack">
-            ← 프리미엄 볼트
-          </Link>
-        </p>
       </main>
     </div>
   );
