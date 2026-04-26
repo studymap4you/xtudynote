@@ -385,7 +385,7 @@ export const deployWorksheetOutreach = onCall(
           await transporter.sendMail({
             from: smtpFromAddress,
             to: row.email,
-            subject: `[XtudyNote] ${title} — 학습지 안내`,
+            subject: `[Xtudy-Universe] ${title} — 학습지 안내`,
             html,
           });
           outreachSent++;

@@ -41,7 +41,7 @@ export function RegisterPage() {
             </h1>
             <p className="auth-card__hint">
               <span className="ui-en" style={{ fontSize: "0.95rem", color: "var(--text-muted)" }}>
-                Choose how you’ll use XtudyNote.
+                Choose how you’ll use Xtudy-Universe.
               </span>
               <span className="ui-ko">서비스 이용 방식에 맞는 역할을 선택해 주세요.</span>
             </p>

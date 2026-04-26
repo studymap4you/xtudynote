@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 /** 학습지 DOM을 A4 PDF로 저장 (html2canvas + jsPDF) */
 export async function exportWorksheetPdfFromElement(
   element: HTMLElement,
-  filename = "XtudyNote_Worksheet.pdf",
+  filename = "Xtudy-Universe_Worksheet.pdf",
 ): Promise<void> {
   const canvas = await html2canvas(element, {
     scale: 2,

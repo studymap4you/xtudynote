@@ -1,5 +1,5 @@
 /**
- * 상단·히어로 브랜드 — X 강조(적·보라 그라데이션 + 광택) + 엑스터디노트
+ * 상단·히어로 브랜드 — X 강조 + Xtudy-Universe
  */
 export function BrandLockup() {
   return (
@@ -8,13 +8,13 @@ export function BrandLockup() {
         <span className="brand-lockup__x" aria-hidden="true">
           X
         </span>
-        <span className="brand-lockup__rest">tudyNote</span>
+        <span className="brand-lockup__rest">tudy-Universe</span>
       </span>
       <span className="brand-lockup__sep" aria-hidden="true">
         ·
       </span>
       <span className="brand-lockup__ko" lang="ko">
-        엑스터디노트
+        엑스터디 유니버스
       </span>
     </span>
   );

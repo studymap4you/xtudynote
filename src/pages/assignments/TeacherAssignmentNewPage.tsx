@@ -17,6 +17,7 @@ import { deployWorksheetOutreach, lookupStudentByEmail } from "@/lib/worksheet/w
 import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
 import type { WorksheetLocalAttachment } from "@/types/worksheetAssignment";
 import { DistributionRecipientsPanel, type RecipientDraft } from "@/pages/assignments/DistributionRecipientsPanel";
+import { useToast } from "@/contexts/ToastContext";
 import styles from "@/pages/assignments/assignmentPages.module.css";
 
 const DEPLOY_OK_TOAST = "성공적으로 배포되었습니다!";
@@ -73,6 +74,7 @@ export function TeacherAssignmentNewPage() {
   const [params] = useSearchParams();
   const signalReportId = params.get("signalReportId")?.trim() ?? "";
   const { firebaseUser } = useAuth();
+  const { showToast } = useToast();
   const uid = firebaseUser?.uid ?? "";
 
   const [deployTrack, setDeployTrack] = useState<DeployTrack>("internal");
@@ -100,18 +102,11 @@ export function TeacherAssignmentNewPage() {
   });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ kind: "ok" | "err" | "warn"; text: string } | null>(null);
   const [loadNote, setLoadNote] = useState<string | null>(null);
 
   const [classrooms, setClassrooms] = useState<ClassroomRow[]>([]);
   const [rosterRows, setRosterRows] = useState<Awaited<ReturnType<typeof listWorksheetRoster>>>([]);
   const localFileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), 6500);
-    return () => window.clearTimeout(t);
-  }, [toast]);
 
   useEffect(() => {
     if (!uid) return;
@@ -269,7 +264,6 @@ export function TeacherAssignmentNewPage() {
 
       setBusy(true);
       setMsg(null);
-      setToast(null);
 
       try {
         if (!contentSource) {
@@ -306,7 +300,7 @@ export function TeacherAssignmentNewPage() {
             contentSource,
             localAttachment: localAttachment ?? undefined,
           });
-          setToast({ kind: "ok", text: DEPLOY_OK_TOAST });
+          showToast("ok", DEPLOY_OK_TOAST);
           window.setTimeout(() => navigate(`/teacher/assignments/${id}`), 900);
         } else {
           const hasEmail = recipientRows.some((r) => r.email.trim().includes("@"));
@@ -333,26 +327,26 @@ export function TeacherAssignmentNewPage() {
           const sent = result.outreachEmailCount ?? 0;
           const errs = result.outreachEmailErrors ?? [];
           if (attempted === 0) {
-            setToast({ kind: "ok", text: DEPLOY_OK_TOAST });
+            showToast("ok", DEPLOY_OK_TOAST);
           } else if (errs.length === 0) {
-            setToast({ kind: "ok", text: DEPLOY_OK_TOAST });
+            showToast("ok", DEPLOY_OK_TOAST);
           } else if (sent > 0) {
-            setToast({
-              kind: "warn",
-              text: `과제는 저장되었으나 메일 일부 실패: 성공 ${sent}/${attempted}건. ${errs.slice(0, 2).join(" · ")}${errs.length > 2 ? " …" : ""}`,
-            });
+            showToast(
+              "warn",
+              `과제는 저장되었으나 메일 일부 실패: 성공 ${sent}/${attempted}건. ${errs.slice(0, 2).join(" · ")}${errs.length > 2 ? " …" : ""}`,
+            );
           } else {
-            setToast({
-              kind: "err",
-              text: `메일 발송에 실패했습니다 (${attempted}건). ${errs.slice(0, 2).join(" · ")} Functions 로그: firebase functions:log`,
-            });
+            showToast(
+              "err",
+              `메일 발송에 실패했습니다 (${attempted}건). ${errs.slice(0, 2).join(" · ")} Functions 로그: firebase functions:log`,
+            );
           }
           window.setTimeout(() => navigate(`/teacher/assignments/${result.assignmentId}`), errs.length && sent === 0 ? 3200 : 1800);
         }
       } catch (err) {
         const friendly = mapDeployCallError(err);
         setMsg(friendly);
-        setToast({ kind: "err", text: friendly });
+        showToast("err", friendly);
       } finally {
         setBusy(false);
       }
@@ -369,6 +363,7 @@ export function TeacherAssignmentNewPage() {
       selectedStudentIds,
       recipientRows,
       navigate,
+      showToast,
     ],
   );
 
@@ -527,16 +522,6 @@ export function TeacherAssignmentNewPage() {
           </div>
         </form>
         {msg ? <p className={styles.err}>{msg}</p> : null}
-
-        {toast ? (
-          <div
-            className={`${styles.deployToast} ${toast.kind === "ok" ? styles.deployToastOk : toast.kind === "warn" ? styles.deployToastWarn : styles.deployToastErr}`}
-            role="status"
-            aria-live="polite"
-          >
-            {toast.text}
-          </div>
-        ) : null}
       </main>
     </DashboardShell>
   );

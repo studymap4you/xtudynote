@@ -53,7 +53,7 @@ export const SignalLogicAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
     <div ref={ref} className={styles.root}>
       <header className={styles.docHeader}>
         <span className={styles.brandMain}>
-          XtudyNote <span className={styles.brandAccent}>|</span> KSAT 영어 분석 리포트
+          Xtudy-Universe <span className={styles.brandAccent}>|</span> KSAT 영어 분석 리포트
         </span>
         <span className={styles.brandSub}>Binary Logic · One-shot Signals</span>
       </header>
@@ -259,7 +259,7 @@ export const SignalLogicAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
         className={styles.printRunningFooter}
         title="Chromium·Edge 등에서는 인쇄 대화상자의「머리글 및 바닥글」에서도 페이지 번호를 켤 수 있습니다."
       >
-        [XtudyNote - 지식 큐레이터 엑스플로어]
+        [Xtudy-Universe · 지식 큐레이터]
       </footer>
     </div>
   );

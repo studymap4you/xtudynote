@@ -1,4 +1,11 @@
 :root {
+  /* Xtudy-Universe — bright shell tokens */
+  --xu-accent: #007aff;
+  --xu-accent-warm: #ff9500;
+  --xu-bg-page: #f8fafc;
+  --xu-ink: #1e293b;
+  --xu-border-pastel: rgba(0, 122, 255, 0.12);
+
   /* Deep navy shell — intro, dashboard, modals */
   --bg-deep: #0a1224;
   --bg-panel: #0f1a30;
@@ -17,9 +24,9 @@
   --success: #4ade80;
   --radius-lg: 20px;
   --radius-md: 12px;
-  /* Noto Sans 계열 — 라틴 + 한글 */
-  --font-sans: "Noto Sans KR", "Noto Sans", "Apple SD Gothic Neo", "Malgun Gothic", system-ui,
-    sans-serif;
+  /* Pretendard 우선 — 밝은 UI 본문 */
+  --font-sans: "Pretendard", "Noto Sans KR", "Noto Sans", "Apple SD Gothic Neo", "Malgun Gothic",
+    system-ui, sans-serif;
   --font-display: var(--font-sans);
   --font-body: var(--font-sans);
   /* Rich text / 폼 본문 — Pretendard 우선 */
@@ -163,6 +170,37 @@ input[type="password"],
 input[type="number"],
 input[type="email"] {
   font-family: var(--font-editor);
+}
+
+/* —— Xtudy-Universe 공통 토스트 —— */
+.xu-toast {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  max-width: min(520px, calc(100vw - 2rem));
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  font-family: var(--font-editor);
+  color: var(--xu-ink);
+}
+.xu-toast--ok {
+  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 100%);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+.xu-toast--warn {
+  background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
+  border-color: rgba(251, 146, 60, 0.28);
+}
+.xu-toast--err {
+  background: linear-gradient(180deg, #fef2f2 0%, #fff1f2 100%);
+  border-color: rgba(248, 113, 113, 0.35);
 }
 
 .app-shell {

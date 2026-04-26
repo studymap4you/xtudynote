@@ -38,7 +38,7 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
 
   const printReport = useReactToPrint({
     contentRef: previewRef,
-    documentTitle: "XtudyNote_Passage_Deep_Analysis",
+    documentTitle: "Xtudy-Universe_Passage_Deep_Analysis",
     pageStyle: REACT_TO_PRINT_A4_PAGE_STYLE,
     onBeforePrint: async () => {
       setPdfBusy(true);

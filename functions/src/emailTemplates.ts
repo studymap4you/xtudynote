@@ -11,7 +11,7 @@ export function buildWorksheetOutreachEmailHtml(opts: {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>XtudyNote — 과제 안내</title>
+  <title>Xtudy-Universe — 과제 안내</title>
 </head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Roboto,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:24px 12px;">
@@ -21,9 +21,9 @@ export function buildWorksheetOutreachEmailHtml(opts: {
           <tr>
             <td style="padding:22px 24px 12px;background:linear-gradient(180deg,#eff6ff 0%,#ffffff 100%);border-bottom:1px solid #e2e8f0;">
               <div style="font-size:20px;font-weight:800;letter-spacing:-0.03em;color:#0f172a;">
-                <span style="color:#2563eb;">Xtudy</span>Note
+                <span style="color:#2563eb;">Xtudy</span>-Universe
               </div>
-              <div style="font-size:11px;font-weight:600;color:#64748b;margin-top:4px;letter-spacing:0.04em;">엑스터디노트</div>
+              <div style="font-size:11px;font-weight:600;color:#64748b;margin-top:4px;letter-spacing:0.04em;">엑스터디 유니버스</div>
             </td>
           </tr>
           <tr>
@@ -51,7 +51,7 @@ export function buildWorksheetOutreachEmailHtml(opts: {
           </tr>
           <tr>
             <td style="padding:14px 24px 18px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center;">
-              © XtudyNote · 본 메일은 학습 안내 목적으로 발송되었습니다.
+              © Xtudy-Universe · 본 메일은 학습 안내 목적으로 발송되었습니다.
             </td>
           </tr>
         </table>

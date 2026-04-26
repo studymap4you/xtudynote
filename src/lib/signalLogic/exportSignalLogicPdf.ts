@@ -2,11 +2,11 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 
 /**
- * XtudyNote KSAT 리포트 규격: DOM을 캡처해 A4 PDF로 분할 저장.
+ * Xtudy-Universe KSAT 리포트 규격: DOM을 캡처해 A4 PDF로 분할 저장.
  */
 export async function exportSignalLogicPdfFromElement(
   element: HTMLElement,
-  filename = "XtudyNote_KSAT_Analysis_Report.pdf",
+  filename = "Xtudy-Universe_KSAT_Analysis_Report.pdf",
 ): Promise<void> {
   const canvas = await html2canvas(element, {
     scale: 2,

@@ -595,7 +595,14 @@ service cloud.firestore {
 
     // ——— classrooms (강의실 개설·입장) ———
     match /classrooms/{classroomId} {
-      allow read: if isSignedInActiveAccount();
+      /** 소유자·멤버·슈퍼관리자만 문서 읽기 — 목록도 동일 규칙으로 필터 */
+      allow read: if isActiveSuperAdmin()
+        || (isSignedInActiveAccount() && resource.data.teacherId == request.auth.uid)
+        || (
+          isSignedInActiveAccount()
+          && 'memberStudentIds' in resource.data
+          && request.auth.uid in resource.data.memberStudentIds
+        );
 
       /** 승인 선생님 또는 슈퍼관리자(앱의 TeacherRoute·자료 관리와 동일) */
       allow create: if (isActiveTeacher() || isActiveSuperAdmin())

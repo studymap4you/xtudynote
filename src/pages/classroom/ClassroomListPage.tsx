@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   collection,
   onSnapshot,
   orderBy,
   query,
+  where,
   type Timestamp,
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,42 +27,122 @@ function formatAt(raw: unknown): string {
   return "—";
 }
 
+function createdMs(r: Row): number {
+  const c = r.createdAt as { toMillis?: () => number } | undefined;
+  return c?.toMillis?.() ?? 0;
+}
+
 export function ClassroomListPage() {
-  const { firebaseUser, isTeacherApproved } = useAuth();
-  const [rows, setRows] = useState<Row[]>([]);
+  const { firebaseUser, isTeacherApproved, isSuperAdmin } = useAuth();
+  const [rowsOwn, setRowsOwn] = useState<Row[]>([]);
+  const [rowsMem, setRowsMem] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
+  const mergedRows = useMemo(() => {
+    const m = new Map<string, Row>();
+    for (const r of rowsOwn) m.set(r.id, r);
+    for (const r of rowsMem) m.set(r.id, r);
+    return Array.from(m.values()).sort((a, b) => createdMs(b) - createdMs(a));
+  }, [rowsOwn, rowsMem]);
+
   useEffect(() => {
+    if (!firebaseUser?.uid) {
+      setRowsOwn([]);
+      setRowsMem([]);
+      setLoading(false);
+      return;
+    }
+    const uid = firebaseUser.uid;
     setLoading(true);
-    const q = query(collection(db, "classrooms"), orderBy("createdAt", "desc"));
+    setErr(null);
+
+    if (isSuperAdmin) {
+      const q = query(collection(db, "classrooms"), orderBy("createdAt", "desc"));
+      const unsub = onSnapshot(
+        q,
+        (snap) => {
+          const list: Row[] = [];
+          snap.forEach((d) => list.push({ id: d.id, ...(d.data() as ClassroomDocument) }));
+          setRowsOwn(list);
+          setRowsMem([]);
+          setLoading(false);
+        },
+        (e) => {
+          setErr(e.message || "목록을 불러오지 못했습니다.");
+          setLoading(false);
+        },
+      );
+      return () => unsub();
+    }
+
+    if (isTeacherApproved) {
+      const qOwn = query(collection(db, "classrooms"), where("teacherId", "==", uid));
+      const qMem = query(collection(db, "classrooms"), where("memberStudentIds", "array-contains", uid));
+      const u1 = onSnapshot(
+        qOwn,
+        (snap) => {
+          const list: Row[] = [];
+          snap.forEach((d) => list.push({ id: d.id, ...(d.data() as ClassroomDocument) }));
+          setRowsOwn(list);
+          setLoading(false);
+        },
+        (e) => {
+          setErr(e.message || "목록을 불러오지 못했습니다.");
+          setLoading(false);
+        },
+      );
+      const u2 = onSnapshot(
+        qMem,
+        (snap) => {
+          const list: Row[] = [];
+          snap.forEach((d) => list.push({ id: d.id, ...(d.data() as ClassroomDocument) }));
+          setRowsMem(list);
+          setLoading(false);
+        },
+        (e) => {
+          setErr(e.message || "목록을 불러오지 못했습니다.");
+          setLoading(false);
+        },
+      );
+      return () => {
+        u1();
+        u2();
+      };
+    }
+
+    const qMem = query(collection(db, "classrooms"), where("memberStudentIds", "array-contains", uid));
     const unsub = onSnapshot(
-      q,
+      qMem,
       (snap) => {
         const list: Row[] = [];
         snap.forEach((d) => list.push({ id: d.id, ...(d.data() as ClassroomDocument) }));
-        setRows(list);
+        setRowsOwn([]);
+        setRowsMem(list);
         setLoading(false);
-        setErr(null);
       },
       (e) => {
         setErr(e.message || "목록을 불러오지 못했습니다.");
         setLoading(false);
-      }
+      },
     );
     return () => unsub();
-  }, []);
+  }, [firebaseUser?.uid, isTeacherApproved, isSuperAdmin]);
 
   return (
     <DashboardShell light>
       <main className="admin-layout classroom-page admin-layout--light">
         <div className="admin-layout__title-row">
-          <h1>강의실</h1>
-          <span className="ui-ko">개설된 강의실 목록 · 입장 후 자료를 이용하세요</span>
+          <h1>내 강의실</h1>
+          <span className="ui-ko">
+            {isTeacherApproved
+              ? "개설한 강의실과 멤버로 참여 중인 강의실"
+              : "선생님이 멤버로 등록한 강의실만 표시됩니다"}
+          </span>
         </div>
         <p className="classroom-page__lede">
-          로그인한 학습자는 아래 강의실에 입장할 수 있습니다.{" "}
-          <strong>유료</strong>로 표시된 자료는 상세 페이지에서 안내된 결제·구매 절차를 따라야 합니다.
+          수강이 승인된 강의실에서만 자료와 과제를 이용할 수 있습니다.{" "}
+          <strong>유료</strong> 자료는 상세 페이지의 안내에 따라 결제·구매 절차를 진행해 주세요.
         </p>
         {isTeacherApproved && (
           <p className="classroom-page__teacher-hint">
@@ -77,11 +158,15 @@ export function ClassroomListPage() {
             <div className="route-loading__spinner" />
             <p className="ui-ko">불러오는 중…</p>
           </div>
-        ) : rows.length === 0 ? (
-          <p style={{ color: "var(--light-text-muted, #6b7280)" }}>아직 개설된 강의실이 없습니다.</p>
+        ) : mergedRows.length === 0 ? (
+          <p style={{ color: "var(--light-text-muted, #6b7280)" }}>
+            {isTeacherApproved
+              ? "아직 개설한 강의실이 없고, 멤버로 등록된 강의실도 없습니다."
+              : "멤버로 등록된 강의실이 없습니다. 선생님께 UID 등록을 요청해 주세요."}
+          </p>
         ) : (
           <ul className="classroom-page__list">
-            {rows.map((r) => (
+            {mergedRows.map((r) => (
               <li key={r.id} className="classroom-page__card">
                 <div>
                   <h2 className="classroom-page__card-title">{r.title}</h2>

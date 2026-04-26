@@ -34,7 +34,7 @@ function hasVideoLink(c: ContentDocument): boolean {
 
 export function ClassroomDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { firebaseUser, isTeacherApproved } = useAuth();
+  const { firebaseUser, isTeacherApproved, isSuperAdmin } = useAuth();
   const [room, setRoom] = useState<(ClassroomDocument & { id: string }) | null>(null);
   const [contents, setContents] = useState<ContentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,8 +43,16 @@ export function ClassroomDetailPage() {
 
   const isOwner = useMemo(
     () => !!(room && firebaseUser && room.teacherId === firebaseUser.uid),
-    [room, firebaseUser]
+    [room, firebaseUser],
   );
+
+  const canAccessRoom = useMemo(() => {
+    if (!room || !firebaseUser) return false;
+    if (isSuperAdmin) return true;
+    if (room.teacherId === firebaseUser.uid) return true;
+    const ids = room.memberStudentIds ?? [];
+    return ids.includes(firebaseUser.uid);
+  }, [room, firebaseUser, isSuperAdmin]);
 
   useEffect(() => {
     if (!id) return;
@@ -148,7 +156,15 @@ export function ClassroomDetailPage() {
             <div className="route-loading__spinner" />
             <p className="ui-ko">불러오는 중…</p>
           </div>
-        ) : !room ? null : (
+        ) : !room ? null : !canAccessRoom ? (
+          <div className="admin-layout__title-row">
+            <h1>입장 불가</h1>
+            <p className="classroom-page__lede">
+              이 강의실은 멤버로 등록된 학습자만 열람할 수 있습니다. 선생님께 멤버 등록을 요청하거나{" "}
+              <Link to="/classroom">내 강의실 목록</Link>으로 돌아가 주세요.
+            </p>
+          </div>
+        ) : (
           <>
             <div className="admin-layout__title-row">
               <h1>{room.title}</h1>

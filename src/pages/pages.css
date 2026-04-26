@@ -46,7 +46,7 @@
   }
 }
 
-/* —— Landing shell: XtudyNote 2.0 — 화이트·연그레이 · 로열 블루 + 에메랄드 —— */
+/* —— Landing shell: Xtudy-Universe — 밝은 화이트 · 액센트 블루 —— */
 .app-shell--landing {
   --premium-ink: #0f172a;
   --premium-ink-soft: #334155;
@@ -338,6 +338,17 @@
   letter-spacing: -0.02em;
   word-break: keep-all;
   color: var(--premium-ink-muted);
+}
+.intro-hero__slogan--universe {
+  max-width: 34rem;
+}
+.intro-hero__lede--universe {
+  letter-spacing: 0.04em;
+  color: #cbd5e1;
+  max-width: 32rem;
+}
+.intro-hero__lede--second {
+  margin-top: 0.4rem;
 }
 .intro-hero__share {
   margin-top: var(--space-2);
@@ -1407,6 +1418,47 @@ button.top-nav__auth-link--logout:hover {
 .top-nav__admin-btn {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 28px rgba(94, 184, 236, 0.22);
 }
+
+/* Xtudy-Universe — 중앙 네비 클러스터 */
+.top-nav__main-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.35rem 0.45rem;
+}
+.top-nav__signal-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 17rem;
+  text-align: center;
+  gap: 0.12rem;
+}
+.top-nav__signal-link {
+  width: 100%;
+}
+.top-nav__signal-sub {
+  margin: 0;
+  font-size: 0.58rem;
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  max-width: 16.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.top-nav__nav-warm {
+  border-color: rgba(255, 149, 0, 0.38) !important;
+  background: rgba(255, 149, 0, 0.1) !important;
+}
+.top-nav__nav-warm:hover {
+  background: rgba(255, 149, 0, 0.16) !important;
+  border-color: rgba(255, 149, 0, 0.5) !important;
+}
+
 @media (max-width: 960px) {
   .top-nav--split {
     grid-template-columns: 1fr;
@@ -3136,11 +3188,14 @@ button.top-nav__auth-link--logout:hover {
   color: var(--light-text);
 }
 .app-shell--light .top-nav {
-  background: rgba(255, 255, 255, 0.92);
-  border-bottom-color: var(--light-border);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset;
+  background: rgba(248, 250, 252, 0.88);
+  border-bottom: 1px solid rgba(0, 122, 255, 0.12);
+  backdrop-filter: saturate(1.15) blur(16px);
+  -webkit-backdrop-filter: saturate(1.15) blur(16px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+}
+.app-shell--light .top-nav__signal-sub {
+  color: #64748b;
 }
 .app-shell--light .top-nav--split .top-nav__center .btn--ghost {
   border-color: rgba(15, 23, 42, 0.08);
@@ -4331,7 +4386,7 @@ button.top-nav__auth-link--logout:hover {
   flex-wrap: wrap;
 }
 
-/* —— XtudyNote 2.0 Marketplace (landing) —— */
+/* —— Xtudy-Universe Marketplace (landing) —— */
 .mp-search {
   width: 100%;
   max-width: var(--mp-landing-max);

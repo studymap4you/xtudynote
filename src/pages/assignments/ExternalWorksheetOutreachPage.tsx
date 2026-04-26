@@ -23,7 +23,7 @@ export function ExternalWorksheetOutreachPage() {
 
   const printWorksheet = useReactToPrint({
     contentRef: captureRef,
-    documentTitle: () => "XtudyNote_Worksheet",
+    documentTitle: () => "Xtudy-Universe_Worksheet",
     pageStyle: REACT_TO_PRINT_A4_PAGE_STYLE,
     onBeforePrint: async () => setPdfBusy(true),
     onAfterPrint: () => setPdfBusy(false),
@@ -66,7 +66,7 @@ export function ExternalWorksheetOutreachPage() {
     <DashboardShell light>
       <main className={styles.main}>
         <h1 className={styles.title} style={{ marginTop: "0.35rem" }}>
-          XtudyNote 학습지
+          Xtudy-Universe 학습지
         </h1>
         <p className={styles.meta}>
           선생님이 보내신 분석 자료입니다. 아래 내용을 확인한 뒤 PDF로 저장하거나 인쇄할 수 있습니다. (읽기 전용)
@@ -85,9 +85,9 @@ export function ExternalWorksheetOutreachPage() {
             <div ref={captureRef} className={`${styles.capture} ${styles.captureA4}`}>
               <header className={styles.captureBrand}>
                 <span className={styles.captureBrandMain}>
-                  XtudyNote <span className={styles.captureBrandAccent}>|</span> 학습지
+                  Xtudy-Universe <span className={styles.captureBrandAccent}>|</span> 학습지
                 </span>
-                <span className={styles.captureBrandSub}>엑스터디노트 · 외부 수신용 (정답 미포함)</span>
+                <span className={styles.captureBrandSub}>엑스터디 유니버스 · 외부 수신용 (정답 미포함)</span>
               </header>
               <div className={`${styles.passage} ${styles.captureSection}`}>{payload.passage}</div>
 
@@ -109,7 +109,7 @@ export function ExternalWorksheetOutreachPage() {
                         padding: "0.75rem",
                       }}
                     >
-                      인쇄 후 이 영역에 필기하거나, XtudyNote에 가입하면 앱에서 손글씨로 작성할 수 있습니다.
+                      인쇄 후 이 영역에 필기하거나, Xtudy-Universe에 가입하면 앱에서 손글씨로 작성할 수 있습니다.
                     </div>
                   ) : (
                     <div
@@ -124,9 +124,9 @@ export function ExternalWorksheetOutreachPage() {
                 </div>
               ))}
               <p className={styles.captureScreenHint}>
-                PDF·인쇄 시 가이드선은 사라집니다. 계속 학습하려면 XtudyNote에 가입해 주세요.
+                PDF·인쇄 시 가이드선은 사라집니다. 계속 학습하려면 Xtudy-Universe에 가입해 주세요.
               </p>
-              <footer className={styles.capturePrintFooter}>[XtudyNote - 지식 큐레이터 엑스플로어]</footer>
+              <footer className={styles.capturePrintFooter}>[Xtudy-Universe · 지식 큐레이터]</footer>
             </div>
 
             <div className={styles.actions}>
@@ -134,7 +134,7 @@ export function ExternalWorksheetOutreachPage() {
                 {pdfBusy ? "PDF 준비 중…" : "과제 PDF(인쇄)"}
               </button>
               <Link to="/" className="btn btn--ghost btn--stack">
-                XtudyNote 홈
+                Xtudy-Universe 홈
               </Link>
             </div>
           </>

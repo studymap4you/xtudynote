@@ -40,7 +40,7 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
 
   const printAnalysis = useReactToPrint({
     contentRef: previewRef,
-    documentTitle: "XtudyNote_KSAT_Analysis_Report",
+    documentTitle: "Xtudy-Universe_KSAT_Analysis_Report",
     pageStyle: REACT_TO_PRINT_A4_PAGE_STYLE,
     onBeforePrint: async () => {
       setPdfBusy(true);
@@ -177,7 +177,7 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
             <h2 id={titleId} className={styles.title}>
               Signal Logic <span className={styles.titleAccent}>분석</span>
             </h2>
-            <p className={styles.sub}>지문 입력 → AI 분석 및 문서 생성 · XtudyNote KSAT 리포트 규격</p>
+            <p className={styles.sub}>지문 입력 → AI 분석 및 문서 생성 · Xtudy-Universe KSAT 리포트 규격</p>
           </div>
           <button type="button" className={styles.close} aria-label="닫기" onClick={onClose}>
             ×

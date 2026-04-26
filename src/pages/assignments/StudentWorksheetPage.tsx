@@ -40,7 +40,8 @@ export function StudentWorksheetPage() {
 
   const printWorksheet = useReactToPrint({
     contentRef: captureRef,
-    documentTitle: () => (assignmentId ? `XtudyNote_Worksheet_${assignmentId.slice(0, 8)}` : "XtudyNote_Worksheet"),
+    documentTitle: () =>
+      assignmentId ? `Xtudy-Universe_Worksheet_${assignmentId.slice(0, 8)}` : "Xtudy-Universe_Worksheet",
     pageStyle: REACT_TO_PRINT_A4_PAGE_STYLE,
     onBeforePrint: async () => {
       setPdfBusy(true);
@@ -217,7 +218,7 @@ export function StudentWorksheetPage() {
         <div ref={captureRef} className={`${styles.capture} ${styles.captureA4}`}>
           <header className={styles.captureBrand}>
             <span className={styles.captureBrandMain}>
-              XtudyNote <span className={styles.captureBrandAccent}>|</span> 학습지
+              Xtudy-Universe <span className={styles.captureBrandAccent}>|</span> 학습지
             </span>
             <span className={styles.captureBrandSub}>학생용 · 정답·모범답 미포함</span>
           </header>
@@ -264,7 +265,7 @@ export function StudentWorksheetPage() {
             className={styles.capturePrintFooter}
             title="Chromium·Edge 등에서는 인쇄 대화상자의「머리글 및 바닥글」에서도 페이지 번호를 켤 수 있습니다."
           >
-            [XtudyNote - 지식 큐레이터 엑스플로어]
+            [Xtudy-Universe · 지식 큐레이터]
           </footer>
         </div>
 

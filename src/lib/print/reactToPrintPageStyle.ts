@@ -11,7 +11,7 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
       font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif;
       font-size: 8.5pt;
       color: #64748b;
-      content: "[XtudyNote - 지식 큐레이터 엑스플로어] | " counter(page);
+      content: "[Xtudy-Universe · 지식 큐레이터] | " counter(page);
     }
   }
   @media print {

@@ -19,6 +19,12 @@ import {
   SITE_CONFIG_COLLECTION,
   SITE_CONFIG_HOME_DOC,
 } from "@/lib/siteConfig";
+import {
+  BRAND_HERO_SUBLINE_1,
+  BRAND_HERO_SUBLINE_2,
+  BRAND_HERO_TITLE,
+  BRAND_SHARE_TITLE,
+} from "@/lib/brand";
 
 const SHORTCUTS = [
   { to: "/library", label: "라이브러리", tone: "a" as const },
@@ -31,7 +37,7 @@ const SHORTCUTS = [
   { to: "/#landing-features", label: "플랫폼 소개", tone: "h" as const },
 ] as const;
 
-const SHARE_TITLE = "XtudyNote — 모두에 의한 모두의 학습";
+const SHARE_TITLE = BRAND_SHARE_TITLE;
 
 const shareIconProps = {
   width: 20,
@@ -650,7 +656,7 @@ function IntroLandingPanel({ search, setSearch, onSearch, loginCardRef }: IntroL
 }
 
 /**
- * 랜딩 히어로 — 비대칭 레이아웃(좌 카피 / 우 기능), XtudyNote 2.0 라이트 마켓 톤
+ * 랜딩 히어로 — Xtudy-Universe 브라이트 마켓 톤
  */
 function clampLandingHeroPx(n: unknown): number | null {
   if (typeof n !== "number" || !Number.isFinite(n)) return null;
@@ -673,6 +679,7 @@ function useMediaMinWidth901(): boolean {
 }
 
 export function Intro() {
+  const { isTeacherApproved } = useAuth();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [landingHeroPath, setLandingHeroPath] = useState<string | null>(null);
@@ -771,7 +778,7 @@ export function Intro() {
           {hasSpotHero && landingHeroUrl ? (
             <>
               <h1 id="intro-slogan" className="intro-hero__sr-only">
-                XtudyNote — 모두에 의한 모두를 위한 모두의 학습. 모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
+                {BRAND_HERO_TITLE}. {BRAND_HERO_SUBLINE_1} {BRAND_HERO_SUBLINE_2}
               </h1>
               <div
                 className={`intro-hero__spot-hero intro-hero__spot-hero--fade${heroMaxW != null ? " intro-hero__spot-hero--capped-w" : ""}${hasSpotHero && isDesktopTwoCol && loginCardHeightPx != null ? " intro-hero__spot-hero--match-card" : ""}`}
@@ -791,40 +798,38 @@ export function Intro() {
               <p className="intro-hero__brand">
                 <BrandLockup />
               </p>
-              <h1 id="intro-slogan" className="intro-hero__slogan">
-                <span className="intro-hero__slogan-line">모두에 의한</span>
-                <span className="intro-hero__slogan-line">모두를 위한</span>
-                <span className="intro-hero__slogan-line intro-hero__slogan-line--final">
-                  <span className="intro-hero__slogan-accent">모두의 학습</span>
-                </span>
+              <h1 id="intro-slogan" className="intro-hero__slogan intro-hero__slogan--universe">
+                <span className="intro-hero__slogan-line intro-hero__slogan-line--final">{BRAND_HERO_TITLE}</span>
               </h1>
-              <p className="intro-hero__lede">
-                모든 과제가 기록되고, 모든 성장이 눈에 보입니다.
+              <p className="intro-hero__lede intro-hero__lede--universe">{BRAND_HERO_SUBLINE_1}</p>
+              <p className="intro-hero__lede intro-hero__lede--universe intro-hero__lede--second">
+                {BRAND_HERO_SUBLINE_2}
               </p>
             </>
           )}
           <IntroHeroShare />
           <div className="intro-hero__classroom">
-            <p className="intro-hero__share-label">강의실</p>
+            <p className="intro-hero__share-label">내 강의실</p>
             <div className="intro-hero__classroom-row">
               <Link
                 to="/classroom"
                 className="intro-hero__classroom-btn intro-hero__classroom-btn--enter"
               >
-                <span className="intro-hero__classroom-btn-en">Enter</span>
-                <span className="intro-hero__classroom-btn-ko">강의실 입장</span>
+                <span className="intro-hero__classroom-btn-en">My classroom</span>
+                <span className="intro-hero__classroom-btn-ko">내 강의실</span>
               </Link>
-              <Link
-                to="/classroom/new"
-                className="intro-hero__classroom-btn intro-hero__classroom-btn--create"
-              >
-                <span className="intro-hero__classroom-btn-en">Create</span>
-                <span className="intro-hero__classroom-btn-ko">강의실 개설</span>
-              </Link>
+              {isTeacherApproved ? (
+                <Link
+                  to="/classroom/new"
+                  className="intro-hero__classroom-btn intro-hero__classroom-btn--create"
+                >
+                  <span className="intro-hero__classroom-btn-en">Create</span>
+                  <span className="intro-hero__classroom-btn-ko">강의실 개설</span>
+                </Link>
+              ) : null}
             </div>
             <p className="intro-hero__classroom-hint">
-              입장은 로그인 후 목록에서 선택합니다. 개설은{" "}
-              <strong>승인된 선생님</strong> 계정에서 가능합니다.
+              내 강의실은 로그인 후 이용합니다. 강의실 개설은 <strong>승인된 선생님</strong> 계정에서만 표시됩니다.
             </p>
           </div>
         </div>

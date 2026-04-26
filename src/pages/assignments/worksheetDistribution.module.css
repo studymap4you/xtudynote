@@ -31,10 +31,10 @@
   line-height: 1.45;
 }
 
-/* 입력 행: 2 : 3 : 4 비율 + 추가 버튼 */
+/* 입력 행: 1 : 1 : 2 비율 + 추가 버튼 */
 .formGrid {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 4fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr) auto;
   gap: 0.55rem;
   align-items: end;
   margin-bottom: 0.75rem;
@@ -162,15 +162,15 @@
 }
 
 .colName {
-  width: 20%;
+  width: 25%;
 }
 
 .colPhone {
-  width: 18%;
+  width: 25%;
 }
 
 .colEmail {
-  width: 36%;
+  width: 34%;
   word-break: break-all;
 }
 

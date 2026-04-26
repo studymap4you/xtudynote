@@ -103,7 +103,7 @@ function IconCategory({ name }: { name: "k" | "g" | "p" | "a" }) {
 }
 
 /**
- * XtudyNote 2.0 — 중앙 검색 · 프리미엄 볼트 · 카테고리 · 랭킹 · 크리에이터
+ * Xtudy-Universe — 중앙 검색 · 프리미엄 볼트 · 카테고리 · 랭킹 · 크리에이터
  */
 export function MarketplaceSearchStrip() {
   const [q, setQ] = useState("");

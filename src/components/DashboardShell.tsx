@@ -15,7 +15,7 @@ export function DashboardShell({
   /** 관리자 서브화면: 은은한 배경·본문 글래스 카드 */
   adminChrome?: boolean;
 }) {
-  const { firebaseUser, logOut, isSuperAdmin } = useAuth();
+  const { firebaseUser, logOut } = useAuth();
 
   const shellClass = [light ? "app-shell app-shell--light" : "app-shell", adminChrome ? "app-shell--admin" : ""]
     .filter(Boolean)
@@ -28,18 +28,12 @@ export function DashboardShell({
           <BrandLockup />
         </Link>
         <nav className="top-nav__center" aria-label="주요 메뉴">
-          <TopNavMainLinks homeworkKo="과제" />
+          <TopNavMainLinks homeworkKo="과제함" />
         </nav>
         <div className="top-nav__tail">
           <span className="top-nav__email" title={firebaseUser?.email ?? ""}>
             {firebaseUser?.email}
           </span>
-          {isSuperAdmin && (
-            <Link to="/admin" className="btn btn--primary btn--stack top-nav__admin-btn">
-              <span className="ui-en">Admin Panel</span>
-              <span className="ui-ko">관리자</span>
-            </Link>
-          )}
           <button type="button" className="btn btn--ghost btn--stack" onClick={() => logOut()}>
             <span className="ui-en">Log out</span>
             <span className="ui-ko">로그아웃</span>

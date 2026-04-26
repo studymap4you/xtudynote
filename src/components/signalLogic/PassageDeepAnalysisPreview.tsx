@@ -52,7 +52,7 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
     <div ref={ref} className={`passage-deep-print ${styles.root}`}>
       <header className={styles.docHeader}>
         <span className={styles.brandMain}>
-          XtudyNote <span className={styles.brandAccent}>|</span> 지문 심층 분석
+          Xtudy-Universe <span className={styles.brandAccent}>|</span> 지문 심층 분석
         </span>
         <span className={styles.brandSub}>문장 단위 · 의미 단위(/) · 직독·해석·어휘·문법</span>
       </header>
@@ -172,7 +172,7 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
         className={styles.printRunningFooter}
         title="Chromium·Edge 등에서는 인쇄 대화상자의「머리글 및 바닥글」에서도 페이지 번호를 켤 수 있습니다."
       >
-        [XtudyNote - 지식 큐레이터 엑스플로어]
+        [Xtudy-Universe · 지식 큐레이터]
       </footer>
     </div>
   );

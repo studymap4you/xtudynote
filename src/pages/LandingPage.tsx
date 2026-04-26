@@ -40,7 +40,7 @@ export function LandingPage() {
         <Link
           to="/"
           className="top-nav__brand top-nav__brand--landing"
-          aria-label="XtudyNote 엑스터디노트 홈"
+          aria-label="Xtudy-Universe 엑스터디 유니버스 홈"
         >
           <BrandLockup />
         </Link>
