@@ -19,6 +19,30 @@ function normalizeMeaningUnits(raw: unknown): string[] {
   return [];
 }
 
+/** meaningUnits 길이에 맞춰 직독직해 조각 배열 정렬 (레거시 단일 문자열은 `/` 또는 쉼표로 분할 시도) */
+function alignLiteralTranslationUnits(
+  meaningUnits: string[],
+  unitsRaw: unknown,
+  legacySingle: unknown,
+): string[] {
+  const n = meaningUnits.length;
+  if (n === 0) return [];
+
+  let parts: string[] = [];
+  if (Array.isArray(unitsRaw) && unitsRaw.length > 0) {
+    parts = unitsRaw.map((x) => String(x).trim());
+  } else if (typeof legacySingle === "string" && legacySingle.trim()) {
+    const t = legacySingle.trim();
+    parts = t.split(/\s*\/\s*/).map((s) => s.trim()).filter(Boolean);
+    if (parts.length === 1 && n > 1) {
+      const byComma = parts[0].split(/\s*,\s*/u).map((s) => s.trim()).filter(Boolean);
+      if (byComma.length === n) parts = byComma;
+    }
+  }
+
+  return Array.from({ length: n }, (_, i) => (parts[i] ?? "").trim() || "—");
+}
+
 /** 객체 형태 또는 구 단일 string(레거시) → 병기 블록 */
 function normalizeBilingual(raw: unknown, legacyString?: string): PassageDeepBilingualBlock {
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
@@ -128,11 +152,17 @@ function normalizeSentence(raw: unknown, fallbackIndex: number): PassageDeepSent
   const sentenceEnglish = String(o.sentenceEnglish ?? "").trim();
   if (!sentenceEnglish) return null;
   const idx = Number(o.sentenceIndex);
+  const meaningUnits = normalizeMeaningUnits(o.meaningUnits);
+  const literalTranslationUnits = alignLiteralTranslationUnits(
+    meaningUnits,
+    o.literalTranslationUnits ?? o.literalTranslationChunks,
+    o.literalTranslation,
+  );
   return {
     sentenceIndex: Number.isFinite(idx) && idx > 0 ? Math.floor(idx) : fallbackIndex,
     sentenceEnglish,
-    meaningUnits: normalizeMeaningUnits(o.meaningUnits),
-    literalTranslation: String(o.literalTranslation ?? "").trim() || "—",
+    meaningUnits,
+    literalTranslationUnits,
     professionalInterpretation: String(o.professionalInterpretation ?? "").trim() || "—",
     keyVocabItems: normalizeKeyVocabItems(o),
   };

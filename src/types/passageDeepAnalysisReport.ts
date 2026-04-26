@@ -17,8 +17,8 @@ export type PassageDeepSentenceBlock = {
   sentenceEnglish: string;
   /** 의미 단위로 나눈 조각 — 화면에서는 ` / ` 로 이어서 표시 */
   meaningUnits: string[];
-  /** 직독직해 */
-  literalTranslation: string;
+  /** 직독직해 — meaningUnits와 같은 길이·순서: i번째 한국어 직역이 meaningUnits[i]에 대응 */
+  literalTranslationUnits: string[];
   /** 전문 해석 */
   professionalInterpretation: string;
   /** 주요 어휘·표현 (항목별 영어 + 한국어 해설) */

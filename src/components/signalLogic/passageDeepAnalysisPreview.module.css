@@ -235,7 +235,7 @@
 }
 
 .meaningSlash {
-  margin: 0 0 0.55rem;
+  margin: 0;
   padding: 0.45rem 0.55rem;
   font-size: 0.88rem;
   line-height: 1.55;
@@ -243,6 +243,14 @@
   border: 1px dashed rgba(37, 99, 235, 0.25);
   border-radius: 8px;
   color: #1e3a8a;
+}
+
+.literalSlash {
+  margin-top: 0;
+  background: linear-gradient(180deg, #f0fdf9 0%, #ecfdf5 100%);
+  border: 1px dashed rgba(13, 148, 136, 0.35);
+  color: #0f766e;
+  font-weight: 500;
 }
 
 .subBlock {

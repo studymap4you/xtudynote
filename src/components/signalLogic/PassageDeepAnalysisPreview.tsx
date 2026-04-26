@@ -90,19 +90,24 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
               <article key={s.sentenceIndex} className={styles.sentenceCard}>
                 <div className={styles.sentenceHead}>문장 {s.sentenceIndex}</div>
                 <p className={styles.sentenceEn}>{s.sentenceEnglish}</p>
-                <div className={styles.meaningSlash} aria-label="의미 단위">
-                  {s.meaningUnits.length > 0 ? s.meaningUnits.join(" / ") : "—"}
+                <div className={styles.subBlock}>
+                  <div className={styles.subLabel}>의미 단위 (영문)</div>
+                  <div className={styles.meaningSlash} aria-label="의미 단위 영문">
+                    {s.meaningUnits.length > 0 ? s.meaningUnits.join(" / ") : "—"}
+                  </div>
                 </div>
                 <div className={styles.subBlock}>
-                  <div className={styles.subLabel}>직독직해</div>
-                  <p className={styles.subText}>{s.literalTranslation}</p>
+                  <div className={styles.subLabel}>직독직해 (한국어, 위와 동일 순서·구획)</div>
+                  <div className={`${styles.meaningSlash} ${styles.literalSlash}`} aria-label="직독직해 한국어">
+                    {s.literalTranslationUnits.length > 0 ? s.literalTranslationUnits.join(" / ") : "—"}
+                  </div>
                 </div>
                 <div className={styles.subBlock}>
                   <div className={styles.subLabel}>전문 해석</div>
                   <p className={styles.subText}>{s.professionalInterpretation}</p>
                 </div>
                 <div className={styles.subBlock}>
-                  <div className={styles.subLabel}>주요 어휘·표현 (영문 : 한국어)</div>
+                  <div className={styles.subLabel}>주요 어휘·표현</div>
                   <ul className={styles.exprList}>
                     {s.keyVocabItems.map((item, j) => (
                       <PairLineRow key={`${s.sentenceIndex}-v-${j}`} item={item} />
@@ -114,26 +119,26 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
           )}
         </section>
 
-        <section className={styles.sectionBlock} aria-labelledby="pd-summary">
-          <h3 id="pd-summary" className={styles.sectionTitle}>
-            4. 핵심 표현 정리 · 5. 핵심 문법·구문
+        <section className={styles.sectionBlock} aria-labelledby="pd-expr">
+          <h3 id="pd-expr" className={styles.sectionTitle}>
+            4. 핵심 표현 정리
           </h3>
-          <div className={styles.subBlock}>
-            <div className={styles.subLabel}>4. 핵심 표현 정리 (영문 : 한국어, 1:1)</div>
-            <ul className={styles.exprList}>
-              {report.keyExpressionsList.map((item, j) => (
-                <PairLineRow key={`expr-${j}`} item={item} />
-              ))}
-            </ul>
-          </div>
-          <div className={styles.subBlock}>
-            <div className={styles.subLabel}>5. 핵심 문법·구문 (영문 : 한국어, 1:1)</div>
-            <ul className={styles.exprList}>
-              {report.keyGrammarSyntaxList.map((item, j) => (
-                <PairLineRow key={`grm-${j}`} item={item} />
-              ))}
-            </ul>
-          </div>
+          <ul className={styles.exprList}>
+            {report.keyExpressionsList.map((item, j) => (
+              <PairLineRow key={`expr-${j}`} item={item} />
+            ))}
+          </ul>
+        </section>
+
+        <section className={styles.sectionBlock} aria-labelledby="pd-grm">
+          <h3 id="pd-grm" className={styles.sectionTitle}>
+            5. 핵심 문법·구문
+          </h3>
+          <ul className={styles.exprList}>
+            {report.keyGrammarSyntaxList.map((item, j) => (
+              <PairLineRow key={`grm-${j}`} item={item} />
+            ))}
+          </ul>
         </section>
       </div>
 

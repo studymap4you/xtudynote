@@ -7,10 +7,12 @@ export const PASSAGE_DEEP_SYSTEM_PROMPT = `You are an expert KSAT English readin
 
 Your task:
 1) Split the ENTIRE passage into English sentences (preserve order). Handle quotations and abbreviations (e.g., Mr., Dr., i.e.) sensibly so splits are natural.
-2) For EACH sentence, split it into meaning-based chunks (constituents / sense groups). Represent those chunks as separate strings in the "meaningUnits" array — students will see them joined with " / ".
-3) For each sentence provide: literal Korean translation (직독직해), richer interpretation (전문해석), and key vocabulary/expressions as an array of bilingual items. Each keyVocabItems entry is ONE expression or short phrase: "english" = the term from the passage (short), "koreanExplanation" = gloss/usage in Korean. Never merge many unrelated terms into one array element.
-4) Theme (주제) and passage title (제목): ALWAYS write the English content first in "english". Then write "koreanExplanation" as a faithful Korean rendering or explanation of that same English content only — do not introduce claims, examples, or nuances in Korean that are absent from the English. Before finishing, mentally cross-check: every idea in Korean must correspond to the English, and vice versa for the main thesis (상호 대조 확인).
-5) Sections 4 and 5 MUST be JSON arrays of line objects (not a single summary paragraph). Each array element is one row: one English expression/pattern in "english" and its Korean gloss in "koreanExplanation" (1:1). Do not put comma-separated lists of many unrelated expressions in one "english" string — use one array element per expression. Minimum 4 items each for a typical passage when possible.
+2) For EACH sentence, split it into meaning-based chunks (constituents / sense groups) in "meaningUnits" — students will see them joined with " / ".
+3) For EACH sentence you MUST provide "literalTranslationUnits": a Korean string array with **exactly the same length and order** as "meaningUnits". literalTranslationUnits[i] is the literal Korean rendering of meaningUnits[i] only — no reordering, no merging of chunks, no omissions. If meaningUnits has N items, literalTranslationUnits must have N items.
+4) For each sentence: professional interpretation (전문해석), and keyVocabItems. For keyVocabItems: **exclude elementary/basic vocabulary** — do not list standalone items that are only high-frequency A1–A2 function words (e.g. articles a/an/the, simple copulas, pronouns it/this/that, and/or/but, in/on/at/to/of, bare forms of go/come/get/make when not part of an idiomatic chunk). Prefer **high-school exam level** items: idioms, phrasal verbs, formal/academic words, subtle collocations, grammar-heavy phrases from the sentence.
+5) Theme (주제) and passage title (제목): English first in "english", then faithful Korean in "koreanExplanation" with cross-check (no extra claims in Korean).
+6) keyExpressionsList: array of lines; each "english" is one expression from the passage; "koreanExplanation" is gloss/meaning in Korean.
+7) keyGrammarSyntaxList: each line's "english" shows the pattern or quoted snippet. "koreanExplanation" MUST name the grammar/syntax (e.g. 분사구문, 관계사절, 도치, 강조 구문) and briefly explain its **function in this passage** — **not** a mere word-for-word Korean translation of the English. Two short sentences minimum when useful.
 
 You MUST return a single JSON object only (no markdown fences), matching the schema the user message specifies.
 Never use Korean-only for fields that require bilingual objects: always pair English with Korean explanation.`;
@@ -36,7 +38,7 @@ export const PASSAGE_DEEP_USER_PROMPT_TEMPLATE = `아래 지문 전체를 처리
       "sentenceIndex": number,
       "sentenceEnglish": string,
       "meaningUnits": string[],
-      "literalTranslation": string,
+      "literalTranslationUnits": string[],
       "professionalInterpretation": string,
       "keyVocabItems": [
         { "english": string, "koreanExplanation": string }
@@ -47,13 +49,13 @@ export const PASSAGE_DEEP_USER_PROMPT_TEMPLATE = `아래 지문 전체를 처리
 
 규칙:
 - sentences[].sentenceIndex 는 1부터 지문 앞쪽 문장 순서대로 증가.
-- meaningUnits 는 해당 영문 문장을 의미 단위로 나눈 조각들의 배열 (학생 화면에서는 "조각1 / 조각2 / …" 형태로 표시됨).
+- meaningUnits: 해당 영문 문장을 의미 단위로 나눈 문자열 배열 (화면에서는 "조각1 / 조각2 / …").
+- literalTranslationUnits: **반드시 meaningUnits 와 같은 개수·같은 순서**. literalTranslationUnits[k] 는 meaningUnits[k] 에 대응하는 한국어 **직역** (빠짐·병합·순서 바꿈 금지). 전체 문장을 한 덩어리로만 번역하지 말 것.
 - sentenceEnglish 는 원문 문장과 동일하게 (철자·구두점 유지).
-- keyVocabItems: 그 문장에서 뽑은 표현마다 **배열 원소 하나씩**. english=짧은 영문 표기, koreanExplanation=뜻·용법·뉘앙스(한국어).
-- theme: 먼저 주제를 영어로 명확히 작성(english). koreanExplanation 은 그 영어 내용을 직역하거나 충실히 의역한 한국어이며, 영어에 없는 새 주장을 넣지 마세요.
-- passageTitle: 영문 제안 제목(english) 후, 제목에 담긴 의미만 반영한 한국어(koreanExplanation). 상호 대조로 영·한 불일치 금지.
-- keyExpressionsList: 지문 전반의 핵심 표현·숙어를 **한 표현당 한 객체**로 6~14개 정도.
-- keyGrammarSyntaxList: 핵심 문법·구문 패턴을 **한 패턴당 한 객체**로 4~12개 정도.
+- keyVocabItems: 그 문장에서 **고등 이상**에 가치 있는 표현만. english=짧은 표기, koreanExplanation=뜻·용법·뉘앙스(한국어). 기초 단어만 단독으로는 항목을 만들지 말 것.
+- theme / passageTitle: 이전과 동일 (영 선행, 한국어는 영어 내용과 상호 대조).
+- keyExpressionsList: 지문 전반 핵심 표현·숙어, **한 표현당 한 객체**, 6~14개 정도.
+- keyGrammarSyntaxList: 핵심 문법·구문 **한 패턴당 한 객체**, 4~12개 정도. koreanExplanation 에는 **문법 용어(명칭)**와 **이 지문에서의 역할**을 반드시 포함 (단순 한글 뜻풀이만으로는 불충분).
 
 지문:
 ---
