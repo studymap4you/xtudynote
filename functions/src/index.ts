@@ -190,6 +190,10 @@ export const getExternalWorksheetByToken = onCall(
   },
 );
 
+/**
+ * HTTPS Callable (Gen2 `onCall`) — HTTP `onRequest`가 아님. 클라이언트는 반드시 `httpsCallable`로 호출.
+ * 보안: Cloud Run 공개 호출(invoker) + 본문에서 `request.auth` 검증.
+ */
 export const deployWorksheetOutreach = onCall(
   { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
   async (request) => {

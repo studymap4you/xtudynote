@@ -31,6 +31,7 @@ export type DeployWorksheetOutreachResult = {
   outreachEmailAttempted?: number;
 };
 
+/** Functions 쪽은 `onCall`(callable) — `fetch`/`onRequest`로 호출하지 않음. */
 export async function deployWorksheetOutreach(input: DeployWorksheetOutreachInput): Promise<DeployWorksheetOutreachResult> {
   const fn = httpsCallable(functions, "deployWorksheetOutreach");
   const res = await fn({
