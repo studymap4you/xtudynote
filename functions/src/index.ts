@@ -24,6 +24,31 @@ const gmailPass = defineString("GMAIL_PASS", { default: "" });
 
 const REGION = "asia-northeast3";
 
+/**
+ * Gen2 callable → Cloud Run. 비공개(invoker)이면 OPTIONS 프리플라이트가 막혀
+ * 브라우저에 "No Access-Control-Allow-Origin"처럼 보입니다. 공개 호출 허용 후
+ * 함수 본문에서 request.auth 로 보호합니다.
+ * @see https://cloud.google.com/run/docs/securing/managing-access
+ */
+const HTTPS_CALLABLE_CORS: (string | RegExp)[] = (() => {
+  const fromParam = appPublicOrigin.value().replace(/\/$/, "").trim();
+  const list: (string | RegExp)[] = [];
+  if (fromParam.startsWith("http://") || fromParam.startsWith("https://")) {
+    list.push(fromParam);
+  }
+  list.push(
+    "https://xtudynote.vercel.app",
+    "https://xtudynote.web.app",
+    "https://xtudynote.firebaseapp.com",
+    /^https:\/\/.+\.vercel\.app$/,
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+  );
+  return list;
+})();
+
 function assertTeacherOrSuper(profile: DocumentData | undefined): void {
   const role = profile?.role;
   const status = profile?.accountStatus;
@@ -108,7 +133,9 @@ function stripAnswerKeys(items: WorksheetItemIn[]): { id: string; kind: string; 
   return items.map(({ id, kind, prompt }) => ({ id, kind, prompt }));
 }
 
-export const lookupStudentByEmail = onCall({ region: REGION, cors: true }, async (request) => {
+export const lookupStudentByEmail = onCall(
+  { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
+  async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
   const prof = (await db.doc(`users/${request.auth.uid}`).get()).data();
   assertTeacherOrSuper(prof);
@@ -126,7 +153,7 @@ export const lookupStudentByEmail = onCall({ region: REGION, cors: true }, async
 });
 
 export const getExternalWorksheetByToken = onCall(
-  { region: REGION, cors: true, invoker: "public" },
+  { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
   async (request) => {
     const token = String(request.data?.token ?? "").trim();
     if (token.length < 16) throw new HttpsError("invalid-argument", "유효하지 않은 링크입니다.");
@@ -163,7 +190,9 @@ export const getExternalWorksheetByToken = onCall(
   },
 );
 
-export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, async (request) => {
+export const deployWorksheetOutreach = onCall(
+  { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
+  async (request) => {
   try {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
   const teacherId = request.auth.uid;
