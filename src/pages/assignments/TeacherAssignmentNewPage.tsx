@@ -5,11 +5,12 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { listClassroomsByTeacher, type ClassroomRow } from "@/lib/classroom/listTeacherClassrooms";
 import { db } from "@/firebase/config";
-import { createWorksheetAssignment } from "@/lib/worksheet/assignmentApi";
 import { buildDefaultWorksheetItems, buildWorksheetItemsFromAnalysis } from "@/lib/worksheet/buildWorksheetItems";
 import { normalizeAnalysisReport } from "@/lib/signalLogic/normalizeAnalysisReport";
 import { minimalAnalysisForAssignment } from "@/lib/worksheet/minimalAnalysis";
+import { deployWorksheetOutreach } from "@/lib/worksheet/worksheetOutreachCalls";
 import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
+import { DistributionRecipientsPanel, type RecipientDraft } from "@/pages/assignments/DistributionRecipientsPanel";
 import { TeacherStudentPicker } from "@/pages/assignments/TeacherStudentPicker";
 import styles from "@/pages/assignments/assignmentPages.module.css";
 
@@ -25,6 +26,7 @@ export function TeacherAssignmentNewPage() {
   const [passage, setPassage] = useState("");
   const [analysis, setAnalysis] = useState<SignalLogicAnalysisReportJson | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [recipientRows, setRecipientRows] = useState<RecipientDraft[]>([]);
   const [distributedLocal, setDistributedLocal] = useState(() => {
     const d = new Date();
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -108,8 +110,11 @@ export function TeacherAssignmentNewPage() {
         return;
       }
       const targets = [...new Set(selectedStudentIds.map((s) => s.trim()).filter((s) => s.length >= 8))];
-      if (targets.length === 0) {
-        setMsg("아래「대상 학생」에서 한 명 이상 선택하거나, 강의실 멤버를 끼워 넣어 주세요.");
+      const hasEmailRecipient = recipientRows.some((r) => r.email.trim().includes("@"));
+      if (targets.length === 0 && !hasEmailRecipient) {
+        setMsg(
+          "「가입 학생(체크리스트)」에서 한 명 이상 고르거나, 연락처 명단에 이메일이 있는 행을 추가해 주세요. (이메일 없이 전화만으로는 자동 발송이 되지 않습니다.)",
+        );
         return;
       }
       const dist = new Date(distributedLocal);
@@ -122,23 +127,27 @@ export function TeacherAssignmentNewPage() {
       setBusy(true);
       setMsg(null);
       try {
-        const id = await createWorksheetAssignment({
-          teacherId: uid,
+        const result = await deployWorksheetOutreach({
           title: title.trim() || "학습지",
           passage: p,
           analysis: an,
-          distributedAt: dist,
-          targetStudentIds: targets,
+          distributedAtMs: dist.getTime(),
           worksheetItems: items,
+          selectedStudentUids: targets,
+          recipients: recipientRows.map((r) => ({
+            displayName: r.displayName,
+            phone: r.phone,
+            email: r.email,
+          })),
         });
-        navigate(`/teacher/assignments/${id}`);
+        navigate(`/teacher/assignments/${result.assignmentId}`);
       } catch (err) {
         setMsg(err instanceof Error ? err.message : String(err));
       } finally {
         setBusy(false);
       }
     },
-    [uid, passage, selectedStudentIds, distributedLocal, title, analysis, navigate],
+    [uid, passage, selectedStudentIds, recipientRows, distributedLocal, title, analysis, navigate],
   );
 
   return (
@@ -149,8 +158,9 @@ export function TeacherAssignmentNewPage() {
           학습지 배포
         </h1>
         <p className={styles.meta}>
-          배포하면 대상 학생 목록이 과제에 저장되고, 학생은 <strong>/dashboard</strong> 과제함에서 본인에게 온 카드만
-          봅니다. 강의실 멤버·주소록·그룹·명단 파일로 대상을 고를 수 있습니다.
+          가입 학생은 <strong>/dashboard</strong> 과제함에 바로 표시되고, 미가입 이메일에는 학습지 링크가 담긴 안내
+          메일이 발송됩니다. (메일은 Firebase Cloud Functions + SMTP 설정이 필요합니다.) 연락처 정보는 담당 교사·마스터
+          계정만 조회할 수 있습니다.
         </p>
         {loadNote ? <p className={styles.ok}>{loadNote}</p> : null}
 
@@ -194,6 +204,10 @@ export function TeacherAssignmentNewPage() {
             </p>
           ) : null}
         </div>
+
+        {uid ? (
+          <DistributionRecipientsPanel rows={recipientRows} onChangeRows={setRecipientRows} disabled={busy} />
+        ) : null}
 
         {uid ? (
           <TeacherStudentPicker

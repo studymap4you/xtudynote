@@ -1,0 +1,301 @@
+import { randomBytes } from "node:crypto";
+import { initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { FieldValue, Timestamp, getFirestore, type DocumentData } from "firebase-admin/firestore";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { defineString } from "firebase-functions/params";
+import nodemailer from "nodemailer";
+import { buildWorksheetOutreachEmailHtml } from "./emailTemplates.js";
+
+initializeApp();
+const db = getFirestore();
+const authAdmin = getAuth();
+
+const appPublicOrigin = defineString("APP_PUBLIC_ORIGIN", { default: "http://localhost:3000" });
+const smtpHost = defineString("SMTP_HOST", { default: "" });
+const smtpPort = defineString("SMTP_PORT", { default: "587" });
+const smtpUser = defineString("SMTP_USER", { default: "" });
+const smtpPass = defineString("SMTP_PASS", { default: "" });
+const smtpSecure = defineString("SMTP_SECURE", { default: "false" });
+const mailFrom = defineString("MAIL_FROM", { default: "" });
+
+const REGION = "asia-northeast3";
+
+function assertTeacherOrSuper(profile: DocumentData | undefined): void {
+  const role = profile?.role;
+  const status = profile?.accountStatus;
+  if (status !== "active") {
+    throw new HttpsError("permission-denied", "활성 계정만 배포할 수 있습니다.");
+  }
+  if (role !== "teacher" && role !== "super_admin") {
+    throw new HttpsError("permission-denied", "선생님 또는 관리자만 배포할 수 있습니다.");
+  }
+}
+
+function normalizeEmail(e: string): string {
+  return e.trim().toLowerCase();
+}
+
+function randomTokenHex(bytes = 24): string {
+  return randomBytes(bytes).toString("hex");
+}
+
+async function getMailer() {
+  const host = smtpHost.value();
+  const from = mailFrom.value();
+  const pass = smtpPass.value();
+  const user = smtpUser.value();
+  if (!host || !from || !pass) return null;
+  const port = Number(smtpPort.value()) || 587;
+  const secure = smtpSecure.value() === "true" || port === 465;
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: user ? { user, pass } : { user: "", pass },
+  });
+}
+
+type WorksheetItemIn = { id: string; kind: string; prompt: string; answerKey?: string };
+
+function stripAnswerKeys(items: WorksheetItemIn[]): { id: string; kind: string; prompt: string }[] {
+  return items.map(({ id, kind, prompt }) => ({ id, kind, prompt }));
+}
+
+export const lookupStudentByEmail = onCall({ region: REGION, cors: true }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+  const prof = (await db.doc(`users/${request.auth.uid}`).get()).data();
+  assertTeacherOrSuper(prof);
+
+  const email = normalizeEmail(String(request.data?.email ?? ""));
+  if (!email || !email.includes("@")) {
+    throw new HttpsError("invalid-argument", "올바른 이메일을 입력해 주세요.");
+  }
+  try {
+    const u = await authAdmin.getUserByEmail(email);
+    return { uid: u.uid, registered: true };
+  } catch {
+    return { uid: null as string | null, registered: false };
+  }
+});
+
+export const getExternalWorksheetByToken = onCall(
+  { region: REGION, cors: true, invoker: "public" },
+  async (request) => {
+    const token = String(request.data?.token ?? "").trim();
+    if (token.length < 16) throw new HttpsError("invalid-argument", "유효하지 않은 링크입니다.");
+
+    const tokRef = db.doc(`external_worksheet_tokens/${token}`);
+    const tokSnap = await tokRef.get();
+    if (!tokSnap.exists) throw new HttpsError("not-found", "만료되었거나 잘못된 링크입니다.");
+
+    const td = tokSnap.data()!;
+    const exp = td.expiresAt as Timestamp | undefined;
+    if (exp && exp.toMillis() < Date.now()) {
+      throw new HttpsError("failed-precondition", "링크가 만료되었습니다.");
+    }
+
+    const aid = String(td.assignmentId ?? "");
+    if (!aid) throw new HttpsError("internal", "데이터 오류");
+
+    const asSnap = await db.doc(`assignments/${aid}`).get();
+    if (!asSnap.exists) throw new HttpsError("not-found", "과제를 찾을 수 없습니다.");
+
+    const a = asSnap.data()!;
+    const items = (a.worksheetItems ?? []) as WorksheetItemIn[];
+    const dist = a.distributedAt as Timestamp | undefined;
+    const distributedAtLabel = dist
+      ? dist.toDate().toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" })
+      : "—";
+
+    return {
+      title: String(a.title ?? "학습지"),
+      passage: String(a.passage ?? ""),
+      worksheetItems: stripAnswerKeys(items),
+      distributedAtLabel,
+    };
+  },
+);
+
+export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, async (request) => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+  const teacherId = request.auth.uid;
+  const prof = (await db.doc(`users/${teacherId}`).get()).data();
+  assertTeacherOrSuper(prof);
+
+  const title = String(request.data?.title ?? "").trim().slice(0, 200);
+  const passage = String(request.data?.passage ?? "").trim();
+  const analysis = request.data?.analysis;
+  const distributedAtMs = Number(request.data?.distributedAtMs);
+  const worksheetItems = request.data?.worksheetItems as WorksheetItemIn[] | undefined;
+  const selectedStudentUids = (request.data?.selectedStudentUids as string[] | undefined) ?? [];
+  const recipientsRaw = (request.data?.recipients as { displayName?: string; phone?: string; email?: string }[] | undefined) ?? [];
+
+  if (!title) throw new HttpsError("invalid-argument", "제목이 필요합니다.");
+  if (!passage || passage.length > 120_000) throw new HttpsError("invalid-argument", "지문이 비어 있거나 너무 깁니다.");
+  if (!analysis || typeof analysis !== "object") throw new HttpsError("invalid-argument", "분석 데이터가 필요합니다.");
+  if (!Number.isFinite(distributedAtMs)) throw new HttpsError("invalid-argument", "배포 일시가 올바르지 않습니다.");
+  if (!worksheetItems?.length || worksheetItems.length > 60) {
+    throw new HttpsError("invalid-argument", "문항이 비어 있거나 너무 많습니다.");
+  }
+  if (recipientsRaw.length > 200) throw new HttpsError("invalid-argument", "수신자는 200명까지입니다.");
+
+  const cleanedUids = [...new Set(selectedStudentUids.map((u) => String(u).trim()).filter((u) => u.length >= 8))];
+  if (cleanedUids.length > 120) throw new HttpsError("invalid-argument", "앱 대상 학생은 120명까지입니다.");
+
+  const rows = recipientsRaw
+    .map((r) => ({
+      displayName: String(r.displayName ?? "").trim().slice(0, 120),
+      phone: String(r.phone ?? "").trim().slice(0, 40),
+      email: normalizeEmail(String(r.email ?? "")),
+    }))
+    .filter((r) => r.displayName || r.email || r.phone);
+
+  for (const r of rows) {
+    if (r.email && !r.email.includes("@")) {
+      throw new HttpsError("invalid-argument", `이메일 형식 오류: ${r.email}`);
+    }
+  }
+
+  const targetSet = new Set<string>(cleanedUids);
+  type EmailRow = { row: (typeof rows)[0]; uid: string | null };
+  const emailRows: EmailRow[] = [];
+  const seenEmail = new Set<string>();
+
+  for (const r of rows) {
+    if (!r.email) continue;
+    if (seenEmail.has(r.email)) continue;
+    seenEmail.add(r.email);
+    let uid: string | null = null;
+    try {
+      const u = await authAdmin.getUserByEmail(r.email);
+      uid = u.uid;
+    } catch {
+      uid = null;
+    }
+    if (uid) targetSet.add(uid);
+    emailRows.push({ row: r, uid });
+  }
+
+  const hasExternalEmail = emailRows.some((t) => t.row.email && !t.uid);
+  if (targetSet.size === 0 && !hasExternalEmail) {
+    throw new HttpsError(
+      "invalid-argument",
+      "앱에 표시할 학생 UID 또는 미가입 이메일 수신자를 한 명 이상 지정해 주세요.",
+    );
+  }
+
+  const transporter = await getMailer();
+  if (hasExternalEmail && !transporter) {
+    throw new HttpsError(
+      "failed-precondition",
+      "미가입 학생에게 메일을내려면 Functions에 SMTP_HOST, MAIL_FROM, SMTP_PASS(및 필요 시 SMTP_USER)를 설정해 주세요.",
+    );
+  }
+
+  const teacherName =
+    (typeof prof?.displayName === "string" && prof.displayName.trim()) ||
+    (typeof prof?.email === "string" && prof.email) ||
+    "선생님";
+
+  const distributedAt = Timestamp.fromMillis(distributedAtMs);
+
+  const assignRef = await db.collection("assignments").add({
+    schemaVersion: 1,
+    teacherId,
+    title,
+    passage,
+    analysis,
+    distributedAt,
+    targetStudentIds: [...targetSet],
+    worksheetItems: worksheetItems.map((w) => ({
+      id: w.id,
+      kind: w.kind,
+      prompt: w.prompt,
+      ...(w.answerKey != null && w.answerKey !== "" ? { answerKey: w.answerKey } : {}),
+    })),
+    createdAt: FieldValue.serverTimestamp(),
+    outreachEmailSent: 0,
+  });
+  const assignmentId = assignRef.id;
+  const recipientsCol = db.collection("assignments").doc(assignmentId).collection("distribution_recipients");
+
+  const origin = appPublicOrigin.value().replace(/\/$/, "");
+  let outreachSent = 0;
+
+  for (const { row, uid } of emailRows) {
+    if (!row.email) continue;
+    const recRef = recipientsCol.doc();
+    if (uid) {
+      await recRef.set({
+        displayName: row.displayName || "—",
+        phone: row.phone || "",
+        emailLower: row.email,
+        matchedStudentUid: uid,
+        delivery: "app",
+        emailSentAt: null,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } else {
+      const token = randomTokenHex(24);
+      const tokenRef = db.doc(`external_worksheet_tokens/${token}`);
+      const batch = db.batch();
+      batch.set(recRef, {
+        displayName: row.displayName || "—",
+        phone: row.phone || "",
+        emailLower: row.email,
+        matchedStudentUid: null,
+        delivery: "email",
+        emailSentAt: null,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      batch.set(tokenRef, {
+        assignmentId,
+        teacherId,
+        recipientEmail: row.email,
+        createdAt: FieldValue.serverTimestamp(),
+        expiresAt: Timestamp.fromMillis(Date.now() + 60 * 24 * 60 * 60 * 1000),
+      });
+      await batch.commit();
+
+      const viewUrl = `${origin}/worksheet/outreach?t=${encodeURIComponent(token)}`;
+      const html = buildWorksheetOutreachEmailHtml({
+        assignmentTitle: title,
+        teacherDisplayName: teacherName,
+        viewUrl,
+      });
+      if (transporter) {
+        await transporter.sendMail({
+          from: mailFrom.value(),
+          to: row.email,
+          subject: `[XtudyNote] ${title} — 학습지 안내`,
+          html,
+        });
+        outreachSent++;
+        await recRef.update({ emailSentAt: FieldValue.serverTimestamp() });
+      }
+    }
+  }
+
+  for (const r of rows) {
+    if (r.email) continue;
+    await recipientsCol.doc().set({
+      displayName: r.displayName || "—",
+      phone: r.phone || "",
+      emailLower: "",
+      matchedStudentUid: null,
+      delivery: "app",
+      note: "이메일 미기재 — 메일 미발송",
+      emailSentAt: null,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  }
+
+  await assignRef.update({ outreachEmailSent: outreachSent });
+
+  return {
+    assignmentId,
+    appTargetCount: targetSet.size,
+    outreachEmailCount: outreachSent,
+  };
+});

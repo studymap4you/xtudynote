@@ -223,10 +223,10 @@ export function TeacherStudentPicker({ teacherUid, classrooms, selectedIds, onCh
 
   return (
     <section className={styles.panel} aria-label="대상 학생 선택">
-      <h2 className={styles.panelTitle}>대상 학생</h2>
+      <h2 className={styles.panelTitle}>가입 학생 (UID·주소록)</h2>
       <p className={styles.panelSub}>
-        이름·이메일로 검색해 체크하거나, 엑셀/CSV 명단을 불러와 자동 매칭하세요. 그룹(A반 등)으로 묶어 두면 한 번에 넣을 수
-        있습니다.
+        Firebase에 가입된 학생 UID를 검색·체크하거나, 엑셀/CSV로 UID를 맞춰 넣을 수 있습니다. 위「연락처로 배포」와 함께
+        쓰면 가입자는 과제함·미가입자는 이메일로 나뉩니다.
       </p>
 
       <div className={styles.toolbar}>

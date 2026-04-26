@@ -753,6 +753,22 @@ service cloud.firestore {
 
         allow update, delete: if false;
       }
+
+      /** 과제 배포 수신자(이름·전화·이메일 등) — 담당 교사·슈퍼관리자만 읽기, 클라이언트 쓰기 불가 */
+      match /distribution_recipients/{rid} {
+        allow read: if isActiveSuperAdmin()
+          || (
+            isActiveTeacher()
+            && assignData().teacherId == request.auth.uid
+          );
+
+        allow create, update, delete: if false;
+      }
+    }
+
+    /** 이메일 링크용 일회성 토큰 — 서버(Admin SDK)만 읽기·쓰기 */
+    match /external_worksheet_tokens/{tid} {
+      allow read, write: if false;
     }
 
     // ——— homework_dispatches ———

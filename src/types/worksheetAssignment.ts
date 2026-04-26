@@ -29,6 +29,20 @@ export type WorksheetAssignmentDoc = {
   targetStudentIds: string[];
   worksheetItems: WorksheetItem[];
   createdAt: unknown;
+  /** 이메일로 발송 완료된 미가입 수신자 수 (서버 기록) */
+  outreachEmailSent?: number;
+};
+
+/** `assignments/{id}/distribution_recipients/{docId}` — PII, 교사·슈퍼관리자만 읽기 */
+export type DistributionRecipientDoc = {
+  displayName: string;
+  phone: string;
+  emailLower: string;
+  matchedStudentUid: string | null;
+  delivery: "app" | "email";
+  emailSentAt: unknown | null;
+  createdAt: unknown;
+  note?: string;
 };
 
 export type StudentWorkStatus = "draft" | "submitted";

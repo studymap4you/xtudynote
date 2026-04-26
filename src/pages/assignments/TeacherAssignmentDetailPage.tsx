@@ -4,10 +4,12 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getAssignment,
+  listDistributionRecipients,
   listStudentWorksForAssignment,
   subscribeSubmissionEvents,
 } from "@/lib/worksheet/assignmentApi";
 import type {
+  DistributionRecipientDoc,
   StudentWorkDoc,
   WorksheetAssignmentDoc,
   WorksheetSubmissionEventDoc,
@@ -40,15 +42,19 @@ function summarizeAnswer(v: string | undefined): ReactNode {
 
 export function TeacherAssignmentDetailPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, isSuperAdmin } = useAuth();
   const uid = firebaseUser?.uid ?? "";
 
   const [assignment, setAssignment] = useState<WorksheetAssignmentDoc | null>(null);
   const [works, setWorks] = useState<{ studentId: string; data: StudentWorkDoc }[]>([]);
   const [submissionEvents, setSubmissionEvents] = useState<{ id: string; data: WorksheetSubmissionEventDoc }[]>([]);
+  const [distributionRows, setDistributionRows] = useState<{ id: string; data: DistributionRecipientDoc }[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
-  const owned = useMemo(() => assignment && uid && assignment.teacherId === uid, [assignment, uid]);
+  const canView = useMemo(
+    () => Boolean(assignment && uid && (assignment.teacherId === uid || isSuperAdmin)),
+    [assignment, uid, isSuperAdmin],
+  );
 
   useEffect(() => {
     if (!assignmentId) return;
@@ -63,6 +69,12 @@ export function TeacherAssignmentDetailPage() {
         const list = await listStudentWorksForAssignment(assignmentId);
         if (cancelled) return;
         setWorks(list);
+        try {
+          const dr = await listDistributionRecipients(assignmentId);
+          if (!cancelled) setDistributionRows(dr);
+        } catch {
+          if (!cancelled) setDistributionRows([]);
+        }
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
       }
@@ -73,14 +85,14 @@ export function TeacherAssignmentDetailPage() {
   }, [assignmentId]);
 
   useEffect(() => {
-    if (!assignmentId || !owned) return;
+    if (!assignmentId || !canView) return;
     const unsub = subscribeSubmissionEvents(
       assignmentId,
       (rows) => setSubmissionEvents(rows),
       () => {},
     );
     return () => unsub();
-  }, [assignmentId, owned]);
+  }, [assignmentId, canView]);
 
   if (!assignmentId) {
     return (
@@ -113,12 +125,12 @@ export function TeacherAssignmentDetailPage() {
     );
   }
 
-  if (!owned) {
+  if (!canView) {
     return (
       <DashboardShell light>
         <main className={styles.main}>
           <h1 className={styles.title}>권한 없음</h1>
-          <p>이 과제의 담당 선생님이 아닙니다.</p>
+          <p>이 과제를 볼 권한이 없습니다.</p>
           <Link to="/teacher/assignments">목록으로</Link>
         </main>
       </DashboardShell>
@@ -137,8 +149,46 @@ export function TeacherAssignmentDetailPage() {
           {assignment.title}
         </h1>
         <p className={styles.meta}>
-          배포 {formatTs(assignment.distributedAt)} · 대상 {assignment.targetStudentIds.length}명
+          배포 {formatTs(assignment.distributedAt)} · 앱 과제함 대상 {assignment.targetStudentIds.length}명
+          {typeof assignment.outreachEmailSent === "number" && assignment.outreachEmailSent > 0
+            ? ` · 이메일 안내 발송 ${assignment.outreachEmailSent}건`
+            : null}
         </p>
+
+        {distributionRows.length > 0 ? (
+          <>
+            <h2 className={styles.captureTitle} style={{ marginTop: "1.25rem" }}>
+              배포 명단 (연락처)
+            </h2>
+            <p className={styles.meta} style={{ marginTop: "-0.35rem" }}>
+              담당 선생님·마스터 관리자만 조회 가능한 정보입니다.
+            </p>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>전화</th>
+                  <th>이메일</th>
+                  <th>경로</th>
+                  <th>매칭 UID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {distributionRows.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.data.displayName}</td>
+                    <td style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.78rem" }}>{row.data.phone || "—"}</td>
+                    <td style={{ wordBreak: "break-all", fontSize: "0.8rem" }}>{row.data.emailLower || "—"}</td>
+                    <td>{row.data.delivery === "email" ? "이메일" : "앱"}</td>
+                    <td style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.75rem" }}>
+                      {row.data.matchedStudentUid ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : null}
 
         <h2 className={styles.captureTitle} style={{ marginTop: "1.25rem" }}>
           제출 알림
@@ -180,13 +230,21 @@ export function TeacherAssignmentDetailPage() {
             </tr>
           </thead>
           <tbody>
-            {assignment.targetStudentIds.map((sid) => (
-              <tr key={sid}>
-                <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{sid}</td>
-                <td>{statusFor(sid)}</td>
-                <td>{statusFor(sid) === "submitted" ? formatTs(submittedAtFor(sid)) : "—"}</td>
+            {assignment.targetStudentIds.length === 0 ? (
+              <tr>
+                <td colSpan={3} style={{ color: "#64748b" }}>
+                  앱 과제함에 올라간 대상이 없습니다. (이메일만 발송했을 수 있습니다.)
+                </td>
               </tr>
-            ))}
+            ) : (
+              assignment.targetStudentIds.map((sid) => (
+                <tr key={sid}>
+                  <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{sid}</td>
+                  <td>{statusFor(sid)}</td>
+                  <td>{statusFor(sid) === "submitted" ? formatTs(submittedAtFor(sid)) : "—"}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
 

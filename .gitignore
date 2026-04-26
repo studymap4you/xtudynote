@@ -1,5 +1,7 @@
 node_modules
 dist
+functions/lib
+functions/node_modules
 *.local
 .DS_Store
 .vercel

@@ -16,6 +16,7 @@ import {
 import { db } from "@/firebase/config";
 import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
 import type {
+  DistributionRecipientDoc,
   StudentWorkDoc,
   WorksheetAssignmentDoc,
   WorksheetItem,
@@ -91,6 +92,15 @@ export async function listStudentWorksForAssignment(
   const snap = await getDocs(collection(db, ASSIGNMENTS, assignmentId, "student_work"));
   const out: { studentId: string; data: StudentWorkDoc }[] = [];
   snap.forEach((d) => out.push({ studentId: d.id, data: d.data() as StudentWorkDoc }));
+  return out;
+}
+
+export async function listDistributionRecipients(
+  assignmentId: string,
+): Promise<{ id: string; data: DistributionRecipientDoc }[]> {
+  const snap = await getDocs(collection(db, ASSIGNMENTS, assignmentId, "distribution_recipients"));
+  const out: { id: string; data: DistributionRecipientDoc }[] = [];
+  snap.forEach((d) => out.push({ id: d.id, data: d.data() as DistributionRecipientDoc }));
   return out;
 }
 

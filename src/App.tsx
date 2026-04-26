@@ -31,6 +31,7 @@ import { StudentWorksheetPage } from "@/pages/assignments/StudentWorksheetPage";
 import { TeacherAssignmentsPage } from "@/pages/assignments/TeacherAssignmentsPage";
 import { TeacherAssignmentNewPage } from "@/pages/assignments/TeacherAssignmentNewPage";
 import { TeacherAssignmentDetailPage } from "@/pages/assignments/TeacherAssignmentDetailPage";
+import { ExternalWorksheetOutreachPage } from "@/pages/assignments/ExternalWorksheetOutreachPage";
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
       <Route path="/logic-dashboard" element={<LogicDashboardPage />} />
       <Route path="/videos" element={<VideoCatalogPage />} />
       <Route path="/homework/:code" element={<HomeworkStudentPage />} />
+      <Route path="/worksheet/outreach" element={<ExternalWorksheetOutreachPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route

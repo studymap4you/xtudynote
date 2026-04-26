@@ -1,4 +1,4 @@
-import { initializeApp, type FirebaseOptions } from "firebase/app";
+import { initializeApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -47,7 +47,8 @@ function buildFirebaseOptions(): FirebaseOptions {
 }
 
 const firebaseConfig = buildFirebaseOptions();
-const app = initializeApp(firebaseConfig);
+export const firebaseApp: FirebaseApp = initializeApp(firebaseConfig);
+const app = firebaseApp;
 export const auth = getAuth(app);
 
 export const googleAuthProvider = new GoogleAuthProvider();
