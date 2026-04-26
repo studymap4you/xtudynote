@@ -18,6 +18,9 @@ const smtpUser = defineString("SMTP_USER", { default: "" });
 const smtpPass = defineString("SMTP_PASS", { default: "" });
 const smtpSecure = defineString("SMTP_SECURE", { default: "false" });
 const mailFrom = defineString("MAIL_FROM", { default: "" });
+/** Gmail 앱 비밀번호 등 — SMTP_* 대신 이 둘만 있어도 smtp.gmail.com 으로 발송 */
+const gmailUser = defineString("GMAIL_USER", { default: "" });
+const gmailPass = defineString("GMAIL_PASS", { default: "" });
 
 const REGION = "asia-northeast3";
 
@@ -40,26 +43,63 @@ function randomTokenHex(bytes = 24): string {
   return randomBytes(bytes).toString("hex");
 }
 
-async function getMailer() {
+type MailerBundle = { transporter: nodemailer.Transporter; fromAddress: string };
+
+function gmailCredentialsFromEnv(): { user: string; pass: string } {
+  const u =
+    gmailUser.value().trim() ||
+    String(process.env.GMAIL_USER ?? process.env["gmail.user"] ?? "").trim();
+  const p = String(gmailPass.value() || process.env.GMAIL_PASS || process.env["gmail.pass"] || "");
+  return { user: u, pass: p };
+}
+
+async function getMailer(): Promise<MailerBundle | null> {
+  const { user: gu, pass: gp } = gmailCredentialsFromEnv();
   const host = smtpHost.value().trim();
   const from = mailFrom.value().trim();
   const pass = smtpPass.value();
   const user = smtpUser.value().trim();
+
+  if (gu && gp) {
+    const smtpHostFinal = host || "smtp.gmail.com";
+    const port = Number(smtpPort.value()) || 587;
+    const secure = smtpSecure.value() === "true" || port === 465;
+    const fromAddress = (from || gu).trim();
+    if (!fromAddress.includes("@")) {
+      console.error(
+        "[deployWorksheetOutreach] Gmail 발신 주소 없음: MAIL_FROM 또는 GMAIL_USER에 유효한 이메일을 설정하세요.",
+      );
+      return null;
+    }
+    return {
+      transporter: nodemailer.createTransport({
+        host: smtpHostFinal,
+        port,
+        secure,
+        auth: { user: gu, pass: gp },
+      }),
+      fromAddress,
+    };
+  }
+
   if (!host || !from || !pass) {
     console.error(
-      "[deployWorksheetOutreach] SMTP 미구성: Firebase Console → Functions → `deployWorksheetOutreach`에 SMTP_HOST, MAIL_FROM, SMTP_PASS(필수), SMTP_USER(선택) 파라미터를 설정하세요. 로컬은 `firebase functions:secrets:set` 또는 params 설정을 참고하세요.",
+      "[deployWorksheetOutreach] SMTP 미구성: `deployWorksheetOutreach`에 (1) GMAIL_USER+GMAIL_PASS 또는 (2) SMTP_HOST, MAIL_FROM, SMTP_PASS(필수), SMTP_USER(선택)을 설정하세요. 로컬 에뮬레이터는 `gmail.user` / `gmail.pass` 환경 변수도 읽습니다.",
     );
     return null;
   }
   const port = Number(smtpPort.value()) || 587;
   const secure = smtpSecure.value() === "true" || port === 465;
   const login = user || from;
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user: login, pass },
-  });
+  return {
+    transporter: nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user: login, pass },
+    }),
+    fromAddress: from,
+  };
 }
 
 type WorksheetItemIn = { id: string; kind: string; prompt: string; answerKey?: string };
@@ -191,11 +231,13 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
     );
   }
 
-  const transporter = await getMailer();
+  const mailer = await getMailer();
+  const transporter = mailer?.transporter ?? null;
+  const smtpFromAddress = mailer?.fromAddress ?? mailFrom.value().trim();
   if (hasExternalEmail && !transporter) {
     throw new HttpsError(
       "failed-precondition",
-      "미가입 학생에게 메일을내려면 Cloud Functions 파라미터에 SMTP_HOST, MAIL_FROM, SMTP_PASS를 설정해야 합니다. (Vite .env만으로는 Functions에 전달되지 않습니다.) 로그: firebase functions:log --only deployWorksheetOutreach",
+      "미가입 학생에게 메일을내려면 Cloud Functions에 GMAIL_USER·GMAIL_PASS(또는 SMTP_HOST·MAIL_FROM·SMTP_PASS)를 설정해야 합니다. 로그: firebase functions:log --only deployWorksheetOutreach",
     );
   }
 
@@ -208,7 +250,7 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
       console.error("[deployWorksheetOutreach] SMTP verify 실패:", msg);
       throw new HttpsError(
         "failed-precondition",
-        `SMTP 서버 연결에 실패했습니다: ${msg}. 호스트·포트·SMTP_USER·SMTP_PASS·MAIL_FROM을 확인하고 Functions 로그를 확인하세요.`,
+        `SMTP 서버 연결에 실패했습니다: ${msg}. Gmail은 GMAIL_USER·GMAIL_PASS(앱 비밀번호)·MAIL_FROM을 확인하세요.`,
       );
     }
   }
@@ -300,7 +342,7 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
       if (transporter) {
         try {
           await transporter.sendMail({
-            from: mailFrom.value(),
+            from: smtpFromAddress,
             to: row.email,
             subject: `[XtudyNote] ${title} — 학습지 안내`,
             html,

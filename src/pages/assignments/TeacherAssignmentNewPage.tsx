@@ -19,6 +19,52 @@ import type { WorksheetLocalAttachment } from "@/types/worksheetAssignment";
 import { DistributionRecipientsPanel, type RecipientDraft } from "@/pages/assignments/DistributionRecipientsPanel";
 import styles from "@/pages/assignments/assignmentPages.module.css";
 
+const DEPLOY_OK_TOAST = "성공적으로 배포되었습니다!";
+
+function mapDeployCallError(err: unknown): string {
+  if (!(err instanceof FirebaseError)) {
+    const m = err instanceof Error ? err.message : String(err);
+    if (/network|NetworkError|failed to fetch|Failed to fetch|Load failed|ECONNREFUSED/i.test(m)) {
+      return "네트워크 오류입니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.";
+    }
+    return m;
+  }
+  const code = err.code;
+  const raw = err.message.replace(/^Firebase:[^/]*/, "").trim();
+
+  if (code === "functions/unavailable" || code === "functions/deadline-exceeded") {
+    return "네트워크 오류 또는 서버 응답 지연입니다. 잠시 후 다시 시도해 주세요.";
+  }
+  if (code === "functions/unauthenticated") {
+    return "로그인이 만료되었습니다. 다시 로그인해 주세요.";
+  }
+  if (code === "functions/permission-denied") {
+    return "이 작업을 수행할 권한이 없습니다.";
+  }
+  if (code === "functions/resource-exhausted") {
+    return "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.";
+  }
+  if (code === "functions/failed-precondition") {
+    if (/SMTP|인증|password|auth|535|534|Invalid login|certificate|TLS|ECONNREFUSED|Gmail|앱 비밀번호/i.test(raw)) {
+      return "메일 서버 인증·연결 오류입니다. Gmail 앱 비밀번호와 발신 주소(MAIL_FROM)를 확인해 주세요.";
+    }
+    return raw || "현재 조건에서 배포할 수 없습니다.";
+  }
+  if (code === "functions/invalid-argument") {
+    return raw || "입력 값을 확인해 주세요.";
+  }
+  if (code === "functions/internal" || code === "functions/unknown") {
+    return "서버 내부 오류가 발생했습니다. 잠시 후 다시 시도하거나 관리자에게 문의해 주세요.";
+  }
+  if (code === "functions/aborted") {
+    return "작업이 중단되었습니다. 다시 시도해 주세요.";
+  }
+  if (/network|fetch|연결/i.test(raw)) {
+    return "네트워크 오류입니다. 연결을 확인한 뒤 다시 시도해 주세요.";
+  }
+  return raw || "알 수 없는 오류가 발생했습니다.";
+}
+
 type DeployTrack = "internal" | "external";
 type ContentSource = "ai" | "local";
 
@@ -220,32 +266,33 @@ export function TeacherAssignmentNewPage() {
     async (ev: React.FormEvent) => {
       ev.preventDefault();
       if (!uid) return;
-      if (!contentSource) {
-        setMsg("과제물 준비에서「AI 분석 학습지 첨부」또는「로컬 파일 직접 첨부」를 먼저 선택해 주세요.");
-        return;
-      }
-      const p = passage.trim();
-      if (!p) {
-        setMsg("지문이 비어 있습니다.");
-        return;
-      }
-      const dist = new Date(distributedLocal);
-      if (Number.isNaN(dist.getTime())) {
-        setMsg("배포 일시가 올바르지 않습니다.");
-        return;
-      }
-      const an = analysis ?? minimalAnalysisForAssignment(title);
-      const items = analysis ? buildWorksheetItemsFromAnalysis(analysis) : buildDefaultWorksheetItems();
 
       setBusy(true);
       setMsg(null);
       setToast(null);
+
       try {
+        if (!contentSource) {
+          setMsg("과제물 준비에서「AI 분석 학습지 첨부」또는「로컬 파일 직접 첨부」를 먼저 선택해 주세요.");
+          return;
+        }
+        const p = passage.trim();
+        if (!p) {
+          setMsg("지문이 비어 있습니다.");
+          return;
+        }
+        const dist = new Date(distributedLocal);
+        if (Number.isNaN(dist.getTime())) {
+          setMsg("배포 일시가 올바르지 않습니다.");
+          return;
+        }
+        const an = analysis ?? minimalAnalysisForAssignment(title);
+        const items = analysis ? buildWorksheetItemsFromAnalysis(analysis) : buildDefaultWorksheetItems();
+
         if (deployTrack === "internal") {
           const targets = [...new Set(selectedStudentIds.map((s) => s.trim()).filter((s) => s.length >= 8))];
           if (targets.length === 0) {
             setMsg("내부 강의실 배포: 학생을 한 명 이상 체크해 주세요.");
-            setBusy(false);
             return;
           }
           const id = await createWorksheetAssignment({
@@ -259,13 +306,12 @@ export function TeacherAssignmentNewPage() {
             contentSource,
             localAttachment: localAttachment ?? undefined,
           });
-          setToast({ kind: "ok", text: "과제가 저장되었습니다. 학생 과제함에서 확인할 수 있습니다." });
+          setToast({ kind: "ok", text: DEPLOY_OK_TOAST });
           window.setTimeout(() => navigate(`/teacher/assignments/${id}`), 900);
         } else {
           const hasEmail = recipientRows.some((r) => r.email.trim().includes("@"));
           if (!hasEmail) {
             setMsg("외부 이메일 배포: 이메일이 있는 수신자를 한 명 이상 추가해 주세요.");
-            setBusy(false);
             return;
           }
           const result = await deployWorksheetOutreach({
@@ -287,12 +333,9 @@ export function TeacherAssignmentNewPage() {
           const sent = result.outreachEmailCount ?? 0;
           const errs = result.outreachEmailErrors ?? [];
           if (attempted === 0) {
-            setToast({
-              kind: "ok",
-              text: "과제가 저장되었습니다. 모든 수신 이메일이 가입 계정과 일치해 앱 과제함에만 반영되었고, 별도 메일은 발송하지 않았습니다.",
-            });
+            setToast({ kind: "ok", text: DEPLOY_OK_TOAST });
           } else if (errs.length === 0) {
-            setToast({ kind: "ok", text: `과제 저장 완료. 미가입 수신자 ${attempted}명에게 메일 ${sent}건을 발송했습니다.` });
+            setToast({ kind: "ok", text: DEPLOY_OK_TOAST });
           } else if (sent > 0) {
             setToast({
               kind: "warn",
@@ -307,9 +350,9 @@ export function TeacherAssignmentNewPage() {
           window.setTimeout(() => navigate(`/teacher/assignments/${result.assignmentId}`), errs.length && sent === 0 ? 3200 : 1800);
         }
       } catch (err) {
-        const fb = err instanceof FirebaseError ? err.message : err instanceof Error ? err.message : String(err);
-        setMsg(fb);
-        setToast({ kind: "err", text: fb });
+        const friendly = mapDeployCallError(err);
+        setMsg(friendly);
+        setToast({ kind: "err", text: friendly });
       } finally {
         setBusy(false);
       }
@@ -475,8 +518,8 @@ export function TeacherAssignmentNewPage() {
             <button type="submit" className="btn btn--primary btn--stack" disabled={busy}>
               {busy
                 ? deployTrack === "external"
-                  ? "발송 중…"
-                  : "처리 중…"
+                  ? "발송 중..."
+                  : "배포 중..."
                 : deployTrack === "internal"
                   ? "선택 학생에게 과제 배포"
                   : "이메일로 과제 안내 발송"}
