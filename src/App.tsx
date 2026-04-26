@@ -23,6 +23,7 @@ import { VideoCatalogPage } from "@/pages/VideoCatalogPage";
 import { ProtectedRoute, SuperAdminRoute } from "@/components/ProtectedRoute";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { ClassroomListPage } from "@/pages/classroom/ClassroomListPage";
+import { ClassroomCatalogPage } from "@/pages/classroom/ClassroomCatalogPage";
 import { ClassroomDetailPage } from "@/pages/classroom/ClassroomDetailPage";
 import { ClassroomCreatePage } from "@/pages/classroom/ClassroomCreatePage";
 import { ClassroomManagePage } from "@/pages/classroom/ClassroomManagePage";
@@ -202,6 +203,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <ClassroomListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/classrooms"
+        element={
+          <ProtectedRoute>
+            <ClassroomCatalogPage />
           </ProtectedRoute>
         }
       />

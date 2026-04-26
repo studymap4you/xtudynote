@@ -142,7 +142,8 @@ export function ClassroomListPage() {
         </div>
         <p className="classroom-page__lede">
           수강이 승인된 강의실에서만 자료와 과제를 이용할 수 있습니다.{" "}
-          <strong>유료</strong> 자료는 상세 페이지의 안내에 따라 결제·구매 절차를 진행해 주세요.
+          <strong>유료</strong> 자료는 상세 페이지의 안내에 따라 결제·구매 절차를 진행해 주세요.{" "}
+          <Link to="/classrooms">전체 강의실 보기 (강의 신청)</Link>
         </p>
         {isTeacherApproved && (
           <p className="classroom-page__teacher-hint">

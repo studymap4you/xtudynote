@@ -148,7 +148,9 @@ export function ClassroomDetailPage() {
     <DashboardShell light>
       <main className="admin-layout classroom-page admin-layout--light classroom-hub">
         <nav className="classroom-page__breadcrumb">
-          <Link to="/classroom">← 강의실 목록</Link>
+          <Link to="/classrooms">← 전체 강의실</Link>
+          {" · "}
+          <Link to="/classroom">내 강의실</Link>
         </nav>
         {err && <p className="auth-error">{err}</p>}
         {loading ? (
@@ -161,7 +163,9 @@ export function ClassroomDetailPage() {
             <h1>입장 불가</h1>
             <p className="classroom-page__lede">
               이 강의실은 멤버로 등록된 학습자만 열람할 수 있습니다. 선생님께 멤버 등록을 요청하거나{" "}
-              <Link to="/classroom">내 강의실 목록</Link>으로 돌아가 주세요.
+              <Link to="/classrooms">전체 강의실 목록</Link>
+              {" · "}
+              <Link to="/classroom">내 강의실</Link>으로 돌아가 주세요.
             </p>
           </div>
         ) : (
