@@ -9,6 +9,12 @@ export type SignalLogicBinaryOpposition = {
   poleB: string;
   /** 대립 축 한 줄 설명 */
   axisLabel: string;
+  /** 대립이 드러나는 지문 문장을 그대로 인용 */
+  keySentenceQuote?: string;
+  /** 키워드 선정·문맥상 대조 근거 (한국어, 2~3문장 이상 권장). **볼드** 마크다운 허용 */
+  rationaleKo?: string;
+  /** A(긍정·기존 등) ↔ B(부정·새 개념 등) 논리 관계를 서술 (한국어). **볼드** 허용 */
+  relationKo?: string;
 };
 
 export type SignalLogicCoreSignalWord = {
@@ -17,6 +23,14 @@ export type SignalLogicCoreSignalWord = {
   role: string;
   /** 원샷 시그널 태그 (선택) */
   functionTag?: string;
+  /** ① 현상 제시 — 이 시그널이 왜 주목되는지 (한국어, 2~3문장). **볼드** 허용 */
+  phenomenonKo?: string;
+  /** ② 근거 — 해당 시그널이 들어 있는 지문 문장을 철자·구두점까지 그대로 인용 */
+  evidenceQuote?: string;
+  /** ③ 논리 해설 — 지문에서의 역할·기능(전환·범위·양보 등) (한국어, 2~3문장). **볼드** 허용 */
+  explanationKo?: string;
+  /** 시그널 이후 논지 전환·심화 흐름(Flow) 요약 (한국어). **볼드** 허용 */
+  flowKo?: string;
 };
 
 export type SignalLogicVocabItem = {
@@ -29,6 +43,8 @@ export type SignalLogicAnalysisReportJson = {
   schemaVersion: 1;
   /** 주제문(핵심 논지 한 줄) */
   topicThesis: string;
+  /** 지문을 관통하는 단 하나의 One-Shot Signal 단어(영문 표기) */
+  oneShotSignalWord: string;
   /** 핵심 시그널 단어 */
   coreSignalWords: SignalLogicCoreSignalWord[];
   /** 이분법 논리적 대립 쌍 */

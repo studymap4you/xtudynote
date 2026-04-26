@@ -4,6 +4,7 @@ export function minimalAnalysisForAssignment(title: string): SignalLogicAnalysis
   return {
     schemaVersion: 1,
     topicThesis: title.trim() || "학습지",
+    oneShotSignalWord: "",
     coreSignalWords: [],
     binaryOppositions: [],
     analysisNarrative: "",

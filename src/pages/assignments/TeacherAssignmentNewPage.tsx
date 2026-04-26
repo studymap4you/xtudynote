@@ -7,6 +7,7 @@ import { listClassroomsByTeacher, type ClassroomRow } from "@/lib/classroom/list
 import { db } from "@/firebase/config";
 import { createWorksheetAssignment } from "@/lib/worksheet/assignmentApi";
 import { buildDefaultWorksheetItems, buildWorksheetItemsFromAnalysis } from "@/lib/worksheet/buildWorksheetItems";
+import { normalizeAnalysisReport } from "@/lib/signalLogic/normalizeAnalysisReport";
 import { minimalAnalysisForAssignment } from "@/lib/worksheet/minimalAnalysis";
 import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
 import styles from "@/pages/assignments/assignmentPages.module.css";
@@ -77,7 +78,7 @@ export function TeacherAssignmentNewPage() {
         const a = d.analysis as SignalLogicAnalysisReportJson | undefined;
         setPassage(p);
         if (a && a.schemaVersion === 1) {
-          setAnalysis(a);
+          setAnalysis(normalizeAnalysisReport(a));
           setTitle(a.topicThesis.slice(0, 72) + (a.topicThesis.length > 72 ? "…" : ""));
         } else {
           setAnalysis(null);

@@ -1,5 +1,8 @@
 import { forwardRef } from "react";
-import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
+import type {
+  SignalLogicAnalysisReportJson,
+  SignalLogicCoreSignalWord,
+} from "@/types/signalLogicAnalysisReport";
 import styles from "@/components/signalLogic/signalLogicAnalysisPreview.module.css";
 
 type Props = {
@@ -10,10 +13,42 @@ type Props = {
   saveMessage: string | null;
 };
 
+function renderBoldMarkdown(text: string): React.ReactNode {
+  const parts = text.split("**");
+  return parts.map((part, i) =>
+    i % 2 === 1 ? (
+      <strong key={i}>{part}</strong>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
+}
+
+function RichParagraphs({ text }: { text: string }) {
+  const t = text.trim();
+  if (!t) return <p className={styles.proseMuted}>—</p>;
+  const blocks = t.split(/\n\n+/);
+  return (
+    <>
+      {blocks.map((block, i) => (
+        <p key={i} className={styles.proseBlock}>
+          {renderBoldMarkdown(block)}
+        </p>
+      ))}
+    </>
+  );
+}
+
+function isRichSignal(s: SignalLogicCoreSignalWord): boolean {
+  return !!(s.phenomenonKo || s.evidenceQuote || s.explanationKo || s.flowKo);
+}
+
 export const SignalLogicAnalysisPreview = forwardRef<HTMLDivElement, Props>(function SignalLogicAnalysisPreview(
   { passage, report, onExportPdf, pdfBusy, saveMessage },
   ref,
 ) {
+  const oneShot = report.oneShotSignalWord?.trim() || report.coreSignalWords[0]?.word || "";
+
   return (
     <div ref={ref} className={styles.root}>
       <header className={styles.docHeader}>
@@ -36,38 +71,88 @@ export const SignalLogicAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
             분석 결과
           </h3>
           <p className={styles.topicLine}>주제문: {report.topicThesis}</p>
-          <div className={styles.analysisNarrative}>{report.analysisNarrative || "—"}</div>
+          <div className={styles.analysisNarrative}>
+            <RichParagraphs text={report.analysisNarrative || "—"} />
+          </div>
         </section>
 
         <section className={styles.sectionBlock} aria-labelledby="sl-signals">
           <h3 id="sl-signals" className={styles.sectionTitle}>
             핵심 시그널
           </h3>
-          <ul className={styles.signalList}>
-            {report.coreSignalWords.length === 0 ? (
-              <li>—</li>
-            ) : (
-              report.coreSignalWords.map((s, i) => (
-                <li key={`${s.word}-${i}`}>
-                  <strong>{s.word}</strong>
-                  {s.functionTag ? ` · ${s.functionTag}` : ""} — {s.role}
-                </li>
-              ))
-            )}
-          </ul>
+          {oneShot ? (
+            <div className={styles.oneShotBanner} role="status">
+              <span className={styles.oneShotLabel}>One-Shot Signal</span>
+              <strong className={styles.oneShotWord} lang="en">
+                {oneShot}
+              </strong>
+            </div>
+          ) : null}
+          {report.coreSignalWords.length === 0 ? (
+            <p className={styles.proseMuted}>—</p>
+          ) : (
+            <div className={styles.signalCardList}>
+              {report.coreSignalWords.map((s, i) => (
+                <article key={`${s.word}-${i}`} className={styles.signalCard}>
+                  <h4 className={styles.signalCardHead}>
+                    <span className={styles.signalCardWord} lang="en">
+                      {s.word}
+                    </span>
+                    {s.functionTag ? (
+                      <span className={styles.signalCardTag}>{s.functionTag}</span>
+                    ) : null}
+                    <span className={styles.signalCardRole}>{s.role}</span>
+                  </h4>
+                  {isRichSignal(s) ? (
+                    <div className={styles.signalCardBody}>
+                      {s.phenomenonKo ? (
+                        <div className={styles.signalStep}>
+                          <span className={styles.stepLabel}>① 현상 제시</span>
+                          <RichParagraphs text={s.phenomenonKo} />
+                        </div>
+                      ) : null}
+                      {s.evidenceQuote ? (
+                        <div className={styles.signalStep}>
+                          <span className={styles.stepLabel}>② 근거 문장 (지문 인용)</span>
+                          <blockquote className={styles.evidenceQuote} lang="en">
+                            {s.evidenceQuote}
+                          </blockquote>
+                        </div>
+                      ) : null}
+                      {s.explanationKo ? (
+                        <div className={styles.signalStep}>
+                          <span className={styles.stepLabel}>③ 논리적 해설</span>
+                          <RichParagraphs text={s.explanationKo} />
+                        </div>
+                      ) : null}
+                      {s.flowKo ? (
+                        <div className={styles.signalStep}>
+                          <span className={styles.stepLabel}>④ 논지 흐름 (Flow)</span>
+                          <RichParagraphs text={s.flowKo} />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className={styles.signalFallback}>
+                      <strong>{s.word}</strong>
+                      {s.functionTag ? ` · ${s.functionTag}` : ""} — {s.role}
+                    </p>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className={styles.sectionBlock} aria-labelledby="sl-binary">
           <h3 id="sl-binary" className={styles.sectionTitle}>
             이분법 대립
           </h3>
-          <ul className={styles.binaryList}>
-            {report.binaryOppositions.length === 0 ? (
-              <li className={styles.binaryBlock}>
-                <div className={styles.binaryItem}>—</div>
-              </li>
-            ) : (
-              report.binaryOppositions.map((b, i) => (
+          {report.binaryOppositions.length === 0 ? (
+            <p className={styles.proseMuted}>—</p>
+          ) : (
+            <ul className={styles.binaryList}>
+              {report.binaryOppositions.map((b, i) => (
                 <li key={`${b.poleA}-${b.poleB}-${i}`} className={styles.binaryBlock}>
                   <div className={styles.binaryItem}>
                     <div className={styles.pole}>{b.poleA}</div>
@@ -77,10 +162,30 @@ export const SignalLogicAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
                     <div className={styles.pole}>{b.poleB}</div>
                   </div>
                   <p className={styles.axisCaption}>{b.axisLabel}</p>
+                  {b.keySentenceQuote ? (
+                    <>
+                      <span className={styles.stepLabel}>핵심 문장 (지문 인용)</span>
+                      <blockquote className={styles.evidenceQuote} lang="en">
+                        {b.keySentenceQuote}
+                      </blockquote>
+                    </>
+                  ) : null}
+                  {b.rationaleKo ? (
+                    <div className={styles.binaryNarrative}>
+                      <span className={styles.stepLabel}>키워드 선정·대조 근거</span>
+                      <RichParagraphs text={b.rationaleKo} />
+                    </div>
+                  ) : null}
+                  {b.relationKo ? (
+                    <div className={styles.binaryNarrative}>
+                      <span className={styles.stepLabel}>논리 관계 (A ↔ B)</span>
+                      <RichParagraphs text={b.relationKo} />
+                    </div>
+                  ) : null}
                 </li>
-              ))
-            )}
-          </ul>
+              ))}
+            </ul>
+          )}
         </section>
 
         {report.signalOneShotNotes && report.signalOneShotNotes.length > 0 ? (
@@ -88,7 +193,9 @@ export const SignalLogicAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
             <strong>원샷 시그널 노트</strong>
             <ul className={styles.signalList}>
               {report.signalOneShotNotes.map((n, i) => (
-                <li key={`n-${i}`}>{n}</li>
+                <li key={`n-${i}`}>
+                  <RichParagraphs text={n} />
+                </li>
               ))}
             </ul>
           </div>
@@ -99,7 +206,7 @@ export const SignalLogicAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
             어휘 정리
           </h3>
           {report.vocabularyItems.length === 0 ? (
-            <p className={styles.analysisNarrative}>—</p>
+            <p className={styles.proseMuted}>—</p>
           ) : (
             <table className={styles.vocabTable}>
               <thead>
@@ -114,7 +221,9 @@ export const SignalLogicAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
                     <td>
                       <strong>{v.term}</strong>
                     </td>
-                    <td>{v.gloss}</td>
+                    <td>
+                      <RichParagraphs text={v.gloss} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

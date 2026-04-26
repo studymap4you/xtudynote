@@ -1,3 +1,4 @@
+import { normalizeAnalysisReport } from "@/lib/signalLogic/normalizeAnalysisReport";
 import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
 import type { SignalLogicPassageAnalysis } from "@/types/signalLogicReading";
 
@@ -27,23 +28,28 @@ export function savedReportDocToPassageAnalysis(
   analysis: SignalLogicAnalysisReportJson,
   createdAt: unknown,
 ): SignalLogicPassageAnalysis {
-  const binaryLogic = analysis.binaryOppositions.flatMap((b) => [
+  const a = normalizeAnalysisReport(analysis);
+  const binaryLogic = a.binaryOppositions.flatMap((b) => [
     { bucket: "A" as const, keyword: b.poleA },
     { bucket: "B" as const, keyword: b.poleB },
   ]);
 
-  const signals = analysis.coreSignalWords.map((s) => ({
+  const signals = a.coreSignalWords.map((s) => ({
     word: s.word,
     logicRole: s.functionTag ? `${s.role} · ${s.functionTag}` : s.role,
   }));
+  const one = a.oneShotSignalWord?.trim();
+  if (one && !signals.some((x) => x.word.toLowerCase() === one.toLowerCase())) {
+    signals.unshift({ word: one, logicRole: "One-Shot" });
+  }
 
   return {
     id: docId,
-    title: clipTitle(analysis.topicThesis, 52),
+    title: clipTitle(a.topicThesis, 52),
     analyzedAt: formatAnalyzedAt(createdAt),
     originalText: passage,
-    translation: analysis.analysisNarrative.trim() || analysis.topicThesis,
-    vocabulary: analysis.vocabularyItems.map((v) => ({ term: v.term, gloss: v.gloss })),
+    translation: a.analysisNarrative.trim() || a.topicThesis,
+    vocabulary: a.vocabularyItems.map((v) => ({ term: v.term, gloss: v.gloss })),
     binaryLogic,
     signals,
   };

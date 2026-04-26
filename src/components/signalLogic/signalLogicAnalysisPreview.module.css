@@ -128,6 +128,159 @@
   color: #334155;
 }
 
+.analysisNarrative .proseBlock {
+  margin: 0 0 0.45rem;
+}
+
+.analysisNarrative .proseBlock:last-child {
+  margin-bottom: 0;
+}
+
+.proseBlock {
+  margin: 0 0 0.4rem;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  color: #334155;
+}
+
+.proseBlock:last-child {
+  margin-bottom: 0;
+}
+
+.proseMuted {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--sl-ink-muted);
+}
+
+.proseBlock strong,
+.analysisNarrative strong {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.oneShotBanner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  background: linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%);
+}
+
+.oneShotLabel {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sl-accent-deep);
+}
+
+.oneShotWord {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #1e3a8a;
+}
+
+.signalCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.signalCard {
+  padding: 0.65rem 0.7rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--sl-border);
+  background: #fff;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.signalCardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--sl-accent-deep);
+}
+
+.signalCardWord {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.signalCardTag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  background: var(--sl-soft-blue-2);
+  border: 1px solid rgba(37, 99, 235, 0.15);
+  color: #334155;
+}
+
+.signalCardRole {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.signalCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.signalStep {
+  margin: 0;
+}
+
+.signalFallback {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.stepLabel {
+  display: block;
+  margin: 0 0 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sl-accent-deep);
+}
+
+.evidenceQuote {
+  margin: 0.15rem 0 0;
+  padding: 0.5rem 0.6rem;
+  border-left: 4px solid var(--sl-accent);
+  border-radius: 0 8px 8px 0;
+  background: #f8fafc;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #0f172a;
+  font-style: normal;
+}
+
+.binaryNarrative {
+  margin-top: 0.55rem;
+}
+
+.binaryNarrative .stepLabel {
+  margin-bottom: 0.3rem;
+}
+
 .subHeading {
   margin: 0.65rem 0 0.4rem;
   font-size: 0.82rem;
