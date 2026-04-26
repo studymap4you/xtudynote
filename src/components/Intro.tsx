@@ -612,10 +612,12 @@ export function Intro() {
           <h1 id="intro-slogan" className="intro-hero__slogan intro-hero__slogan--universe">
             <span className="intro-hero__slogan-line intro-hero__slogan-line--final">{BRAND_HERO_TITLE}</span>
           </h1>
-          <p className="intro-hero__lede intro-hero__lede--universe">{BRAND_HERO_SUBLINE_1}</p>
-          <p className="intro-hero__lede intro-hero__lede--universe intro-hero__lede--second">
-            {BRAND_HERO_SUBLINE_2}
-          </p>
+          <div className="intro-hero__subdeck">
+            <p className="intro-hero__lede intro-hero__lede--universe">{BRAND_HERO_SUBLINE_1}</p>
+            <p className="intro-hero__lede intro-hero__lede--universe intro-hero__lede--second">
+              {BRAND_HERO_SUBLINE_2}
+            </p>
+          </div>
           <IntroHeroShare />
           <div className="intro-hero__classroom">
             <p className="intro-hero__share-label">내 강의실</p>

@@ -380,32 +380,49 @@
   animation: introFadeIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.08s forwards;
 }
 .intro-hero__brand {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 1.25rem;
+  width: 100%;
+  text-align: center;
 }
 .intro-hero__brand .brand-lockup {
-  font-size: 1.38rem;
+  font-size: 1.28rem;
+  justify-content: center;
 }
+/* 히어로: background-clip 텍스트가 사각형으로 보이는 경우 방지 — 실색 타이포 */
 .intro-hero__brand .brand-lockup__x {
-  font-size: 1.52em;
-  background: linear-gradient(155deg, #5cadff 0%, #007aff 52%, #0066db 100%);
-  filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.6));
+  display: inline-block;
+  font-size: 1.45em;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: -0.04em;
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-fill-color: #007aff;
+  color: #007aff;
+  filter: none;
 }
 .intro-hero__brand .brand-lockup__rest {
-  background: var(--brand-rest-gradient);
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-fill-color: #0f172a;
+  color: #0f172a;
 }
 .intro-hero__brand .brand-lockup__en {
   display: inline-flex;
   align-items: baseline;
   gap: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 .intro-hero__brand .brand-lockup__sep {
   color: #64748b;
+  margin: 0 0.12em;
 }
 .intro-hero__brand .brand-lockup__ko {
   font-size: 0.88em;
   font-weight: 600;
-  color: #475569;
+  color: #334155;
 }
 .intro-hero__slogan {
   position: relative;
@@ -413,25 +430,27 @@
   flex-direction: column;
   align-items: center;
   gap: 0.06em;
-  margin: 0 0 var(--space-2);
+  margin: 0 0 1.15rem;
   padding-left: 0;
   font-family: var(--font-hero-slogan);
-  font-weight: 600;
-  font-size: clamp(1.85rem, 4.2vw, 2.85rem);
-  line-height: 1.22;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  font-size: clamp(1rem, 2.85vw, 1.5rem);
+  line-height: 1.18;
+  letter-spacing: -0.035em;
   word-break: keep-all;
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
   color: #0f172a;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85);
+  text-shadow:
+    0 0 1px rgba(255, 255, 255, 0.95),
+    0 2px 20px rgba(255, 255, 255, 0.88);
 }
 .intro-hero__slogan-line {
   display: block;
 }
 .intro-hero__slogan-line--final {
-  margin-top: 0.04em;
+  margin-top: 0;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.035em;
 }
 .intro-hero__slogan-accent {
   display: inline-block;
@@ -456,18 +475,65 @@
   color: #475569;
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
+.intro-hero__subdeck .intro-hero__lede {
+  font-size: clamp(1.02rem, 2.15vw, 1.14rem);
+  font-weight: 500;
+  line-height: 1.58;
+  color: #1e3a5f;
+  text-shadow: none;
+}
 .intro-hero__slogan--universe {
+  max-width: min(38rem, 100%);
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+}
+.intro-hero__slogan--universe::after {
+  content: "";
+  display: block;
+  width: 3rem;
+  height: 3px;
+  margin: 0.85rem auto 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.95), #007aff);
+  opacity: 0.9;
+}
+@media (max-width: 560px) {
+  .intro-hero__slogan--universe {
+    white-space: normal;
+    font-size: clamp(1.02rem, 4.5vw, 1.28rem);
+    line-height: 1.28;
+  }
+}
+.intro-hero__subdeck {
+  width: 100%;
   max-width: min(36rem, 100%);
+  margin: 0 auto 0.25rem;
+  padding: 1.1rem 1.35rem;
+  border-radius: 16px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(226, 232, 240, 0.98);
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.06),
+    0 18px 40px -16px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.intro-hero__subdeck .intro-hero__lede--universe {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
 }
 .intro-hero__lede--universe {
   letter-spacing: -0.02em;
-  color: #475569;
+  color: #1e293b;
   max-width: min(34rem, 100%);
   margin-left: auto;
   margin-right: auto;
 }
 .intro-hero__lede--second {
-  margin-top: 0.4rem;
+  margin-top: 0.55rem;
 }
 .intro-hero__share {
   margin-top: var(--space-2);
@@ -565,7 +631,9 @@
 .intro-hero__classroom {
   margin-top: var(--space-2);
   width: 100%;
-  max-width: none;
+  max-width: min(36rem, 100%);
+  margin-left: auto;
+  margin-right: auto;
 }
 .intro-hero__classroom-row {
   display: flex;
@@ -577,9 +645,9 @@
 .intro-hero__classroom-btn {
   display: inline-flex;
   width: 100%;
-  max-width: min(22rem, 100%);
-  margin-left: auto;
-  margin-right: auto;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
   box-sizing: border-box;
   flex-direction: column;
   align-items: center;
