@@ -88,7 +88,7 @@
 }
 
 .sectionTitle {
-  margin: 0 0 0.55rem;
+  margin: 0 0 0.75rem;
   padding: 0.35rem 0.5rem;
   font-size: 0.72rem;
   font-weight: 800;
@@ -122,7 +122,7 @@
   font-size: 0.72rem;
   font-weight: 800;
   color: var(--pd-accent-deep);
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.55rem;
   letter-spacing: 0.04em;
 }
 
@@ -150,20 +150,59 @@
   white-space: pre-wrap;
 }
 
-.vocabList {
+.exprList {
+  list-style: none;
   margin: 0;
-  padding-left: 1rem;
-  list-style: disc;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
 }
 
-.vocabItem {
-  margin-bottom: 0.5rem;
+.exprItem {
+  margin: 0;
   break-inside: avoid;
   page-break-inside: avoid;
 }
 
-.vocabItem:last-child {
-  margin-bottom: 0;
+.pairRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.35fr);
+  gap: 0.35rem 0.55rem;
+  align-items: start;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--pd-border);
+  background: #fff;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.pairEn {
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #1e3a8a;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.pairSep {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #94a3b8;
+  line-height: 1.45;
+  padding-top: 0.05rem;
+}
+
+.pairKo {
+  font-size: 0.82rem;
+  font-weight: 450;
+  line-height: 1.5;
+  color: #334155;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 
 .sentenceCard {
@@ -214,7 +253,7 @@
   font-size: 0.72rem;
   font-weight: 800;
   color: var(--pd-accent-deep);
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.55rem;
 }
 
 .subText {
@@ -320,9 +359,20 @@
     color: #64748b;
   }
 
-  .sectionBlock,
-  .docHeader,
-  .sentenceCard {
+  .docHeader {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* 긴 본문은 페이지를 넘길 수 있게 하고, @page 상단 여백이 새 장에서도 적용되도록 큰 블록 고정 분해 해제 */
+  :global(.passage-deep-print) .sectionBlock,
+  :global(.passage-deep-print) .sentenceCard {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  :global(.passage-deep-print) .pairRow,
+  :global(.passage-deep-print) .exprItem {
     break-inside: avoid;
     page-break-inside: avoid;
   }

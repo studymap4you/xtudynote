@@ -1,6 +1,7 @@
 /**
  * 지문 심층 분석 — 문장 단위 + 의미 단위(/) + 5단 구성 리포트 (schemaVersion 1)
- * 주제·제목·어휘·4·5번은 영문(또는 지문 표기) + 한국어 해설을 반드시 쌍으로 둡니다.
+ * 주제·제목·문장별 어휘는 영문(또는 지문 표기) + 한국어 해설 쌍.
+ * 4·5번은 반드시 1:1 리스트(배열) — 각 원소가 [영문 표현] : [한국어] 한 줄에 대응.
  */
 
 /** 영어(또는 지문 인용) + 한국어 해설 */
@@ -30,10 +31,10 @@ export type PassageDeepAnalysisReportJson = {
   theme: PassageDeepBilingualBlock;
   /** 2. 제목 — 영문 제목(또는 제안 영문) + 한국어 설명 */
   passageTitle: PassageDeepBilingualBlock;
-  /** 4. 핵심 표현 정리 — 영문 표현·구문 나열 + 한국어 해설 */
-  keyExpressionsSummary: PassageDeepBilingualBlock;
-  /** 5. 핵심 문법·구문 — 영문 구문/패턴 + 한국어 해설 */
-  keyGrammarSyntax: PassageDeepBilingualBlock;
+  /** 4. 핵심 표현 정리 — 각 항목이 한 줄: 영문 표현/구문 ↔ 한국어 뜻·해설 */
+  keyExpressionsList: PassageDeepBilingualBlock[];
+  /** 5. 핵심 문법·구문 — 각 항목이 한 줄: 영문 패턴 ↔ 한국어 설명 */
+  keyGrammarSyntaxList: PassageDeepBilingualBlock[];
   /** 3. 문장별 심층 분석 */
   sentences: PassageDeepSentenceBlock[];
 };

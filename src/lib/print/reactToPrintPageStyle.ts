@@ -5,7 +5,8 @@
 export const REACT_TO_PRINT_A4_PAGE_STYLE = `
   @page {
     size: A4 portrait;
-    margin: 20mm;
+    /* 상단은 페이지 넘김 시 본문이 천장에 붙는 느낌을 줄이기 위해 22mm 이상 */
+    margin: 22mm 18mm 20mm 18mm;
     /* Firefox 등: @bottom-center가 지원되면 브랜드·페이지 번호가 여기 표시됩니다. Chromium은 대개 무시합니다. */
     @bottom-center {
       font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif;
@@ -21,6 +22,11 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
       color-adjust: exact !important;
       print-color-adjust: exact !important;
       -webkit-print-color-adjust: exact !important;
+    }
+    .passage-deep-print p,
+    .passage-deep-print li {
+      orphans: 2;
+      widows: 2;
     }
   }
 `;

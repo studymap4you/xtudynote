@@ -26,12 +26,30 @@ function BilingualBlockView({ block }: { block: PassageDeepBilingualBlock }) {
   );
 }
 
+function PairLineRow({ item }: { item: PassageDeepBilingualBlock }) {
+  return (
+    <li className={styles.exprItem}>
+      <div className={styles.pairRow}>
+        <span className={styles.pairEn} lang="en">
+          {item.english}
+        </span>
+        <span className={styles.pairSep} aria-hidden>
+          :
+        </span>
+        <span className={styles.pairKo} lang="ko">
+          {item.koreanExplanation}
+        </span>
+      </div>
+    </li>
+  );
+}
+
 export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(function PassageDeepAnalysisPreview(
   { passage, report, onExportPdf, pdfBusy, saveMessage },
   ref,
 ) {
   return (
-    <div ref={ref} className={styles.root}>
+    <div ref={ref} className={`passage-deep-print ${styles.root}`}>
       <header className={styles.docHeader}>
         <span className={styles.brandMain}>
           XtudyNote <span className={styles.brandAccent}>|</span> 지문 심층 분석
@@ -84,12 +102,10 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
                   <p className={styles.subText}>{s.professionalInterpretation}</p>
                 </div>
                 <div className={styles.subBlock}>
-                  <div className={styles.subLabel}>주요 어휘·표현 (영문 + 한국어 해설)</div>
-                  <ul className={styles.vocabList}>
+                  <div className={styles.subLabel}>주요 어휘·표현 (영문 : 한국어)</div>
+                  <ul className={styles.exprList}>
                     {s.keyVocabItems.map((item, j) => (
-                      <li key={`${s.sentenceIndex}-v-${j}`} className={styles.vocabItem}>
-                        <BilingualBlockView block={item} />
-                      </li>
+                      <PairLineRow key={`${s.sentenceIndex}-v-${j}`} item={item} />
                     ))}
                   </ul>
                 </div>
@@ -103,12 +119,20 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
             4. 핵심 표현 정리 · 5. 핵심 문법·구문
           </h3>
           <div className={styles.subBlock}>
-            <div className={styles.subLabel}>4. 핵심 표현 정리 (영문 + 한국어 해설)</div>
-            <BilingualBlockView block={report.keyExpressionsSummary} />
+            <div className={styles.subLabel}>4. 핵심 표현 정리 (영문 : 한국어, 1:1)</div>
+            <ul className={styles.exprList}>
+              {report.keyExpressionsList.map((item, j) => (
+                <PairLineRow key={`expr-${j}`} item={item} />
+              ))}
+            </ul>
           </div>
           <div className={styles.subBlock}>
-            <div className={styles.subLabel}>5. 핵심 문법·구문 (영문 + 한국어 해설)</div>
-            <BilingualBlockView block={report.keyGrammarSyntax} />
+            <div className={styles.subLabel}>5. 핵심 문법·구문 (영문 : 한국어, 1:1)</div>
+            <ul className={styles.exprList}>
+              {report.keyGrammarSyntaxList.map((item, j) => (
+                <PairLineRow key={`grm-${j}`} item={item} />
+              ))}
+            </ul>
           </div>
         </section>
       </div>
