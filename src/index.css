@@ -24,19 +24,19 @@
   --success: #4ade80;
   --radius-lg: 20px;
   --radius-md: 12px;
-  /* Pretendard 우선 — 밝은 UI 본문 */
-  --font-sans: "Pretendard", "Noto Sans KR", "Noto Sans", "Apple SD Gothic Neo", "Malgun Gothic",
+  /* Inter(라틴) + Pretendard(한글) — 밝은 UI */
+  --font-sans: "Inter", "Pretendard", "Noto Sans KR", "Noto Sans", "Apple SD Gothic Neo", "Malgun Gothic",
     system-ui, sans-serif;
   --font-display: var(--font-sans);
   --font-body: var(--font-sans);
-  /* Rich text / 폼 본문 — Pretendard 우선 */
-  --font-editor: "Pretendard", "Noto Sans KR", "Noto Sans", "Apple SD Gothic Neo", "Malgun Gothic",
+  /* Rich text / 폼 본문 */
+  --font-editor: "Inter", "Pretendard", "Noto Sans KR", "Noto Sans", "Apple SD Gothic Neo", "Malgun Gothic",
     system-ui, sans-serif;
   /* 포인트 버튼 위 글자 (밝은 배경색 버튼용 고대비) */
   --btn-on-accent: #0a0f1a;
   --btn-on-accent-muted: rgba(10, 15, 26, 0.82);
   /* 랜딩 히어로 슬로건 — Pretendard 우선, 마마블록·Noto 폴백 */
-  --font-hero-slogan: "Pretendard", "210 Mamablock", "210 마마블럭", var(--font-body);
+  --font-hero-slogan: "Inter", "Pretendard", "210 Mamablock", "210 마마블럭", var(--font-body);
   /* 랜딩 슬로건 — 210 마마블록(라이선스 파일 배치 시 적용). 미배치 시 Noto 폴백 */
   --font-slogan-mamablock: "210 Mamablock", "210 마마블럭", var(--font-body);
 

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
-import { normalizeHomeworkCode } from "@/lib/homeworkCode";
 import {
   BRAND_HERO_SUBLINE_1,
   BRAND_HERO_SUBLINE_2,
@@ -333,20 +332,6 @@ function IconTeacher() {
   );
 }
 
-function IconSend() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 const shortcutIconProps = {
   className: "intro-shortcut__icon",
   width: 22,
@@ -492,13 +477,7 @@ function ShortcutOrbIcon({ tone }: { tone: (typeof SHORTCUTS)[number]["tone"] })
   }
 }
 
-type IntroLandingPanelProps = {
-  search: string;
-  setSearch: (v: string) => void;
-  onSearch: (e: React.FormEvent) => void;
-};
-
-function IntroLandingPanel({ search, setSearch, onSearch }: IntroLandingPanelProps) {
+function IntroLandingPanel() {
   const { firebaseUser, logOut } = useAuth();
 
   const stack = (
@@ -588,27 +567,7 @@ function IntroLandingPanel({ search, setSearch, onSearch }: IntroLandingPanelPro
         </div>
       </div>
 
-      <form className="intro-search" onSubmit={onSearch} role="search">
-        <label className="intro-search__label" htmlFor="intro-search-input">
-          <span className="intro-search__label-text">통합 검색</span>
-        </label>
-        <div className="intro-search__shell">
-          <input
-            id="intro-search-input"
-            className="intro-search__input"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="과제 번호로 바로 이동 (예: HW-…)"
-            autoComplete="off"
-            enterKeyHint="search"
-          />
-          <button type="submit" className="intro-search__submit" aria-label="검색 실행">
-            <IconSend />
-          </button>
-        </div>
-      </form>
-
-      <nav className="intro-shortcuts" aria-label="주요 메뉴 바로가기">
+      <nav className="intro-shortcuts intro-shortcuts--panel" aria-label="주요 메뉴 바로가기">
         <ul className="intro-shortcuts__list">
           {SHORTCUTS.map((s) => {
             const isLogin = s.to === "/login";
@@ -642,15 +601,6 @@ function IntroLandingPanel({ search, setSearch, onSearch }: IntroLandingPanelPro
  */
 export function Intro() {
   const { isTeacherApproved } = useAuth();
-  const navigate = useNavigate();
-  const [search, setSearch] = useState("");
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const n = normalizeHomeworkCode(search);
-    if (n) navigate(`/homework/${encodeURIComponent(n)}`);
-    else navigate("/homework");
-  }
 
   return (
     <section className="intro-hero" aria-labelledby="intro-slogan">
@@ -693,7 +643,7 @@ export function Intro() {
           </div>
         </div>
 
-        <IntroLandingPanel search={search} setSearch={setSearch} onSearch={handleSearch} />
+        <IntroLandingPanel />
       </div>
     </section>
   );
