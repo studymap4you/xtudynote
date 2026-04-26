@@ -164,6 +164,7 @@ export const getExternalWorksheetByToken = onCall(
 );
 
 export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, async (request) => {
+  try {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
   const teacherId = request.auth.uid;
   const prof = (await db.doc(`users/${teacherId}`).get()).data();
@@ -237,7 +238,7 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
   if (hasExternalEmail && !transporter) {
     throw new HttpsError(
       "failed-precondition",
-      "미가입 학생에게 메일을내려면 Cloud Functions에 GMAIL_USER·GMAIL_PASS(또는 SMTP_HOST·MAIL_FROM·SMTP_PASS)를 설정해야 합니다. 로그: firebase functions:log --only deployWorksheetOutreach",
+      "미가입 학생에게 메일을내려면 Cloud Functions에 발신용 메일 설정이 필요합니다. Gmail: GMAIL_USER·GMAIL_PASS, 그 외(네이버·Outlook·사내 메일 등): SMTP_HOST·MAIL_FROM·SMTP_PASS. 로그: firebase functions:log --only deployWorksheetOutreach",
     );
   }
 
@@ -250,7 +251,7 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
       console.error("[deployWorksheetOutreach] SMTP verify 실패:", msg);
       throw new HttpsError(
         "failed-precondition",
-        `SMTP 서버 연결에 실패했습니다: ${msg}. Gmail은 GMAIL_USER·GMAIL_PASS(앱 비밀번호)·MAIL_FROM을 확인하세요.`,
+        `SMTP 서버 연결에 실패했습니다: ${msg}. Gmail은 GMAIL_USER·GMAIL_PASS(앱 비밀번호) 또는 일반 SMTP는 SMTP_HOST·SMTP_USER·SMTP_PASS·MAIL_FROM을 확인하세요.`,
       );
     }
   }
@@ -272,12 +273,19 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
     if (sp && on) localAttachment = { storagePath: sp, originalName: on };
   }
 
+  let analysisForFirestore: Record<string, unknown>;
+  try {
+    analysisForFirestore = JSON.parse(JSON.stringify(analysis)) as Record<string, unknown>;
+  } catch {
+    throw new HttpsError("invalid-argument", "분석 데이터에 저장할 수 없는 값이 포함되어 있습니다. AI 학습지 첨부를 다시 시도해 주세요.");
+  }
+
   const assignRef = await db.collection("assignments").add({
     schemaVersion: 1,
     teacherId,
     title,
     passage,
-    analysis,
+    analysis: analysisForFirestore,
     distributedAt,
     targetStudentIds: [...targetSet],
     worksheetItems: worksheetItems.map((w) => ({
@@ -385,4 +393,13 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
     outreachEmailErrors,
     outreachEmailAttempted: emailRows.filter((t) => t.row.email && !t.uid).length,
   };
+  } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[deployWorksheetOutreach] 예기치 않은 오류:", e);
+    throw new HttpsError(
+      "failed-precondition",
+      `배포 처리 중 서버 오류: ${msg.slice(0, 400)} (원인 확인: firebase functions:log --only deployWorksheetOutreach)`,
+    );
+  }
 });
