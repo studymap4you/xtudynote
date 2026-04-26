@@ -41,18 +41,24 @@ function randomTokenHex(bytes = 24): string {
 }
 
 async function getMailer() {
-  const host = smtpHost.value();
-  const from = mailFrom.value();
+  const host = smtpHost.value().trim();
+  const from = mailFrom.value().trim();
   const pass = smtpPass.value();
-  const user = smtpUser.value();
-  if (!host || !from || !pass) return null;
+  const user = smtpUser.value().trim();
+  if (!host || !from || !pass) {
+    console.error(
+      "[deployWorksheetOutreach] SMTP 미구성: Firebase Console → Functions → `deployWorksheetOutreach`에 SMTP_HOST, MAIL_FROM, SMTP_PASS(필수), SMTP_USER(선택) 파라미터를 설정하세요. 로컬은 `firebase functions:secrets:set` 또는 params 설정을 참고하세요.",
+    );
+    return null;
+  }
   const port = Number(smtpPort.value()) || 587;
   const secure = smtpSecure.value() === "true" || port === 465;
+  const login = user || from;
   return nodemailer.createTransport({
     host,
     port,
     secure,
-    auth: user ? { user, pass } : { user: "", pass },
+    auth: { user: login, pass },
   });
 }
 
@@ -189,8 +195,22 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
   if (hasExternalEmail && !transporter) {
     throw new HttpsError(
       "failed-precondition",
-      "미가입 학생에게 메일을내려면 Functions에 SMTP_HOST, MAIL_FROM, SMTP_PASS(및 필요 시 SMTP_USER)를 설정해 주세요.",
+      "미가입 학생에게 메일을내려면 Cloud Functions 파라미터에 SMTP_HOST, MAIL_FROM, SMTP_PASS를 설정해야 합니다. (Vite .env만으로는 Functions에 전달되지 않습니다.) 로그: firebase functions:log --only deployWorksheetOutreach",
     );
+  }
+
+  if (transporter && hasExternalEmail) {
+    try {
+      await transporter.verify();
+      console.error("[deployWorksheetOutreach] SMTP verify: OK");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[deployWorksheetOutreach] SMTP verify 실패:", msg);
+      throw new HttpsError(
+        "failed-precondition",
+        `SMTP 서버 연결에 실패했습니다: ${msg}. 호스트·포트·SMTP_USER·SMTP_PASS·MAIL_FROM을 확인하고 Functions 로그를 확인하세요.`,
+      );
+    }
   }
 
   const teacherName =
@@ -234,6 +254,7 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
 
   const origin = appPublicOrigin.value().replace(/\/$/, "");
   let outreachSent = 0;
+  const outreachEmailErrors: string[] = [];
 
   for (const { row, uid } of emailRows) {
     if (!row.email) continue;
@@ -277,14 +298,20 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
         viewUrl,
       });
       if (transporter) {
-        await transporter.sendMail({
-          from: mailFrom.value(),
-          to: row.email,
-          subject: `[XtudyNote] ${title} — 학습지 안내`,
-          html,
-        });
-        outreachSent++;
-        await recRef.update({ emailSentAt: FieldValue.serverTimestamp() });
+        try {
+          await transporter.sendMail({
+            from: mailFrom.value(),
+            to: row.email,
+            subject: `[XtudyNote] ${title} — 학습지 안내`,
+            html,
+          });
+          outreachSent++;
+          await recRef.update({ emailSentAt: FieldValue.serverTimestamp() });
+        } catch (mailErr) {
+          const em = mailErr instanceof Error ? mailErr.message : String(mailErr);
+          console.error(`[deployWorksheetOutreach] sendMail 실패 to=${row.email}:`, em);
+          outreachEmailErrors.push(`${row.email}: ${em}`);
+        }
       }
     }
   }
@@ -305,9 +332,15 @@ export const deployWorksheetOutreach = onCall({ region: REGION, cors: true }, as
 
   await assignRef.update({ outreachEmailSent: outreachSent });
 
+  if (hasExternalEmail && outreachSent === 0 && outreachEmailErrors.length > 0) {
+    console.error("[deployWorksheetOutreach] 미가입 대상 메일 전부 실패:", outreachEmailErrors);
+  }
+
   return {
     assignmentId,
     appTargetCount: targetSet.size,
     outreachEmailCount: outreachSent,
+    outreachEmailErrors,
+    outreachEmailAttempted: emailRows.filter((t) => t.row.email && !t.uid).length,
   };
 });

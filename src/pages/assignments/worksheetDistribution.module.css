@@ -1,3 +1,14 @@
+.labelSpacer {
+  display: block;
+  min-height: calc(0.72rem + 0.22rem);
+  margin: 0;
+  padding: 0;
+  visibility: hidden;
+  font-size: 0.72rem;
+  line-height: 1;
+  user-select: none;
+}
+
 .panel {
   margin-top: 1rem;
   padding: 1rem 1.1rem 1.15rem;
@@ -20,18 +31,25 @@
   line-height: 1.45;
 }
 
-.formRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: flex-end;
-  margin-bottom: 0.65rem;
+/* 입력 행: 2 : 3 : 4 비율 + 추가 버튼 */
+.formGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(0, 4fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+  margin-bottom: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.22rem;
   min-width: 0;
 }
 
@@ -42,36 +60,43 @@
 }
 
 .input {
-  padding: 0.42rem 0.5rem;
-  border-radius: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 2.55rem;
+  min-height: 2.55rem;
+  max-height: 2.55rem;
+  padding: 0 0.55rem;
+  border-radius: 10px;
   border: 1px solid rgba(15, 23, 42, 0.14);
   font-size: 0.88rem;
   background: #fff;
-  min-width: 0;
+  line-height: 1.25;
 }
 
-.inputNarrow {
-  width: min(140px, 100%);
-}
-
-.inputMid {
-  width: min(200px, 100%);
-}
-
-.inputGrow {
-  flex: 1 1 160px;
-  min-width: 140px;
+.input:focus-visible {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.65);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
 }
 
 .addBtn {
-  padding: 0.45rem 0.85rem;
-  border-radius: 9px;
+  box-sizing: border-box;
+  height: 2.55rem;
+  min-height: 2.55rem;
+  padding: 0 1rem;
+  border-radius: 10px;
   border: 1px solid rgba(37, 99, 235, 0.35);
   background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
   color: #fff;
   font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.addBtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28);
 }
 
 .addBtn:disabled {
@@ -88,7 +113,7 @@
 
 .fileBtn {
   padding: 0.45rem 0.75rem;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid rgba(37, 99, 235, 0.3);
   background: rgba(255, 255, 255, 0.9);
   font-size: 0.84rem;
@@ -97,19 +122,29 @@
   cursor: pointer;
 }
 
+.fileBtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+}
+
 .fileBtn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.tableWrap {
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #fff;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.84rem;
-  background: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  table-layout: fixed;
 }
 
 .table th,
@@ -124,6 +159,28 @@
   background: rgba(241, 245, 249, 0.95);
   font-weight: 600;
   color: #334155;
+}
+
+.colName {
+  width: 20%;
+}
+
+.colPhone {
+  width: 18%;
+}
+
+.colEmail {
+  width: 36%;
+  word-break: break-all;
+}
+
+.colReg {
+  width: 14%;
+}
+
+.colAct {
+  width: 8%;
+  text-align: center;
 }
 
 .badge {

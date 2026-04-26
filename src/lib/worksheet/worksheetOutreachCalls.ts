@@ -25,6 +25,10 @@ export type DeployWorksheetOutreachResult = {
   assignmentId: string;
   appTargetCount: number;
   outreachEmailCount: number;
+  /** 미가입 대상에게 sendMail 시도했으나 실패한 경우 메시지 목록 */
+  outreachEmailErrors?: string[];
+  /** 미가입으로 메일 발송 대상으로 잡힌 인원 수 */
+  outreachEmailAttempted?: number;
 };
 
 export async function deployWorksheetOutreach(input: DeployWorksheetOutreachInput): Promise<DeployWorksheetOutreachResult> {

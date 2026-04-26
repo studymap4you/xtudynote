@@ -117,12 +117,12 @@ export function DistributionRecipientsPanel({ rows, onChangeRows, disabled }: Pr
         </button>
       </div>
 
-      <div className={styles.formRow}>
-        <div className={styles.field} style={{ flex: "1 1 140px" }}>
+      <div className={styles.formGrid}>
+        <div className={styles.field}>
           <label htmlFor="dist-name">이름(별명)</label>
           <input
             id="dist-name"
-            className={`${styles.input} ${styles.inputGrow}`}
+            className={styles.input}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             maxLength={120}
@@ -134,7 +134,7 @@ export function DistributionRecipientsPanel({ rows, onChangeRows, disabled }: Pr
           <label htmlFor="dist-phone">전화번호</label>
           <input
             id="dist-phone"
-            className={`${styles.input} ${styles.inputMid}`}
+            className={styles.input}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             maxLength={40}
@@ -142,11 +142,11 @@ export function DistributionRecipientsPanel({ rows, onChangeRows, disabled }: Pr
             placeholder="010-0000-0000"
           />
         </div>
-        <div className={styles.field} style={{ flex: "1 1 200px" }}>
+        <div className={styles.field}>
           <label htmlFor="dist-email">이메일</label>
           <input
             id="dist-email"
-            className={`${styles.input} ${styles.inputGrow}`}
+            className={styles.input}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -155,22 +155,28 @@ export function DistributionRecipientsPanel({ rows, onChangeRows, disabled }: Pr
             placeholder="student@example.com"
           />
         </div>
-        <button type="button" className={styles.addBtn} disabled={disabled || busy} onClick={() => void addRow()}>
-          {busy ? "확인 중…" : "추가"}
-        </button>
+        <div className={styles.field}>
+          <span className={styles.labelSpacer} aria-hidden>
+            .
+          </span>
+          <button id="dist-add" type="button" className={styles.addBtn} disabled={disabled || busy} onClick={() => void addRow()}>
+            {busy ? "확인 중…" : "추가"}
+          </button>
+        </div>
       </div>
 
       {rows.length === 0 ? (
         <p className={styles.empty}>아래 목록이 비어 있습니다. 위에서 학생을 추가하거나 파일을 불러오세요.</p>
       ) : (
-        <table className={styles.table}>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
           <thead>
             <tr>
-              <th>이름(별명)</th>
-              <th>전화</th>
-              <th>이메일</th>
-              <th>가입 여부</th>
-              <th aria-label="삭제" />
+              <th className={styles.colName}>이름(별명)</th>
+              <th className={styles.colPhone}>전화</th>
+              <th className={styles.colEmail}>이메일</th>
+              <th className={styles.colReg}>가입 여부</th>
+              <th className={styles.colAct} aria-label="삭제" />
             </tr>
           </thead>
           <tbody>
@@ -178,7 +184,7 @@ export function DistributionRecipientsPanel({ rows, onChangeRows, disabled }: Pr
               <tr key={r.id}>
                 <td>{r.displayName || "—"}</td>
                 <td style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.8rem" }}>{r.phone || "—"}</td>
-                <td style={{ wordBreak: "break-all" }}>{r.email || "—"}</td>
+                <td>{r.email || "—"}</td>
                 <td>
                   {!r.email ? (
                     <span className={styles.regDash}>—</span>
@@ -192,7 +198,7 @@ export function DistributionRecipientsPanel({ rows, onChangeRows, disabled }: Pr
                     </span>
                   )}
                 </td>
-                <td>
+                <td className={styles.colAct}>
                   <button type="button" className={styles.rm} aria-label="행 삭제" disabled={disabled} onClick={() => removeRow(r.id)}>
                     ×
                   </button>
@@ -201,6 +207,7 @@ export function DistributionRecipientsPanel({ rows, onChangeRows, disabled }: Pr
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <p className={styles.note}>

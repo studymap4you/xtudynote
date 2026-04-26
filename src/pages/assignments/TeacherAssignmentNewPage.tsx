@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FirebaseError } from "firebase/app";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
@@ -53,11 +54,18 @@ export function TeacherAssignmentNewPage() {
   });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ kind: "ok" | "err" | "warn"; text: string } | null>(null);
   const [loadNote, setLoadNote] = useState<string | null>(null);
 
   const [classrooms, setClassrooms] = useState<ClassroomRow[]>([]);
   const [rosterRows, setRosterRows] = useState<Awaited<ReturnType<typeof listWorksheetRoster>>>([]);
   const localFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 6500);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
   useEffect(() => {
     if (!uid) return;
@@ -231,6 +239,7 @@ export function TeacherAssignmentNewPage() {
 
       setBusy(true);
       setMsg(null);
+      setToast(null);
       try {
         if (deployTrack === "internal") {
           const targets = [...new Set(selectedStudentIds.map((s) => s.trim()).filter((s) => s.length >= 8))];
@@ -250,7 +259,8 @@ export function TeacherAssignmentNewPage() {
             contentSource,
             localAttachment: localAttachment ?? undefined,
           });
-          navigate(`/teacher/assignments/${id}`);
+          setToast({ kind: "ok", text: "과제가 저장되었습니다. 학생 과제함에서 확인할 수 있습니다." });
+          window.setTimeout(() => navigate(`/teacher/assignments/${id}`), 900);
         } else {
           const hasEmail = recipientRows.some((r) => r.email.trim().includes("@"));
           if (!hasEmail) {
@@ -273,10 +283,33 @@ export function TeacherAssignmentNewPage() {
             contentSource,
             localAttachment: localAttachment ?? undefined,
           });
-          navigate(`/teacher/assignments/${result.assignmentId}`);
+          const attempted = result.outreachEmailAttempted ?? 0;
+          const sent = result.outreachEmailCount ?? 0;
+          const errs = result.outreachEmailErrors ?? [];
+          if (attempted === 0) {
+            setToast({
+              kind: "ok",
+              text: "과제가 저장되었습니다. 모든 수신 이메일이 가입 계정과 일치해 앱 과제함에만 반영되었고, 별도 메일은 발송하지 않았습니다.",
+            });
+          } else if (errs.length === 0) {
+            setToast({ kind: "ok", text: `과제 저장 완료. 미가입 수신자 ${attempted}명에게 메일 ${sent}건을 발송했습니다.` });
+          } else if (sent > 0) {
+            setToast({
+              kind: "warn",
+              text: `과제는 저장되었으나 메일 일부 실패: 성공 ${sent}/${attempted}건. ${errs.slice(0, 2).join(" · ")}${errs.length > 2 ? " …" : ""}`,
+            });
+          } else {
+            setToast({
+              kind: "err",
+              text: `메일 발송에 실패했습니다 (${attempted}건). ${errs.slice(0, 2).join(" · ")} Functions 로그: firebase functions:log`,
+            });
+          }
+          window.setTimeout(() => navigate(`/teacher/assignments/${result.assignmentId}`), errs.length && sent === 0 ? 3200 : 1800);
         }
       } catch (err) {
-        setMsg(err instanceof Error ? err.message : String(err));
+        const fb = err instanceof FirebaseError ? err.message : err instanceof Error ? err.message : String(err);
+        setMsg(fb);
+        setToast({ kind: "err", text: fb });
       } finally {
         setBusy(false);
       }
@@ -440,11 +473,27 @@ export function TeacherAssignmentNewPage() {
           </div>
           <div style={{ alignSelf: "end" }}>
             <button type="submit" className="btn btn--primary btn--stack" disabled={busy}>
-              {busy ? "처리 중…" : deployTrack === "internal" ? "선택 학생에게 과제 배포" : "이메일로 과제 안내 발송"}
+              {busy
+                ? deployTrack === "external"
+                  ? "발송 중…"
+                  : "처리 중…"
+                : deployTrack === "internal"
+                  ? "선택 학생에게 과제 배포"
+                  : "이메일로 과제 안내 발송"}
             </button>
           </div>
         </form>
         {msg ? <p className={styles.err}>{msg}</p> : null}
+
+        {toast ? (
+          <div
+            className={`${styles.deployToast} ${toast.kind === "ok" ? styles.deployToastOk : toast.kind === "warn" ? styles.deployToastWarn : styles.deployToastErr}`}
+            role="status"
+            aria-live="polite"
+          >
+            {toast.text}
+          </div>
+        ) : null}
       </main>
     </DashboardShell>
   );
