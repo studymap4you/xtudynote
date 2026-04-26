@@ -156,8 +156,11 @@ function MatFilePickList({ files }: { files: File[] }) {
 }
 
 export function MaterialRegisterPage() {
-  const { firebaseUser, profile, canManageMaterials, isStudent, isSuperAdmin } = useAuth();
+  const { firebaseUser, profile, canManageMaterials, isStudent, isSuperAdmin, isTeacherApproved } =
+    useAuth();
   const [searchParams] = useSearchParams();
+  const classroomIdFromQuery = searchParams.get("classroomId")?.trim() ?? "";
+  const teacherMustPickClassroom = isTeacherApproved && !classroomIdFromQuery;
 
   const canSubmit =
     !!profile &&
@@ -269,7 +272,17 @@ export function MaterialRegisterPage() {
     }
 
     let classroomId: string | null = searchParams.get("classroomId")?.trim() || null;
-    if (classroomId) {
+    if (isTeacherApproved) {
+      if (!classroomId) {
+        window.alert("개설한 강의실에 들어간 뒤, 해당 강의실에서 자료 등록을 진행해 주세요.");
+        return;
+      }
+      const ok = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
+      if (!ok) {
+        window.alert("강의실을 찾을 수 없거나 이 강의실에 자료를 연결할 권한이 없습니다.");
+        return;
+      }
+    } else if (classroomId) {
       const ok = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
       if (!ok) {
         window.alert("강의실을 찾을 수 없거나 이 강의실에 자료를 연결할 권한이 없습니다.");
@@ -464,7 +477,7 @@ export function MaterialRegisterPage() {
   return (
     <DashboardShell light>
       <main
-        className={`admin-layout material-register admin-layout--light material-register--unified material-register--premium${canSubmit ? " material-register--has-sticky" : ""}`}
+        className={`admin-layout material-register admin-layout--light material-register--unified material-register--premium${canSubmit && !teacherMustPickClassroom ? " material-register--has-sticky" : ""}`}
       >
         <div className="admin-layout__title-row">
           <h1>자료 등록</h1>
@@ -489,7 +502,21 @@ export function MaterialRegisterPage() {
           </p>
         )}
 
-        {canSubmit && (
+        {teacherMustPickClassroom && firebaseUser && (
+          <div className="material-register__classroom-gate" role="status">
+            <h2 className="material-register__classroom-gate-title">강의실에서 자료를 등록해 주세요</h2>
+            <p className="material-register__classroom-gate-lead">
+              승인된 교육자는 <strong>내 강의실</strong>에 들어간 뒤, 각 강의실의「자료」탭에서만 신청할 수
+              있습니다. 강의실마다 별도로 등록됩니다.
+            </p>
+            <Link to="/classroom" className="btn btn--primary btn--stack">
+              <span className="ui-en">My classrooms</span>
+              <span className="ui-ko">내 강의실로 이동</span>
+            </Link>
+          </div>
+        )}
+
+        {canSubmit && !teacherMustPickClassroom && (
           <>
             <div className="material-register__shell">
               <section className="material-register-form material-register-form--full">

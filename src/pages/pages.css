@@ -2311,6 +2311,264 @@ button.top-nav__auth-link--logout:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* —— Educator workspace (승인 교사 · 밝은 셸) —— */
+.app-shell--light .dashboard.dashboard--educator {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 2.75rem;
+  width: 100%;
+  color: var(--light-text, #111827);
+}
+.app-shell--light .dashboard--educator .dashboard__title {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(1.65rem, 3.2vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.educator-hero {
+  margin-bottom: 1.75rem;
+  padding: 1.65rem 1.5rem 1.7rem;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 42%, #eff6ff 100%);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 14px 40px -18px rgba(15, 23, 42, 0.14);
+}
+.educator-hero__eyebrow {
+  margin: 0 0 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+.educator-hero__titles {
+  margin-bottom: 0.85rem;
+}
+.app-shell--light .dashboard--educator .educator-hero__title-ko {
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 0.35rem;
+}
+.educator-hero__lead {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-width: 40rem;
+}
+.educator-hero__lead-en {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #475569;
+  font-weight: 500;
+}
+.educator-hero__lead-ko {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #64748b;
+}
+.educator-grid {
+  display: grid;
+  gap: 1.15rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr);
+  align-items: stretch;
+}
+@media (max-width: 840px) {
+  .educator-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.educator-card {
+  position: relative;
+  padding: 1.35rem 1.4rem 1.45rem;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 10px 36px -20px rgba(15, 23, 42, 0.12);
+}
+.educator-card--bank {
+  grid-column: 1 / -1;
+}
+.educator-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+.educator-card__eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.educator-card__title {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+.educator-card__desc {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #64748b;
+}
+.educator-card__desc--compact {
+  margin-bottom: 0.85rem;
+}
+.educator-card__desc strong {
+  color: #1e40af;
+  font-weight: 600;
+}
+.educator-pill {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.22);
+}
+.educator-card__cta-row {
+  margin-bottom: 1rem;
+}
+.educator-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  border: 1px solid transparent;
+}
+.educator-btn__en {
+  font-size: 0.92rem;
+}
+.educator-btn__ko {
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.92;
+}
+.educator-btn--primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px -4px rgba(37, 99, 235, 0.55);
+}
+.educator-btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px -6px rgba(37, 99, 235, 0.5);
+  color: #fff;
+  text-decoration: none;
+}
+.educator-btn--primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+.educator-btn--secondary {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.1);
+  color: #0f172a;
+}
+.educator-btn--secondary:hover {
+  background: #f1f5f9;
+  border-color: rgba(37, 99, 235, 0.25);
+  color: #1d4ed8;
+  text-decoration: none;
+}
+.educator-quick-links {
+  list-style: none;
+  margin: 0;
+  padding: 0.65rem 0 0;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+}
+.educator-quick-links__a {
+  text-decoration: none;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.educator-quick-links__a:hover {
+  border-bottom-color: rgba(37, 99, 235, 0.45);
+  text-decoration: none;
+}
+.educator-quick-links__en {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+}
+.educator-quick-links__ko {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+.educator-quick-links__a:hover .educator-quick-links__en {
+  color: #1d4ed8;
+}
+.educator-bank-form {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 28rem;
+}
+.educator-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.educator-field__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+}
+.educator-field__input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.92rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.educator-field__input:focus {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.45);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  background: #fff;
+}
+.educator-form-msg {
+  font-size: 0.85rem;
+  color: #047857;
+  font-weight: 600;
+  margin: 0;
+}
+.educator-form-msg--err {
+  color: #b91c1c;
+}
+
 .panel {
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -3411,6 +3669,32 @@ button.top-nav__auth-link--logout:hover {
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
+.material-register__classroom-gate {
+  margin: 1.25rem 0 1.5rem;
+  padding: 1.35rem 1.35rem 1.45rem;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(160deg, #ffffff 0%, #f8fafc 55%, #eff6ff 100%);
+  box-shadow: 0 10px 36px -22px rgba(15, 23, 42, 0.15);
+  max-width: 28rem;
+}
+.material-register__classroom-gate-title {
+  margin: 0 0 0.65rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+.material-register__classroom-gate-lead {
+  margin: 0 0 1.1rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #475569;
+}
+.material-register__classroom-gate-lead strong {
+  color: #1d4ed8;
+}
+
 .student-vault__list {
   list-style: none;
   padding: 0;
@@ -4384,6 +4668,204 @@ button.top-nav__auth-link--logout:hover {
   gap: var(--space-2);
   margin-top: var(--space-2);
   flex-wrap: wrap;
+}
+
+/* Educator dashboard: CRM 블록 라이트 테마 (기존 .crm-* 다크 스타일 보정) */
+.app-shell--light .educator-crm .crm-section {
+  margin-top: 1.5rem;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 40px -24px rgba(15, 23, 42, 0.12);
+  color-scheme: light;
+}
+.app-shell--light .educator-crm .crm-emailjs-banner {
+  background: rgba(254, 243, 199, 0.65);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #92400e;
+}
+.app-shell--light .educator-crm .crm-emailjs-banner strong {
+  color: #78350f;
+}
+.app-shell--light .educator-crm .crm-emailjs-banner code {
+  background: rgba(255, 255, 255, 0.75);
+  color: #b45309;
+}
+.app-shell--light .educator-crm .crm-section__title-en {
+  color: #0f172a;
+}
+.app-shell--light .educator-crm .crm-section__title-ko {
+  color: #64748b;
+}
+.app-shell--light .educator-crm .crm-section__lead-en {
+  color: #475569;
+}
+.app-shell--light .educator-crm .crm-section__lead-ko {
+  color: #64748b;
+}
+.app-shell--light .educator-crm .crm-field__en {
+  color: #2563eb;
+}
+.app-shell--light .educator-crm .crm-field__ko {
+  color: #64748b;
+}
+.app-shell--light .educator-crm .crm-field__input,
+.app-shell--light .educator-crm .crm-field__textarea,
+.app-shell--light .educator-crm .crm-field__select {
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: none;
+}
+.app-shell--light .educator-crm .crm-field__input:focus,
+.app-shell--light .educator-crm .crm-field__textarea:focus,
+.app-shell--light .educator-crm .crm-field__select:focus {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+.app-shell--light .educator-crm .crm-field__input::placeholder,
+.app-shell--light .educator-crm .crm-field__textarea::placeholder {
+  color: #94a3b8;
+}
+.app-shell--light .educator-crm .crm-feedback--ok {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #047857;
+}
+.app-shell--light .educator-crm .crm-feedback--err {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #b91c1c;
+}
+.app-shell--light .educator-crm .crm-list-error {
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.5);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+.app-shell--light .educator-crm .crm-check,
+.app-shell--light .educator-crm .crm-check__en {
+  color: #0f172a;
+}
+.app-shell--light .educator-crm .crm-check__ko {
+  color: #64748b;
+}
+.app-shell--light .educator-crm .crm-count,
+.app-shell--light .educator-crm .crm-count__ko {
+  color: #64748b;
+}
+.app-shell--light .educator-crm .crm-count__en {
+  color: #334155;
+}
+.app-shell--light .educator-crm .crm-list-wrap {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+.app-shell--light .educator-crm .crm-empty {
+  color: #64748b;
+}
+.app-shell--light .educator-crm .crm-list__row {
+  border-bottom-color: rgba(15, 23, 42, 0.06);
+}
+.app-shell--light .educator-crm .crm-list__name {
+  color: #0f172a;
+}
+.app-shell--light .educator-crm .crm-list__email {
+  color: #1e40af;
+}
+.app-shell--light .educator-crm .crm-list__phone {
+  color: #64748b;
+}
+.app-shell--light .educator-crm .crm-notify-btn {
+  background: #fff;
+  color: #334155;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+.app-shell--light .educator-crm .crm-notify-btn:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: rgba(37, 99, 235, 0.25);
+}
+.app-shell--light .educator-crm .crm-notify-btn--sms {
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.28);
+}
+.app-shell--light .educator-crm .crm-icon-btn {
+  background: #fff;
+  color: #334155;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+.app-shell--light .educator-crm .crm-icon-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.app-shell--light .educator-crm .crm-icon-btn--danger {
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.5);
+}
+.app-shell--light .educator-crm .crm-section .btn--primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: transparent;
+  color: #fff;
+}
+.app-shell--light .educator-crm .crm-section .btn--primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.app-shell--light .educator-crm .crm-section .btn--ghost {
+  background: #f8fafc;
+  color: #334155;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+.app-shell--light .educator-crm .crm-section .btn--ghost:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: rgba(37, 99, 235, 0.22);
+  color: #1d4ed8;
+}
+.app-shell--light .educator-crm .crm-msg {
+  color: #047857;
+}
+.app-shell--light .educator-crm .crm-msg--err {
+  color: #b91c1c;
+}
+.app-shell--light .educator-crm .crm-modal {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.1);
+  color-scheme: light;
+}
+.app-shell--light .educator-crm .crm-modal__title-en {
+  color: #0f172a;
+}
+.app-shell--light .educator-crm .crm-modal__title-ko {
+  color: #64748b;
+}
+.app-shell--light .educator-crm .crm-modal__hint {
+  color: #64748b;
+}
+.app-shell--light .educator-crm .crm-modal__hint code {
+  background: #f1f5f9;
+  color: #1d4ed8;
+}
+.app-shell--light .educator-crm .crm-modal__close {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+.app-shell--light .educator-crm .crm-modal__close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+.app-shell--light .educator-crm .crm-modal__sms {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.22);
+  color: #047857;
+}
+.app-shell--light .educator-crm .crm-modal__sms a.crm-sms-open {
+  color: #fff;
+}
+.app-shell--light .educator-crm .crm-modal__sms .crm-sms-open--placeholder {
+  background: #f1f5f9;
+  color: #64748b;
+  box-shadow: none;
 }
 
 /* —— Xtudy-Universe Marketplace (landing) —— */

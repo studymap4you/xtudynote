@@ -34,5 +34,5 @@ export function DashboardPage() {
     );
   }
 
-  return <DashboardShell>{body}</DashboardShell>;
+  return <DashboardShell light={!!isTeacherApproved}>{body}</DashboardShell>;
 }
