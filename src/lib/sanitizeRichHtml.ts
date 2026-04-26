@@ -34,17 +34,44 @@ const CONFIG = {
     "hr",
     "pre",
   ],
-  ALLOWED_ATTR: ["href", "target", "rel", "src", "alt", "title", "class"],
+  ALLOWED_ATTR: ["href", "target", "rel", "src", "alt", "title", "class", "style"],
   ALLOW_DATA_ATTR: false,
 };
+
+function sanitizeInlineStyle(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null;
+  const allowedProp = new Set(["color", "background-color", "font-size", "font-family", "text-align"]);
+  const alignVal = new Set(["left", "center", "right", "justify"]);
+  const parts = raw.split(";").map((s) => s.trim()).filter(Boolean);
+  const kept: string[] = [];
+  for (const p of parts) {
+    const idx = p.indexOf(":");
+    if (idx < 1) continue;
+    const key = p.slice(0, idx).trim().toLowerCase();
+    let val = p.slice(idx + 1).trim();
+    if (!allowedProp.has(key)) continue;
+    if (/url\s*\(/i.test(val) || /expression\s*\(/i.test(val) || /@import/i.test(val)) continue;
+    if (val.length > 160) continue;
+    if (key === "text-align" && !alignVal.has(val)) continue;
+    kept.push(`${key}: ${val}`);
+  }
+  return kept.length ? kept.join("; ") : null;
+}
 
 let hooksReady = false;
 function ensureHooks() {
   if (hooksReady || typeof document === "undefined") return;
   hooksReady = true;
   DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.nodeType !== 1) return;
     if (node.nodeName === "A" && node.getAttribute("target") === "_blank") {
       node.setAttribute("rel", "noopener noreferrer");
+    }
+    const st = node.getAttribute("style");
+    if (st != null) {
+      const clean = sanitizeInlineStyle(st);
+      if (clean) node.setAttribute("style", clean);
+      else node.removeAttribute("style");
     }
   });
 }

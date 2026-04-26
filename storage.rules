@@ -57,8 +57,22 @@ service firebase.storage {
     match /editor_images/{uid}/{allPaths=**} {
       allow create, update: if request.auth != null
         && request.auth.uid == uid
-        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+
+      allow read: if true;
+
+      allow delete: if request.auth != null && (
+        request.auth.uid == uid
+        || isActiveSuperAdmin()
+      );
+    }
+
+    /** 에디터 본문에 넣는 비이미지 첨부(링크용 PDF 등) */
+    match /editor_attachments/{uid}/{allPaths=**} {
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 35 * 1024 * 1024;
 
       allow read: if true;
 

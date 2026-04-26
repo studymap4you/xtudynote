@@ -14,7 +14,85 @@
   gap: 0.35rem;
   padding: 0.5rem 0.6rem;
   border-bottom: 1px solid var(--light-border, #e5e7eb);
-  background: #f9fafb;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.rich-text-editor__toolbar--sticky {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.rich-text-editor__toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.rich-text-editor__toolbar-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-right: 0.15rem;
+}
+
+.rich-text-editor__toolbar-sep {
+  width: 1px;
+  height: 1.15rem;
+  background: rgba(148, 163, 184, 0.55);
+  margin: 0 0.15rem;
+}
+
+.rich-text-editor__toolbar-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.rich-text-editor__color-wrap {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.rich-text-editor__color-input {
+  width: 2rem;
+  height: 1.65rem;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.rich-text-editor__toolbar .btn-tiny {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.22rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rich-text-editor__toolbar .btn-tiny:hover:not(:disabled) {
+  border-color: rgba(37, 99, 235, 0.4);
+  color: #1d4ed8;
 }
 
 .rich-text-editor__toolbar button {
@@ -78,6 +156,27 @@
   pointer-events: none;
 }
 
+.rich-text-editor .tiptap h1 {
+  font-size: 1.65rem;
+  font-weight: 800;
+  margin: 0.65rem 0 0.4rem;
+  line-height: 1.25;
+}
+
+.rich-text-editor .tiptap h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0.55rem 0 0.35rem;
+  line-height: 1.3;
+}
+
+.rich-text-editor .tiptap h3 {
+  font-size: 1.12rem;
+  font-weight: 700;
+  margin: 0.45rem 0 0.3rem;
+  line-height: 1.35;
+}
+
 .rich-text-editor--compact .tiptap {
   min-height: 7rem;
 }
@@ -127,12 +226,26 @@
   margin-bottom: 0;
 }
 
-.rich-html h1,
+.rich-html h1 {
+  margin: 0.75rem 0 0.45rem;
+  line-height: 1.25;
+  font-weight: 800;
+  font-size: 1.65rem;
+}
+
 .rich-html h2,
 .rich-html h3 {
   margin: 0.75rem 0 0.4rem;
   line-height: 1.35;
   font-weight: 700;
+}
+
+.rich-html h2 {
+  font-size: 1.35rem;
+}
+
+.rich-html h3 {
+  font-size: 1.12rem;
 }
 
 .rich-html ul,

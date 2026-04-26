@@ -18,6 +18,18 @@ export function isEmptyRichText(html: string): boolean {
   return plainTextFromHtml(html).length === 0;
 }
 
+export function escapeHtmlText(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export function escapeHtmlAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 /** `<img src>` 목록 (상세 설명 미리보기·슬라이드용). 순서 유지, 중복 제거. */
 export function extractImageSrcsFromHtml(html: string): string[] {
   const raw = html?.trim() ?? "";

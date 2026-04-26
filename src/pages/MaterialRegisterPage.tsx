@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref } from "firebase/storage";
 import { ImageOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
+import { DescriptionAssetQueue } from "@/components/DescriptionAssetQueue";
 import { ImageSlider } from "@/components/ImageSlider";
+import { RichHtmlView } from "@/components/RichHtmlView";
+import { RichTextEditor, type RichTextEditorHandle } from "@/components/RichTextEditor";
 import { db, storage } from "@/firebase/config";
+import { uploadEditorAttachmentWithProgress, uploadEditorImageWithProgress } from "@/lib/editorUploads";
+import { uploadBytesResumableWithProgress } from "@/lib/storageUploadProgress";
 import { LearningThemeChecklist } from "@/components/LearningThemeChecklist";
-import { RichTextEditor } from "@/components/RichTextEditor";
 import { extractImageSrcsFromHtml, isEmptyRichText } from "@/lib/richTextUtils";
 import type { ContentType } from "@/types/content";
 import type { LearningThemeId } from "@/types/learningTheme";
@@ -25,20 +29,30 @@ function newFileSlotId(): string {
   return crypto.randomUUID();
 }
 
-async function uploadPendingFiles(
+const MAX_DESC_QUEUE_IMAGE = 10 * 1024 * 1024;
+const MAX_DESC_QUEUE_FILE = 35 * 1024 * 1024;
+
+async function uploadPendingFilesResumable(
   files: File[],
   uploaderId: string,
   requestId: string,
   kindPrefix: "lm" | "ref",
-  uploadStarted: number
+  uploadStarted: number,
+  byteOffset: number,
+  byteTotal: number,
+  setPct: (n: number) => void
 ): Promise<string[]> {
   const paths: string[] = [];
+  let done = byteOffset;
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const path = `pending_materials/${uploaderId}/${requestId}/${kindPrefix}_${Math.floor(uploadStarted)}_${i}_${safeFileName(file.name)}`;
-    const sref = ref(storage, path);
-    await uploadBytes(sref, file);
-    paths.push(sref.fullPath);
+    const { fullPath } = await uploadBytesResumableWithProgress(storage, path, file, (p) => {
+      const cur = done + (file.size * p) / 100;
+      setPct(Math.min(99, Math.round((cur / byteTotal) * 100)));
+    });
+    paths.push(fullPath);
+    done += file.size;
   }
   return paths;
 }
@@ -74,7 +88,12 @@ export function MaterialRegisterPage() {
   const [thumbObjectUrl, setThumbObjectUrl] = useState<string | null>(null);
   const [previewSampleFile, setPreviewSampleFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [done, setDone] = useState(false);
+  const descriptionEditorRef = useRef<RichTextEditorHandle>(null);
+  const [descQueue, setDescQueue] = useState<{ id: string; file: File }[]>([]);
+  const [descInsertBusy, setDescInsertBusy] = useState(false);
+  const [descInsertProgress, setDescInsertProgress] = useState<number | null>(null);
 
   const descImageSrcs = useMemo(() => extractImageSrcsFromHtml(description), [description]);
 
@@ -146,44 +165,70 @@ export function MaterialRegisterPage() {
     }
 
     setSaving(true);
+    setUploadPct(0);
     try {
       const reqRef = doc(collection(db, "material_requests"));
       const requestId = reqRef.id;
       const t0 = performance.now();
       const learningFiles = lmSlots.flatMap((id) => lmBySlot[id] ?? []);
       const referenceFiles = refSlots.flatMap((id) => refBySlot[id] ?? []);
-      const learningMaterialFilePaths = await uploadPendingFiles(
+      const thumbBytes = materialType === "paid" && thumbnailFile ? thumbnailFile.size : 0;
+      const previewBytes = previewSampleFile?.size ?? 0;
+      const byteTotal =
+        learningFiles.reduce((s, f) => s + f.size, 0) +
+          referenceFiles.reduce((s, f) => s + f.size, 0) +
+          thumbBytes +
+          previewBytes || 1;
+      let doneBytes = 0;
+
+      const learningMaterialFilePaths = await uploadPendingFilesResumable(
         learningFiles,
         firebaseUser.uid,
         requestId,
         "lm",
-        t0
+        t0,
+        doneBytes,
+        byteTotal,
+        setUploadPct
       );
-      const referenceMaterialFilePaths = await uploadPendingFiles(
+      doneBytes += learningFiles.reduce((s, f) => s + f.size, 0);
+
+      const referenceMaterialFilePaths = await uploadPendingFilesResumable(
         referenceFiles,
         firebaseUser.uid,
         requestId,
         "ref",
-        t0 + 1
+        t0 + 1,
+        doneBytes,
+        byteTotal,
+        setUploadPct
       );
+      doneBytes += referenceFiles.reduce((s, f) => s + f.size, 0);
 
       let thumbnailPendingPath: string | null = null;
       if (materialType === "paid" && thumbnailFile) {
         const path = `pending_materials/${firebaseUser.uid}/${requestId}/thumb_${Math.floor(t0)}_${safeFileName(thumbnailFile.name)}`;
-        const sref = ref(storage, path);
-        await uploadBytes(sref, thumbnailFile);
-        thumbnailPendingPath = sref.fullPath;
+        const { fullPath } = await uploadBytesResumableWithProgress(storage, path, thumbnailFile, (p) => {
+          const cur = doneBytes + (thumbnailFile.size * p) / 100;
+          setUploadPct(Math.min(99, Math.round((cur / byteTotal) * 100)));
+        });
+        thumbnailPendingPath = fullPath;
+        doneBytes += thumbnailFile.size;
       }
 
       let previewPendingPath: string | null = null;
       let previewUrl: string | null = null;
       if (previewSampleFile) {
         const path = `pending_materials/${firebaseUser.uid}/${requestId}/preview_${Math.floor(t0)}_${safeFileName(previewSampleFile.name)}`;
-        const pref = ref(storage, path);
-        await uploadBytes(pref, previewSampleFile);
-        previewPendingPath = pref.fullPath;
-        previewUrl = await getDownloadURL(pref);
+        const { fullPath } = await uploadBytesResumableWithProgress(storage, path, previewSampleFile, (p) => {
+          const cur = doneBytes + (previewSampleFile.size * p) / 100;
+          setUploadPct(Math.min(99, Math.round((cur / byteTotal) * 100)));
+        });
+        previewPendingPath = fullPath;
+        previewUrl = await getDownloadURL(ref(storage, path));
+        doneBytes += previewSampleFile.size;
       }
+      setUploadPct(100);
 
       const role = resolveSubmitterRole(profile);
 
@@ -224,11 +269,82 @@ export function MaterialRegisterPage() {
       setThemes([]);
       setThumbnailFile(null);
       setPreviewSampleFile(null);
+      setDescQueue([]);
       setMaterialType("share");
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "제출에 실패했습니다.");
     } finally {
       setSaving(false);
+      setUploadPct(null);
+    }
+  }
+
+  function addDescQueueFiles(files: File[]) {
+    if (!files.length) return;
+    setDescQueue((q) => [...q, ...files.map((f) => ({ id: crypto.randomUUID(), file: f }))]);
+  }
+
+  function removeDescQueueItem(id: string) {
+    setDescQueue((q) => q.filter((x) => x.id !== id));
+  }
+
+  function moveDescQueueItem(id: string, delta: -1 | 1) {
+    setDescQueue((q) => {
+      const i = q.findIndex((x) => x.id === id);
+      if (i < 0) return q;
+      const j = i + delta;
+      if (j < 0 || j >= q.length) return q;
+      const next = [...q];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  }
+
+  async function insertDescQueueToDescription() {
+    if (!firebaseUser?.uid) {
+      window.alert("로그인이 필요합니다.");
+      return;
+    }
+    const ed = descriptionEditorRef.current;
+    if (!ed || descQueue.length === 0) return;
+    setDescInsertBusy(true);
+    setDescInsertProgress(0);
+    const uid = firebaseUser.uid;
+    const total = descQueue.length;
+    const imgs: string[] = [];
+    const links: { url: string; name: string }[] = [];
+    try {
+      for (let i = 0; i < descQueue.length; i++) {
+        const f = descQueue[i].file;
+        if (f.type.startsWith("image/")) {
+          if (f.size > MAX_DESC_QUEUE_IMAGE) {
+            window.alert(`이미지는 ${MAX_DESC_QUEUE_IMAGE / (1024 * 1024)}MB 이하여야 합니다: ${f.name}`);
+            continue;
+          }
+          const url = await uploadEditorImageWithProgress(uid, f, (p) =>
+            setDescInsertProgress(Math.round(((i + p / 100) / total) * 100))
+          );
+          imgs.push(url);
+        } else {
+          if (f.size > MAX_DESC_QUEUE_FILE) {
+            window.alert(`첨부는 ${MAX_DESC_QUEUE_FILE / (1024 * 1024)}MB 이하여야 합니다: ${f.name}`);
+            continue;
+          }
+          const url = await uploadEditorAttachmentWithProgress(uid, f, (p) =>
+            setDescInsertProgress(Math.round(((i + p / 100) / total) * 100))
+          );
+          links.push({ url, name: f.name });
+        }
+        setDescInsertProgress(Math.round(((i + 1) / total) * 100));
+      }
+      ed.insertImageUrls(imgs);
+      ed.insertFileLinks(links);
+      setDescQueue([]);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "업로드에 실패했습니다.");
+    } finally {
+      setDescInsertBusy(false);
+      setDescInsertProgress(null);
     }
   }
 
@@ -411,33 +527,53 @@ export function MaterialRegisterPage() {
                 </label>
               )}
 
-              <label className="reg-form__field material-register-form__field-rich">
+              <div className="reg-form__field material-register-form__field-rich">
                 <span className="reg-form__label-line">
                   <span className="reg-form__label-en">Detailed description</span>
                   <span className="reg-form__label-ko">자료 상세 설명</span>
                 </span>
                 <p className="material-register-form__rich-hint">
-                  서식·링크·이미지 삽입 가능 (이미지는 로그인 계정으로 스토리지에 저장됩니다).
+                  서식·색·정렬·이미지 다중 삽입·드래그 앤 드롭 지원. 오른쪽은 학습자에게 보이는 것과 동일한 실시간 미리보기입니다.
                 </p>
-                <RichTextEditor
-                  value={description}
-                  onChange={setDescription}
-                  userId={firebaseUser?.uid}
-                  placeholder="자료 구성, 활용 방법, 목차 등을 작성해 주세요."
-                />
-                {descImageSrcs.length > 0 ? (
-                  <div className="material-register__desc-images">
-                    <p className="material-register-form__rich-hint">
-                      상세 설명에 삽입한 이미지입니다. 슬라이드 또는 액자 그리드로 확인할 수 있습니다.
-                    </p>
-                    <ImageSlider urls={descImageSrcs} />
+                <div className="material-register__editor-split">
+                  <div className="material-register__editor-pane">
+                    <RichTextEditor
+                      ref={descriptionEditorRef}
+                      value={description}
+                      onChange={setDescription}
+                      userId={firebaseUser?.uid}
+                      placeholder="자료 구성, 활용 방법, 목차 등을 작성해 주세요."
+                    />
+                    <DescriptionAssetQueue
+                      items={descQueue}
+                      disabled={saving}
+                      insertBusy={descInsertBusy}
+                      insertProgress={descInsertProgress}
+                      onAddFiles={addDescQueueFiles}
+                      onRemove={removeDescQueueItem}
+                      onMove={moveDescQueueItem}
+                      onInsertToDescription={() => void insertDescQueueToDescription()}
+                    />
                   </div>
-                ) : (
-                  <p className="material-register-form__rich-hint material-register__desc-images-empty">
-                    본문에 이미지를 넣으면 이곳에서 미리보기·슬라이드로 확인할 수 있습니다.
-                  </p>
-                )}
-              </label>
+                  <aside className="material-register__preview-pane" aria-label="실시간 미리보기">
+                    <p className="material-register__preview-pane-title">실시간 미리보기</p>
+                    <p className="material-register__preview-pane-sub">입력 내용이 학습자 화면(RichHtmlView)과 동일하게 정제되어 표시됩니다.</p>
+                    <div className="material-register__live-html-wrap">
+                      {description.trim() ? (
+                        <RichHtmlView html={description} className="material-register__live-html" />
+                      ) : (
+                        <p className="material-register__preview-empty">내용을 입력하면 여기에 표시됩니다.</p>
+                      )}
+                    </div>
+                    {descImageSrcs.length > 0 ? (
+                      <div className="material-register__desc-images">
+                        <p className="material-register-form__rich-hint">삽입 이미지 슬라이드·그리드</p>
+                        <ImageSlider urls={descImageSrcs} />
+                      </div>
+                    ) : null}
+                  </aside>
+                </div>
+              </div>
 
               <div className="reg-form__field material-register__optional-preview">
                 <span className="reg-form__label-line">
@@ -571,6 +707,19 @@ export function MaterialRegisterPage() {
                   </div>
                 </div>
               </fieldset>
+
+              {uploadPct !== null && saving ? (
+                <div
+                  className="material-register__upload-progress"
+                  role="progressbar"
+                  aria-valuenow={uploadPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <div className="material-register__upload-progress-bar" style={{ width: `${uploadPct}%` }} />
+                  <span className="material-register__upload-progress-label">파일 업로드 {uploadPct}%</span>
+                </div>
+              ) : null}
 
               <button type="submit" className="btn btn--primary btn--stack" disabled={saving}>
                 <span className="ui-en">{saving ? "Submitting…" : "Submit request"}</span>
