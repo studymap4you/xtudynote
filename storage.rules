@@ -146,31 +146,28 @@ service firebase.storage {
       allow delete: if isActiveSuperAdmin() && request.auth.uid == uid;
     }
 
-    /**
-     * Site-wide assets — 공개 읽기, 마스터만 쓰기
-     * - landing_hero 등: 이미지 5MB 이하
-     * - landing_page_bg: 홈 전체 배경용 이미지(10MB)·짧은 동영상(40MB)
-     */
-    match /site_assets/{path=**} {
+    /** 랜딩 왼쪽 히어로 스팟 — 이미지 5MB 이하, 공개 읽기 */
+    match /site_assets/landing_hero/{allPaths=**} {
+      allow create, update: if isActiveSuperAdmin()
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size < 5 * 1024 * 1024;
+
+      allow read: if true;
+
+      allow delete: if isActiveSuperAdmin();
+    }
+
+    /** 홈 전체 배경 — 이미지 10MB·동영상 40MB 이하, 공개 읽기 (경로별 match로 규칙 명확화) */
+    match /site_assets/landing_page_bg/{allPaths=**} {
       allow create, update: if isActiveSuperAdmin()
         && (
           (
             request.resource.contentType.matches('image/.*')
-            && request.resource.size < 5 * 1024 * 1024
-            && !path.matches('^landing_page_bg/.*')
+            && request.resource.size < 10 * 1024 * 1024
           )
           || (
-            path.matches('^landing_page_bg/.*')
-            && (
-              (
-                request.resource.contentType.matches('image/.*')
-                && request.resource.size < 10 * 1024 * 1024
-              )
-              || (
-                request.resource.contentType.matches('video/.*')
-                && request.resource.size < 40 * 1024 * 1024
-              )
-            )
+            request.resource.contentType.matches('video/.*')
+            && request.resource.size < 40 * 1024 * 1024
           )
         );
 

@@ -28,6 +28,40 @@ function safeBaseName(name: string): string {
   return s || "file";
 }
 
+/** 브라우저가 file.type 을 비울 때 Storage 규칙(image/*)을 통과시키기 위한 MIME */
+function inferImageMimeFromExt(ext: string): string {
+  switch (ext.toLowerCase()) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    case "gif":
+      return "image/gif";
+    case "avif":
+      return "image/avif";
+    default:
+      return "image/jpeg";
+  }
+}
+
+function inferVideoMimeFromExt(ext: string): string {
+  switch (ext.toLowerCase()) {
+    case "mp4":
+      return "video/mp4";
+    case "webm":
+      return "video/webm";
+    case "mov":
+      return "video/quicktime";
+    case "m4v":
+      return "video/x-m4v";
+    default:
+      return "video/mp4";
+  }
+}
+
 async function tryDeleteStoragePath(path: string | null | undefined) {
   if (!path) return;
   try {
@@ -148,8 +182,9 @@ export function LandingHeroAdminPage() {
       const extMatch = /\.([a-zA-Z0-9]+)$/.exec(file.name);
       const ext = extMatch ? extMatch[1].toLowerCase() : "jpg";
       const objectPath = `site_assets/landing_hero/${Date.now()}_${safeBaseName(file.name)}.${ext}`;
+      const contentType = file.type?.trim() || inferImageMimeFromExt(ext);
       try {
-        await uploadBytes(ref(storage, objectPath), file, { contentType: file.type });
+        await uploadBytes(ref(storage, objectPath), file, { contentType });
         const homeRef = doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC);
         await setDoc(
           homeRef,
@@ -199,8 +234,15 @@ export function LandingHeroAdminPage() {
       const ext = extMatch ? extMatch[1].toLowerCase() : (isVideo ? "mp4" : "jpg");
       const objectPath = `site_assets/landing_page_bg/${Date.now()}_${safeBaseName(file.name)}.${ext}`;
       const media: "image" | "video" = isVideo ? "video" : "image";
+      const rawType = file.type?.trim() ?? "";
+      const contentType =
+        rawType && (rawType.startsWith("image/") || rawType.startsWith("video/"))
+          ? rawType
+          : isVideo
+            ? inferVideoMimeFromExt(ext)
+            : inferImageMimeFromExt(ext);
       try {
-        await uploadBytes(ref(storage, objectPath), file, { contentType: file.type || undefined });
+        await uploadBytes(ref(storage, objectPath), file, { contentType });
         await setDoc(
           doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC),
           {
