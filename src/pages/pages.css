@@ -3547,43 +3547,73 @@ button.top-nav__auth-link--logout:hover {
   background: var(--light-bg);
   color: var(--light-text);
 }
+/* 라이브러리·과제 등 라이트 셸 — 상단만 딥 네이비 (본문은 Bright & Clean 유지) */
 .app-shell--light .top-nav {
-  background: rgba(248, 250, 252, 0.88);
-  border-bottom: 1px solid rgba(0, 122, 255, 0.12);
-  backdrop-filter: saturate(1.15) blur(16px);
-  -webkit-backdrop-filter: saturate(1.15) blur(16px);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  background: linear-gradient(180deg, #0f172a 0%, #0c1422 52%, #0a1224 100%);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
 }
-.app-shell--light .top-nav--split .top-nav__center .btn--ghost {
-  border-color: rgba(15, 23, 42, 0.08);
-  background: rgba(15, 23, 42, 0.03);
+.app-shell--light .top-nav .ui-en {
+  color: #f8fafc;
 }
-.app-shell--light .top-nav--split .top-nav__center .btn--ghost:hover {
-  background: rgba(37, 99, 235, 0.08);
-  border-color: rgba(37, 99, 235, 0.18);
+.app-shell--light .top-nav .ui-ko {
+  color: #cbd5e1;
+}
+.app-shell--light .top-nav .btn--stack .ui-ko {
+  color: #cbd5e1;
+}
+.app-shell--light .top-nav--split .top-nav__center .btn--ghost,
+.app-shell--light .top-nav .top-nav__tail .btn--ghost {
+  border: 1px solid rgba(248, 250, 252, 0.16);
+  background: rgba(255, 255, 255, 0.07);
+  color: #f8fafc;
+}
+.app-shell--light .top-nav--split .top-nav__center .btn--ghost:hover,
+.app-shell--light .top-nav .top-nav__tail .btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(0, 122, 255, 0.55);
+  color: #ffffff;
 }
 .app-shell--light .top-nav__email {
-  border-color: rgba(15, 23, 42, 0.08);
-  background: rgba(15, 23, 42, 0.04);
-  color: var(--light-text-muted);
+  border: 1px solid rgba(248, 250, 252, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
 }
 .app-shell--light .top-nav__brand {
-  color: var(--light-text);
+  color: #f8fafc;
 }
 .app-shell--light .top-nav__brand:hover {
   color: inherit;
 }
-.app-shell--light .brand-lockup__sep {
-  color: #9ca3af;
+.app-shell--light .top-nav .brand-lockup__sep {
+  color: #94a3b8;
 }
-.app-shell--light .brand-lockup__ko {
-  color: var(--light-text-muted);
+.app-shell--light .top-nav .brand-lockup__ko {
+  color: #cbd5e1;
 }
 .app-shell--light .top-nav__brand:hover .brand-lockup__ko {
-  color: #2563eb;
+  color: #7dd3fc;
 }
-.app-shell--light .top-nav__email {
-  color: var(--light-text-muted);
+.app-shell--light .top-nav .top-nav__link-en-with-icon svg {
+  color: #f8fafc;
+  stroke: #f8fafc;
+  opacity: 1;
+}
+.app-shell--light .top-nav .btn--primary {
+  background: #007aff;
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 2px 12px rgba(0, 122, 255, 0.35);
+}
+.app-shell--light .top-nav .btn--primary:hover {
+  background: #0066db;
+  color: #ffffff;
+}
+.app-shell--light .top-nav .btn--primary .ui-en,
+.app-shell--light .top-nav .btn--primary .ui-ko {
+  color: #ffffff;
 }
 .app-shell--light .btn {
   border-color: var(--light-border);
@@ -3841,6 +3871,15 @@ button.top-nav__auth-link--logout:hover {
 }
 .app-shell--light .btn--primary .ui-ko {
   color: var(--btn-on-accent-muted, rgba(10, 15, 26, 0.88));
+}
+/* 상단바: 아래 본문용 .btn .ui-* 규칙보다 우선 (네이비 배경) */
+.app-shell--light .top-nav .btn:not(.btn--primary) .ui-en,
+.app-shell--light .top-nav .btn--ghost .ui-en {
+  color: #f8fafc;
+}
+.app-shell--light .top-nav .btn:not(.btn--primary) .ui-ko,
+.app-shell--light .top-nav .btn--ghost .ui-ko {
+  color: #cbd5e1;
 }
 
 /* 자료 등록 신청 폼 (흰 배경·검정 글자) */
