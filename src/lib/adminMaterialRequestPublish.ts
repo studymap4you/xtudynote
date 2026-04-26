@@ -7,8 +7,10 @@ import {
   writeBatch,
   type Firestore,
 } from "firebase/firestore";
+import { getDownloadURL, ref } from "firebase/storage";
+import { storage } from "@/firebase/config";
 import { allocateUniqueHomeworkCode } from "@/lib/allocateHomeworkCode";
-import { copyPendingPathsToAuthorContents } from "@/lib/copyPendingToContentsFolder";
+import { copyPendingPathsToAuthorContents, normalizeStorageObjectPath } from "@/lib/copyPendingToContentsFolder";
 import type { ContentStatus, ContentType } from "@/types/content";
 import type { LearningThemeId } from "@/types/learningTheme";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
@@ -88,6 +90,16 @@ export async function approveFileMaterialRequest(db: Firestore, requestId: strin
     : [];
   const thumbnailPath = thumbnailPaths[0] ?? null;
 
+  const previewPending = (raw.previewPendingPath ?? "").trim();
+  const previewCopiedPaths = previewPending
+    ? await copyPendingPathsToAuthorContents([previewPending], authorId, seed + 4, "preview")
+    : [];
+  let resolvedPreviewUrl: string | null = null;
+  if (previewCopiedPaths[0]) {
+    const p = normalizeStorageObjectPath(previewCopiedPaths[0]);
+    if (p) resolvedPreviewUrl = await getDownloadURL(ref(storage, p));
+  }
+
   const themes = sanitizeThemes(raw.themes);
 
   const classroomId =
@@ -112,6 +124,7 @@ export async function approveFileMaterialRequest(db: Firestore, requestId: strin
     themes,
     clickCount: 0,
     ...(thumbnailPath ? { thumbnailPath } : {}),
+    ...(resolvedPreviewUrl ? { previewUrl: resolvedPreviewUrl } : {}),
     createdAt: serverTimestamp(),
     ...(classroomId ? { classroomId } : {}),
   };
@@ -148,6 +161,7 @@ export async function approveFileMaterialRequest(db: Firestore, requestId: strin
       status: "approved",
       resolvedContentId: contentRef.id,
       reviewedAt: serverTimestamp(),
+      ...(resolvedPreviewUrl ? { previewUrl: resolvedPreviewUrl } : {}),
     });
     await batch.commit();
     return contentRef.id;
@@ -164,6 +178,7 @@ export async function approveFileMaterialRequest(db: Firestore, requestId: strin
     status: "approved",
     resolvedContentId: contentRef.id,
     reviewedAt: serverTimestamp(),
+    ...(resolvedPreviewUrl ? { previewUrl: resolvedPreviewUrl } : {}),
   });
   await batch.commit();
   return contentRef.id;

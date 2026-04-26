@@ -17,3 +17,23 @@ export function plainTextFromHtml(html: string): string {
 export function isEmptyRichText(html: string): boolean {
   return plainTextFromHtml(html).length === 0;
 }
+
+/** `<img src>` 목록 (상세 설명 미리보기·슬라이드용). 순서 유지, 중복 제거. */
+export function extractImageSrcsFromHtml(html: string): string[] {
+  const raw = html?.trim() ?? "";
+  if (!raw) return [];
+  try {
+    const doc = new DOMParser().parseFromString(raw, "text/html");
+    const out: string[] = [];
+    const seen = new Set<string>();
+    doc.querySelectorAll("img[src]").forEach((el) => {
+      const src = el.getAttribute("src")?.trim();
+      if (!src || seen.has(src)) return;
+      seen.add(src);
+      out.push(src);
+    });
+    return out;
+  } catch {
+    return [];
+  }
+}

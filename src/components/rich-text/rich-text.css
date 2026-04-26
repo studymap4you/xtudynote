@@ -53,6 +53,17 @@
   line-height: 1.65;
   color: var(--light-text, #111827);
   outline: none;
+  overflow-x: hidden;
+}
+
+.rich-text-editor .tiptap img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  border-radius: var(--radius-md, 12px);
+  margin: 0.5rem auto;
+  box-sizing: border-box;
 }
 
 .rich-text-editor .tiptap:focus {
@@ -105,6 +116,7 @@
   line-height: 1.65;
   color: inherit;
   word-break: break-word;
+  overflow-x: hidden;
 }
 
 .rich-html p {

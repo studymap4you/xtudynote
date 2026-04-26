@@ -20,6 +20,8 @@ export interface ContentDocument {
   themes?: LearningThemeId[];
   /** 유료 콘텐츠 썸네일 Storage 전체 경로 */
   thumbnailPath?: string | null;
+  /** 샘플 PDF 등 HTTPS 다운로드 URL (학생용「샘플 보기」등) */
+  previewUrl?: string | null;
   /** 상세·카드 조회 시 증가 */
   clickCount?: number;
   purchaseLink: string | null;

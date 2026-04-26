@@ -1,13 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { ref, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { ImageOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
+import { ImageSlider } from "@/components/ImageSlider";
 import { db, storage } from "@/firebase/config";
 import { LearningThemeChecklist } from "@/components/LearningThemeChecklist";
 import { RichTextEditor } from "@/components/RichTextEditor";
-import { isEmptyRichText } from "@/lib/richTextUtils";
+import { extractImageSrcsFromHtml, isEmptyRichText } from "@/lib/richTextUtils";
 import type { ContentType } from "@/types/content";
 import type { LearningThemeId } from "@/types/learningTheme";
 import type { UserProfile } from "@/types/user";
@@ -69,8 +71,22 @@ export function MaterialRegisterPage() {
   const [refBySlot, setRefBySlot] = useState<Record<string, File[]>>({});
   const [themes, setThemes] = useState<LearningThemeId[]>([]);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbObjectUrl, setThumbObjectUrl] = useState<string | null>(null);
+  const [previewSampleFile, setPreviewSampleFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+
+  const descImageSrcs = useMemo(() => extractImageSrcsFromHtml(description), [description]);
+
+  useEffect(() => {
+    if (!thumbnailFile) {
+      setThumbObjectUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(thumbnailFile);
+    setThumbObjectUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [thumbnailFile]);
 
   const showPrice = materialType === "paid";
   const showHomeworkNotes = materialType === "homework";
@@ -101,6 +117,19 @@ export function MaterialRegisterPage() {
     if (materialType === "paid" && !thumbnailFile) {
       window.alert("유료 자료는 썸네일 이미지를 업로드해 주세요.");
       return;
+    }
+    if (previewSampleFile) {
+      const lower = previewSampleFile.name.toLowerCase();
+      const okType =
+        previewSampleFile.type === "application/pdf" || previewSampleFile.type === "application/x-pdf" || lower.endsWith(".pdf");
+      if (!okType) {
+        window.alert("미리보기 파일은 PDF만 업로드할 수 있습니다.");
+        return;
+      }
+      if (previewSampleFile.size > 25 * 1024 * 1024) {
+        window.alert("미리보기 PDF는 25MB 이하여야 합니다.");
+        return;
+      }
     }
     if (materialType === "homework" && !homeworkInstruction.trim()) {
       window.alert("과제 유형은 과제 주의사항을 입력해 주세요.");
@@ -146,6 +175,16 @@ export function MaterialRegisterPage() {
         thumbnailPendingPath = sref.fullPath;
       }
 
+      let previewPendingPath: string | null = null;
+      let previewUrl: string | null = null;
+      if (previewSampleFile) {
+        const path = `pending_materials/${firebaseUser.uid}/${requestId}/preview_${Math.floor(t0)}_${safeFileName(previewSampleFile.name)}`;
+        const pref = ref(storage, path);
+        await uploadBytes(pref, previewSampleFile);
+        previewPendingPath = pref.fullPath;
+        previewUrl = await getDownloadURL(pref);
+      }
+
       const role = resolveSubmitterRole(profile);
 
       await setDoc(reqRef, {
@@ -164,6 +203,7 @@ export function MaterialRegisterPage() {
         referenceMaterialFilePaths,
         themes,
         ...(thumbnailPendingPath ? { thumbnailPendingPath } : {}),
+        ...(previewPendingPath && previewUrl ? { previewPendingPath, previewUrl } : {}),
         status: "pending",
         ...(classroomId ? { classroomId } : {}),
         createdAt: serverTimestamp(),
@@ -183,6 +223,7 @@ export function MaterialRegisterPage() {
       setRefBySlot({});
       setThemes([]);
       setThumbnailFile(null);
+      setPreviewSampleFile(null);
       setMaterialType("share");
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "제출에 실패했습니다.");
@@ -218,7 +259,7 @@ export function MaterialRegisterPage() {
         )}
 
         {canSubmit && (
-          <section className="panel panel--light material-register-form material-register-form--student material-register-form--full">
+          <section className="panel panel--light material-register-form material-register-form--student material-register-form--full material-register-form--polish">
             {done && (
               <p className="material-register__success" style={{ marginBottom: "1rem" }}>
                 접수되었습니다. 감사합니다.
@@ -314,19 +355,41 @@ export function MaterialRegisterPage() {
                       required
                     />
                   </label>
-                  <label className="reg-form__field">
+                  <div className="reg-form__field material-register__thumb-block">
                     <span className="reg-form__label-line">
                       <span className="reg-form__label-en">Thumbnail image</span>
                       <span className="reg-form__label-ko">썸네일 이미지 (필수)</span>
                     </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="add-passage__control add-passage__control--file"
-                      onChange={(e) => setThumbnailFile(e.target.files?.[0] ?? null)}
-                      required
-                    />
-                  </label>
+                    <div className="material-register__thumb-row">
+                      <div className="material-register__thumb-preview" aria-live="polite">
+                        {thumbObjectUrl ? (
+                          <img src={thumbObjectUrl} alt="선택한 썸네일 미리보기" />
+                        ) : (
+                          <div className="material-register__thumb-placeholder">
+                            <ImageOff size={40} strokeWidth={1.35} aria-hidden />
+                            <span>이미지 없음</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="material-register__thumb-side">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="add-passage__control add-passage__control--file"
+                          onChange={(e) => setThumbnailFile(e.target.files?.[0] ?? null)}
+                        />
+                        {thumbnailFile ? (
+                          <button
+                            type="button"
+                            className="btn btn--ghost material-register__thumb-clear"
+                            onClick={() => setThumbnailFile(null)}
+                          >
+                            선택 해제
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
 
@@ -362,7 +425,47 @@ export function MaterialRegisterPage() {
                   userId={firebaseUser?.uid}
                   placeholder="자료 구성, 활용 방법, 목차 등을 작성해 주세요."
                 />
+                {descImageSrcs.length > 0 ? (
+                  <div className="material-register__desc-images">
+                    <p className="material-register-form__rich-hint">
+                      상세 설명에 삽입한 이미지입니다. 슬라이드 또는 액자 그리드로 확인할 수 있습니다.
+                    </p>
+                    <ImageSlider urls={descImageSrcs} />
+                  </div>
+                ) : (
+                  <p className="material-register-form__rich-hint material-register__desc-images-empty">
+                    본문에 이미지를 넣으면 이곳에서 미리보기·슬라이드로 확인할 수 있습니다.
+                  </p>
+                )}
               </label>
+
+              <div className="reg-form__field material-register__optional-preview">
+                <span className="reg-form__label-line">
+                  <span className="reg-form__label-en">Sample preview file</span>
+                  <span className="reg-form__label-ko">미리보기 파일</span>
+                  <span className="material-register__optional-badge" title="필수 아님">
+                    Optional
+                  </span>
+                </span>
+                <p className="material-register-form__rich-hint">
+                  샘플 PDF 등을 올리면 Firestore에 <code>previewUrl</code>이 저장되어, 승인 후 학습자 화면의「샘플 보기」등에
+                  바로 연결하기 쉽습니다. 없어도 신청은 가능합니다.
+                </p>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="add-passage__control add-passage__control--file"
+                  onChange={(e) => setPreviewSampleFile(e.target.files?.[0] ?? null)}
+                />
+                {previewSampleFile ? (
+                  <div className="material-register__preview-file-meta">
+                    <span className="material-register__preview-file-name">{previewSampleFile.name}</span>
+                    <button type="button" className="btn btn--ghost material-register__thumb-clear" onClick={() => setPreviewSampleFile(null)}>
+                      파일 제거
+                    </button>
+                  </div>
+                ) : null}
+              </div>
 
               <fieldset className="material-register-form__fieldset">
                 <legend className="material-register-form__legend">

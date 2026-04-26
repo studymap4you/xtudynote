@@ -139,7 +139,7 @@ export async function copyPendingPathsToAuthorContents(
   fullPaths: string[],
   authorId: string,
   seed: number,
-  kindPrefix: "lm" | "ref" | "thumb"
+  kindPrefix: "lm" | "ref" | "thumb" | "preview"
 ): Promise<string[]> {
   const pairs: { sourcePath: string; destPath: string }[] = [];
   for (let i = 0; i < fullPaths.length; i++) {

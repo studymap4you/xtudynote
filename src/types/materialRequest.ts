@@ -26,6 +26,10 @@ export interface MaterialRequestDocument {
   themes?: LearningThemeId[];
   /** 유료 썸네일 — 승인 시 contents로 복사 */
   thumbnailPendingPath?: string | null;
+  /** 샘플 PDF 등 — 승인 시 author contents 폴더로 복사 후 previewUrl 갱신 */
+  previewPendingPath?: string | null;
+  /** 샘플·미리보기 파일 다운로드 URL(제출 직후 pending 기준, 승인 후 영구 URL로 갱신될 수 있음) */
+  previewUrl?: string | null;
   status: MaterialRequestStatus;
   /** 강의실 연동 시 */
   classroomId?: string | null;
