@@ -3310,6 +3310,169 @@ button.top-nav__auth-link--logout:hover {
   flex-direction: column;
   gap: 1rem;
 }
+
+/* 과제함 — 강의실 기반 목록 (Bright & Clean) */
+.homework-hub {
+  max-width: 42rem;
+}
+.homework-hub__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.homework-hub__titles {
+  min-width: 0;
+}
+.homework-hub__title {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.35rem, 2.4vw, 1.65rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+.homework-hub__title-en {
+  display: block;
+}
+.homework-hub__title-ko {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #475569;
+}
+.homework-hub__lede {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  letter-spacing: -0.02em;
+  color: #475569;
+}
+.homework-hub__refresh {
+  flex-shrink: 0;
+}
+.homework-hub__loading,
+.homework-hub__error {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  color: #475569;
+}
+.homework-hub__error {
+  color: #b91c1c;
+}
+.homework-hub__panel {
+  padding: 16px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+}
+.homework-hub__panel--notice {
+  max-width: 36rem;
+}
+.homework-hub__notice-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+.homework-hub__notice-body {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  letter-spacing: -0.02em;
+  color: #475569;
+}
+.homework-hub__notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.homework-hub__cta {
+  align-self: flex-start;
+}
+.homework-hub__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.homework-hub__card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+.homework-hub__card:hover {
+  border-color: #cbd5e1;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.06),
+    0 10px 24px -12px rgba(0, 122, 255, 0.12);
+  transform: translateY(-1px);
+}
+.homework-hub__card-main {
+  flex: 1;
+  min-width: 0;
+  padding-left: 0;
+  text-align: left;
+}
+.homework-hub__card-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+.homework-hub__card-subject {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #475569;
+}
+.homework-hub__card-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.homework-hub__pill {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #007aff;
+  background: rgba(0, 122, 255, 0.08);
+  border: 1px solid rgba(0, 122, 255, 0.2);
+}
+.homework-hub__date {
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #64748b;
+}
 .content-detail__intro {
   line-height: 1.6;
   white-space: pre-wrap;
