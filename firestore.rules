@@ -160,6 +160,84 @@ service cloud.firestore {
 
         allow update: if false;
       }
+
+      /** 학습지 배포용 주소록 — 교사·승인 관리자 본인만 (표시명·이메일은 선택, UID는 문서 ID와 동일) */
+      match /worksheet_roster/{entryId} {
+        allow read: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin');
+
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin')
+          && request.resource.data.keys().hasAll(['studentUid', 'createdAt'])
+          && request.resource.data.studentUid is string
+          && request.resource.data.studentUid == entryId
+          && request.resource.data.studentUid.size() >= 8
+          && request.resource.data.studentUid.size() <= 128
+          && request.resource.data.createdAt != null
+          && (!('displayName' in request.resource.data)
+            || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 120))
+          && (!('emailLower' in request.resource.data)
+            || (request.resource.data.emailLower is string && request.resource.data.emailLower.size() <= 200));
+
+        allow update: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin')
+          && resource.data.studentUid == request.resource.data.studentUid
+          && request.resource.data.studentUid == entryId
+          && request.resource.data.keys().hasAll(['studentUid', 'createdAt'])
+          && (!('displayName' in request.resource.data)
+            || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 120))
+          && (!('emailLower' in request.resource.data)
+            || (request.resource.data.emailLower is string && request.resource.data.emailLower.size() <= 200));
+
+        allow delete: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin');
+      }
+
+      /** 학습지 배포용 그룹(예: A반) — UID 목록만 저장 */
+      match /worksheet_groups/{groupId} {
+        allow read: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin');
+
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin')
+          && request.resource.data.keys().hasAll(['name', 'studentUids', 'createdAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.studentUids is list
+          && request.resource.data.studentUids.size() > 0
+          && request.resource.data.studentUids.size() <= 200
+          && request.resource.data.createdAt != null;
+
+        allow update: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin')
+          && request.resource.data.keys().hasAll(['name', 'studentUids', 'createdAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.studentUids is list
+          && request.resource.data.studentUids.size() > 0
+          && request.resource.data.studentUids.size() <= 200;
+
+        allow delete: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin');
+      }
     }
 
     // ——— contents (라이브러리·강의실 연동 시 classroomId 검증) ———

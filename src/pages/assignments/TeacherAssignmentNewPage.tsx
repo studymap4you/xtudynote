@@ -10,14 +10,8 @@ import { buildDefaultWorksheetItems, buildWorksheetItemsFromAnalysis } from "@/l
 import { normalizeAnalysisReport } from "@/lib/signalLogic/normalizeAnalysisReport";
 import { minimalAnalysisForAssignment } from "@/lib/worksheet/minimalAnalysis";
 import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
+import { TeacherStudentPicker } from "@/pages/assignments/TeacherStudentPicker";
 import styles from "@/pages/assignments/assignmentPages.module.css";
-
-function parseStudentIds(raw: string): string[] {
-  return raw
-    .split(/[\s,;]+/g)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 export function TeacherAssignmentNewPage() {
   const navigate = useNavigate();
@@ -30,7 +24,7 @@ export function TeacherAssignmentNewPage() {
   const [title, setTitle] = useState("학습지 과제");
   const [passage, setPassage] = useState("");
   const [analysis, setAnalysis] = useState<SignalLogicAnalysisReportJson | null>(null);
-  const [targetsRaw, setTargetsRaw] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [distributedLocal, setDistributedLocal] = useState(() => {
     const d = new Date();
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -101,10 +95,8 @@ export function TeacherAssignmentNewPage() {
       return;
     }
     setMsg(null);
-    const existing = parseStudentIds(targetsRaw);
-    const merged = [...new Set([...existing, ...incoming])];
-    setTargetsRaw(merged.join("\n"));
-  }, [classrooms, selectedClassroomId, targetsRaw]);
+    setSelectedStudentIds((prev) => [...new Set([...prev, ...incoming.map((id) => String(id).trim()).filter(Boolean)])]);
+  }, [classrooms, selectedClassroomId]);
 
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -115,9 +107,9 @@ export function TeacherAssignmentNewPage() {
         setMsg("지문을 입력해 주세요.");
         return;
       }
-      const targets = parseStudentIds(targetsRaw);
+      const targets = [...new Set(selectedStudentIds.map((s) => s.trim()).filter((s) => s.length >= 8))];
       if (targets.length === 0) {
-        setMsg("대상 학생 UID를 한 줄에 하나씩 입력하거나, 강의실 멤버를 끼워 넣어 주세요.");
+        setMsg("아래「대상 학생」에서 한 명 이상 선택하거나, 강의실 멤버를 끼워 넣어 주세요.");
         return;
       }
       const dist = new Date(distributedLocal);
@@ -146,7 +138,7 @@ export function TeacherAssignmentNewPage() {
         setBusy(false);
       }
     },
-    [uid, passage, targetsRaw, distributedLocal, title, analysis, navigate],
+    [uid, passage, selectedStudentIds, distributedLocal, title, analysis, navigate],
   );
 
   return (
@@ -157,8 +149,8 @@ export function TeacherAssignmentNewPage() {
           학습지 배포
         </h1>
         <p className={styles.meta}>
-          대상 학생은 Firebase 로그인 UID여야 합니다. 학생은 <strong>/dashboard</strong> 과제함에서 카드를 눌러
-          들어옵니다. 강의실에 멤버 UID를 저장해 두면 아래에서 한 번에 넣을 수 있습니다.
+          배포하면 대상 학생 목록이 과제에 저장되고, 학생은 <strong>/dashboard</strong> 과제함에서 본인에게 온 카드만
+          봅니다. 강의실 멤버·주소록·그룹·명단 파일로 대상을 고를 수 있습니다.
         </p>
         {loadNote ? <p className={styles.ok}>{loadNote}</p> : null}
 
@@ -203,6 +195,15 @@ export function TeacherAssignmentNewPage() {
           ) : null}
         </div>
 
+        {uid ? (
+          <TeacherStudentPicker
+            teacherUid={uid}
+            classrooms={classrooms}
+            selectedIds={selectedStudentIds}
+            onChangeSelectedIds={setSelectedStudentIds}
+          />
+        ) : null}
+
         <form onSubmit={(ev) => void onSubmit(ev)} className={styles.grid2} style={{ marginTop: "1rem" }}>
           <div style={{ gridColumn: "1 / -1" }}>
             <label className={styles.itemLabel} htmlFor="as-title">
@@ -221,19 +222,6 @@ export function TeacherAssignmentNewPage() {
               value={passage}
               onChange={(e) => setPassage(e.target.value)}
               maxLength={120000}
-            />
-          </div>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label className={styles.itemLabel} htmlFor="as-targets">
-              대상 학생 UID (줄바꿈·쉼표로 구분)
-            </label>
-            <textarea
-              id="as-targets"
-              className={styles.textarea}
-              style={{ minHeight: "5rem" }}
-              value={targetsRaw}
-              onChange={(e) => setTargetsRaw(e.target.value)}
-              placeholder="abcStudentUid123&#10;defStudentUid456"
             />
           </div>
           <div>
