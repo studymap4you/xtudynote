@@ -2,12 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
-import { ImageOff } from "lucide-react";
+import { BookOpen, DollarSign, FileStack, GraduationCap, ImageOff, Layers, Type } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
 import { DescriptionAssetQueue } from "@/components/DescriptionAssetQueue";
-import { ImageSlider } from "@/components/ImageSlider";
-import { RichHtmlView } from "@/components/RichHtmlView";
+import { MaterialRegisterPreviewModal } from "@/components/MaterialRegisterPreviewModal";
 import { RichTextEditor, type RichTextEditorHandle } from "@/components/RichTextEditor";
 import { db, storage } from "@/firebase/config";
 import { uploadEditorAttachmentWithProgress, uploadEditorImageWithProgress } from "@/lib/editorUploads";
@@ -20,6 +19,7 @@ import type { UserProfile } from "@/types/user";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import { getClassroomIfTeacher } from "@/lib/classroom";
 import "@/pages/pages.css";
+import "@/pages/material-register-premium.css";
 
 function safeFileName(name: string): string {
   return name.replace(/[^\w.\-가-힣]+/g, "_").slice(0, 180) || "file";
@@ -63,6 +63,98 @@ function resolveSubmitterRole(profile: UserProfile): MaterialRequestDocument["su
   return "student";
 }
 
+function formatFileSizeBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+type MatPremiumFieldProps = {
+  id: string;
+  labelEn: string;
+  labelKo: string;
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  type?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  placeholder?: string;
+  icon: React.ReactNode;
+  multiline?: boolean;
+  rows?: number;
+};
+
+function MatPremiumField({
+  id,
+  labelEn,
+  labelKo,
+  value,
+  onChange,
+  required,
+  type,
+  inputMode,
+  placeholder,
+  icon,
+  multiline,
+  rows,
+}: MatPremiumFieldProps) {
+  return (
+    <div className="mat-premium-field">
+      <div className="mat-premium-field__label-row">
+        <span className="mat-premium-field__icon-wrap" aria-hidden>
+          {icon}
+        </span>
+        <label className="mat-premium-field__text-label" htmlFor={id}>
+          <span className="mat-premium-field__en">{labelEn}</span>
+          <span className="mat-premium-field__ko">{labelKo}</span>
+        </label>
+      </div>
+      <div className="mat-premium-field__input-shell">
+        {multiline ? (
+          <textarea
+            id={id}
+            className="mat-premium-field__input mat-premium-field__input--textarea"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            required={required}
+            rows={rows ?? 6}
+            placeholder={placeholder}
+            spellCheck
+          />
+        ) : (
+          <input
+            id={id}
+            type={type ?? "text"}
+            inputMode={inputMode}
+            className="mat-premium-field__input"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            required={required}
+            placeholder={placeholder}
+            autoComplete="off"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MatFilePickList({ files }: { files: File[] }) {
+  if (!files.length) {
+    return <p className="mat-file-pick-empty">선택된 파일이 없습니다.</p>;
+  }
+  return (
+    <ul className="mat-file-pick-ul">
+      {files.map((f, i) => (
+        <li key={`${f.name}-${i}`} className="mat-file-pick-li">
+          <span className="mat-file-pick-name">{f.name}</span>
+          <span className="mat-file-pick-size">{formatFileSizeBytes(f.size)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function MaterialRegisterPage() {
   const { firebaseUser, profile, canManageMaterials, isStudent, isSuperAdmin } = useAuth();
   const [searchParams] = useSearchParams();
@@ -94,8 +186,29 @@ export function MaterialRegisterPage() {
   const [descQueue, setDescQueue] = useState<{ id: string; file: File }[]>([]);
   const [descInsertBusy, setDescInsertBusy] = useState(false);
   const [descInsertProgress, setDescInsertProgress] = useState<number | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const descImageSrcs = useMemo(() => extractImageSrcsFromHtml(description), [description]);
+
+  const learningFileRows = useMemo(() => {
+    const rows: { name: string; size: number }[] = [];
+    for (const id of lmSlots) {
+      for (const f of lmBySlot[id] ?? []) {
+        rows.push({ name: f.name, size: f.size });
+      }
+    }
+    return rows;
+  }, [lmSlots, lmBySlot]);
+
+  const referenceFileRows = useMemo(() => {
+    const rows: { name: string; size: number }[] = [];
+    for (const id of refSlots) {
+      for (const f of refBySlot[id] ?? []) {
+        rows.push({ name: f.name, size: f.size });
+      }
+    }
+    return rows;
+  }, [refSlots, refBySlot]);
 
   useEffect(() => {
     if (!thumbnailFile) {
@@ -350,7 +463,9 @@ export function MaterialRegisterPage() {
 
   return (
     <DashboardShell light>
-      <main className="admin-layout material-register admin-layout--light material-register--unified">
+      <main
+        className={`admin-layout material-register admin-layout--light material-register--unified material-register--premium${canSubmit ? " material-register--has-sticky" : ""}`}
+      >
         <div className="admin-layout__title-row">
           <h1>자료 등록</h1>
           <span className="ui-ko material-register__subtitle-bi">
@@ -375,168 +490,164 @@ export function MaterialRegisterPage() {
         )}
 
         {canSubmit && (
-          <section className="panel panel--light material-register-form material-register-form--student material-register-form--full material-register-form--polish">
-            {done && (
-              <p className="material-register__success" style={{ marginBottom: "1rem" }}>
-                접수되었습니다. 감사합니다.
-              </p>
-            )}
-            <form onSubmit={(e) => void handleSubmit(e)} className="material-register-form__grid">
-              <label className="reg-form__field">
-                <span className="reg-form__label-line">
-                  <span className="reg-form__label-en">Title</span>
-                  <span className="reg-form__label-ko">제목</span>
-                </span>
-                <input
-                  className="add-passage__control material-register-form__input"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                  autoComplete="off"
-                />
-              </label>
-
-              <label className="reg-form__field">
-                <span className="reg-form__label-line">
-                  <span className="reg-form__label-en">Subject</span>
-                  <span className="reg-form__label-ko">과목</span>
-                </span>
-                <input
-                  className="add-passage__control material-register-form__input"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  required
-                  autoComplete="off"
-                />
-              </label>
-
-              <label className="reg-form__field">
-                <span className="reg-form__label-line">
-                  <span className="reg-form__label-en">Grade / level</span>
-                  <span className="reg-form__label-ko">학년·수준</span>
-                </span>
-                <input
-                  className="add-passage__control material-register-form__input"
-                  value={audienceGrade}
-                  onChange={(e) => setAudienceGrade(e.target.value)}
-                  required
-                  autoComplete="off"
-                  placeholder="예: 고2, 대학 1학년"
-                />
-              </label>
-
-              <fieldset className="material-register-form__fieldset">
-                <legend className="material-register-form__legend">
-                  <span className="reg-form__label-en">Material type</span>
-                  <span className="reg-form__label-ko"> 자료 유형</span>
-                </legend>
-                <div className="material-register-form__radio-row">
-                  {(
-                    [
-                      ["share", "Share · 공유"],
-                      ["paid", "Paid · 유료"],
-                      ["homework", "Homework · 과제"],
-                    ] as const
-                  ).map(([v, label]) => (
-                    <label key={v} className="material-register-form__radio">
-                      <input
-                        type="radio"
-                        name="materialType"
-                        value={v}
-                        checked={materialType === v}
-                        onChange={() => setMaterialType(v)}
-                      />
-                      <span>{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              <LearningThemeChecklist value={themes} onChange={setThemes} disabled={saving} idPrefix="mat" />
-
-              {showPrice && (
-                <>
-                  <label className="reg-form__field">
-                    <span className="reg-form__label-line">
-                      <span className="reg-form__label-en">Desired price (KRW)</span>
-                      <span className="reg-form__label-ko">희망 판매 가격 (원)</span>
-                    </span>
-                    <input
-                      className="add-passage__control material-register-form__input"
-                      type="text"
-                      inputMode="decimal"
-                      value={desiredPrice}
-                      onChange={(e) => setDesiredPrice(e.target.value)}
-                      placeholder="예: 15000"
+          <>
+            <div className="material-register__shell">
+              <section className="material-register-form material-register-form--full">
+                {done && (
+                  <p className="material-register__success" style={{ marginBottom: "1rem" }}>
+                    접수되었습니다. 감사합니다.
+                  </p>
+                )}
+                <form
+                  id="material-register-form"
+                  onSubmit={(e) => void handleSubmit(e)}
+                  className="material-register-form__grid"
+                >
+                  <div className="mat-premium-card">
+                    <h2 className="mat-premium-card__title">기본 정보</h2>
+                    <MatPremiumField
+                      id="mat-title"
+                      labelEn="Title"
+                      labelKo="제목"
+                      value={title}
+                      onChange={setTitle}
                       required
+                      icon={<Type size={18} strokeWidth={2} aria-hidden />}
                     />
-                  </label>
-                  <div className="reg-form__field material-register__thumb-block">
-                    <span className="reg-form__label-line">
-                      <span className="reg-form__label-en">Thumbnail image</span>
-                      <span className="reg-form__label-ko">썸네일 이미지 (필수)</span>
-                    </span>
-                    <div className="material-register__thumb-row">
-                      <div className="material-register__thumb-preview" aria-live="polite">
-                        {thumbObjectUrl ? (
-                          <img src={thumbObjectUrl} alt="선택한 썸네일 미리보기" />
-                        ) : (
-                          <div className="material-register__thumb-placeholder">
-                            <ImageOff size={40} strokeWidth={1.35} aria-hidden />
-                            <span>이미지 없음</span>
-                          </div>
-                        )}
+                    <MatPremiumField
+                      id="mat-subject"
+                      labelEn="Subject"
+                      labelKo="과목"
+                      value={subject}
+                      onChange={setSubject}
+                      required
+                      icon={<BookOpen size={18} strokeWidth={2} aria-hidden />}
+                    />
+                    <MatPremiumField
+                      id="mat-grade"
+                      labelEn="Grade / level"
+                      labelKo="학년·수준"
+                      value={audienceGrade}
+                      onChange={setAudienceGrade}
+                      required
+                      placeholder="예: 고2, 대학 1학년"
+                      icon={<GraduationCap size={18} strokeWidth={2} aria-hidden />}
+                    />
+                  </div>
+
+                  <div className="mat-premium-card">
+                    <h2 className="mat-premium-card__title">자료 유형 · 테마</h2>
+                    <fieldset className="material-register-form__fieldset">
+                      <legend className="material-register-form__legend">
+                        <span className="reg-form__label-en">Material type</span>
+                        <span className="reg-form__label-ko"> 자료 유형</span>
+                      </legend>
+                      <div className="material-register-form__radio-row">
+                        {(
+                          [
+                            ["share", "Share · 공유"],
+                            ["paid", "Paid · 유료"],
+                            ["homework", "Homework · 과제"],
+                          ] as const
+                        ).map(([v, label]) => (
+                          <label key={v} className="material-register-form__radio">
+                            <input
+                              type="radio"
+                              name="materialType"
+                              value={v}
+                              checked={materialType === v}
+                              onChange={() => setMaterialType(v)}
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
                       </div>
-                      <div className="material-register__thumb-side">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="add-passage__control add-passage__control--file"
-                          onChange={(e) => setThumbnailFile(e.target.files?.[0] ?? null)}
-                        />
-                        {thumbnailFile ? (
-                          <button
-                            type="button"
-                            className="btn btn--ghost material-register__thumb-clear"
-                            onClick={() => setThumbnailFile(null)}
-                          >
-                            선택 해제
-                          </button>
-                        ) : null}
+                    </fieldset>
+                    <LearningThemeChecklist value={themes} onChange={setThemes} disabled={saving} idPrefix="mat" />
+                  </div>
+
+                  {showPrice && (
+                    <div className="mat-premium-card">
+                      <h2 className="mat-premium-card__title">유료 설정</h2>
+                      <MatPremiumField
+                        id="mat-price"
+                        labelEn="Desired price (KRW)"
+                        labelKo="희망 판매 가격 (원)"
+                        value={desiredPrice}
+                        onChange={setDesiredPrice}
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="예: 15000"
+                        required
+                        icon={<DollarSign size={18} strokeWidth={2} aria-hidden />}
+                      />
+                      <div className="mat-premium-field material-register__thumb-block">
+                        <div className="mat-premium-field__label-row">
+                          <span className="mat-premium-field__icon-wrap" aria-hidden>
+                            <Layers size={18} strokeWidth={2} />
+                          </span>
+                          <div className="mat-premium-field__text-label">
+                            <span className="mat-premium-field__en">Thumbnail image</span>
+                            <span className="mat-premium-field__ko">썸네일 이미지 (필수)</span>
+                          </div>
+                        </div>
+                        <div className="material-register__thumb-row">
+                          <div className="material-register__thumb-preview" aria-live="polite">
+                            {thumbObjectUrl ? (
+                              <img src={thumbObjectUrl} alt="선택한 썸네일 미리보기" />
+                            ) : (
+                              <div className="material-register__thumb-placeholder">
+                                <ImageOff size={40} strokeWidth={1.35} aria-hidden />
+                                <span>이미지 없음</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="material-register__thumb-side">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="add-passage__control add-passage__control--file"
+                              onChange={(e) => setThumbnailFile(e.target.files?.[0] ?? null)}
+                            />
+                            {thumbnailFile ? (
+                              <button
+                                type="button"
+                                className="btn btn--ghost material-register__thumb-clear"
+                                onClick={() => setThumbnailFile(null)}
+                              >
+                                선택 해제
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </>
-              )}
+                  )}
 
-              {showHomeworkNotes && (
-                <label className="reg-form__field">
-                  <span className="reg-form__label-line">
-                    <span className="reg-form__label-en">Homework guidelines &amp; cautions</span>
-                    <span className="reg-form__label-ko">과제 주의사항·안내</span>
-                  </span>
-                  <textarea
-                    className="add-passage__control add-passage__intro material-register-form__textarea"
-                    rows={6}
-                    value={homeworkInstruction}
-                    onChange={(e) => setHomeworkInstruction(e.target.value)}
-                    required={showHomeworkNotes}
-                    spellCheck
-                    placeholder="제출 형식, 마감, 금지 사항 등"
-                  />
-                </label>
-              )}
+                  {showHomeworkNotes && (
+                    <div className="mat-premium-card">
+                      <h2 className="mat-premium-card__title">과제 안내</h2>
+                      <MatPremiumField
+                        id="mat-homework"
+                        labelEn="Homework guidelines & cautions"
+                        labelKo="과제 주의사항·안내"
+                        value={homeworkInstruction}
+                        onChange={setHomeworkInstruction}
+                        required={showHomeworkNotes}
+                        multiline
+                        rows={10}
+                        placeholder="제출 형식, 마감, 금지 사항 등"
+                        icon={<FileStack size={18} strokeWidth={2} aria-hidden />}
+                      />
+                    </div>
+                  )}
 
-              <div className="reg-form__field material-register-form__field-rich">
-                <span className="reg-form__label-line">
-                  <span className="reg-form__label-en">Detailed description</span>
-                  <span className="reg-form__label-ko">자료 상세 설명</span>
-                </span>
-                <p className="material-register-form__rich-hint">
-                  서식·색·정렬·이미지 다중 삽입·드래그 앤 드롭 지원. 오른쪽은 학습자에게 보이는 것과 동일한 실시간 미리보기입니다.
-                </p>
-                <div className="material-register__editor-split">
-                  <div className="material-register__editor-pane">
+                  <div className="mat-premium-card material-register-form__field-rich">
+                    <h2 className="mat-premium-card__title">상세 설명</h2>
+                    <p className="material-register-form__rich-hint">
+                      서식·색·정렬·이미지 다중 삽입·드래그 앤 드롭을 지원합니다. 하단 고정 바의「미리보기」로 학습자 화면과
+                      동일하게 HTML이 렌더링된 결과를 확인할 수 있습니다.
+                    </p>
                     <RichTextEditor
                       ref={descriptionEditorRef}
                       value={description}
@@ -555,201 +666,219 @@ export function MaterialRegisterPage() {
                       onInsertToDescription={() => void insertDescQueueToDescription()}
                     />
                   </div>
-                  <aside className="material-register__preview-pane" aria-label="실시간 미리보기">
-                    <p className="material-register__preview-pane-title">실시간 미리보기</p>
-                    <p className="material-register__preview-pane-sub">입력 내용이 학습자 화면(RichHtmlView)과 동일하게 정제되어 표시됩니다.</p>
-                    <div className="material-register__live-html-wrap">
-                      {description.trim() ? (
-                        <RichHtmlView html={description} className="material-register__live-html" />
-                      ) : (
-                        <p className="material-register__preview-empty">내용을 입력하면 여기에 표시됩니다.</p>
-                      )}
-                    </div>
-                    {descImageSrcs.length > 0 ? (
-                      <div className="material-register__desc-images">
-                        <p className="material-register-form__rich-hint">삽입 이미지 슬라이드·그리드</p>
-                        <ImageSlider urls={descImageSrcs} />
+
+                  <div className="mat-premium-card material-register__optional-preview">
+                    <h2 className="mat-premium-card__title">샘플 미리보기 PDF</h2>
+                    <p className="material-register-form__rich-hint">
+                      샘플 PDF 등을 올리면 Firestore에 <code>previewUrl</code>이 저장되어, 승인 후 학습자 화면의「샘플 보기」등에
+                      바로 연결하기 쉽습니다. 없어도 신청은 가능합니다.
+                      <span className="material-register__optional-badge" title="필수 아님">
+                        Optional
+                      </span>
+                    </p>
+                    <input
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      className="add-passage__control add-passage__control--file"
+                      onChange={(e) => setPreviewSampleFile(e.target.files?.[0] ?? null)}
+                    />
+                    {previewSampleFile ? (
+                      <div className="material-register__preview-file-meta">
+                        <span className="material-register__preview-file-name">{previewSampleFile.name}</span>
+                        <span className="mat-file-pick-size">{formatFileSizeBytes(previewSampleFile.size)}</span>
+                        <button
+                          type="button"
+                          className="btn btn--ghost material-register__thumb-clear"
+                          onClick={() => setPreviewSampleFile(null)}
+                        >
+                          파일 제거
+                        </button>
                       </div>
                     ) : null}
-                  </aside>
-                </div>
-              </div>
-
-              <div className="reg-form__field material-register__optional-preview">
-                <span className="reg-form__label-line">
-                  <span className="reg-form__label-en">Sample preview file</span>
-                  <span className="reg-form__label-ko">미리보기 파일</span>
-                  <span className="material-register__optional-badge" title="필수 아님">
-                    Optional
-                  </span>
-                </span>
-                <p className="material-register-form__rich-hint">
-                  샘플 PDF 등을 올리면 Firestore에 <code>previewUrl</code>이 저장되어, 승인 후 학습자 화면의「샘플 보기」등에
-                  바로 연결하기 쉽습니다. 없어도 신청은 가능합니다.
-                </p>
-                <input
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  className="add-passage__control add-passage__control--file"
-                  onChange={(e) => setPreviewSampleFile(e.target.files?.[0] ?? null)}
-                />
-                {previewSampleFile ? (
-                  <div className="material-register__preview-file-meta">
-                    <span className="material-register__preview-file-name">{previewSampleFile.name}</span>
-                    <button type="button" className="btn btn--ghost material-register__thumb-clear" onClick={() => setPreviewSampleFile(null)}>
-                      파일 제거
-                    </button>
                   </div>
-                ) : null}
-              </div>
 
-              <fieldset className="material-register-form__fieldset">
-                <legend className="material-register-form__legend">
-                  <span className="reg-form__label-en">File uploads</span>
-                  <span className="reg-form__label-ko"> 파일 업로드</span>
-                </legend>
-                <div className="reg-form__field">
-                  <span className="reg-form__label-line">
-                    <span className="reg-form__label-en">Primary learning files</span>
-                    <span className="reg-form__label-ko">학습용 주 자료</span>
-                  </span>
-                  <div className="material-register-form__multi-rows">
-                    {lmSlots.map((slotId) => (
-                      <div key={slotId} className="material-register-form__multi-row material-register-form__multi-row--file">
-                        <input
-                          type="file"
-                          multiple
-                          className="add-passage__control add-passage__control--file"
-                          onChange={(ev) => {
-                            const list = ev.target.files;
-                            setLmBySlot((m) => ({
-                              ...m,
-                              [slotId]: list ? Array.from(list) : [],
-                            }));
-                          }}
-                        />
-                        {lmSlots.length > 1 && (
-                          <button
-                            type="button"
-                            className="btn btn--ghost material-register-form__row-btn"
-                            onClick={() => {
-                              setLmSlots((s) => s.filter((id) => id !== slotId));
-                              setLmBySlot((m) => {
-                                const n = { ...m };
-                                delete n[slotId];
-                                return n;
-                              });
-                            }}
-                          >
-                            <span className="ui-en">Remove</span>
-                            <span className="ui-ko">삭제</span>
-                          </button>
-                        )}
+                  <div className="mat-premium-card">
+                    <h2 className="mat-premium-card__title">파일 업로드</h2>
+                    <div className="reg-form__field">
+                      <span className="reg-form__label-line">
+                        <span className="reg-form__label-en">Primary learning files</span>
+                        <span className="reg-form__label-ko">학습용 주 자료</span>
+                      </span>
+                      <div className="material-register-form__multi-rows">
+                        {lmSlots.map((slotId) => (
+                          <div key={slotId} className="material-register-form__multi-row material-register-form__multi-row--file">
+                            <input
+                              type="file"
+                              multiple
+                              className="add-passage__control add-passage__control--file"
+                              onChange={(ev) => {
+                                const list = ev.target.files;
+                                setLmBySlot((m) => ({
+                                  ...m,
+                                  [slotId]: list ? Array.from(list) : [],
+                                }));
+                              }}
+                            />
+                            <MatFilePickList files={lmBySlot[slotId] ?? []} />
+                            {lmSlots.length > 1 && (
+                              <button
+                                type="button"
+                                className="btn btn--ghost material-register-form__row-btn"
+                                onClick={() => {
+                                  setLmSlots((s) => s.filter((id) => id !== slotId));
+                                  setLmBySlot((m) => {
+                                    const n = { ...m };
+                                    delete n[slotId];
+                                    return n;
+                                  });
+                                }}
+                              >
+                                <span className="ui-en">Remove</span>
+                                <span className="ui-ko">삭제</span>
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          className="btn btn--ghost material-register-form__add-row-btn"
+                          onClick={() => setLmSlots((s) => [...s, newFileSlotId()])}
+                        >
+                          <span className="ui-en">+ Add file field</span>
+                          <span className="ui-ko">+ 파일 입력 추가</span>
+                        </button>
                       </div>
-                    ))}
-                    <button
-                      type="button"
-                      className="btn btn--ghost material-register-form__add-row-btn"
-                      onClick={() => setLmSlots((s) => [...s, newFileSlotId()])}
-                    >
-                      <span className="ui-en">+ Add file field</span>
-                      <span className="ui-ko">+ 파일 입력 추가</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="reg-form__field">
-                  <span className="reg-form__label-line">
-                    <span className="reg-form__label-en">Answer key / reference</span>
-                    <span className="reg-form__label-ko">해설·참고 자료</span>
-                  </span>
-                  <div className="material-register-form__multi-rows">
-                    {refSlots.map((slotId) => (
-                      <div key={slotId} className="material-register-form__multi-row material-register-form__multi-row--file">
-                        <input
-                          type="file"
-                          multiple
-                          className="add-passage__control add-passage__control--file"
-                          onChange={(ev) => {
-                            const list = ev.target.files;
-                            setRefBySlot((m) => ({
-                              ...m,
-                              [slotId]: list ? Array.from(list) : [],
-                            }));
-                          }}
-                        />
-                        {refSlots.length > 1 && (
-                          <button
-                            type="button"
-                            className="btn btn--ghost material-register-form__row-btn"
-                            onClick={() => {
-                              setRefSlots((s) => s.filter((id) => id !== slotId));
-                              setRefBySlot((m) => {
-                                const n = { ...m };
-                                delete n[slotId];
-                                return n;
-                              });
-                            }}
-                          >
-                            <span className="ui-en">Remove</span>
-                            <span className="ui-ko">삭제</span>
-                          </button>
-                        )}
+                    </div>
+                    <div className="reg-form__field" style={{ marginTop: "1.25rem" }}>
+                      <span className="reg-form__label-line">
+                        <span className="reg-form__label-en">Answer key / reference</span>
+                        <span className="reg-form__label-ko">해설·참고 자료</span>
+                      </span>
+                      <div className="material-register-form__multi-rows">
+                        {refSlots.map((slotId) => (
+                          <div key={slotId} className="material-register-form__multi-row material-register-form__multi-row--file">
+                            <input
+                              type="file"
+                              multiple
+                              className="add-passage__control add-passage__control--file"
+                              onChange={(ev) => {
+                                const list = ev.target.files;
+                                setRefBySlot((m) => ({
+                                  ...m,
+                                  [slotId]: list ? Array.from(list) : [],
+                                }));
+                              }}
+                            />
+                            <MatFilePickList files={refBySlot[slotId] ?? []} />
+                            {refSlots.length > 1 && (
+                              <button
+                                type="button"
+                                className="btn btn--ghost material-register-form__row-btn"
+                                onClick={() => {
+                                  setRefSlots((s) => s.filter((id) => id !== slotId));
+                                  setRefBySlot((m) => {
+                                    const n = { ...m };
+                                    delete n[slotId];
+                                    return n;
+                                  });
+                                }}
+                              >
+                                <span className="ui-en">Remove</span>
+                                <span className="ui-ko">삭제</span>
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          className="btn btn--ghost material-register-form__add-row-btn"
+                          onClick={() => setRefSlots((s) => [...s, newFileSlotId()])}
+                        >
+                          <span className="ui-en">+ Add file field</span>
+                          <span className="ui-ko">+ 파일 입력 추가</span>
+                        </button>
                       </div>
-                    ))}
-                    <button
-                      type="button"
-                      className="btn btn--ghost material-register-form__add-row-btn"
-                      onClick={() => setRefSlots((s) => [...s, newFileSlotId()])}
+                    </div>
+                  </div>
+
+                  {uploadPct !== null && saving ? (
+                    <div
+                      className="material-register__upload-progress"
+                      role="progressbar"
+                      aria-valuenow={uploadPct}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
                     >
-                      <span className="ui-en">+ Add file field</span>
-                      <span className="ui-ko">+ 파일 입력 추가</span>
-                    </button>
+                      <div className="material-register__upload-progress-bar" style={{ width: `${uploadPct}%` }} />
+                      <span className="material-register__upload-progress-label">파일 업로드 {uploadPct}%</span>
+                    </div>
+                  ) : null}
+                </form>
+
+                <div className="material-register__footer-links">
+                  <p className="reg-form__label-line" style={{ marginBottom: "0.5rem" }}>
+                    <span className="reg-form__label-en" style={{ fontSize: "0.8rem" }}>
+                      Quick links
+                    </span>
+                    <span className="reg-form__label-ko" style={{ fontSize: "0.78rem" }}>
+                      바로가기 (선택)
+                    </span>
+                  </p>
+                  <div className="material-register__footer-links-row">
+                    {canManageMaterials && (
+                      <Link to="/teacher/homework/new" className="material-register__text-link">
+                        과제 즉시 출제 (교육자)
+                      </Link>
+                    )}
+                    {isSuperAdmin && (
+                      <Link to="/admin/contents/new" className="material-register__text-link">
+                        관리자 직접 등록
+                      </Link>
+                    )}
                   </div>
                 </div>
-              </fieldset>
+              </section>
+            </div>
 
-              {uploadPct !== null && saving ? (
-                <div
-                  className="material-register__upload-progress"
-                  role="progressbar"
-                  aria-valuenow={uploadPct}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
+            <MaterialRegisterPreviewModal
+              open={previewOpen}
+              onOpenChange={setPreviewOpen}
+              title={title}
+              subject={subject}
+              audienceGrade={audienceGrade}
+              materialType={materialType}
+              themes={themes}
+              desiredPrice={materialType === "paid" ? desiredPrice.trim() || null : null}
+              thumbnailUrl={thumbObjectUrl}
+              descriptionHtml={description}
+              descImageSrcs={descImageSrcs}
+              homeworkInstruction={materialType === "homework" ? homeworkInstruction : null}
+              previewSampleName={previewSampleFile?.name ?? null}
+              learningFiles={learningFileRows}
+              referenceFiles={referenceFileRows}
+            />
+
+            <div className="material-register__sticky-bar" role="toolbar" aria-label="자료 등록 작업">
+              <div className="material-register__sticky-inner">
+                <button
+                  type="button"
+                  className="btn btn--ghost material-register__sticky-preview"
+                  onClick={() => setPreviewOpen(true)}
                 >
-                  <div className="material-register__upload-progress-bar" style={{ width: `${uploadPct}%` }} />
-                  <span className="material-register__upload-progress-label">파일 업로드 {uploadPct}%</span>
-                </div>
-              ) : null}
-
-              <button type="submit" className="btn btn--primary btn--stack" disabled={saving}>
-                <span className="ui-en">{saving ? "Submitting…" : "Submit request"}</span>
-                <span className="ui-ko">{saving ? "제출 중…" : "신청 제출"}</span>
-              </button>
-            </form>
-
-            <div className="material-register__footer-links">
-              <p className="reg-form__label-line" style={{ marginBottom: "0.5rem" }}>
-                <span className="reg-form__label-en" style={{ fontSize: "0.8rem" }}>
-                  Quick links
-                </span>
-                <span className="reg-form__label-ko" style={{ fontSize: "0.78rem" }}>
-                  바로가기 (선택)
-                </span>
-              </p>
-              <div className="material-register__footer-links-row">
-                {canManageMaterials && (
-                  <Link to="/teacher/homework/new" className="material-register__text-link">
-                    과제 즉시 출제 (교육자)
-                  </Link>
-                )}
-                {isSuperAdmin && (
-                  <Link to="/admin/contents/new" className="material-register__text-link">
-                    관리자 직접 등록
-                  </Link>
-                )}
+                  미리보기
+                </button>
+                <button
+                  type="submit"
+                  form="material-register-form"
+                  className="btn btn--primary material-register__sticky-submit"
+                  disabled={saving}
+                >
+                  <span className="ui-en">{saving ? "Submitting…" : "Submit request"}</span>
+                  <span className="ui-ko">{saving ? "제출 중…" : "신청 제출"}</span>
+                </button>
               </div>
             </div>
-          </section>
+          </>
         )}
 
         {!canSubmit && firebaseUser && profile && profile.role !== "pending_teacher" && (
