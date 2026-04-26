@@ -339,7 +339,8 @@
     max-width: none;
     width: 100%;
     margin: 0;
-    padding: 0 0 16mm;
+    /* react-to-print pageStyle의 body 패딩과 겹치지 않도록 인쇄 시 본문 박스 패딩은 0 */
+    padding: 0;
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -358,9 +359,9 @@
   .printRunningFooter {
     display: block;
     position: fixed;
-    bottom: 12mm;
-    left: 0;
-    right: 0;
+    bottom: 10mm;
+    left: 25mm;
+    right: 25mm;
     text-align: center;
     font-size: 8.5pt;
     font-weight: 500;
