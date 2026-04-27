@@ -108,7 +108,7 @@ export function ContentsListPage() {
       (err) => {
         setError(err.message || "목록을 불러오지 못했습니다.");
         setLoading(false);
-      }
+      },
     );
 
     return () => unsub();
@@ -130,30 +130,37 @@ export function ContentsListPage() {
   }, []);
 
   return (
-    <div className="app-shell app-shell--admin">
+    <div className="app-shell app-shell--admin app-shell--light">
       <AdminTopNav />
-      <main className="admin-layout contents-list">
-        <div className="admin-layout__title-row">
-          <h1>콘텐츠 DB 관리</h1>
-          <span className="ui-ko">등록된 지문·자료 목록 · 최신순(실시간)</span>
-        </div>
-        <div className="contents-list__toolbar contents-list__toolbar--top">
-          <AddNewMaterialButton />
-        </div>
-        {error && <p className="auth-error">{error}</p>}
+      <main className="admin-layout admin-layout--light contents-list contents-list--bright">
+        <header className="contents-list__hero">
+          <div className="contents-list__hero-bg" aria-hidden />
+          <div className="contents-list__hero-main">
+            <p className="contents-list__eyebrow ui-en">Content database</p>
+            <div className="contents-list__title-wrap">
+              <h1 className="contents-list__h1">콘텐츠 DB 관리</h1>
+              <p className="contents-list__subtitle ui-ko">등록된 지문·자료 목록 · 최신순(실시간)</p>
+            </div>
+          </div>
+          <div className="contents-list__hero-cta">
+            <AddNewMaterialButton />
+          </div>
+        </header>
+
+        {error ? <p className="auth-error">{error}</p> : null}
         {loading ? (
-          <div className="route-loading">
+          <div className="route-loading route-loading--light">
             <div className="route-loading__spinner" />
             <p>
               <span className="ui-en">Connecting…</span>
-              <span className="ui-ko" style={{ display: "block", marginTop: "0.25rem" }}>
+              <span className="ui-ko contents-list__loading-ko">
                 목록 연결 중…
               </span>
             </p>
           </div>
         ) : (
-          <div className="admin-table-wrap">
-            <table className="admin-table admin-table--contents">
+          <div className="admin-table-wrap contents-list__table-shell">
+            <table className="admin-table admin-table--contents admin-table--light contents-list__table">
               <thead>
                 <tr>
                   <th className="th-bilingual th-bilingual--professional">
@@ -177,9 +184,9 @@ export function ContentsListPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ color: "var(--text-muted)" }}>
-                      No items yet. Add a passage to get started.
-                      <span className="ui-ko" style={{ display: "block", marginTop: "0.35rem" }}>
+                    <td colSpan={7} className="contents-list__empty">
+                      <span className="ui-en">No items yet. Add a passage to get started.</span>
+                      <span className="ui-ko contents-list__empty-ko">
                         아직 등록된 항목이 없습니다. 새 자료 등록으로 시작하세요.
                       </span>
                     </td>
@@ -187,17 +194,25 @@ export function ContentsListPage() {
                 ) : (
                   rows.map((r) => (
                     <tr key={r.id}>
-                      <td>{r.subject}</td>
-                      <td>{labelType(r.type)}</td>
-                      <td>{labelStatus(r.status)}</td>
+                      <td className="contents-list__cell-strong">{r.subject}</td>
                       <td>
+                        <span className={`contents-list__pill contents-list__pill--type-${r.type}`}>
+                          {labelType(r.type)}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`contents-list__pill contents-list__pill--status contents-list__pill--status-${r.status}`}
+                        >
+                          {labelStatus(r.status)}
+                        </span>
+                      </td>
+                      <td className="contents-list__cell-mono">
                         {r.shortCode || r.homeworkCode ? (
                           <span style={{ fontVariantNumeric: "tabular-nums" }}>
                             {r.shortCode ?? r.homeworkCode}
                             {r.shortCode && r.homeworkCode && r.shortCode !== r.homeworkCode ? (
-                              <span style={{ display: "block", fontSize: "0.78rem", color: "var(--text-muted)" }}>
-                                {r.homeworkCode}
-                              </span>
+                              <span className="contents-list__code-sub">{r.homeworkCode}</span>
                             ) : null}
                           </span>
                         ) : (
@@ -205,18 +220,18 @@ export function ContentsListPage() {
                         )}
                       </td>
                       <td>{r.learningTopic}</td>
-                      <td>{r.createdAtLabel}</td>
+                      <td className="contents-list__cell-muted">{r.createdAtLabel}</td>
                       <td>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                        <div className="contents-list__actions">
                           {r.type !== "homework" && r.status === "approved" && (
-                            <Link to={`/content/${r.id}`} className="btn btn--ghost btn--stack">
+                            <Link to={`/content/${r.id}`} className="btn btn--stack contents-list__action-link">
                               공개 상세
                             </Link>
                           )}
                           {r.type === "homework" && (r.shortCode || r.homeworkCode) && (
                             <Link
                               to={`/homework/${encodeURIComponent(r.shortCode || r.homeworkCode || "")}`}
-                              className="btn btn--ghost btn--stack"
+                              className="btn btn--stack contents-list__action-link"
                             >
                               과제 보기
                             </Link>
@@ -225,7 +240,7 @@ export function ContentsListPage() {
                             <>
                               <button
                                 type="button"
-                                className="btn btn--success btn--stack"
+                                className="btn btn--success btn--stack contents-list__mini-action"
                                 disabled={busyId === r.id}
                                 onClick={() => void setStatus(r, "approved")}
                               >
@@ -233,7 +248,7 @@ export function ContentsListPage() {
                               </button>
                               <button
                                 type="button"
-                                className="btn btn--danger btn--stack"
+                                className="btn btn--danger btn--stack contents-list__mini-action"
                                 disabled={busyId === r.id}
                                 onClick={() => void setStatus(r, "rejected")}
                               >
