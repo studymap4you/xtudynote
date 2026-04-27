@@ -7,6 +7,11 @@ import { defineString } from "firebase-functions/params";
 import nodemailer from "nodemailer";
 import { buildWorksheetOutreachEmailHtml } from "./emailTemplates.js";
 import {
+  buildEnglishPassagePdfBytes,
+  buildEnglishPassagePdfFilename,
+  type EnglishPassagePdfInput,
+} from "./englishPassagePdfGenerator.js";
+import {
   buildExamPaperPdfBytes,
   buildExamPaperPdfFilename,
   type ExamPaperPdfInput,
@@ -193,6 +198,60 @@ function parseExamPaperPdfBody(raw: Record<string, unknown>): ExamPaperPdfInput 
   };
 }
 
+function parseEnglishPassagePdfBody(raw: Record<string, unknown>): EnglishPassagePdfInput {
+  const title = String(raw.title ?? "").trim();
+  const teacherName = String(raw.teacherName ?? "").trim();
+  const passage = String(raw.passage ?? "").trim();
+  const layout = raw.layout === "2col" ? "2col" : "1col";
+  const examDate = String(raw.examDate ?? "").trim();
+
+  const vocabulary: EnglishPassagePdfInput["vocabulary"] = [];
+  const vRaw = raw.vocabulary;
+  if (Array.isArray(vRaw)) {
+    for (const row of vRaw) {
+      if (!row || typeof row !== "object") continue;
+      const o = row as Record<string, unknown>;
+      const word = String(o.word ?? "").trim();
+      const meaning = String(o.meaning ?? "").trim();
+      if (!word || !meaning) continue;
+      vocabulary.push({ word, meaning });
+    }
+  }
+
+  const sentences: EnglishPassagePdfInput["sentences"] = [];
+  const sRaw = raw.sentences;
+  if (Array.isArray(sRaw)) {
+    for (const row of sRaw) {
+      if (!row || typeof row !== "object") continue;
+      const o = row as Record<string, unknown>;
+      const english = String(o.english ?? "").trim();
+      const koreanWithBlanks = String(o.koreanWithBlanks ?? "").trim();
+      const compositionKorean = String(o.compositionKorean ?? "").trim();
+      const compositionEnglish = String(o.compositionEnglish ?? "").trim();
+      const blankRaw = Array.isArray(o.blankAnswersKo) ? o.blankAnswersKo : [];
+      const blankAnswersKo = blankRaw.map((x) => String(x ?? "").trim()).filter(Boolean);
+      if (!english || !koreanWithBlanks) continue;
+      sentences.push({
+        english,
+        koreanWithBlanks,
+        compositionKorean,
+        compositionEnglish,
+        blankAnswersKo,
+      });
+    }
+  }
+
+  return {
+    title,
+    teacherName,
+    passage,
+    layout,
+    examDate,
+    vocabulary,
+    sentences,
+  };
+}
+
 function readRequestJson(req: Request): Record<string, unknown> {
   const b = (req as { body?: unknown }).body;
   if (b && typeof b === "object" && !Buffer.isBuffer(b)) {
@@ -298,6 +357,52 @@ export const generateExamPaperPdf = onRequest(
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[generateExamPaperPdf]", e);
+      res.status(500).send(`PDF 생성 오류: ${msg.slice(0, 400)}`);
+    }
+  },
+);
+
+/** 영어 지문 학습 PDF — 공개 POST */
+export const generateEnglishPassagePdf = onRequest(
+  {
+    region: REGION,
+    cors: true,
+    invoker: "public",
+    memory: "512MiB",
+    timeoutSeconds: 60,
+  },
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).set("Allow", "POST").send("Method Not Allowed");
+      return;
+    }
+    try {
+      const raw = readRequestJson(req);
+      const payload = parseEnglishPassagePdfBody(raw);
+      if (!payload.title || !payload.teacherName) {
+        res.status(400).send("제목과 선생님 성함은 필수입니다.");
+        return;
+      }
+      if (!payload.vocabulary.length && !payload.sentences.length) {
+        res.status(400).send("어휘 또는 문장 데이터가 없습니다.");
+        return;
+      }
+      const bytes = await buildEnglishPassagePdfBytes(payload);
+      const name = buildEnglishPassagePdfFilename(payload);
+      const asciiName = name.replace(/[^\x20-\x7E.]/g, "_");
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+      );
+      res.status(200).send(Buffer.from(bytes));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[generateEnglishPassagePdf]", e);
       res.status(500).send(`PDF 생성 오류: ${msg.slice(0, 400)}`);
     }
   },

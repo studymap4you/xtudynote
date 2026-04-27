@@ -107,6 +107,12 @@ export function ApprovedTeacherDashboard() {
                 <span className="educator-quick-links__ko">AI 시험지·출제</span>
               </Link>
             </li>
+            <li>
+              <Link to="/teacher/english-passage-lab" className="educator-quick-links__a">
+                <span className="educator-quick-links__en">English passage lab</span>
+                <span className="educator-quick-links__ko">영어 지문 학습</span>
+              </Link>
+            </li>
           </ul>
         </section>
 

@@ -35,6 +35,7 @@ import { ExternalWorksheetOutreachPage } from "@/pages/assignments/ExternalWorks
 import { WorksheetPdfCreatePage } from "@/pages/WorksheetPdfCreatePage";
 import { ExamBuilderPage } from "@/pages/exam/ExamBuilderPage";
 import { ExamTakePage } from "@/pages/exam/ExamTakePage";
+import { EnglishPassageLabPage } from "@/pages/english-passage/EnglishPassageLabPage";
 
 export default function App() {
   return (
@@ -224,6 +225,14 @@ export default function App() {
         element={
           <TeacherRoute>
             <ExamBuilderPage />
+          </TeacherRoute>
+        }
+      />
+      <Route
+        path="/teacher/english-passage-lab"
+        element={
+          <TeacherRoute>
+            <EnglishPassageLabPage />
           </TeacherRoute>
         }
       />
