@@ -3294,6 +3294,264 @@ button.top-nav__auth-link--logout:hover {
   color: var(--light-text);
 }
 
+/* —— Super Admin (슈퍼 관리자 · 밝은 셸) —— */
+.app-shell--light .dashboard.dashboard--super-admin {
+  max-width: min(56rem, 100%);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+  width: 100%;
+  color: var(--light-text, #111827);
+}
+
+.super-admin-hero {
+  position: relative;
+  margin-bottom: 1.85rem;
+  padding: 1.5rem 1.35rem 1.45rem;
+  border-radius: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  background: linear-gradient(135deg, #ffffff 0%, #eef2ff 40%, #f0f9ff 78%, #faf5ff 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 14px 44px -24px rgba(15, 23, 42, 0.18),
+    0 4px 14px -8px rgba(79, 70, 229, 0.12);
+  overflow: hidden;
+}
+
+.super-admin-hero__bg {
+  position: absolute;
+  inset: -48% -22% auto auto;
+  width: min(460px, 74vw);
+  height: min(460px, 74vw);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 28% 30%, rgba(99, 102, 241, 0.2), transparent 52%),
+    radial-gradient(circle at 72% 55%, rgba(14, 165, 233, 0.14), transparent 54%);
+  pointer-events: none;
+}
+
+.super-admin-hero__row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.super-admin-hero__icon-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.35rem;
+  height: 3.35rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  box-shadow: 0 8px 22px -14px rgba(79, 70, 229, 0.35);
+}
+
+.super-admin-hero__glyph {
+  display: block;
+}
+
+.super-admin-hero__intro {
+  flex: 1;
+  min-width: min(100%, 18rem);
+}
+
+.super-admin-hero__eyebrow {
+  margin: 0 0 0.38rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #4f46e5;
+}
+
+.super-admin-hero__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-hero__title {
+  margin: 0;
+  font-size: clamp(1.55rem, 3vw, 1.95rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: #0f172a;
+}
+
+.super-admin-hero__title-ko {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.super-admin-hero__lead-block {
+  position: relative;
+  margin-top: 1.15rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-hero__subtitle {
+  margin: 0;
+  gap: 0.45rem;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-hero__subtitle > .ui-en {
+  font-size: 0.93rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-hero__subtitle > .ui-ko {
+  font-size: 0.84rem;
+  color: #64748b;
+}
+
+.super-admin-hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.super-admin-hero__chip {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #4338ca;
+  background: rgba(224, 231, 255, 0.92);
+  border: 1px solid rgba(165, 180, 252, 0.55);
+}
+
+.dashboard-grid--super-admin {
+  gap: 1.35rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 288px), 1fr));
+}
+
+@media (min-width: 900px) {
+  .dashboard-grid--super-admin {
+    grid-template-columns: 1.15fr 0.85fr;
+    align-items: stretch;
+  }
+}
+
+.app-shell--light .dashboard--super-admin section.panel {
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  padding: 1.35rem 1.4rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 36px -28px rgba(15, 23, 42, 0.18);
+}
+
+.app-shell--light .dashboard--super-admin section.panel.super-admin-panel--ops {
+  border-color: rgba(79, 70, 229, 0.28);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 14px 44px -28px rgba(79, 70, 229, 0.22);
+}
+
+.app-shell--light .dashboard--super-admin section.panel.super-admin-panel--security {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: linear-gradient(165deg, #ffffff 0%, #fffbeb 45%, #fff7ed 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.92) inset,
+    0 12px 36px -26px rgba(245, 158, 11, 0.18);
+}
+
+.app-shell--light .dashboard--super-admin .panel__title {
+  color: #0f172a;
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.dashboard--super-admin .panel__tagline {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.app-shell--light .dashboard--super-admin .panel__badge--ok {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.super-admin-panel__lead {
+  margin: 0 0 1.15rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.super-admin-panel__lead-ko {
+  display: block;
+  margin-top: 0.45rem;
+}
+
+.super-admin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.super-admin-actions__primary {
+  width: 100%;
+  justify-content: center;
+  padding: 0.62rem 1rem;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px -10px rgba(59, 130, 246, 0.55);
+}
+
+.super-admin-actions__ghost {
+  width: 100%;
+  justify-content: center;
+}
+
+.super-admin-security-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  color: #d97706;
+  background: rgba(254, 243, 199, 0.85);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+}
+
+.super-admin-security-body {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px dashed rgba(245, 158, 11, 0.38);
+}
+
+.super-admin-security-text {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #57534e;
+}
+
+.super-admin-security-text-ko {
+  display: block;
+  margin-top: 0.45rem;
+}
+
 /* —— Educator workspace (승인 교사 · 밝은 셸) —— */
 .app-shell--light .dashboard.dashboard--educator {
   max-width: 56rem;
