@@ -52,6 +52,14 @@ export function LoginPage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
+  const nextFromQuery = searchParams.get("next");
+
+  const redirectAfterLogin = useMemo(() => {
+    if (from && from !== "/login") return from;
+    const next = nextFromQuery?.trim();
+    if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+    return "/dashboard";
+  }, [from, nextFromQuery]);
 
   const audienceHint = useMemo(() => {
     const a = searchParams.get("audience");
@@ -67,7 +75,7 @@ export function LoginPage() {
   const authBusy = busy || googleBusy;
 
   if (!loading && firebaseUser && profile?.accountStatus === "active") {
-    return <Navigate to={from && from !== "/login" ? from : "/dashboard"} replace />;
+    return <Navigate to={redirectAfterLogin} replace />;
   }
 
   async function onSubmit(e: FormEvent) {

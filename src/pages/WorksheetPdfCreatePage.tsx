@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { WorksheetPdfForm } from "@/components/landing/WorksheetPdfForm";
@@ -7,7 +7,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
 export function WorksheetPdfCreatePage() {
-  const { firebaseUser, logOut } = useAuth();
+  const { firebaseUser, logOut, loading } = useAuth();
+  const location = useLocation();
+
+  if (!loading && !firebaseUser) {
+    return (
+      <Navigate to="/login" replace state={{ from: { pathname: location.pathname } }} />
+    );
+  }
 
   return (
     <div className="app-shell app-shell--landing">
@@ -52,7 +59,13 @@ export function WorksheetPdfCreatePage() {
           <nav className="worksheet-create-page__breadcrumb" aria-label="이동 경로">
             <Link to="/">← 홈으로</Link>
           </nav>
-          <WorksheetPdfForm />
+          {loading ? (
+            <p className="ui-ko" style={{ opacity: 0.85 }}>
+              계정 확인 중…
+            </p>
+          ) : (
+            <WorksheetPdfForm />
+          )}
         </div>
       </main>
     </div>

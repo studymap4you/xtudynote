@@ -282,6 +282,18 @@ export const generateWorksheetPdf = onRequest(
       res.status(405).set("Allow", "POST").send("Method Not Allowed");
       return;
     }
+    const authHeader = req.headers.authorization ?? "";
+    const bearer = /^Bearer\s+(.+)$/i.exec(authHeader);
+    if (!bearer?.[1]) {
+      res.status(401).send("로그인이 필요합니다.");
+      return;
+    }
+    try {
+      await authAdmin.verifyIdToken(bearer[1]);
+    } catch {
+      res.status(401).send("인증이 유효하지 않습니다.");
+      return;
+    }
     try {
       const raw = readRequestJson(req);
       const payload = parseWorksheetPdfBody(raw);

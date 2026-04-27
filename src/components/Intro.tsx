@@ -542,10 +542,18 @@ function IntroLandingPanel() {
         )}
       </div>
 
-      <Link to="/worksheet/create" className="intro-worksheet-cta">
+      <Link
+        to={firebaseUser ? "/worksheet/create" : "/login"}
+        state={
+          firebaseUser ? undefined : { from: { pathname: "/worksheet/create" } }
+        }
+        className="intro-worksheet-cta"
+      >
         <span className="intro-worksheet-cta__eyebrow">Worksheet PDF</span>
         <span className="intro-worksheet-cta__title ui-ko">학습지 PDF 자동 생성</span>
-        <span className="intro-worksheet-cta__sub ui-ko">입력 페이지로 이동</span>
+        <span className="intro-worksheet-cta__sub ui-ko">
+          {firebaseUser ? "입력 페이지로 이동" : "로그인 후 이용"}
+        </span>
       </Link>
 
       <nav className="intro-shortcuts intro-shortcuts--panel" aria-label="주요 메뉴 바로가기">

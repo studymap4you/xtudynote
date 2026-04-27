@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
@@ -47,7 +48,8 @@ function parseFilenameFromDisposition(header: string | null): string | null {
 }
 
 export function WorksheetPdfForm() {
-  const { profile } = useAuth();
+  const { profile, firebaseUser } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -69,6 +71,12 @@ export function WorksheetPdfForm() {
   const downloadPdf = useCallback(async () => {
     setErr(null);
     setMsg(null);
+    if (!firebaseUser) {
+      navigate("/login", {
+        state: { from: { pathname: "/worksheet/create" } },
+      });
+      return;
+    }
     const unit = form.unit.trim();
     const teacherName = form.teacherName.trim();
     if (!unit || !teacherName) {
@@ -77,9 +85,13 @@ export function WorksheetPdfForm() {
     }
     setBusy(true);
     try {
+      const idToken = await firebaseUser.getIdToken();
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify({
           unit,
           objectives: form.objectives.trim(),
@@ -113,7 +125,7 @@ export function WorksheetPdfForm() {
     } finally {
       setBusy(false);
     }
-  }, [endpoint, form]);
+  }, [endpoint, firebaseUser, form, navigate]);
 
   return (
     <section id="worksheet-pdf" className="worksheet-pdf" aria-labelledby="worksheet-pdf-title">
