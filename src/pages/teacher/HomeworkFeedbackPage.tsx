@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   collection,
@@ -21,6 +21,29 @@ import "@/pages/pages.css";
 
 type Row = SubmissionDocument & { id: string; studentEmail?: string };
 
+/** Firestore가 긴 영문으로 반환하는 인덱스 오류를 짧은 안내로 바꿉니다 */
+function parseFirestoreListenError(message: string): { friendly: string; consoleUrl: string | null } {
+  const t = message.trim();
+  if (!t) return { friendly: t, consoleUrl: null };
+  const lower = t.toLowerCase();
+  const needsIndex =
+    lower.includes("requires an index") ||
+    lower.includes("the query requires an index") ||
+    lower.includes("failed-precondition");
+
+  if (needsIndex) {
+    const urlMatch = t.match(/https:\/\/console\.firebase\.google\.com[^\s"'<>]+/);
+    let url = urlMatch?.[0] ?? null;
+    if (url) url = url.replace(/[)\].,;:'"]+$/u, "");
+    return {
+      friendly:
+        "이 목록을 불러오려면 Firestore 복합 인덱스가 필요합니다. 아래 버튼으로 Firebase 콘솔에서 인덱스를 만들거나, 저장소의 firestore.indexes.json 배포 후 잠시 기다려 주세요.",
+      consoleUrl: url,
+    };
+  }
+  return { friendly: t, consoleUrl: null };
+}
+
 function HomeworkFeedbackInner() {
   const { firebaseUser, profile } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
@@ -28,13 +51,15 @@ function HomeworkFeedbackInner() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  const errorUi = useMemo(() => (error ? parseFirestoreListenError(error) : null), [error]);
+
   useEffect(() => {
     if (!firebaseUser) return;
     setLoading(true);
     const q = query(
       collection(db, "submissions"),
       where("teacherId", "==", firebaseUser.uid),
-      orderBy("submittedAt", "desc")
+      orderBy("submittedAt", "desc"),
     );
     const unsub = onSnapshot(
       q,
@@ -51,7 +76,7 @@ function HomeworkFeedbackInner() {
       (err) => {
         setError(err.message);
         setLoading(false);
-      }
+      },
     );
     return () => unsub();
   }, [firebaseUser]);
@@ -74,42 +99,69 @@ function HomeworkFeedbackInner() {
 
   if (!profile) {
     return (
-      <DashboardShell>
-        <main className="dashboard">
-          <p>프로필을 불러오는 중…</p>
+      <DashboardShell light>
+        <main className="admin-layout admin-layout--light homework-feedback homework-feedback--bright">
+          <div className="route-loading route-loading--light">
+            <div className="route-loading__spinner" />
+            <p className="homework-feedback__loading-text">프로필을 불러오는 중…</p>
+          </div>
         </main>
       </DashboardShell>
     );
   }
 
   return (
-    <DashboardShell>
-      <main className="admin-layout homework-feedback">
-        <div className="admin-layout__title-row">
-          <h1>과제 피드백</h1>
-          <span className="ui-ko">제출된 텍스트·파일 · 점수·피드백 입력</span>
-        </div>
-        <p style={{ marginBottom: "1rem" }}>
-          <Link to="/dashboard" className="btn btn--ghost btn--stack">
+    <DashboardShell light>
+      <main className="admin-layout admin-layout--light homework-feedback homework-feedback--bright">
+        <header className="homework-feedback__hero">
+          <div className="homework-feedback__hero-bg" aria-hidden />
+          <div className="homework-feedback__hero-main">
+            <p className="homework-feedback__eyebrow ui-en">Homework feedback</p>
+            <h1 className="homework-feedback__h1">과제 피드백</h1>
+            <p className="homework-feedback__subtitle ui-ko">제출된 텍스트·파일 · 점수·피드백 입력</p>
+          </div>
+        </header>
+
+        <div className="homework-feedback__toolbar">
+          <Link to="/dashboard" className="btn btn--ghost btn--stack homework-feedback__back">
             ← 대시보드
           </Link>
-        </p>
-        {error && <p className="auth-error">{error}</p>}
-        {loading ? (
-          <div className="route-loading">
-            <div className="route-loading__spinner" />
+        </div>
+
+        {errorUi ? (
+          <div className="homework-feedback__alert" role="alert">
+            <p className="homework-feedback__alert-text">{errorUi.friendly}</p>
+            {errorUi.consoleUrl ? (
+              <a
+                href={errorUi.consoleUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn--primary btn--stack homework-feedback__alert-btn"
+              >
+                Firebase 콘솔에서 인덱스 생성
+              </a>
+            ) : null}
           </div>
-        ) : rows.length === 0 ? (
-          <p style={{ color: "var(--text-muted)" }}>제출된 과제가 없습니다.</p>
-        ) : (
+        ) : null}
+
+        {loading ? (
+          <div className="route-loading route-loading--light">
+            <div className="route-loading__spinner" />
+            <p className="homework-feedback__loading-text">제출 목록을 불러오는 중…</p>
+          </div>
+        ) : rows.length === 0 && !error ? (
+          <p className="homework-feedback__empty">제출된 과제가 없습니다.</p>
+        ) : !error ? (
           <ul className="homework-feedback__list">
             {rows.map((row) => (
-              <li key={row.id} className="panel homework-feedback__card">
-                <SubmissionCard row={row} disabled={busyId === row.id} onSave={save} />
+              <li key={row.id}>
+                <article className="panel panel--light homework-feedback__card">
+                  <SubmissionCard row={row} disabled={busyId === row.id} onSave={save} />
+                </article>
               </li>
             ))}
           </ul>
-        )}
+        ) : null}
       </main>
     </DashboardShell>
   );
@@ -151,22 +203,20 @@ function SubmissionCard({
   }, [row.contentId]);
 
   return (
-    <div>
-      <h2 className="panel__title">{contentTitle || row.contentId}</h2>
-      <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-        학생 ID: {row.studentId.slice(0, 10)}…
-      </p>
+    <div className="homework-feedback__card-inner">
+      <h2 className="panel__title homework-feedback__card-title">{contentTitle || row.contentId}</h2>
+      <p className="homework-feedback__meta">학생 ID: {row.studentId.slice(0, 10)}…</p>
       <section className="homework-feedback__block">
-        <h3>제출 텍스트</h3>
-        <pre className="homework-student__pre">{row.submissionText || "—"}</pre>
+        <h3 className="homework-feedback__block-title">제출 텍스트</h3>
+        <pre className="homework-feedback__pre">{row.submissionText || "—"}</pre>
       </section>
       <section className="homework-feedback__block">
-        <h3>제출 파일</h3>
-        <ul>
-          {row.submissionFiles.length === 0 ? (
-            <li>없음</li>
+        <h3 className="homework-feedback__block-title">제출 파일</h3>
+        <ul className="homework-feedback__files">
+          {(row.submissionFiles ?? []).length === 0 ? (
+            <li className="homework-feedback__files-empty">없음</li>
           ) : (
-            row.submissionFiles.map((p) => (
+            (row.submissionFiles ?? []).map((p) => (
               <li key={p}>
                 <FileLink path={p} />
               </li>
@@ -175,19 +225,19 @@ function SubmissionCard({
         </ul>
       </section>
       <div className="homework-feedback__grade">
-        <label className="auth-field">
-          점수 (숫자)
+        <label className="homework-feedback__field">
+          <span className="homework-feedback__field-label">점수 (숫자)</span>
           <input
-            className="add-passage__control"
+            className="homework-feedback__input"
             value={scoreStr}
             onChange={(e) => setScoreStr(e.target.value)}
             inputMode="decimal"
           />
         </label>
-        <label className="auth-field">
-          피드백
+        <label className="homework-feedback__field">
+          <span className="homework-feedback__field-label">피드백</span>
           <textarea
-            className="add-passage__control add-passage__intro"
+            className="homework-feedback__textarea"
             rows={4}
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
@@ -195,7 +245,7 @@ function SubmissionCard({
         </label>
         <button
           type="button"
-          className="btn btn--primary btn--stack"
+          className="btn btn--primary btn--stack homework-feedback__save"
           disabled={disabled}
           onClick={() => {
             const n = scoreStr.trim() === "" ? null : Number(scoreStr);
@@ -227,10 +277,10 @@ function FileLink({ path }: { path: string }) {
       cancelled = true;
     };
   }, [path]);
-  if (err) return <span className="auth-error">{err}</span>;
-  if (!href) return <span>로딩…</span>;
+  if (err) return <span className="homework-feedback__file-err">{err}</span>;
+  if (!href) return <span className="homework-feedback__file-loading">로딩…</span>;
   return (
-    <a href={href} target="_blank" rel="noreferrer">
+    <a className="homework-feedback__file-link" href={href} target="_blank" rel="noreferrer">
       {path.split("/").pop()}
     </a>
   );

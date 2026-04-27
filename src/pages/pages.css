@@ -6090,6 +6090,254 @@ button.top-nav__auth-link--logout:hover {
   gap: 0.75rem;
 }
 
+/* 과제 피드백 — 라이트 셸 */
+.homework-feedback--bright {
+  max-width: min(52rem, 100%);
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2.5rem;
+  box-sizing: border-box;
+}
+
+.homework-feedback__hero {
+  position: relative;
+  margin-bottom: 1.15rem;
+  padding: 1.25rem 1.35rem;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 45%, #eff6ff 95%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.96) inset,
+    0 14px 40px -28px rgba(15, 23, 42, 0.12),
+    0 4px 16px -12px rgba(59, 130, 246, 0.1);
+  overflow: hidden;
+}
+
+.homework-feedback__hero-bg {
+  position: absolute;
+  inset: -38% -14% auto auto;
+  width: min(320px, 70vw);
+  height: min(320px, 70vw);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 35%, rgba(59, 130, 246, 0.12), transparent 54%),
+    radial-gradient(circle at 65% 55%, rgba(14, 165, 233, 0.08), transparent 52%);
+  pointer-events: none;
+}
+
+.homework-feedback__hero-main {
+  position: relative;
+}
+
+.homework-feedback__eyebrow {
+  margin: 0 0 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.homework-feedback__h1 {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  color: #0f172a;
+}
+
+.homework-feedback__subtitle {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: -0.02em;
+}
+
+.homework-feedback__toolbar {
+  margin-bottom: 1rem;
+}
+
+.app-shell--light .homework-feedback__back.btn--ghost {
+  border-radius: 11px;
+  padding: 0.45rem 1rem;
+  font-weight: 700;
+  border: 1.5px solid rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  color: #334155;
+  box-shadow: 0 4px 14px -12px rgba(15, 23, 42, 0.3);
+  text-decoration: none;
+}
+
+.app-shell--light .homework-feedback__back.btn--ghost:hover {
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #1d4ed8;
+}
+
+.homework-feedback__alert {
+  margin-bottom: 1.15rem;
+  padding: 1rem 1.15rem;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  background: linear-gradient(180deg, #fffbeb 0%, #fef9c3 100%);
+  box-shadow: 0 4px 18px -14px rgba(180, 83, 9, 0.35);
+}
+
+.homework-feedback__alert-text {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #92400e;
+}
+
+.homework-feedback__alert-btn {
+  font-size: 0.86rem;
+}
+
+.homework-feedback__loading-text {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--light-text-muted);
+}
+
+.homework-feedback__empty {
+  margin: 1rem 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 14px;
+  border: 1px dashed #cbd5e1;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.homework-feedback__list .homework-feedback__card {
+  border-radius: 14px;
+  box-shadow: 0 10px 36px -28px rgba(15, 23, 42, 0.18);
+}
+
+.homework-feedback__card-title {
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.homework-feedback__meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.homework-feedback__block {
+  margin-top: 1rem;
+}
+
+.homework-feedback__block-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.homework-feedback__pre {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.homework-feedback__files {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.homework-feedback__files-empty {
+  list-style: none;
+  margin-left: -1.15rem;
+  color: #94a3b8;
+}
+
+.homework-feedback__file-link {
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+.homework-feedback__file-link:hover {
+  color: #1d4ed8;
+}
+
+.homework-feedback__file-loading {
+  font-size: 0.86rem;
+  color: #64748b;
+}
+
+.homework-feedback__file-err {
+  font-size: 0.82rem;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.homework-feedback__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.homework-feedback__field-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.homework-feedback__input,
+.homework-feedback__textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-family: inherit;
+  line-height: 1.45;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+.homework-feedback__textarea {
+  resize: vertical;
+  min-height: 5rem;
+}
+
+.homework-feedback__input:focus,
+.homework-feedback__textarea:focus {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.45);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.homework-feedback__save {
+  align-self: flex-start;
+  margin-top: 0.25rem;
+}
+
 /* —— Light surfaces (Library·상세·통계·과제 검색 등) —— */
 :root {
   --light-bg: #f3f4f6;
