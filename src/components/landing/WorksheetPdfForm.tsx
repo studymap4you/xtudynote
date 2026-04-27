@@ -128,35 +128,37 @@ export function WorksheetPdfForm() {
         </p>
 
         <div className="worksheet-pdf__grid">
-          <label className="worksheet-pdf__field">
-            <span className="worksheet-pdf__label">학습단원</span>
-            <input
-              className="worksheet-pdf__control"
-              value={form.unit}
-              onChange={(e) => update("unit", e.target.value)}
-              placeholder="예: 수능 영어 독해 — 인과·추론"
-              autoComplete="off"
-            />
-          </label>
-          <label className="worksheet-pdf__field">
-            <span className="worksheet-pdf__label">학습목표</span>
-            <textarea
-              className="worksheet-pdf__textarea"
-              rows={2}
-              value={form.objectives}
-              onChange={(e) => update("objectives", e.target.value)}
-              placeholder="이번 시간에 달성할 목표를 적어 주세요."
-            />
-          </label>
-          <label className="worksheet-pdf__field">
-            <span className="worksheet-pdf__label">학습일자</span>
-            <input
-              className="worksheet-pdf__control"
-              type="date"
-              value={form.studyDate}
-              onChange={(e) => update("studyDate", e.target.value)}
-            />
-          </label>
+          <div className="worksheet-pdf__grid--row3">
+            <label className="worksheet-pdf__field">
+              <span className="worksheet-pdf__label">학습단원</span>
+              <input
+                className="worksheet-pdf__control"
+                value={form.unit}
+                onChange={(e) => update("unit", e.target.value)}
+                placeholder="예: 수능 영어 독해 — 인과·추론"
+                autoComplete="off"
+              />
+            </label>
+            <label className="worksheet-pdf__field">
+              <span className="worksheet-pdf__label">학습목표</span>
+              <textarea
+                className="worksheet-pdf__textarea worksheet-pdf__textarea--compact"
+                rows={2}
+                value={form.objectives}
+                onChange={(e) => update("objectives", e.target.value)}
+                placeholder="이번 시간에 달성할 목표를 적어 주세요."
+              />
+            </label>
+            <label className="worksheet-pdf__field">
+              <span className="worksheet-pdf__label">학습일자</span>
+              <input
+                className="worksheet-pdf__control"
+                type="date"
+                value={form.studyDate}
+                onChange={(e) => update("studyDate", e.target.value)}
+              />
+            </label>
+          </div>
           <label className="worksheet-pdf__field">
             <span className="worksheet-pdf__label">학습내용</span>
             <textarea
