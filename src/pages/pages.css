@@ -5093,14 +5093,22 @@ button.top-nav__auth-link--logout:hover {
   color: #64748b;
 }
 
+.contents-list__col-type,
+.contents-list__col-status {
+  min-width: 7.25rem;
+  vertical-align: middle;
+}
+
 .contents-list__pill {
   display: inline-flex;
   align-items: center;
-  padding: 0.22rem 0.55rem;
+  justify-content: center;
+  padding: 0.28rem 0.65rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .contents-list__pill--type-share {

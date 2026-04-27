@@ -275,8 +275,12 @@ export function ContentsListPage() {
                   <span className="admin-th__en">SUBJECT</span>
                   <span className="admin-th__sub">(과목)</span>
                 </th>
-                <th>유형</th>
-                <th>상태</th>
+                <th className="contents-list__col-type" scope="col">
+                  유형
+                </th>
+                <th className="contents-list__col-status" scope="col">
+                  상태
+                </th>
                 <th>과제번호</th>
                 <th className="th-bilingual th-bilingual--professional">
                   <span className="admin-th__en">TOPIC</span>
@@ -315,12 +319,12 @@ export function ContentsListPage() {
                       />
                     </td>
                     <td className="contents-list__cell-strong">{r.subject}</td>
-                    <td>
+                    <td className="contents-list__col-type">
                       <span className={`contents-list__pill contents-list__pill--type-${r.type}`}>
                         {labelType(r.type)}
                       </span>
                     </td>
-                    <td>
+                    <td className="contents-list__col-status">
                       <span
                         className={`contents-list__pill contents-list__pill--status contents-list__pill--status-${r.status}`}
                       >
