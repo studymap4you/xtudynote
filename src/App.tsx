@@ -32,6 +32,7 @@ import { TeacherAssignmentsPage } from "@/pages/assignments/TeacherAssignmentsPa
 import { TeacherAssignmentNewPage } from "@/pages/assignments/TeacherAssignmentNewPage";
 import { TeacherAssignmentDetailPage } from "@/pages/assignments/TeacherAssignmentDetailPage";
 import { ExternalWorksheetOutreachPage } from "@/pages/assignments/ExternalWorksheetOutreachPage";
+import { WorksheetPdfCreatePage } from "@/pages/WorksheetPdfCreatePage";
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
       <Route path="/videos" element={<VideoCatalogPage />} />
       <Route path="/homework/:code" element={<HomeworkStudentPage />} />
       <Route path="/worksheet/outreach" element={<ExternalWorksheetOutreachPage />} />
+      <Route path="/worksheet/create" element={<WorksheetPdfCreatePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route

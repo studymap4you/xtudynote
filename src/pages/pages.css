@@ -1445,8 +1445,70 @@ button.intro-login-card__btn {
 }
 
 /* ——— 랜딩 · 학습지 PDF 생성 ——— */
-.worksheet-pdf {
+.intro-worksheet-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.intro-worksheet-cta:hover {
+  border-color: rgba(0, 122, 255, 0.35);
+  box-shadow: 0 6px 12px -2px rgb(0 0 0 / 0.08);
+  background: rgba(0, 122, 255, 0.03);
+}
+.intro-worksheet-cta:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.intro-worksheet-cta__eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #007aff;
+}
+.intro-worksheet-cta__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+.intro-worksheet-cta__sub {
+  font-size: 0.78rem;
+  color: #64748b;
+  letter-spacing: -0.02em;
+}
+
+.worksheet-create-page__wrap {
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2.5rem;
+  box-sizing: border-box;
+}
+.worksheet-create-page__breadcrumb {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+}
+.worksheet-create-page__breadcrumb a {
+  color: #2563eb;
+  text-decoration: none;
+}
+.worksheet-create-page__breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.worksheet-pdf {
+  margin-top: 0;
 }
 .worksheet-pdf__inner {
   padding: 16px;

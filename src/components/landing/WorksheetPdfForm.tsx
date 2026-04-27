@@ -46,7 +46,7 @@ function parseFilenameFromDisposition(header: string | null): string | null {
   return q?.[1] ?? null;
 }
 
-export function WorksheetPdfLandingSection() {
+export function WorksheetPdfForm() {
   const { profile } = useAuth();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [busy, setBusy] = useState(false);
