@@ -561,3 +561,59 @@
   color: #334155;
   line-height: 1.45;
 }
+
+.previewBlock {
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.previewQn {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #2563eb;
+}
+
+.previewEnLine {
+  margin: 0 0 0.45rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  padding: 0.45rem 0.55rem;
+  background: rgba(241, 245, 249, 0.95);
+  border-left: 3px solid #2563eb;
+  color: #334155;
+}
+
+.previewKoLine {
+  margin: 0 0 0.45rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  padding: 0.45rem 0.55rem;
+  background: rgba(239, 246, 255, 0.95);
+  border-left: 3px solid #2563eb;
+  color: #334155;
+}
+
+.previewTwinRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.previewTwinCell {
+  flex: 1;
+  min-height: 52px;
+  border: 1px dashed rgba(148, 163, 184, 0.95);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.previewSingleArea {
+  margin-top: 0.35rem;
+  min-height: 56px;
+  border: 1px dashed rgba(148, 163, 184, 0.95);
+  border-radius: 6px;
+  background: #fff;
+}

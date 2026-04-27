@@ -149,14 +149,15 @@ export function EnglishPassageLabPage() {
         teacherName,
         examDate: examDate.trim(),
         passage: passageText.trim(),
-        layoutNote: pdfLayout === "2col" ? "2단 작성란" : "1단 작성란",
+        layout: pdfLayout,
+        layoutNote: pdfLayout === "2col" ? "2단 (작성란 좌우 분할)" : "1단",
         vocabulary: vocabularyForUse.map((v) => ({ word: v.word, meaning: v.meaning })),
         sentences: analysis.sentences.map((s) => ({
           english: s.english,
           koreanFull: s.koreanFull,
         })),
       });
-      showToast("ok", "인쇄 창을 열었습니다. 대화상자에서 PDF로 저장할 수 있습니다.");
+      showToast("ok", "잠시 후 인쇄 창이 열립니다. 「PDF로 저장」을 선택하세요.");
     } catch (e) {
       showToast("err", e instanceof Error ? e.message : "인쇄를 열 수 없습니다.");
     }
@@ -600,18 +601,36 @@ export function EnglishPassageLabPage() {
                   <li key={`p-${v.id}`}>{v.meaning}</li>
                 ))}
               </ol>
-              <h4 className={styles.previewH4}>C. 직독직해</h4>
-              <ol>
-                {analysis.sentences.map((s) => (
-                  <li key={s.id}>{s.english}</li>
-                ))}
-              </ol>
-              <h4 className={styles.previewH4}>D. 영작</h4>
-              <ol>
-                {analysis.sentences.map((s) => (
-                  <li key={`pk-${s.id}`}>{s.koreanFull}</li>
-                ))}
-              </ol>
+              <h4 className={styles.previewH4}>C. 직독직해 (영문 → 한국어)</h4>
+              {analysis.sentences.map((s, idx) => (
+                <div key={s.id} className={styles.previewBlock}>
+                  <p className={styles.previewQn}>문항 {idx + 1}</p>
+                  <p className={styles.previewEnLine}>{s.english}</p>
+                  {pdfLayout === "2col" ? (
+                    <div className={styles.previewTwinRow} aria-hidden>
+                      <div className={styles.previewTwinCell} />
+                      <div className={styles.previewTwinCell} />
+                    </div>
+                  ) : (
+                    <div className={styles.previewSingleArea} aria-hidden />
+                  )}
+                </div>
+              ))}
+              <h4 className={styles.previewH4}>D. 영작 (한국어 → 영문)</h4>
+              {analysis.sentences.map((s, idx) => (
+                <div key={`pk-${s.id}`} className={styles.previewBlock}>
+                  <p className={styles.previewQn}>문항 {idx + 1}</p>
+                  <p className={styles.previewKoLine}>{s.koreanFull}</p>
+                  {pdfLayout === "2col" ? (
+                    <div className={styles.previewTwinRow} aria-hidden>
+                      <div className={styles.previewTwinCell} />
+                      <div className={styles.previewTwinCell} />
+                    </div>
+                  ) : (
+                    <div className={styles.previewSingleArea} aria-hidden />
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </section>
