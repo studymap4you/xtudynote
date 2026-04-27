@@ -61,10 +61,35 @@ export function openEnglishWorksheetPrint(payload: EnglishWorksheetPrintPayload)
       ${area}</div>`,
   ).join("");
 
-  const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><title>${esc(payload.title)}</title>
+  const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${esc(payload.title)}</title>
 <style>
-  @page { margin: 14mm; }
-  body { font-family: system-ui, "Malgun Gothic", sans-serif; color: #111; font-size: 11pt; line-height: 1.45; }
+  /* 인쇄 미리보기에서도 @page 가 무시되는 경우가 있어 body 패딩으로 동일 여백 확보 */
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html {
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 30mm;
+    min-height: 100vh;
+    font-family: system-ui, "Malgun Gothic", sans-serif;
+    color: #111;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+  @media print {
+    body {
+      padding: 30mm;
+      min-height: auto;
+    }
+  }
   h1 { font-size: 15pt; margin: 0 0 6px; }
   .meta { font-size: 9.5pt; color: #555; margin-bottom: 14px; border-bottom: 2px solid #2563eb; padding-bottom: 8px; }
   h2 { font-size: 11.5pt; color: #2563eb; margin: 16px 0 8px; }
