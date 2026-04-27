@@ -5024,12 +5024,18 @@ button.top-nav__auth-link--logout:hover {
 
 .admin-layout--light.contents-list--bright .contents-list__table-shell {
   border-radius: 16px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid rgba(15, 23, 42, 0.09);
   background: #ffffff;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.95) inset,
     0 18px 48px -32px rgba(15, 23, 42, 0.16);
+}
+
+.app-shell--admin .admin-layout--light.contents-list--bright .contents-list__table {
+  table-layout: fixed;
+  width: 100%;
 }
 
 .app-shell--admin .admin-layout--light.contents-list--bright .contents-list__table thead th {
@@ -5093,10 +5099,47 @@ button.top-nav__auth-link--logout:hover {
   color: #64748b;
 }
 
+.contents-list__col-subject {
+  width: 7%;
+  min-width: 3.25rem;
+}
+
 .contents-list__col-type,
 .contents-list__col-status {
-  min-width: 7.25rem;
+  min-width: 6.75rem;
+  width: 7%;
   vertical-align: middle;
+}
+
+.contents-list__col-code {
+  min-width: 10.5rem;
+  width: 13%;
+  vertical-align: top;
+}
+
+.contents-list__col-topic {
+  width: 22%;
+  max-width: 19rem;
+  vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.contents-list__col-created {
+  width: 8.75rem;
+  min-width: 8.25rem;
+  max-width: 10rem;
+  vertical-align: top;
+  white-space: nowrap;
+  font-size: 0.84rem;
+}
+
+.contents-list__col-actions {
+  width: 6rem;
+  min-width: 5.5rem;
+  max-width: 6.75rem;
+  vertical-align: top;
 }
 
 .contents-list__pill {
@@ -5508,7 +5551,7 @@ button.top-nav__auth-link--logout:hover {
   flex-direction: column;
   gap: 0.45rem;
   align-items: stretch;
-  min-width: 7.5rem;
+  min-width: 0;
 }
 
 .app-shell--light.app-shell--admin .contents-list__action-link {

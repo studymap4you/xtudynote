@@ -271,7 +271,7 @@ export function ContentsListPage() {
                     onChange={(e) => toggleAll(e.target.checked)}
                   />
                 </th>
-                <th className="th-bilingual th-bilingual--professional">
+                <th className="contents-list__col-subject th-bilingual th-bilingual--professional">
                   <span className="admin-th__en">SUBJECT</span>
                   <span className="admin-th__sub">(과목)</span>
                 </th>
@@ -281,16 +281,20 @@ export function ContentsListPage() {
                 <th className="contents-list__col-status" scope="col">
                   상태
                 </th>
-                <th>과제번호</th>
-                <th className="th-bilingual th-bilingual--professional">
+                <th className="contents-list__col-code" scope="col">
+                  과제번호
+                </th>
+                <th className="contents-list__col-topic th-bilingual th-bilingual--professional">
                   <span className="admin-th__en">TOPIC</span>
                   <span className="admin-th__sub">(학습주제)</span>
                 </th>
-                <th className="th-bilingual th-bilingual--professional">
+                <th className="contents-list__col-created th-bilingual th-bilingual--professional">
                   <span className="admin-th__en">CREATED</span>
                   <span className="admin-th__sub">(등록일)</span>
                 </th>
-                <th>액션</th>
+                <th className="contents-list__col-actions" scope="col">
+                  액션
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -331,7 +335,7 @@ export function ContentsListPage() {
                         {labelStatus(r.status)}
                       </span>
                     </td>
-                    <td className="contents-list__cell-mono">
+                    <td className="contents-list__cell-mono contents-list__col-code">
                       {r.shortCode || r.homeworkCode ? (
                         <span style={{ fontVariantNumeric: "tabular-nums" }}>
                           {r.shortCode ?? r.homeworkCode}
@@ -343,9 +347,9 @@ export function ContentsListPage() {
                         "—"
                       )}
                     </td>
-                    <td>{r.learningTopic}</td>
-                    <td className="contents-list__cell-muted">{r.createdAtLabel}</td>
-                    <td>
+                    <td className="contents-list__col-topic">{r.learningTopic}</td>
+                    <td className="contents-list__cell-muted contents-list__col-created">{r.createdAtLabel}</td>
+                    <td className="contents-list__col-actions">
                       <div className="contents-list__actions">
                         {r.type !== "homework" && r.status === "approved" && (
                           <Link to={`/content/${r.id}`} className="btn btn--stack contents-list__action-link">
