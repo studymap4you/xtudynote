@@ -5002,6 +5002,347 @@ button.top-nav__auth-link--logout:hover {
   color: #475569;
 }
 
+/* 회원 관리 — 밝은 셸 · 히어로 · 테이블 */
+.admin-members-page--bright .admin-members-page__hero {
+  position: relative;
+  margin-bottom: 1.15rem;
+  padding: 1.35rem 1.45rem;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(135deg, #ffffff 0%, #faf5ff 38%, #f8fafc 92%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.96) inset,
+    0 14px 44px -28px rgba(15, 23, 42, 0.14),
+    0 4px 18px -12px rgba(124, 58, 237, 0.1);
+  overflow: hidden;
+}
+
+.admin-members-page__hero-bg {
+  position: absolute;
+  inset: -44% -12% auto auto;
+  width: min(380px, 68vw);
+  height: min(380px, 68vw);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 32%, rgba(124, 58, 237, 0.14), transparent 54%),
+    radial-gradient(circle at 72% 58%, rgba(14, 165, 233, 0.1), transparent 52%);
+  pointer-events: none;
+}
+
+.admin-members-page__hero-main {
+  position: relative;
+}
+
+.admin-members-page__eyebrow {
+  margin: 0 0 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+
+.admin-members-page__title-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.admin-members-page__h1 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.6vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: #0f172a;
+}
+
+.admin-members-page__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+}
+
+.admin-members-page__meta-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: -0.02em;
+}
+
+.admin-members-page__count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #6d28d9;
+  background: rgba(237, 233, 254, 0.96);
+  border: 1px solid rgba(167, 139, 250, 0.55);
+}
+
+.admin-members-page__lede {
+  margin: 0 0 1.15rem;
+  max-width: 52rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.admin-members-page__lede-en {
+  display: block;
+  font-size: 0.93rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.admin-members-page__lede-ko {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.admin-members-page__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.app-shell--light.app-shell--admin .admin-members-page__refresh.btn--ghost {
+  border-radius: 11px;
+  padding: 0.48rem 1rem;
+  font-weight: 700;
+  border: 1.5px solid rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  color: #334155;
+  box-shadow: 0 6px 20px -14px rgba(15, 23, 42, 0.35);
+}
+
+.app-shell--light.app-shell--admin .admin-members-page__refresh.btn--ghost:hover:not(:disabled) {
+  border-color: rgba(124, 58, 237, 0.35);
+  color: #5b21b6;
+  box-shadow: 0 10px 28px -18px rgba(124, 58, 237, 0.45);
+}
+
+.admin-members-page__loading-ko {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.admin-layout--light.admin-members-page--bright .admin-members-page__table-shell {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  background: #ffffff;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 18px 48px -32px rgba(15, 23, 42, 0.16);
+}
+
+.app-shell--admin .admin-layout--light.admin-members-page--bright .admin-members-page__table thead th {
+  padding: 0.8rem 0.85rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #475569;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.app-shell--admin .admin-layout--light.admin-members-page--bright .admin-table--contents .admin-th__en {
+  color: #1e293b;
+}
+
+.app-shell--admin .admin-layout--light.admin-members-page--bright .admin-table--contents .admin-th__sub {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.app-shell--admin .admin-layout--light.admin-members-page--bright .admin-members-page__table tbody td {
+  padding: 0.85rem 0.85rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+.app-shell--admin .admin-layout--light.admin-members-page--bright .admin-members-page__table tbody tr:nth-child(even) td {
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.app-shell--admin .admin-layout--light.admin-members-page--bright .admin-members-page__table tbody tr:hover td {
+  background: rgba(245, 243, 255, 0.55);
+}
+
+.admin-members-page__row--muted td {
+  opacity: 0.72;
+}
+
+.admin-members-page__cell-email {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  word-break: break-all;
+  color: #0f172a;
+}
+
+.admin-members-page__role-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.admin-members-page__role-pill--student {
+  background: rgba(241, 245, 249, 0.95);
+  color: #334155;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.admin-members-page__role-pill--teacher {
+  background: rgba(219, 234, 254, 0.95);
+  color: #1d4ed8;
+  border: 1px solid rgba(96, 165, 250, 0.5);
+}
+
+.admin-members-page__role-pill--pending {
+  background: rgba(254, 249, 195, 0.95);
+  color: #a16207;
+  border: 1px solid rgba(250, 204, 21, 0.5);
+}
+
+.admin-members-page__role-pill--super {
+  background: rgba(237, 233, 254, 0.95);
+  color: #6d28d9;
+  border: 1px solid rgba(167, 139, 250, 0.55);
+}
+
+.admin-members-page__status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.admin-members-page__status-pill--active {
+  background: rgba(209, 250, 229, 0.95);
+  color: #047857;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+}
+
+.admin-members-page__status-pill--banned {
+  background: rgba(254, 226, 226, 0.95);
+  color: #b91c1c;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+}
+
+.admin-members-page__dash {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.admin-members-page--bright .admin-members-page__docs a {
+  font-weight: 700;
+  color: #2563eb;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 38%, transparent);
+  text-underline-offset: 0.22em;
+}
+
+.admin-members-page--bright .admin-members-page__docs a:hover {
+  color: #1d4ed8;
+}
+
+.admin-members-page__actions {
+  gap: 0.45rem;
+}
+
+.app-shell--light.app-shell--admin .admin-members-page__btn-approve.btn--success {
+  background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #065f46;
+  font-weight: 800;
+}
+
+.app-shell--light.app-shell--admin .admin-members-page__btn-approve.btn--success:hover:not(:disabled) {
+  background: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%);
+  border-color: rgba(5, 150, 105, 0.55);
+  color: #064e3b;
+}
+
+.app-shell--light.app-shell--admin .admin-members-page__btn-suspend.btn--danger {
+  background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.app-shell--light.app-shell--admin .admin-members-page__btn-suspend.btn--danger:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%);
+  border-color: rgba(220, 38, 38, 0.5);
+  color: #991b1b;
+}
+
+.admin-members-page__empty {
+  padding: 2.5rem 1.25rem !important;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #64748b;
+}
+
+.admin-members-page__empty-ko {
+  display: block;
+  margin-top: 0.45rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.admin-members-page__footnote {
+  margin-top: 1.65rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.admin-members-page__footnote-en {
+  display: block;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.admin-members-page__footnote-ko {
+  display: block;
+  margin-top: 0.45rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.admin-members-page__code {
+  font-size: 0.88em;
+  font-weight: 700;
+  padding: 0.12em 0.38em;
+  border-radius: 6px;
+  background: rgba(241, 245, 249, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #0f172a;
+}
+
 .contents-list__actions {
   display: flex;
   flex-direction: column;
