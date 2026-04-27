@@ -3516,9 +3516,77 @@ button.top-nav__auth-link--logout:hover {
   box-shadow: 0 6px 20px -10px rgba(59, 130, 246, 0.55);
 }
 
-.super-admin-actions__ghost {
+/* 콘텐츠 DB · 지식 큐레이션 — 라이트 셸 전용 컬러 버튼 (서로 다른 톤, 고대비 텍스트) */
+.app-shell--light .dashboard--super-admin .super-admin-actions__db {
   width: 100%;
   justify-content: center;
+  padding: 0.58rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1.5px solid rgba(129, 140, 246, 0.65);
+  background: linear-gradient(178deg, #dbeafe 0%, #e0e7ff 48%, #eef2ff 100%);
+  box-shadow: 0 4px 14px -8px rgba(79, 70, 229, 0.45);
+  transition: transform 0.08s ease, border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__db:hover {
+  border-color: rgba(79, 70, 229, 0.85);
+  filter: saturate(1.06);
+  box-shadow: 0 8px 22px -12px rgba(79, 70, 229, 0.4);
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__db:active {
+  transform: scale(0.99);
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__db .ui-en,
+.app-shell--light .dashboard--super-admin .super-admin-actions__db .ui-ko {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #1e3a8a;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__db .ui-ko {
+  font-weight: 800;
+  opacity: 1;
+  color: #172554;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__knowledge {
+  width: 100%;
+  justify-content: center;
+  padding: 0.58rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1.5px solid rgba(16, 185, 129, 0.55);
+  background: linear-gradient(178deg, #d1fae5 0%, #dcfce7 45%, #ecfdf5 100%);
+  box-shadow: 0 4px 14px -8px rgba(5, 150, 105, 0.35);
+  transition: transform 0.08s ease, border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__knowledge:hover {
+  border-color: rgba(5, 150, 105, 0.85);
+  filter: saturate(1.06);
+  box-shadow: 0 8px 22px -12px rgba(5, 150, 105, 0.32);
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__knowledge:active {
+  transform: scale(0.99);
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__knowledge .ui-en,
+.app-shell--light .dashboard--super-admin .super-admin-actions__knowledge .ui-ko {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #065f46;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__knowledge .ui-ko {
+  font-weight: 800;
+  opacity: 1;
+  color: #064e3b;
 }
 
 .super-admin-security-badge {

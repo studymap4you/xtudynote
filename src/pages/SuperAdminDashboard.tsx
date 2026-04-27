@@ -79,11 +79,11 @@ export function SuperAdminDashboard() {
               <span className="ui-en">Review pending registrations</span>
               <span className="ui-ko">자료 등록 검수 대기 열기</span>
             </Link>
-            <Link to="/admin/contents" className="btn btn--ghost btn--stack super-admin-actions__ghost">
+            <Link to="/admin/contents" className="btn btn--stack super-admin-actions__db">
               <span className="ui-en">Content database (approved items)</span>
               <span className="ui-ko">콘텐츠 DB 관리</span>
             </Link>
-            <Link to="/admin/knowledge-curation" className="btn btn--ghost btn--stack super-admin-actions__ghost">
+            <Link to="/admin/knowledge-curation" className="btn btn--stack super-admin-actions__knowledge">
               <span className="ui-en">Knowledge curation</span>
               <span className="ui-ko">지식 큐레이션 · 검색·저장·학습자료</span>
             </Link>
