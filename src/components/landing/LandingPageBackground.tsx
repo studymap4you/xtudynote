@@ -74,9 +74,12 @@ export function LandingPageBackground() {
             preload="metadata"
           />
         ) : (
-          <div
-            className={`landing-page-bg__fill${adminUrl ? "" : " landing-page-bg__fill--default"}`}
-            style={adminUrl ? { backgroundImage: `url("${adminUrl}")` } : undefined}
+          <img
+            className="landing-page-bg__img"
+            src={adminUrl ?? LANDING_DEFAULT_BG_IMAGE}
+            alt=""
+            decoding="async"
+            fetchPriority="high"
           />
         )}
       </div>
