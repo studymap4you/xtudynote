@@ -4137,6 +4137,401 @@ button.top-nav__auth-link--logout:hover {
   text-underline-offset: var(--xu-link-ul-offset, 0.28em);
 }
 
+/* 자료 검수 대기 — 밝은 셸 */
+.pending-review-page--bright .pending-review-page__hero {
+  position: relative;
+  margin-bottom: 1.15rem;
+  padding: 1.35rem 1.45rem;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 38%, #fff7ed 88%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.96) inset,
+    0 14px 44px -28px rgba(15, 23, 42, 0.14),
+    0 4px 18px -12px rgba(245, 158, 11, 0.12);
+  overflow: hidden;
+}
+
+.pending-review-page__hero-bg {
+  position: absolute;
+  inset: -42% -18% auto auto;
+  width: min(400px, 68vw);
+  height: min(400px, 68vw);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 30%, rgba(251, 191, 36, 0.18), transparent 54%),
+    radial-gradient(circle at 68% 58%, rgba(59, 130, 246, 0.12), transparent 52%);
+  pointer-events: none;
+}
+
+.pending-review-page__hero-main {
+  position: relative;
+}
+
+.pending-review-page__eyebrow {
+  margin: 0 0 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ea580c;
+}
+
+.pending-review-page__title-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.pending-review-page__h1 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.6vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: #0f172a;
+}
+
+.pending-review-page__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+}
+
+.pending-review-page__meta-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: -0.02em;
+}
+
+.pending-review-page__count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #c2410c;
+  background: rgba(255, 237, 213, 0.95);
+  border: 1px solid rgba(251, 146, 60, 0.45);
+}
+
+.pending-review-page__lede {
+  margin: 0 0 1.15rem;
+  max-width: 52rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.pending-review-page__lede-en {
+  display: block;
+  font-size: 0.93rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.pending-review-page__lede-ko {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.pending-review-page__loading-ko {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.pending-review-page--bright .pending-review-banner--info {
+  background: rgba(239, 246, 255, 0.96);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #1e40af;
+}
+
+.pending-review-page--bright .pending-review-banner--success {
+  background: rgba(236, 253, 245, 0.96);
+  border-color: rgba(16, 185, 129, 0.38);
+  color: #047857;
+}
+
+.pending-review-page--bright .pending-review-banner--error {
+  background: rgba(254, 242, 242, 0.96);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #b91c1c;
+}
+
+.pending-review-page--bright .pending-review-banner__text {
+  font-weight: 600;
+}
+
+.pending-review-page--bright .pending-review-banner .pending-review-banner__dismiss.btn--ghost {
+  color: inherit;
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.pending-review-page--bright .pending-review-banner .pending-review-banner__dismiss.btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: color-mix(in srgb, currentColor 42%, transparent);
+}
+
+.admin-layout--light.pending-review-page--bright .pending-review-page__table-shell {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  background: #ffffff;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 18px 48px -32px rgba(15, 23, 42, 0.16);
+}
+
+.app-shell--admin .admin-layout--light.pending-review-page--bright .pending-review-page__table thead th {
+  padding: 0.8rem 0.85rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #475569;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.pending-review-page__th-sub {
+  display: block;
+  margin-top: 0.22rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.02em;
+}
+
+.app-shell--admin .admin-layout--light.pending-review-page--bright .pending-review-page__table tbody td {
+  padding: 0.85rem 0.85rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+.app-shell--admin .admin-layout--light.pending-review-page--bright .pending-review-page__table tbody tr:nth-child(even) td {
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.app-shell--admin .admin-layout--light.pending-review-page--bright .pending-review-page__table tbody tr:hover td {
+  background: rgba(255, 247, 237, 0.65);
+}
+
+.pending-review-page__empty {
+  padding: 2.5rem 1.25rem !important;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #64748b;
+}
+
+.pending-review-page__empty-ko {
+  display: block;
+  margin-top: 0.45rem;
+  color: #475569;
+}
+
+.pending-review-page__type-meta {
+  display: block;
+  margin-top: 0.28rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.pending-review-page__row-title {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.pending-review-page__video-link {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  word-break: break-all;
+  color: #2563eb;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 38%, transparent);
+  text-underline-offset: 0.22em;
+}
+
+.pending-review-page__video-link:hover {
+  color: #1d4ed8;
+}
+
+.pending-review-page__details {
+  margin-top: 0.45rem;
+  font-size: 0.86rem;
+}
+
+.pending-review-page__details-summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #334155;
+}
+
+.pending-review-page__desc-html {
+  margin-top: 0.35rem;
+  color: #475569;
+}
+
+.pending-review-page__cell-strong {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.pending-review-page__sub-meta {
+  display: block;
+  margin-top: 0.28rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.pending-review-page__submitter-cell {
+  font-size: 0.82rem;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.pending-review-page__uid-sub {
+  display: block;
+  margin-top: 0.22rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.pending-review-page__muted-inline {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.pending-review-page__classroom-code {
+  display: block;
+  margin-top: 0.22rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  word-break: break-all;
+}
+
+.pending-review-page__date-cell {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.pending-review-page__action-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 9rem;
+}
+
+.app-shell--light.app-shell--admin .pending-review-page__btn-approve.btn--success {
+  background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #065f46;
+  font-weight: 800;
+}
+
+.app-shell--light.app-shell--admin .pending-review-page__btn-approve.btn--success:hover {
+  background: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%);
+  border-color: rgba(5, 150, 105, 0.55);
+  color: #064e3b;
+}
+
+.app-shell--light.app-shell--admin .pending-review-page__btn-reject.btn--danger {
+  background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.app-shell--light.app-shell--admin .pending-review-page__btn-reject.btn--danger:hover {
+  background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%);
+  border-color: rgba(220, 38, 38, 0.5);
+  color: #991b1b;
+}
+
+.pending-review-page__footer {
+  margin-top: 1.65rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.app-shell--light.app-shell--admin .pending-review-page__footer-link {
+  border-radius: 11px;
+  padding: 0.48rem 1rem;
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: -0.02em;
+  border: 1.5px solid rgba(37, 99, 235, 0.42);
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1e40af;
+  text-decoration: none;
+}
+
+.app-shell--light.app-shell--admin .pending-review-page__footer-link:hover {
+  border-color: rgba(37, 99, 235, 0.72);
+  box-shadow: 0 6px 18px -12px rgba(37, 99, 235, 0.45);
+}
+
+.pending-review-page--bright .pending-review-files {
+  margin-top: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.pending-review-page--bright .pending-review-files__head {
+  color: #475569;
+  font-weight: 700;
+}
+
+.pending-review-page--bright .pending-review-files__btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.pending-review-page--bright .pending-review-files__btn:hover {
+  background: #eff6ff;
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+.pending-review-page--bright .pending-review-files__tag {
+  color: #1d4ed8;
+  background: rgba(219, 234, 254, 0.95);
+  border: 1px solid rgba(147, 197, 253, 0.55);
+}
+
+.pending-review-page--bright .pending-review-files__fname {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.pending-review-page--bright .pending-review-files__hint {
+  color: #2563eb;
+  font-weight: 700;
+}
+
 .admin-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);

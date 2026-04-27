@@ -402,21 +402,33 @@ export function PendingMaterialReviewsPage() {
   }
 
   return (
-    <div className="app-shell app-shell--admin">
+    <div className="app-shell app-shell--admin app-shell--light">
       <AdminTopNav />
-      <main className="admin-layout contents-list">
-        <div className="admin-layout__title-row">
-          <h1>자료 등록 검수 대기</h1>
-          <span className="ui-ko">
-            통합·동영상 신청 → 승인 시 라이브러리(contents)에 반영 · 대기 {pendingCount}건
-          </span>
-        </div>
-        <p style={{ color: "var(--text-muted)", marginBottom: "1rem", maxWidth: "52rem" }}>
-          <span className="ui-en" style={{ display: "block" }}>
+      <main className="admin-layout admin-layout--light pending-review-page pending-review-page--bright">
+        <header className="pending-review-page__hero">
+          <div className="pending-review-page__hero-bg" aria-hidden />
+          <div className="pending-review-page__hero-main">
+            <p className="pending-review-page__eyebrow ui-en">Pending reviews</p>
+            <div className="pending-review-page__title-row">
+              <h1 className="pending-review-page__h1">자료 등록 검수 대기</h1>
+              <div className="pending-review-page__meta">
+                <span className="ui-ko pending-review-page__meta-text">
+                  통합·동영상 신청 → 승인 시 라이브러리(contents)에 반영
+                </span>
+                <span className="pending-review-page__count-badge" aria-live="polite">
+                  대기 {pendingCount}건
+                </span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <p className="pending-review-page__lede">
+          <span className="ui-en pending-review-page__lede-en">
             Submissions from &quot;자료 등록&quot; and &quot;동영상 학습자료&quot; land here. Approve
             copies files into the author&apos;s storage folder and creates an approved library entry.
           </span>
-          <span className="ui-ko" style={{ display: "block", marginTop: "0.35rem" }}>
+          <span className="ui-ko pending-review-page__lede-ko">
             강의실에서 연 자료 등록도 동일하게 이 목록에 올라옵니다. 승인하면 제출자 ID로 콘텐츠가
             생성되고, 「콘텐츠 DB 관리」에서도 확인할 수 있습니다.
           </span>
@@ -439,18 +451,16 @@ export function PendingMaterialReviewsPage() {
         )}
         {error && <p className="auth-error">{error}</p>}
         {loading ? (
-          <div className="route-loading">
+          <div className="route-loading route-loading--light">
             <div className="route-loading__spinner" />
             <p>
               <span className="ui-en">Loading queue…</span>
-              <span className="ui-ko" style={{ display: "block", marginTop: "0.25rem" }}>
-                검수 대기 목록 연결 중…
-              </span>
+              <span className="ui-ko pending-review-page__loading-ko">검수 대기 목록 연결 중…</span>
             </p>
           </div>
         ) : (
-          <div className="admin-table-wrap">
-            <table className="admin-table admin-table--contents">
+          <div className="admin-table-wrap pending-review-page__table-shell">
+            <table className="admin-table admin-table--contents admin-table--light pending-review-page__table">
               <thead>
                 <tr>
                   <th>유형</th>
@@ -458,15 +468,11 @@ export function PendingMaterialReviewsPage() {
                   <th>과목·학년</th>
                   <th>
                     <span className="ui-ko">제출자 ID (로그인 ID)</span>
-                    <span className="ui-en" style={{ display: "block", fontSize: "0.68rem", fontWeight: 500 }}>
-                      Submitter login
-                    </span>
+                    <span className="ui-en pending-review-page__th-sub">Submitter login</span>
                   </th>
                   <th>
                     <span className="ui-ko">강의실 (개설명)</span>
-                    <span className="ui-en" style={{ display: "block", fontSize: "0.68rem", fontWeight: 500 }}>
-                      Classroom title
-                    </span>
+                    <span className="ui-en pending-review-page__th-sub">Classroom title</span>
                   </th>
                   <th>접수일</th>
                   <th>액션</th>
@@ -475,9 +481,9 @@ export function PendingMaterialReviewsPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ color: "var(--text-muted)" }}>
+                    <td colSpan={7} className="pending-review-page__empty">
                       검수 대기 중인 신청이 없습니다.
-                      <span className="ui-ko" style={{ display: "block", marginTop: "0.35rem" }}>
+                      <span className="ui-ko pending-review-page__empty-ko">
                         자료 등록·동영상 등록으로 접수하면 여기에 표시됩니다.
                       </span>
                     </td>
@@ -495,19 +501,11 @@ export function PendingMaterialReviewsPage() {
                             <span title="동영상 URL 신청">동영상 ({labelType(r.materialType)})</span>
                           )}
                           {r.kind === "file" && (
-                            <span
-                              style={{
-                                display: "block",
-                                fontSize: "0.78rem",
-                                color: "var(--text-muted)",
-                              }}
-                            >
-                              첨부 {r.fileCount}개
-                            </span>
+                            <span className="pending-review-page__type-meta">첨부 {r.fileCount}개</span>
                           )}
                         </td>
                         <td>
-                          <strong>{r.title}</strong>
+                          <strong className="pending-review-page__row-title">{r.title}</strong>
                           {r.kind === "file" && <PendingAttachmentLinks raw={r.raw} />}
                           {r.kind === "video" &&
                             r.videoUrls.map((u, vi) => (
@@ -516,36 +514,23 @@ export function PendingMaterialReviewsPage() {
                                 href={u}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{
-                                  display: "block",
-                                  fontSize: "0.82rem",
-                                  marginTop: "0.25rem",
-                                  wordBreak: "break-all",
-                                }}
+                                className="pending-review-page__video-link"
                               >
                                 {u}
                               </a>
                             ))}
-                          <details style={{ marginTop: "0.4rem", fontSize: "0.85rem" }}>
-                            <summary style={{ cursor: "pointer" }}>상세 설명</summary>
-                            <div
-                              className="pending-review-desc-html"
-                              style={{
-                                marginTop: "0.35rem",
-                                color: "var(--text-muted)",
-                              }}
-                            >
+                          <details className="pending-review-page__details">
+                            <summary className="pending-review-page__details-summary">상세 설명</summary>
+                            <div className="pending-review-desc-html pending-review-page__desc-html">
                               {r.description ? <RichHtmlView html={r.description} /> : "—"}
                             </div>
                           </details>
                         </td>
                         <td>
-                          {r.subject}
-                          <span style={{ display: "block", fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                            {r.audienceGrade}
-                          </span>
+                          <span className="pending-review-page__cell-strong">{r.subject}</span>
+                          <span className="pending-review-page__sub-meta">{r.audienceGrade}</span>
                         </td>
-                        <td style={{ fontSize: "0.82rem", wordBreak: "break-all" }}>
+                        <td className="pending-review-page__submitter-cell">
                           {r.submitterId in submitterEmailByUid ? (
                             <>
                               <span>
@@ -554,21 +539,13 @@ export function PendingMaterialReviewsPage() {
                                   : r.submitterId}
                               </span>
                               {submitterEmailByUid[r.submitterId] ? (
-                                <span
-                                  style={{
-                                    display: "block",
-                                    fontSize: "0.72rem",
-                                    color: "var(--text-muted)",
-                                    marginTop: "0.2rem",
-                                  }}
-                                  title="Firebase UID"
-                                >
+                                <span className="pending-review-page__uid-sub" title="Firebase UID">
                                   {r.submitterId}
                                 </span>
                               ) : null}
                             </>
                           ) : (
-                            <span style={{ color: "var(--text-muted)" }}>{r.submitterId}</span>
+                            <span className="pending-review-page__muted-inline">{r.submitterId}</span>
                           )}
                         </td>
                         <td>
@@ -582,29 +559,19 @@ export function PendingMaterialReviewsPage() {
                                   : r.classroomId}
                               </span>
                               {classroomTitleById[r.classroomId] ? (
-                                <code
-                                  style={{
-                                    display: "block",
-                                    fontSize: "0.72rem",
-                                    color: "var(--text-muted)",
-                                    marginTop: "0.2rem",
-                                    wordBreak: "break-all",
-                                  }}
-                                >
-                                  {r.classroomId}
-                                </code>
+                                <code className="pending-review-page__classroom-code">{r.classroomId}</code>
                               ) : null}
                             </>
                           ) : (
-                            <span style={{ color: "var(--text-muted)" }}>{r.classroomId}</span>
+                            <span className="pending-review-page__muted-inline">{r.classroomId}</span>
                           )}
                         </td>
-                        <td>{r.createdAtLabel}</td>
+                        <td className="pending-review-page__date-cell">{r.createdAtLabel}</td>
                         <td>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                          <div className="pending-review-page__action-col">
                             <button
                               type="button"
-                              className="btn btn--success btn--stack pending-review__action-btn"
+                              className="btn btn--success btn--stack pending-review__action-btn pending-review-page__btn-approve"
                               disabled={busy}
                               onClick={(e) => {
                                 e.preventDefault();
@@ -616,7 +583,7 @@ export function PendingMaterialReviewsPage() {
                             </button>
                             <button
                               type="button"
-                              className="btn btn--danger btn--stack pending-review__action-btn"
+                              className="btn btn--danger btn--stack pending-review__action-btn pending-review-page__btn-reject"
                               disabled={busy}
                               onClick={(e) => {
                                 e.preventDefault();
@@ -636,8 +603,8 @@ export function PendingMaterialReviewsPage() {
             </table>
           </div>
         )}
-        <p style={{ marginTop: "1.5rem" }}>
-          <Link to="/admin/contents" className="btn btn--ghost btn--stack">
+        <p className="pending-review-page__footer">
+          <Link to="/admin/contents" className="btn btn--stack pending-review-page__footer-link">
             콘텐츠 DB 관리로 이동
           </Link>
         </p>
