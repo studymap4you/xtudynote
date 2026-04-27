@@ -91,7 +91,7 @@
   color-scheme: light;
 }
 
-/* 홈 전체 배경 — public/images/bg-universe.jpg 기본 또는 어드민 미디어 + 화이트 베일 */
+/* 홈 전체 배경 — 선명한 이미지·동영상 + 얕은 밝기 레이어만 (본문 카드 글래스는 .intro-hero 유지) */
 .landing-page-bg {
   position: fixed;
   inset: 0;
@@ -118,10 +118,9 @@
   object-fit: cover;
   object-position: center;
   display: block;
-  /* public/images/bg-universe.jpg — 은은한 블러 */
-  filter: blur(5px);
+  filter: none;
   opacity: 1;
-  transform: scale(1.06);
+  transform: scale(1);
   transform-origin: center center;
 }
 .landing-page-bg__video {
@@ -132,9 +131,9 @@
   object-fit: cover;
   object-position: center;
   display: block;
-  filter: blur(5px);
-  opacity: 0.95;
-  transform: scale(1.06);
+  filter: none;
+  opacity: 0.98;
+  transform: scale(1);
   transform-origin: center center;
   will-change: transform;
 }
@@ -142,10 +141,10 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  /* 얕은 베일만 — 실제 읽기 대비는 메인 섹션 글래스(rgba 0.7)에서 처리 */
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* 배경은 선명하게 두고, 살짝만 밝게 깔아 글래스 카드와 대비만 유지 */
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .app-shell--landing > .top-nav.top-nav--landing,
 .app-shell--landing > main.landing {
