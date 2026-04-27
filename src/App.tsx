@@ -33,6 +33,8 @@ import { TeacherAssignmentNewPage } from "@/pages/assignments/TeacherAssignmentN
 import { TeacherAssignmentDetailPage } from "@/pages/assignments/TeacherAssignmentDetailPage";
 import { ExternalWorksheetOutreachPage } from "@/pages/assignments/ExternalWorksheetOutreachPage";
 import { WorksheetPdfCreatePage } from "@/pages/WorksheetPdfCreatePage";
+import { ExamBuilderPage } from "@/pages/exam/ExamBuilderPage";
+import { ExamTakePage } from "@/pages/exam/ExamTakePage";
 
 export default function App() {
   return (
@@ -46,6 +48,7 @@ export default function App() {
       <Route path="/homework/:code" element={<HomeworkStudentPage />} />
       <Route path="/worksheet/outreach" element={<ExternalWorksheetOutreachPage />} />
       <Route path="/worksheet/create" element={<WorksheetPdfCreatePage />} />
+      <Route path="/exam/:examId" element={<ExamTakePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route
@@ -214,6 +217,14 @@ export default function App() {
           <ProtectedRoute>
             <ClassroomCatalogPage />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/exam-builder"
+        element={
+          <TeacherRoute>
+            <ExamBuilderPage />
+          </TeacherRoute>
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />

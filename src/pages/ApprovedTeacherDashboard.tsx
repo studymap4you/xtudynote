@@ -101,6 +101,12 @@ export function ApprovedTeacherDashboard() {
                 <span className="educator-quick-links__ko">라이브러리</span>
               </Link>
             </li>
+            <li>
+              <Link to="/teacher/exam-builder" className="educator-quick-links__a">
+                <span className="educator-quick-links__en">AI exam paper</span>
+                <span className="educator-quick-links__ko">AI 시험지·출제</span>
+              </Link>
+            </li>
           </ul>
         </section>
 

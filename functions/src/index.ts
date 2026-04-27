@@ -7,6 +7,11 @@ import { defineString } from "firebase-functions/params";
 import nodemailer from "nodemailer";
 import { buildWorksheetOutreachEmailHtml } from "./emailTemplates.js";
 import {
+  buildExamPaperPdfBytes,
+  buildExamPaperPdfFilename,
+  type ExamPaperPdfInput,
+} from "./examPaperPdfGenerator.js";
+import {
   buildWorksheetPdfBytes,
   buildWorksheetPdfFilename,
   type WorksheetPdfInput,
@@ -149,6 +154,45 @@ function parseWorksheetPdfBody(raw: Record<string, unknown>): WorksheetPdfInput 
   return { unit, objectives, studyDate, content, exercises, summary, teacherName };
 }
 
+function parseExamPaperPdfBody(raw: Record<string, unknown>): ExamPaperPdfInput {
+  const title = String(raw.title ?? "").trim();
+  const subject = String(raw.subject ?? "").trim();
+  const teacherName = String(raw.teacherName ?? "").trim();
+  const passage = String(raw.passage ?? "").trim();
+  const layout = raw.layout === "2col" ? "2col" : "1col";
+  const studentName = String(raw.studentName ?? "").trim();
+  const studentNo = String(raw.studentNo ?? raw.studentNumber ?? "").trim();
+  const examDate = String(raw.examDate ?? "").trim();
+  const qRaw = raw.questions;
+  const questions: ExamPaperPdfInput["questions"] = [];
+  if (Array.isArray(qRaw)) {
+    for (const item of qRaw) {
+      if (!item || typeof item !== "object") continue;
+      const o = item as Record<string, unknown>;
+      const type = o.type === "short" ? "short" : "mcq";
+      const prompt = String(o.prompt ?? "").trim();
+      if (!prompt) continue;
+      const optsIn = Array.isArray(o.options) ? o.options.map((x) => String(x ?? "").trim()) : [];
+      const options =
+        type === "mcq"
+          ? [optsIn[0] ?? "", optsIn[1] ?? "", optsIn[2] ?? "", optsIn[3] ?? ""]
+          : undefined;
+      questions.push({ type, prompt, options });
+    }
+  }
+  return {
+    title,
+    subject,
+    teacherName,
+    passage,
+    layout,
+    studentName,
+    studentNo,
+    examDate,
+    questions,
+  };
+}
+
 function readRequestJson(req: Request): Record<string, unknown> {
   const b = (req as { body?: unknown }).body;
   if (b && typeof b === "object" && !Buffer.isBuffer(b)) {
@@ -208,6 +252,52 @@ export const generateWorksheetPdf = onRequest(
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[generateWorksheetPdf]", e);
+      res.status(500).send(`PDF 생성 오류: ${msg.slice(0, 400)}`);
+    }
+  },
+);
+
+/** AI 시험지 PDF — 공개 POST */
+export const generateExamPaperPdf = onRequest(
+  {
+    region: REGION,
+    cors: true,
+    invoker: "public",
+    memory: "512MiB",
+    timeoutSeconds: 60,
+  },
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).set("Allow", "POST").send("Method Not Allowed");
+      return;
+    }
+    try {
+      const raw = readRequestJson(req);
+      const payload = parseExamPaperPdfBody(raw);
+      if (!payload.title || !payload.teacherName) {
+        res.status(400).send("시험 제목과 선생님 성함은 필수입니다.");
+        return;
+      }
+      if (!payload.questions.length) {
+        res.status(400).send("문항이 없습니다.");
+        return;
+      }
+      const bytes = await buildExamPaperPdfBytes(payload);
+      const name = buildExamPaperPdfFilename(payload);
+      const asciiName = name.replace(/[^\x20-\x7E.]/g, "_");
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+      );
+      res.status(200).send(Buffer.from(bytes));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[generateExamPaperPdf]", e);
       res.status(500).send(`PDF 생성 오류: ${msg.slice(0, 400)}`);
     }
   },

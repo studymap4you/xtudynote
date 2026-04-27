@@ -383,6 +383,39 @@ service cloud.firestore {
         || (isActiveTeacher() && resource.data.createdBy == request.auth.uid);
     }
 
+    /** AI 시험지 — 링크로 학생 응시 가능, 작성자만 수정 */
+    match /ai_exams/{examId} {
+      allow read: if resource.data.visibility == 'link'
+        || isActiveSuperAdmin()
+        || (
+          isSignedInActiveAccount()
+          && resource.data.teacherId == request.auth.uid
+        );
+
+      allow create: if (isActiveTeacher() || isActiveSuperAdmin())
+        && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.visibility == 'link'
+        && request.resource.data.questions is list
+        && request.resource.data.keys().hasAll([
+          'teacherId',
+          'title',
+          'subject',
+          'passage',
+          'questions',
+          'totalItems',
+          'objectiveRatioPercent',
+          'visibility',
+          'createdAt',
+        ]);
+
+      allow update: if (isActiveTeacher() || isActiveSuperAdmin())
+        && resource.data.teacherId == request.auth.uid
+        && request.resource.data.teacherId == resource.data.teacherId;
+
+      allow delete: if (isActiveTeacher() || isActiveSuperAdmin())
+        && resource.data.teacherId == request.auth.uid;
+    }
+
     /**
      * homework_codes — 문서 ID = 전체 과제코드(HW-…).
      * read: get + shortCode 등 쿼리(list). 승인된 과제만 조회 가능.
