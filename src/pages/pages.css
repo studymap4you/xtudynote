@@ -2908,36 +2908,74 @@ button.top-nav__auth-link--logout:hover {
 .educator-quick-links {
   list-style: none;
   margin: 0;
-  padding: 0.65rem 0 0;
+  padding: 0.75rem 0 0;
   border-top: 1px solid rgba(15, 23, 42, 0.06);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 0.55rem;
+}
+.educator-quick-links li {
+  min-width: 0;
 }
 .educator-quick-links__a {
   text-decoration: none;
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
-  gap: 0.08rem;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.15s ease, color 0.15s ease;
+  justify-content: center;
+  gap: 0.12rem;
+  padding: 0.62rem 0.72rem;
+  min-height: 3.25rem;
+  border-radius: 11px;
+  border: 1px solid rgba(52, 211, 153, 0.65);
+  background: linear-gradient(165deg, #ecfdf5 0%, #d1fae5 55%, #ccfbf1 100%);
+  box-shadow:
+    0 1px 2px rgba(16, 185, 129, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  transition:
+    transform 0.11s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
 }
 .educator-quick-links__a:hover {
-  border-bottom-color: rgba(37, 99, 235, 0.45);
+  border-color: rgba(16, 185, 129, 0.95);
+  background: linear-gradient(165deg, #d1fae5 0%, #a7f3d0 50%, #99f6e4 100%);
+  box-shadow:
+    0 4px 14px rgba(16, 185, 129, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
   text-decoration: none;
+  transform: translateY(-1px);
+}
+.educator-quick-links__a:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.18);
+}
+.educator-quick-links__a:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(52, 211, 153, 0.45),
+    0 2px 10px rgba(16, 185, 129, 0.2);
 }
 .educator-quick-links__en {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #065f46;
 }
 .educator-quick-links__ko {
-  font-size: 0.72rem;
-  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: #0d9488;
+  opacity: 0.92;
 }
 .educator-quick-links__a:hover .educator-quick-links__en {
-  color: #1d4ed8;
+  color: #047857;
+}
+.educator-quick-links__a:hover .educator-quick-links__ko {
+  color: #0f766e;
+  opacity: 1;
 }
 .educator-bank-form {
   margin-top: 0.35rem;
