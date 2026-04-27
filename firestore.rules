@@ -76,6 +76,40 @@ service cloud.firestore {
         && !(request.auth.uid in classroomOldMemberIds())
         && request.resource.data.teacherId == resource.data.teacherId;
     }
+    /** 본인 UID만 memberStudentIds에서 제거 (수강 취소) */
+    function studentSelfLeaveClassroomMembers() {
+      return isSignedInActiveAccount()
+        && request.auth.uid != resource.data.teacherId
+        && request.resource.data.teacherId == resource.data.teacherId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberStudentIds'])
+        && request.resource.data.memberStudentIds is list
+        && classroomOldMemberIds().hasAll(request.resource.data.memberStudentIds)
+        && classroomOldMemberIds().size() == request.resource.data.memberStudentIds.size() + 1
+        && request.auth.uid in classroomOldMemberIds()
+        && !(request.auth.uid in request.resource.data.memberStudentIds);
+    }
+    /** contents 읽기 — resource = content 문서 */
+    function contentHasClassroomId() {
+      return 'classroomId' in resource.data
+        && resource.data.classroomId is string
+        && resource.data.classroomId.size() > 0;
+    }
+    function contentClassroomData() {
+      return get(/databases/$(database)/documents/classrooms/$(resource.data.classroomId)).data;
+    }
+    function canReadContentLinkedToMyClassroom() {
+      return isSignedInActiveAccount()
+        && contentHasClassroomId()
+        && exists(/databases/$(database)/documents/classrooms/$(resource.data.classroomId))
+        && (
+          contentClassroomData().teacherId == request.auth.uid
+          || (
+            'memberStudentIds' in contentClassroomData()
+            && contentClassroomData().memberStudentIds is list
+            && request.auth.uid in contentClassroomData().memberStudentIds
+          )
+        );
+    }
     function contentClickCountBefore() {
       return 'clickCount' in resource.data ? resource.data.clickCount : 0;
     }
@@ -267,7 +301,8 @@ service cloud.firestore {
     match /contents/{docId} {
       allow read: if isActiveSuperAdmin()
         || isAuthor()
-        || isApprovedLibraryContent();
+        || isApprovedLibraryContent()
+        || canReadContentLinkedToMyClassroom();
 
       allow create: if isActiveSuperAdmin()
         || (
@@ -653,7 +688,8 @@ service cloud.firestore {
           && resource.data.teacherId == request.auth.uid
           && request.resource.data.teacherId == resource.data.teacherId
         )
-        || studentSelfEnrollFreeClassroom();
+        || studentSelfEnrollFreeClassroom()
+        || studentSelfLeaveClassroomMembers();
 
       allow delete: if isActiveSuperAdmin()
         || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);

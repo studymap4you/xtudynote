@@ -39,6 +39,7 @@ export function ClassroomDetailPage() {
   const [contents, setContents] = useState<ContentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [contentsErr, setContentsErr] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>("intro");
 
   const isOwner = useMemo(
@@ -60,16 +61,29 @@ export function ClassroomDetailPage() {
     (async () => {
       setLoading(true);
       setErr(null);
+      setContentsErr(null);
       try {
         const rs = await getDoc(doc(db, "classrooms", id));
         if (!rs.exists()) {
-          if (!cancelled) setErr("강의실을 찾을 수 없습니다.");
-          setRoom(null);
+          if (!cancelled) {
+            setErr("강의실을 찾을 수 없습니다.");
+            setRoom(null);
+            setLoading(false);
+          }
           return;
         }
         const rdata = rs.data() as ClassroomDocument;
         if (!cancelled) setRoom({ id: rs.id, ...rdata });
+      } catch (e) {
+        if (!cancelled) {
+          setErr(e instanceof Error ? e.message : "강의실을 불러오지 못했습니다.");
+          setRoom(null);
+        }
+        if (!cancelled) setLoading(false);
+        return;
+      }
 
+      try {
         const cq = query(collection(db, "contents"), where("classroomId", "==", id));
         const cs = await getDocs(cq);
         const list: ContentRow[] = [];
@@ -81,7 +95,10 @@ export function ClassroomDetailPage() {
         });
         if (!cancelled) setContents(list);
       } catch (e) {
-        if (!cancelled) setErr(e instanceof Error ? e.message : "불러오지 못했습니다.");
+        if (!cancelled) {
+          setContents([]);
+          setContentsErr(e instanceof Error ? e.message : "학습 자료 목록을 불러오지 못했습니다.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -153,6 +170,7 @@ export function ClassroomDetailPage() {
           <Link to="/classroom">내 강의실</Link>
         </nav>
         {err && <p className="auth-error">{err}</p>}
+        {contentsErr && !err ? <p className="auth-error">{contentsErr}</p> : null}
         {loading ? (
           <div className="route-loading route-loading--light">
             <div className="route-loading__spinner" />
@@ -162,10 +180,10 @@ export function ClassroomDetailPage() {
           <div className="admin-layout__title-row">
             <h1>입장 불가</h1>
             <p className="classroom-page__lede">
-              이 강의실은 멤버로 등록된 학습자만 열람할 수 있습니다. 선생님께 멤버 등록을 요청하거나{" "}
-              <Link to="/classrooms">전체 강의실 목록</Link>
-              {" · "}
-              <Link to="/classroom">내 강의실</Link>으로 돌아가 주세요.
+              이 강의실은 개설 선생님 또는 멤버로 등록된 학습자만 열람할 수 있습니다. 다른 계정으로 수강 신청만 한 경우,
+              그 계정으로 로그인했는지 확인해 주세요. 멤버 등록이 필요하면{" "}
+              <Link to="/classrooms">전체 강의실</Link>에서 강사에게 요청하거나{" "}
+              <Link to="/classroom">내 강의실</Link>로 돌아가 주세요.
             </p>
           </div>
         ) : (

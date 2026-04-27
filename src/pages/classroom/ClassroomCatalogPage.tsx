@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
+  arrayRemove,
   arrayUnion,
   collection,
   collectionGroup,
@@ -55,7 +56,7 @@ function enrollmentClassroomIdFromRef(ref: DocumentReference): string {
 }
 
 export function ClassroomCatalogPage() {
-  const { firebaseUser, isTeacherApproved, isStudent } = useAuth();
+  const { firebaseUser, canManageMaterials, isStudent } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,6 +185,46 @@ export function ClassroomCatalogPage() {
     setSearchParams,
   ]);
 
+  async function cancelMembership(r: Row) {
+    if (!uid || busyClassId) return;
+    if (
+      !window.confirm(
+        `「${r.title}」에서 멤버에서 제외됩니다. 이 강의실의 자료·영상·질의응답을 더 이상 이용할 수 없습니다. 계속할까요?`,
+      )
+    ) {
+      return;
+    }
+    setBusyClassId(r.id);
+    setActionErr(null);
+    setActionMsg(null);
+    try {
+      await updateDoc(doc(db, "classrooms", r.id), {
+        memberStudentIds: arrayRemove(uid),
+      });
+      setActionMsg(`「${r.title}」수강을 취소했습니다.`);
+    } catch (e) {
+      setActionErr(e instanceof Error ? e.message : "수강 취소에 실패했습니다.");
+    } finally {
+      setBusyClassId(null);
+    }
+  }
+
+  async function cancelPendingEnrollment(r: Row) {
+    if (!uid || busyClassId) return;
+    if (!window.confirm(`「${r.title}」유료 수강 신청을 취소할까요?`)) return;
+    setBusyClassId(r.id);
+    setActionErr(null);
+    setActionMsg(null);
+    try {
+      await deleteDoc(doc(db, "classrooms", r.id, "enrollment_requests", uid));
+      setActionMsg(`「${r.title}」수강 신청을 취소했습니다.`);
+    } catch (e) {
+      setActionErr(e instanceof Error ? e.message : "취소에 실패했습니다.");
+    } finally {
+      setBusyClassId(null);
+    }
+  }
+
   async function enrollFree(r: Row) {
     if (!uid || busyClassId) return;
     setBusyClassId(r.id);
@@ -263,19 +304,41 @@ export function ClassroomCatalogPage() {
 
     if (member) {
       return (
-        <Link to={`/classroom/${r.id}`} className="btn btn--primary btn--stack">
-          <span className="ui-ko">수강중</span>
-          <span className="ui-en">Enrolled</span>
-        </Link>
+        <div className="classroom-catalog__enroll-stack">
+          <Link to={`/classroom/${r.id}`} className="btn btn--primary btn--stack">
+            <span className="ui-ko">수강중</span>
+            <span className="ui-en">Enrolled</span>
+          </Link>
+          <button
+            type="button"
+            className="btn btn--ghost btn--stack"
+            disabled={!!busyClassId}
+            onClick={() => void cancelMembership(r)}
+          >
+            <span className="ui-ko">수강 취소</span>
+            <span className="ui-en">Leave</span>
+          </button>
+        </div>
       );
     }
 
     if (paid && en?.status === "pending") {
       return (
-        <button type="button" className="btn btn--ghost btn--stack" disabled>
-          <span className="ui-ko">수강 대기중</span>
-          <span className="ui-en">Pending approval</span>
-        </button>
+        <div className="classroom-catalog__enroll-stack">
+          <button type="button" className="btn btn--ghost btn--stack" disabled>
+            <span className="ui-ko">수강 대기중</span>
+            <span className="ui-en">Pending approval</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost btn--stack"
+            disabled={!!busyClassId}
+            onClick={() => void cancelPendingEnrollment(r)}
+          >
+            <span className="ui-ko">신청 취소</span>
+            <span className="ui-en">Cancel request</span>
+          </button>
+        </div>
       );
     }
 
@@ -332,7 +395,9 @@ export function ClassroomCatalogPage() {
           <span className="ui-ko">강의 신청 · 개설된 강의실 목록</span>
         </div>
         <p className="classroom-page__lede">
-          강의 소개는 상세 화면에서 확인할 수 있습니다. 멤버로 등록되면 자료·영상·질의응답을 이용할 수 있습니다.
+          강의 소개는 상세 화면에서 확인할 수 있습니다. 멤버로 등록되면 자료·영상·질의응답을 이용할 수 있습니다.{" "}
+          <strong>관리</strong> 버튼은 해당 강의실을 개설한 선생님 계정(강의실 소유자)으로 로그인한 경우에만
+          표시됩니다.
         </p>
 
         {isStudent ? enrollmentSection : null}
@@ -369,7 +434,7 @@ export function ClassroomCatalogPage() {
                     <span className="ui-ko">상세 보기</span>
                     <span className="ui-en">Details</span>
                   </Link>
-                  {isTeacherApproved && firebaseUser?.uid === r.teacherId && (
+                  {canManageMaterials && firebaseUser?.uid === r.teacherId && (
                     <Link to={`/classroom/${r.id}/manage`} className="btn btn--ghost btn--stack">
                       관리
                     </Link>
