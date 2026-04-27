@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  generateProfessionalKeySummary,
+  generateSubjectiveReviewQuestions,
+  type WorksheetAiContext,
+} from "@/lib/worksheet/worksheetAiGeneration";
 import "@/pages/pages.css";
 
 type FormState = {
@@ -9,6 +14,8 @@ type FormState = {
   studyDate: string;
   content: string;
   exercises: string;
+  /** 교사용 — PDF 학생용에는 포함하지 않음 */
+  exerciseAnswers: string;
   summary: string;
   teacherName: string;
 };
@@ -19,6 +26,7 @@ const emptyForm = (): FormState => ({
   studyDate: "",
   content: "",
   exercises: "",
+  exerciseAnswers: "",
   summary: "",
   teacherName: "",
 });
@@ -52,8 +60,14 @@ export function WorksheetPdfForm() {
   const navigate = useNavigate();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [busy, setBusy] = useState(false);
+  const [busyAiQuestions, setBusyAiQuestions] = useState(false);
+  const [busyAiSummary, setBusyAiSummary] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [aiExerciseTools, setAiExerciseTools] = useState(false);
+  const [aiSummaryTools, setAiSummaryTools] = useState(false);
+  const [aiQuestionCount, setAiQuestionCount] = useState(5);
+  const [teacherAnswersOpen, setTeacherAnswersOpen] = useState(false);
 
   const endpoint = useMemo(() => worksheetPdfEndpoint(), []);
 
@@ -63,6 +77,15 @@ export function WorksheetPdfForm() {
     if (!dn && !em) return;
     setForm((f) => (f.teacherName.trim() ? f : { ...f, teacherName: dn || em || "" }));
   }, [profile?.displayName, profile?.email]);
+
+  const aiContext = useCallback((): WorksheetAiContext => {
+    return {
+      unit: form.unit.trim(),
+      objectives: form.objectives.trim(),
+      studyDate: form.studyDate.trim(),
+      content: form.content.trim(),
+    };
+  }, [form.unit, form.objectives, form.studyDate, form.content]);
 
   const update = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -127,6 +150,45 @@ export function WorksheetPdfForm() {
     }
   }, [endpoint, firebaseUser, form, navigate]);
 
+  const runAiQuestions = useCallback(async () => {
+    setErr(null);
+    setMsg(null);
+    setBusyAiQuestions(true);
+    try {
+      const ctx = aiContext();
+      const { questionsText, answersText } = await generateSubjectiveReviewQuestions(ctx, aiQuestionCount);
+      setForm((f) => ({
+        ...f,
+        exercises: questionsText,
+        exerciseAnswers: answersText,
+      }));
+      setTeacherAnswersOpen(true);
+      setMsg(`확인문제 ${aiQuestionCount}문항과 교사용 정답을 생성했습니다. PDF에는 문항만 포함됩니다.`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "AI 생성에 실패했습니다.");
+    } finally {
+      setBusyAiQuestions(false);
+    }
+  }, [aiContext, aiQuestionCount]);
+
+  const runAiSummary = useCallback(async () => {
+    setErr(null);
+    setMsg(null);
+    setBusyAiSummary(true);
+    try {
+      const ctx = aiContext();
+      const text = await generateProfessionalKeySummary(ctx);
+      setForm((f) => ({ ...f, summary: text }));
+      setMsg("핵심요약을 생성했습니다. 필요 시 수정하세요.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "AI 생성에 실패했습니다.");
+    } finally {
+      setBusyAiSummary(false);
+    }
+  }, [aiContext]);
+
+  const aiBusy = busyAiQuestions || busyAiSummary;
+
   return (
     <section id="worksheet-pdf" className="worksheet-pdf" aria-labelledby="worksheet-pdf-title">
       <div className="worksheet-pdf__inner">
@@ -181,26 +243,104 @@ export function WorksheetPdfForm() {
               placeholder="본문에 들어갈 학습 내용입니다. (PDF 본문 11pt, 줄간격 1.6)"
             />
           </label>
-          <label className="worksheet-pdf__field">
+
+          <div className="worksheet-pdf__field worksheet-pdf__field--block">
             <span className="worksheet-pdf__label">확인문제</span>
+            <div className="worksheet-pdf__ai-tools">
+              <label className="worksheet-pdf__ai-toggle">
+                <input
+                  type="checkbox"
+                  checked={aiExerciseTools}
+                  onChange={(e) => setAiExerciseTools(e.target.checked)}
+                />
+                <span className="worksheet-pdf__ai-toggle-text">AI 자동생성</span>
+              </label>
+              {aiExerciseTools ? (
+                <div className="worksheet-pdf__ai-controls">
+                  <label className="worksheet-pdf__ai-count-label">
+                    문항 수
+                    <select
+                      className="worksheet-pdf__ai-count"
+                      value={aiQuestionCount}
+                      onChange={(e) => setAiQuestionCount(Number(e.target.value))}
+                      aria-label="확인문제 문항 수"
+                    >
+                      {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>
+                          {n}문항
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn--primary worksheet-pdf__ai-run"
+                    disabled={aiBusy || busy}
+                    onClick={() => void runAiQuestions()}
+                  >
+                    {busyAiQuestions ? "생성 중…" : "AI로 확인문제 생성"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <p className="worksheet-pdf__ai-note ui-ko">
+              AI 생성 시 <strong>주관식(단답형·서술형)</strong>만 출제합니다. 정답은 아래 교사용 영역에서만 확인할 수 있으며{" "}
+              <strong>학생용 PDF에는 포함되지 않습니다.</strong>
+            </p>
+            <textarea
+              className="worksheet-pdf__textarea"
+              rows={5}
+              value={form.exercises}
+              onChange={(e) => update("exercises", e.target.value)}
+              placeholder="문항을 직접 입력하거나 AI 생성 결과를 수정해 주세요."
+            />
+            <details className="worksheet-pdf__teacher-only" open={teacherAnswersOpen} onToggle={(e) => setTeacherAnswersOpen((e.target as HTMLDetailsElement).open)}>
+              <summary className="worksheet-pdf__teacher-summary">정답 확인 · 교사용 (PDF 미포함)</summary>
+              <textarea
+                className="worksheet-pdf__textarea worksheet-pdf__textarea--answers"
+                rows={5}
+                value={form.exerciseAnswers}
+                onChange={(e) => update("exerciseAnswers", e.target.value)}
+                placeholder="AI 생성 시 참고 정답이 채워집니다. 직접 편집할 수 있습니다."
+                aria-label="확인문제 참고 정답"
+              />
+            </details>
+          </div>
+
+          <div className="worksheet-pdf__field worksheet-pdf__field--block">
+            <span className="worksheet-pdf__label">핵심요약</span>
+            <div className="worksheet-pdf__ai-tools">
+              <label className="worksheet-pdf__ai-toggle">
+                <input
+                  type="checkbox"
+                  checked={aiSummaryTools}
+                  onChange={(e) => setAiSummaryTools(e.target.checked)}
+                />
+                <span className="worksheet-pdf__ai-toggle-text">AI 자동생성</span>
+              </label>
+              {aiSummaryTools ? (
+                <button
+                  type="button"
+                  className="btn btn--primary worksheet-pdf__ai-run worksheet-pdf__ai-run--solo"
+                  disabled={aiBusy || busy}
+                  onClick={() => void runAiSummary()}
+                >
+                  {busyAiSummary ? "생성 중…" : "AI로 핵심요약 작성"}
+                </button>
+              ) : null}
+            </div>
+            <p className="worksheet-pdf__ai-note ui-ko">
+              AI 요약은 <strong>■ 제목</strong> 아래 <strong>내용</strong> 형식으로 일목요연하게 정리합니다.
+            </p>
             <textarea
               className="worksheet-pdf__textarea"
               rows={4}
-              value={form.exercises}
-              onChange={(e) => update("exercises", e.target.value)}
-              placeholder="문항·선지 등을 적어 주세요."
-            />
-          </label>
-          <label className="worksheet-pdf__field">
-            <span className="worksheet-pdf__label">핵심요약</span>
-            <textarea
-              className="worksheet-pdf__textarea"
-              rows={3}
               value={form.summary}
               onChange={(e) => update("summary", e.target.value)}
-              placeholder="한 줄 요약·키워드 등"
+              placeholder="한 줄 요약·키워드 등을 적거나 AI 생성 결과를 수정해 주세요."
             />
-          </label>
+          </div>
+
           <label className="worksheet-pdf__field">
             <span className="worksheet-pdf__label">선생님 성함</span>
             <input
@@ -237,6 +377,11 @@ export function WorksheetPdfForm() {
         <p className="worksheet-pdf__hint ui-ko">
           파일명: [날짜]_[선생님성함]_[학습단원].pdf · 학원 로고는{" "}
           <code className="worksheet-pdf__code">functions/assets/logo.png</code> 로 넣으면 헤더에 표시됩니다.
+          <span className="worksheet-pdf__hint-sub">
+            {" "}
+            AI 기능은 영어 지문 분석과 동일하게 <code className="worksheet-pdf__code">VITE_OPENAI_API_KEY</code> 가
+            필요합니다.
+          </span>
         </p>
       </div>
     </section>

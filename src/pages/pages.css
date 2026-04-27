@@ -1924,6 +1924,126 @@ button.intro-login-card__btn {
   color: #334155;
 }
 
+.worksheet-pdf__field--block {
+  padding: 12px 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e8eef5;
+  background: linear-gradient(180deg, #fbfcfe 0%, #ffffff 45%);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.03);
+}
+
+.worksheet-pdf__ai-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 8px;
+}
+
+.worksheet-pdf__ai-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+  user-select: none;
+}
+
+.worksheet-pdf__ai-toggle input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #007aff;
+}
+
+.worksheet-pdf__ai-toggle-text {
+  letter-spacing: -0.02em;
+}
+
+.worksheet-pdf__ai-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.worksheet-pdf__ai-count-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.worksheet-pdf__ai-count {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.86rem;
+  font-weight: 600;
+  min-width: 6.5rem;
+}
+
+.worksheet-pdf__ai-run {
+  padding: 8px 14px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.worksheet-pdf__ai-run--solo {
+  margin-left: 0;
+}
+
+.worksheet-pdf__ai-note {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.worksheet-pdf__ai-note strong {
+  color: #334155;
+  font-weight: 700;
+}
+
+.worksheet-pdf__textarea--answers {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #0f172a;
+}
+
+.worksheet-pdf__teacher-only {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px dashed #cbd5e1;
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.worksheet-pdf__teacher-summary {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #92400e;
+  cursor: pointer;
+  letter-spacing: -0.02em;
+}
+
+.worksheet-pdf__teacher-only[open] .worksheet-pdf__teacher-summary {
+  margin-bottom: 8px;
+}
+
+.worksheet-pdf__hint-sub {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
 .intro-shortcuts--panel {
   margin: 0;
   padding: 16px;
