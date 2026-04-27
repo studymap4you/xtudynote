@@ -5,13 +5,12 @@ import { db, storage } from "@/firebase/config";
 import { SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC } from "@/lib/siteConfig";
 import type { SiteConfigHomeDocument } from "@/lib/siteConfig";
 
-/** Bright / tech / networking 톤 — Unsplash (고해상도, 공개 라이선스) */
-export const LANDING_DEFAULT_BG_IMAGE =
-  "https://images.unsplash.com/photo-1510218830377-1e9c21703b1d?auto=format&fit=crop&q=80&w=2000";
+/** `public/images/bg-universe.jpg` — 홈 기본 배경 */
+export const LANDING_DEFAULT_BG_IMAGE = "/images/bg-universe.jpg";
 
 /**
  * 홈(`LandingPage` 등) 전역 배경 — `site_config/home` 경로가 있으면 해당 미디어를 쓰고,
- * 없으면 기본 Unsplash 이미지를 사용합니다. fixed 레이어 + 본문은 z-index로 위에 둡니다.
+ * 없으면 로컬 기본 이미지를 사용합니다. fixed 레이어 + 본문은 z-index로 위에 둡니다.
  */
 export function LandingPageBackground() {
   const [storagePath, setStoragePath] = useState<string | null>(null);
@@ -60,14 +59,13 @@ export function LandingPageBackground() {
   }, [storagePath]);
 
   const useVideo = media === "video" && !!adminUrl;
-  const imageSrc = adminUrl ?? LANDING_DEFAULT_BG_IMAGE;
 
   return (
     <div className={`landing-page-bg${useVideo ? " landing-page-bg--video" : ""}`} aria-hidden>
       <div className="landing-page-bg__scene">
         {useVideo ? (
           <video
-            className="landing-page-bg__media landing-page-bg__media--video"
+            className="landing-page-bg__video"
             src={adminUrl ?? undefined}
             autoPlay
             muted
@@ -76,7 +74,10 @@ export function LandingPageBackground() {
             preload="metadata"
           />
         ) : (
-          <img className="landing-page-bg__media" src={imageSrc} alt="" decoding="async" />
+          <div
+            className={`landing-page-bg__fill${adminUrl ? "" : " landing-page-bg__fill--default"}`}
+            style={adminUrl ? { backgroundImage: `url("${adminUrl}")` } : undefined}
+          />
         )}
       </div>
       <div className="landing-page-bg__veil" />
