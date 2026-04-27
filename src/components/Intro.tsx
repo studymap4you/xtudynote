@@ -8,6 +8,7 @@ import {
   BRAND_HERO_TITLE,
   BRAND_SHARE_TITLE,
 } from "@/lib/brand";
+import { WorksheetPdfLandingSection } from "@/components/landing/WorksheetPdfLandingSection";
 
 const SHORTCUTS = [
   { to: "/library", label: "라이브러리", tone: "a" as const },
@@ -566,6 +567,8 @@ function IntroLandingPanel() {
           )}
         </div>
       </div>
+
+      <WorksheetPdfLandingSection />
 
       <nav className="intro-shortcuts intro-shortcuts--panel" aria-label="주요 메뉴 바로가기">
         <ul className="intro-shortcuts__list">

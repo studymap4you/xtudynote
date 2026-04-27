@@ -2,10 +2,15 @@ import { randomBytes } from "node:crypto";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, Timestamp, getFirestore, type DocumentData } from "firebase-admin/firestore";
-import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { HttpsError, onCall, onRequest, type Request } from "firebase-functions/v2/https";
 import { defineString } from "firebase-functions/params";
 import nodemailer from "nodemailer";
 import { buildWorksheetOutreachEmailHtml } from "./emailTemplates.js";
+import {
+  buildWorksheetPdfBytes,
+  buildWorksheetPdfFilename,
+  type WorksheetPdfInput,
+} from "./worksheetPdfGenerator.js";
 
 initializeApp();
 const db = getFirestore();
@@ -132,6 +137,81 @@ type WorksheetItemIn = { id: string; kind: string; prompt: string; answerKey?: s
 function stripAnswerKeys(items: WorksheetItemIn[]): { id: string; kind: string; prompt: string }[] {
   return items.map(({ id, kind, prompt }) => ({ id, kind, prompt }));
 }
+
+function parseWorksheetPdfBody(raw: Record<string, unknown>): WorksheetPdfInput {
+  const unit = String(raw.unit ?? raw.learningUnit ?? "").trim();
+  const objectives = String(raw.objectives ?? raw.learningGoals ?? "").trim();
+  const studyDate = String(raw.studyDate ?? raw.learningDate ?? "").trim();
+  const content = String(raw.content ?? raw.learningContent ?? "").trim();
+  const exercises = String(raw.exercises ?? raw.reviewQuestions ?? "").trim();
+  const summary = String(raw.summary ?? raw.keySummary ?? "").trim();
+  const teacherName = String(raw.teacherName ?? "").trim();
+  return { unit, objectives, studyDate, content, exercises, summary, teacherName };
+}
+
+function readRequestJson(req: Request): Record<string, unknown> {
+  const b = (req as { body?: unknown }).body;
+  if (b && typeof b === "object" && !Buffer.isBuffer(b)) {
+    return b as Record<string, unknown>;
+  }
+  if (Buffer.isBuffer(b)) {
+    try {
+      return JSON.parse(b.toString("utf8")) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  if (typeof b === "string" && b.trim().length > 0) {
+    try {
+      return JSON.parse(b) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+/** 랜딩 학습지 PDF — 공개 POST, 바이너리 PDF 반환 */
+export const generateWorksheetPdf = onRequest(
+  {
+    region: REGION,
+    cors: true,
+    invoker: "public",
+    memory: "512MiB",
+    timeoutSeconds: 60,
+  },
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).set("Allow", "POST").send("Method Not Allowed");
+      return;
+    }
+    try {
+      const raw = readRequestJson(req);
+      const payload = parseWorksheetPdfBody(raw);
+      if (!payload.unit || !payload.teacherName) {
+        res.status(400).send("학습단원과 선생님 성함은 필수입니다.");
+        return;
+      }
+      const bytes = await buildWorksheetPdfBytes(payload);
+      const name = buildWorksheetPdfFilename(payload);
+      const asciiName = name.replace(/[^\x20-\x7E.]/g, "_");
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+      );
+      res.status(200).send(Buffer.from(bytes));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[generateWorksheetPdf]", e);
+      res.status(500).send(`PDF 생성 오류: ${msg.slice(0, 400)}`);
+    }
+  },
+);
 
 export const lookupStudentByEmail = onCall(
   { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },

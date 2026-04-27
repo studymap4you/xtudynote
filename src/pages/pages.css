@@ -1444,6 +1444,125 @@ button.intro-login-card__btn {
   text-decoration: underline;
 }
 
+/* ——— 랜딩 · 학습지 PDF 생성 ——— */
+.worksheet-pdf {
+  margin-top: 16px;
+}
+.worksheet-pdf__inner {
+  padding: 16px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+  max-width: 100%;
+}
+.worksheet-pdf__title {
+  margin: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  letter-spacing: -0.02em;
+}
+.worksheet-pdf__title-en {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #007aff;
+}
+.worksheet-pdf__title-ko {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.worksheet-pdf__lede {
+  margin: 0 0 16px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #475569;
+  letter-spacing: -0.02em;
+}
+.worksheet-pdf__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.worksheet-pdf__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  text-align: left;
+}
+.worksheet-pdf__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: -0.02em;
+}
+.worksheet-pdf__control,
+.worksheet-pdf__textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  letter-spacing: -0.02em;
+  font-family: "Pretendard", "Inter", system-ui, sans-serif;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.worksheet-pdf__control:focus,
+.worksheet-pdf__textarea:focus {
+  outline: none;
+  border-color: rgba(0, 122, 255, 0.45);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+  background: #fff;
+}
+.worksheet-pdf__textarea {
+  resize: vertical;
+  min-height: 2.5rem;
+}
+.worksheet-pdf__textarea--tall {
+  min-height: 8rem;
+}
+.worksheet-pdf__actions {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.worksheet-pdf__submit {
+  width: 100%;
+  justify-content: center;
+}
+.worksheet-pdf__err {
+  margin: 8px 0 0;
+  font-size: 0.86rem;
+  color: #b91c1c;
+}
+.worksheet-pdf__ok {
+  margin: 8px 0 0;
+  font-size: 0.86rem;
+  color: #047857;
+}
+.worksheet-pdf__hint {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+.worksheet-pdf__code {
+  font-size: 0.72em;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #334155;
+}
+
 .intro-shortcuts--panel {
   margin: 0;
   padding: 16px;
