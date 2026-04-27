@@ -3026,6 +3026,274 @@ button.top-nav__auth-link--logout:hover {
   }
 }
 
+/* —— Learner workspace (학습자 · 밝은 셸) —— */
+.app-shell--light .dashboard.dashboard--learner {
+  max-width: min(56rem, 100%);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+  width: 100%;
+  color: var(--light-text, #111827);
+}
+
+.learner-hero {
+  position: relative;
+  margin-bottom: 1.85rem;
+  padding: 1.5rem 1.35rem 1.45rem;
+  border-radius: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 38%, #eff6ff 72%, #faf5ff 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 14px 44px -24px rgba(15, 23, 42, 0.18),
+    0 4px 14px -8px rgba(59, 130, 246, 0.12);
+  overflow: hidden;
+}
+
+.learner-hero__bg {
+  position: absolute;
+  inset: -45% -25% auto auto;
+  width: min(440px, 72vw);
+  height: min(440px, 72vw);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 28% 32%, rgba(45, 212, 191, 0.22), transparent 54%),
+    radial-gradient(circle at 72% 58%, rgba(99, 102, 241, 0.13), transparent 52%);
+  pointer-events: none;
+}
+
+.learner-hero__row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.learner-hero__icon-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.35rem;
+  height: 3.35rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 8px 20px -12px rgba(15, 23, 42, 0.25);
+}
+
+.learner-hero__glyph {
+  display: block;
+}
+
+.learner-hero__intro {
+  flex: 1;
+  min-width: min(100%, 18rem);
+}
+
+.learner-hero__eyebrow {
+  margin: 0 0 0.38rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #0d9488;
+}
+
+.learner-hero__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.app-shell--light .dashboard--learner .learner-hero__title {
+  margin: 0;
+  font-size: clamp(1.55rem, 3vw, 1.95rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: #0f172a;
+}
+
+.learner-hero__title-ko {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.learner-hero__lead-block {
+  position: relative;
+  margin-top: 1.15rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.app-shell--light .dashboard--learner .learner-hero__subtitle {
+  margin: 0;
+  gap: 0.45rem;
+}
+
+.app-shell--light .dashboard--learner .learner-hero__subtitle > .ui-en {
+  font-size: 0.93rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.app-shell--light .dashboard--learner .learner-hero__subtitle > .ui-ko {
+  font-size: 0.84rem;
+  color: #64748b;
+}
+
+.learner-hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.learner-hero__chip {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #0369a1;
+  background: rgba(224, 242, 254, 0.88);
+  border: 1px solid rgba(125, 211, 252, 0.55);
+}
+
+.dashboard-grid--learner {
+  gap: 1.35rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 288px), 1fr));
+}
+
+.app-shell--light .dashboard--learner section.panel {
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  padding: 1.35rem 1.4rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 36px -28px rgba(15, 23, 42, 0.18);
+}
+
+.app-shell--light .dashboard--learner section.panel.learner-panel--accent {
+  border-color: rgba(45, 212, 191, 0.35);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 12px 42px -26px rgba(13, 148, 136, 0.24);
+}
+
+.app-shell--light .dashboard--learner section.panel.learner-panel--library {
+  border-color: rgba(59, 130, 246, 0.28);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.92) inset,
+    0 12px 38px -26px rgba(37, 99, 235, 0.18);
+}
+
+.app-shell--light .dashboard--learner .panel__title {
+  color: #0f172a;
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.dashboard--learner .panel__tagline {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.app-shell--light .dashboard--learner .panel__badge--ok {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.learner-panel__actions {
+  margin-top: 0.35rem;
+}
+
+.learner-stat-row {
+  margin-top: 0.35rem;
+}
+
+.dashboard--learner .stat-pill--learner {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.dashboard--learner .stat-pill--learner strong {
+  color: #0f172a;
+}
+
+.app-shell--light .dashboard--learner .materials-placeholder {
+  border-style: dashed;
+  border-color: rgba(59, 130, 246, 0.28);
+  background: rgba(239, 246, 255, 0.55);
+  color: #64748b;
+}
+
+.app-shell--light .dashboard--learner .student-vault__item {
+  background: #ffffff;
+  border-color: #e5e7eb;
+}
+
+.app-shell--light .dashboard--learner .student-vault__meta {
+  color: #64748b;
+}
+
+.app-shell--light .dashboard--learner .admin-table-wrap {
+  background: var(--light-surface);
+  border: 1px solid var(--light-border);
+  border-radius: var(--radius-md);
+}
+
+.app-shell--light .dashboard--learner .admin-table th,
+.app-shell--light .dashboard--learner .admin-table td {
+  border-bottom-color: var(--light-border);
+  color: var(--light-text);
+}
+
+.app-shell--light .dashboard--learner .admin-table thead th {
+  background: #f9fafb;
+}
+
+.app-shell--light .dashboard--learner .admin-table th {
+  color: var(--light-text-muted);
+}
+
+.app-shell--light .dashboard--learner .admin-table th.th-bilingual .ui-en {
+  color: var(--light-text-muted);
+}
+
+.app-shell--light .dashboard--learner .admin-table .th-bi-en {
+  color: var(--light-text-muted);
+}
+
+.app-shell--light .dashboard--learner .admin-table .th-bi-ko {
+  color: var(--light-text);
+}
+
+.app-shell--light .dashboard--learner .student-settlement-form .reg-form__label-en {
+  color: var(--light-text);
+}
+
+.app-shell--light .dashboard--learner .student-settlement-form .reg-form__label-ko {
+  color: var(--light-text-muted);
+}
+
+.app-shell--light .dashboard--learner .student-settlement-form .add-passage__control {
+  border-color: var(--light-border);
+  background: #ffffff;
+  color: var(--light-text);
+}
+
 /* —— Educator workspace (승인 교사 · 밝은 셸) —— */
 .app-shell--light .dashboard.dashboard--educator {
   max-width: 56rem;
