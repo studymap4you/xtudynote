@@ -325,8 +325,10 @@ service cloud.firestore {
         && isClickCountIncrementOnly()
       );
 
+      /** 삭제: 마스터는 전체 — 그 외 활성 계정은 본인 authorId 문서만 */
       allow delete: if isActiveSuperAdmin() || (
-        isActiveTeacher() && resource.data.authorId == request.auth.uid
+        isSignedInActiveAccount()
+        && resource.data.authorId == request.auth.uid
       );
     }
 
@@ -433,7 +435,7 @@ service cloud.firestore {
       );
 
       allow delete: if isActiveSuperAdmin() || (
-        isActiveTeacher()
+        isSignedInActiveAccount()
         && resource.data.authorId == request.auth.uid
       );
     }

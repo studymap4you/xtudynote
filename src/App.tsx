@@ -20,7 +20,7 @@ import { TeacherStatsPage } from "@/pages/teacher/TeacherStatsPage";
 import { MaterialRegisterPage } from "@/pages/MaterialRegisterPage";
 import { VideoLectureRegisterPage } from "@/pages/VideoLectureRegisterPage";
 import { VideoCatalogPage } from "@/pages/VideoCatalogPage";
-import { ProtectedRoute, SuperAdminRoute } from "@/components/ProtectedRoute";
+import { ContentDbManageRoute, ProtectedRoute, SuperAdminRoute } from "@/components/ProtectedRoute";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { ClassroomListPage } from "@/pages/classroom/ClassroomListPage";
 import { ClassroomCatalogPage } from "@/pages/classroom/ClassroomCatalogPage";
@@ -103,9 +103,9 @@ export default function App() {
       <Route
         path="/admin/contents"
         element={
-          <SuperAdminRoute>
+          <ContentDbManageRoute>
             <ContentsListPage />
-          </SuperAdminRoute>
+          </ContentDbManageRoute>
         }
       />
       <Route

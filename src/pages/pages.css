@@ -4904,6 +4904,39 @@ button.top-nav__auth-link--logout:hover {
   font-size: 0.92rem;
 }
 
+.contents-list__bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.contents-list__bulk-delete {
+  font-weight: 800;
+}
+
+.contents-list__bulk-hint {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: -0.02em;
+}
+
+.contents-list__th-check,
+.contents-list__td-check {
+  width: 2.75rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.contents-list__checkbox {
+  width: 1.08rem;
+  height: 1.08rem;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
 /* 콘텐츠 DB 관리 — 밝은 셸 · 히어로 · 테이블 */
 .contents-list--bright .contents-list__hero {
   position: relative;
