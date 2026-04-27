@@ -1,82 +1,151 @@
-/* 과제 출제 — Bright & Clean (대시보드 내 밝은 톤) */
+/* 과제 출제 — 은은한 라이트 배경 + 카드 레이아웃 (fieldset/legend 미사용으로 상단 클립 방지) */
 
-.wrap {
-  max-width: 44rem;
+.page {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: 46rem;
   margin: 0 auto;
-  padding: 0 0 2.5rem;
+  padding: 1.75rem 1.25rem 3rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .page {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
 }
 
 .hero {
-  margin-bottom: 1.5rem;
-  padding: 1.25rem 1.35rem;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 55%, #f0fdf4 100%);
-  border: 1px solid rgba(14, 165, 233, 0.18);
-  box-shadow: 0 4px 20px -8px rgba(15, 23, 42, 0.12);
+  position: relative;
+  overflow: visible;
+  margin-bottom: 1.65rem;
+  padding: 1.35rem 1.35rem 1.4rem 1.55rem;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse 120% 80% at 100% 0%, rgba(56, 189, 248, 0.12), transparent 50%),
+    radial-gradient(ellipse 90% 70% at 0% 100%, rgba(52, 211, 153, 0.11), transparent 52%),
+    linear-gradient(165deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow:
+    0 4px 6px -1px rgb(15 23 42 / 0.05),
+    0 12px 36px -16px rgb(14 116 144 / 0.18),
+    inset 0 1px 0 rgb(255 255 255 / 0.85);
+}
+
+.heroAccent {
+  position: absolute;
+  left: 0;
+  top: 1rem;
+  bottom: 1rem;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 45%, #059669 100%);
+  opacity: 0.95;
 }
 
 .heroTitle {
   margin: 0 0 0.35rem;
-  font-size: clamp(1.35rem, 2.5vw, 1.65rem);
+  padding-left: 0.35rem;
+  font-size: clamp(1.38rem, 2.6vw, 1.72rem);
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   color: #0f172a;
+  line-height: 1.25;
 }
 
 .heroTitleAccent {
-  color: #0284c7;
+  background: linear-gradient(115deg, #0369a1 0%, #0284c7 50%, #0d9488 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .heroMeta {
   margin: 0;
-  font-size: 0.82rem;
+  padding-left: 0.35rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: #475569;
+  color: #64748b;
 }
 
 .lede {
-  margin: 0.65rem 0 0;
+  margin: 0.75rem 0 0;
+  padding-left: 0.35rem;
   font-size: 0.9rem;
-  line-height: 1.55;
+  line-height: 1.58;
   letter-spacing: -0.02em;
   color: #64748b;
 }
 
 .panel {
-  margin: 0 0 1.25rem;
-  padding: 1.15rem 1.25rem;
-  border-radius: 12px;
+  position: relative;
+  overflow: visible;
+  margin: 0 0 1.35rem;
+  padding: 1.35rem 1.35rem 1.4rem;
+  border-radius: 14px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 8px 28px -12px rgb(15 23 42 / 0.1);
   min-width: 0;
 }
 
-.panel legend.panelLegend {
-  padding: 0;
-  margin-bottom: 0.85rem;
-  float: none;
+.panelHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin-bottom: 1.15rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(241, 245, 249, 0.95);
 }
 
-.panelLegend {
-  margin: 0;
-  font-size: 0.98rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+.panelHeaderMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.panelTitle {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.3;
   color: #0f172a;
 }
 
-.panelHint {
-  margin: 0 0 0.85rem;
-  font-size: 0.78rem;
+.panelTitleMuted {
   font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 0.88rem;
   color: #64748b;
 }
 
-.panel > legend + .panelHint {
-  margin-top: -0.25rem;
+.panelHint {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.panelBadge {
+  flex-shrink: 0;
+  display: inline-block;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0369a1;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.22);
 }
 
 .fieldGrid {
@@ -90,7 +159,7 @@
 
 @media (min-width: 640px) {
   .fieldGridTwo {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
     align-items: start;
   }
 }
@@ -98,8 +167,8 @@
 .label {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.88rem;
+  gap: 0.38rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: -0.02em;
   color: #334155;
@@ -116,13 +185,13 @@
 .textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.55rem 0.65rem;
+  padding: 0.58rem 0.68rem;
   min-height: 2.75rem;
-  border-radius: 10px;
+  border-radius: 11px;
   border: 1px solid #cbd5e1;
-  background: #f8fafc;
+  background: linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%);
   font-size: 0.92rem;
-  line-height: 1.35;
+  line-height: 1.38;
   color: #0f172a;
   transition:
     border-color 0.15s ease,
@@ -134,9 +203,9 @@
 .select:focus,
 .textarea:focus {
   outline: none;
-  border-color: #0ea5e9;
+  border-color: #38bdf8;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
 }
 
 .textarea {
@@ -157,13 +226,13 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.65rem 0.75rem;
-  margin-bottom: 1rem;
-  border-radius: 10px;
-  background: rgba(14, 165, 233, 0.08);
-  border: 1px solid rgba(14, 165, 233, 0.2);
-  font-size: 0.85rem;
-  line-height: 1.45;
+  padding: 0.72rem 0.82rem;
+  margin-top: 0.25rem;
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(224, 242, 254, 0.65) 0%, rgba(240, 249, 255, 0.9) 100%);
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  font-size: 0.84rem;
+  line-height: 1.48;
   color: #0c4a6e;
 }
 
@@ -174,8 +243,9 @@
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 0.25rem;
+  gap: 0.7rem;
+  margin-top: 0.35rem;
+  padding-top: 0.25rem;
 }
 
 .btnPrimary {
@@ -183,17 +253,19 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  min-height: 2.75rem;
-  padding: 0.5rem 1.15rem;
-  border-radius: 10px;
-  border: 1px solid rgba(22, 163, 74, 0.35);
-  background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+  min-height: 2.8rem;
+  padding: 0.52rem 1.25rem;
+  border-radius: 11px;
+  border: 1px solid rgba(22, 163, 74, 0.38);
+  background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 48%, #a7f3d0 100%);
   color: #065f46;
-  font-size: 0.92rem;
+  font-size: 0.93rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   cursor: pointer;
-  box-shadow: 0 2px 8px -2px rgba(22, 163, 74, 0.35);
+  box-shadow:
+    0 2px 8px -2px rgba(22, 163, 74, 0.35),
+    inset 0 1px 0 rgb(255 255 255 / 0.65);
   transition:
     transform 0.12s ease,
     box-shadow 0.15s ease;
@@ -201,7 +273,7 @@
 
 .btnPrimary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px -4px rgba(22, 163, 74, 0.45);
+  box-shadow: 0 6px 18px -6px rgba(22, 163, 74, 0.42);
 }
 
 .btnPrimary:disabled {
@@ -213,9 +285,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.75rem;
-  padding: 0.5rem 1rem;
-  border-radius: 10px;
+  min-height: 2.8rem;
+  padding: 0.52rem 1.05rem;
+  border-radius: 11px;
   border: 1px solid #cbd5e1;
   background: #ffffff;
   color: #475569;
@@ -223,6 +295,7 @@
   font-weight: 600;
   text-decoration: none;
   letter-spacing: -0.02em;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
 }
 
 .btnGhost:hover {
@@ -231,13 +304,13 @@
 }
 
 .emptyClassrooms {
-  padding: 1rem 1.1rem;
-  border-radius: 12px;
-  background: #fffbeb;
+  padding: 1.05rem 1.15rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
   border: 1px solid #fde68a;
   color: #92400e;
   font-size: 0.9rem;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .emptyClassrooms a {

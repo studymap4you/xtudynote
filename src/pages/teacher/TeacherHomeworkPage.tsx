@@ -197,9 +197,10 @@ function Inner() {
   const noClassrooms = !classroomsLoading && classrooms.length === 0;
 
   return (
-    <DashboardShell>
-      <main className={`admin-layout admin-layout--light ${styles.wrap}`}>
+    <DashboardShell light adminChrome>
+      <main className={`admin-layout admin-layout--light ${styles.page}`}>
         <header className={styles.hero}>
+          <div className={styles.heroAccent} aria-hidden />
           <h1 className={styles.heroTitle}>
             <span className={styles.heroTitleAccent}>과제 출제</span>
           </h1>
@@ -229,9 +230,16 @@ function Inner() {
 
         {!noClassrooms ? (
           <form onSubmit={(e) => void handleSubmit(e)} className={styles.fieldGrid}>
-            <fieldset className={`${styles.panel}`}>
-              <legend className={styles.panelLegend}>표준 분류</legend>
-              <p className={styles.panelHint}>강의실 → 과제 제목 순으로 입력</p>
+            <section className={styles.panel} aria-labelledby="hw-section-classify">
+              <div className={styles.panelHeader}>
+                <div className={styles.panelHeaderMain}>
+                  <h2 id="hw-section-classify" className={styles.panelTitle}>
+                    표준 분류
+                  </h2>
+                  <p className={styles.panelHint}>강의실 → 과제 제목 순으로 입력</p>
+                </div>
+                <span className={styles.panelBadge}>Step 1</span>
+              </div>
 
               <div className={`${styles.fieldGrid} ${styles.fieldGridTwo}`}>
                 <label className={styles.label}>
@@ -279,10 +287,18 @@ function Inner() {
                 <strong>안내:</strong> 과목·대상·단원·식별번호는 더 이상 사용하지 않습니다. 검색은 강의실 이름과 과제
                 제목으로 충분합니다.
               </div>
-            </fieldset>
+            </section>
 
-            <fieldset className={styles.panel}>
-              <legend className={styles.panelLegend}>과제 가이드 (최우선 표시)</legend>
+            <section className={styles.panel} aria-labelledby="hw-section-guide">
+              <div className={styles.panelHeader}>
+                <div className={styles.panelHeaderMain}>
+                  <h2 id="hw-section-guide" className={styles.panelTitle}>
+                    과제 가이드 <span className={styles.panelTitleMuted}>(최우선 표시)</span>
+                  </h2>
+                  <p className={styles.panelHint}>학생 화면에서 가장 먼저 노출되는 안내입니다.</p>
+                </div>
+                <span className={styles.panelBadge}>Step 2</span>
+              </div>
               <label className={styles.label}>
                 과제 수행 가이드 및 주의사항 (Instruction)
                 <textarea
@@ -293,10 +309,18 @@ function Inner() {
                   placeholder="학생이 과제 번호로 들어왔을 때 가장 먼저 보게 됩니다."
                 />
               </label>
-            </fieldset>
+            </section>
 
-            <fieldset className={styles.panel}>
-              <legend className={styles.panelLegend}>자료 소개·링크·파일</legend>
+            <section className={styles.panel} aria-labelledby="hw-section-materials">
+              <div className={styles.panelHeader}>
+                <div className={styles.panelHeaderMain}>
+                  <h2 id="hw-section-materials" className={styles.panelTitle}>
+                    자료 소개·링크·파일
+                  </h2>
+                  <p className={styles.panelHint}>소개 문구와 첨부로 과제 맥락을 보완합니다.</p>
+                </div>
+                <span className={styles.panelBadge}>Step 3</span>
+              </div>
               <label className={styles.label}>
                 자료 소개 (Introduction)
                 <textarea
@@ -343,7 +367,7 @@ function Inner() {
                   />
                 </label>
               </div>
-            </fieldset>
+            </section>
 
             <div className={styles.actions}>
               <button type="submit" className={styles.btnPrimary} disabled={saving || classroomsLoading}>
