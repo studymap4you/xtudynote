@@ -5,20 +5,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { gradeShortAnswer } from "@/lib/exam/gradeShortAnswer";
 import { analyzeEnglishPassage } from "@/lib/englishPassageLab/analyzeEnglishPassage";
+import { gradeKoreanTranslation } from "@/lib/englishPassageLab/gradeKoreanTranslation";
 import { downloadEnglishPassagePdf } from "@/lib/englishPassage/englishPassagePdfClient";
+import { openEnglishWorksheetPrint } from "@/lib/englishPassage/openEnglishWorksheetPrint";
 import type { EnglishPassageAnalysis, EnglishVocabPair } from "@/types/englishPassageLab";
 import { EnglishVocabReviewModal } from "@/pages/english-passage/EnglishVocabReviewModal";
 import styles from "@/pages/english-passage/englishPassageLab.module.css";
-
-function gradeBlankLine(user: string, answers: string[]): boolean {
-  const parts = user
-    .split(/[,，、/|]/g)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (answers.length === 0) return user.trim().length === 0;
-  if (parts.length !== answers.length) return false;
-  return answers.every((a, i) => gradeShortAnswer(parts[i] ?? "", a));
-}
 
 export function EnglishPassageLabPage() {
   const { firebaseUser, profile } = useAuth();
@@ -39,17 +31,18 @@ export function EnglishPassageLabPage() {
   const [vocabModalOpen, setVocabModalOpen] = useState(false);
   const [pendingModalVocab, setPendingModalVocab] = useState<EnglishVocabPair[]>([]);
 
-  const [wordMode, setWordMode] = useState<"en2ko" | "ko2en">("en2ko");
-  const [wordAnswers, setWordAnswers] = useState<Record<string, string>>({});
-  const [blankAnswers, setBlankAnswers] = useState<Record<string, string>>({});
+  const [wordAnswersEnKo, setWordAnswersEnKo] = useState<Record<string, string>>({});
+  const [wordAnswersKoEn, setWordAnswersKoEn] = useState<Record<string, string>>({});
+  const [translationAnswers, setTranslationAnswers] = useState<Record<string, string>>({});
   const [compAnswers, setCompAnswers] = useState<Record<string, string>>({});
 
   const [wordChecked, setWordChecked] = useState(false);
-  const [blankChecked, setBlankChecked] = useState(false);
+  const [translationChecked, setTranslationChecked] = useState(false);
   const [compChecked, setCompChecked] = useState(false);
 
   const [pdfLayout, setPdfLayout] = useState<"1col" | "2col">("1col");
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [previewReady, setPreviewReady] = useState(false);
 
   const vocabularyForUse = finalVocabulary ?? [];
 
@@ -63,12 +56,14 @@ export function EnglishPassageLabPage() {
       setVocabConfirmed(false);
       setPendingModalVocab(next.vocabulary);
       setVocabModalOpen(true);
-      setWordAnswers({});
-      setBlankAnswers({});
+      setWordAnswersEnKo({});
+      setWordAnswersKoEn({});
+      setTranslationAnswers({});
       setCompAnswers({});
       setWordChecked(false);
-      setBlankChecked(false);
+      setTranslationChecked(false);
       setCompChecked(false);
+      setPreviewReady(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "분석에 실패했습니다.";
       setError(msg);
@@ -83,8 +78,10 @@ export function EnglishPassageLabPage() {
       setFinalVocabulary(items);
       setVocabModalOpen(false);
       setVocabConfirmed(true);
+      setPreviewReady(false);
       showToast("ok", "리스트가 저장되었습니다.");
-      setWordAnswers({});
+      setWordAnswersEnKo({});
+      setWordAnswersKoEn({});
       setWordChecked(false);
     },
     [showToast],
@@ -99,35 +96,87 @@ export function EnglishPassageLabPage() {
     setVocabModalOpen(true);
   }, [analysis?.vocabulary, finalVocabulary]);
 
-  const wordResults = useMemo(() => {
+  const wordResultsEnKo = useMemo(() => {
     if (!wordChecked || !vocabularyForUse.length) return null;
-    return vocabularyForUse.map((v) => {
-      const u = (wordAnswers[v.id] ?? "").trim();
-      const ok =
-        wordMode === "en2ko"
-          ? gradeShortAnswer(u, v.meaning)
-          : gradeShortAnswer(u, v.word);
-      return { v, ok };
+    return vocabularyForUse.map((v, i) => {
+      const u = (wordAnswersEnKo[v.id] ?? "").trim();
+      const ok = gradeShortAnswer(u, v.meaning);
+      return { n: i + 1, v, ok };
     });
-  }, [wordChecked, vocabularyForUse, wordAnswers, wordMode]);
+  }, [wordChecked, vocabularyForUse, wordAnswersEnKo]);
 
-  const blankResults = useMemo(() => {
-    if (!blankChecked || !analysis?.sentences.length) return null;
-    return analysis.sentences.map((s) => ({
+  const wordResultsKoEn = useMemo(() => {
+    if (!wordChecked || !vocabularyForUse.length) return null;
+    return vocabularyForUse.map((v, i) => {
+      const u = (wordAnswersKoEn[v.id] ?? "").trim();
+      const ok = gradeShortAnswer(u, v.word);
+      return { n: i + 1, v, ok };
+    });
+  }, [wordChecked, vocabularyForUse, wordAnswersKoEn]);
+
+  const translationResults = useMemo(() => {
+    if (!translationChecked || !analysis?.sentences.length) return null;
+    return analysis.sentences.map((s, i) => ({
+      n: i + 1,
       s,
-      ok: gradeBlankLine(blankAnswers[s.id] ?? "", s.blankAnswersKo),
+      ok: gradeKoreanTranslation(translationAnswers[s.id] ?? "", s.koreanFull),
     }));
-  }, [analysis?.sentences, blankAnswers, blankChecked]);
+  }, [analysis?.sentences, translationAnswers, translationChecked]);
 
   const compResults = useMemo(() => {
     if (!compChecked || !analysis?.sentences.length) return null;
-    return analysis.sentences.map((s) => ({
+    return analysis.sentences.map((s, i) => ({
+      n: i + 1,
       s,
-      ok: gradeShortAnswer(compAnswers[s.id] ?? "", s.compositionEnglish),
+      ok: gradeShortAnswer(compAnswers[s.id] ?? "", s.english),
     }));
   }, [analysis?.sentences, compAnswers, compChecked]);
 
+  const buildPreview = useCallback(() => {
+    if (!vocabConfirmed || !analysis) {
+      showToast("warn", "단어 목록을 최종 확정한 뒤 이용할 수 있습니다.");
+      return;
+    }
+    setPreviewReady(true);
+    showToast("ok", "문제지 미리보기가 아래에 표시됩니다. 이어서 PDF 받기 또는 인쇄를 선택하세요.");
+  }, [analysis, showToast, vocabConfirmed]);
+
+  const handlePrint = useCallback(() => {
+    if (!vocabConfirmed || !analysis) return;
+    try {
+      openEnglishWorksheetPrint({
+        title: title.trim() || "영어 지문 학습",
+        teacherName,
+        examDate: examDate.trim(),
+        passage: passageText.trim(),
+        layoutNote: pdfLayout === "2col" ? "2단 작성란" : "1단 작성란",
+        vocabulary: vocabularyForUse.map((v) => ({ word: v.word, meaning: v.meaning })),
+        sentences: analysis.sentences.map((s) => ({
+          english: s.english,
+          koreanFull: s.koreanFull,
+        })),
+      });
+      showToast("ok", "인쇄 창을 열었습니다. 대화상자에서 PDF로 저장할 수 있습니다.");
+    } catch (e) {
+      showToast("err", e instanceof Error ? e.message : "인쇄를 열 수 없습니다.");
+    }
+  }, [
+    analysis,
+    examDate,
+    passageText,
+    pdfLayout,
+    showToast,
+    teacherName,
+    title,
+    vocabConfirmed,
+    vocabularyForUse,
+  ]);
+
   const downloadPdf = useCallback(async () => {
+    if (!previewReady) {
+      showToast("warn", "먼저 「문제지 미리보기 생성」을 눌러 주세요.");
+      return;
+    }
     if (!vocabConfirmed || !analysis) {
       showToast("warn", "단어 목록을 최종 확정한 뒤 이용할 수 있습니다.");
       return;
@@ -147,19 +196,18 @@ export function EnglishPassageLabPage() {
         vocabulary: vocabularyForUse.map((v) => ({ word: v.word, meaning: v.meaning })),
         sentences: analysis.sentences.map((s) => ({
           english: s.english,
-          koreanWithBlanks: s.koreanWithBlanks,
-          compositionKorean: s.compositionKorean,
-          compositionEnglish: s.compositionEnglish,
-          blankAnswersKo: s.blankAnswersKo,
+          koreanFull: s.koreanFull,
         })),
       });
-      showToast("ok", "PDF를 내려받았습니다.");
+      showToast("ok", "PDF 파일을 받았습니다. 브라우저에서 인쇄를 선택할 수 있습니다.");
     } catch (e) {
-      showToast("err", e instanceof Error ? e.message : "PDF 생성 실패");
+      const msg = e instanceof Error ? e.message : "PDF 생성 실패";
+      showToast("err", `${msg} — 「인쇄 / PDF 저장」으로 대체해 보세요.`);
     } finally {
       setPdfBusy(false);
     }
   }, [
+    previewReady,
     vocabConfirmed,
     analysis,
     vocabularyForUse,
@@ -176,8 +224,9 @@ export function EnglishPassageLabPage() {
       <div className={styles.wrap}>
         <h1 className={styles.heroTitle}>영어 지문 자동 변환 학습</h1>
         <p className={styles.heroLead}>
-          지문을 분석해 핵심 어휘와 문장별 직독직해·영작 연습을 구성합니다. 단어 목록을 검토한 뒤{" "}
-          <strong>최종 확정</strong>해야 연습과 PDF가 활성화됩니다.
+          단어 확정 후 문항 번호가 붙은 어휘·직독직해·영작을 풀고,{" "}
+          <strong>정답은 하단 정답 섹션</strong>에서 확인합니다. 출력은{" "}
+          <strong>미리보기 → PDF → 인쇄</strong> 순서입니다.
         </p>
 
         <section className={styles.sectionCard}>
@@ -248,7 +297,7 @@ export function EnglishPassageLabPage() {
 
         {!vocabConfirmed && (
           <p className={styles.lockHint}>
-            단어 목록을 확정하면 어휘 테스트·직독직해·영작 연습 및 PDF 다운로드가 열립니다.
+            단어 목록을 확정하면 연습·미리보기·PDF가 사용할 수 있습니다.
           </p>
         )}
 
@@ -265,59 +314,44 @@ export function EnglishPassageLabPage() {
         <section className={styles.sectionCard} aria-disabled={!vocabConfirmed}>
           <h2 className={styles.sectionTitle}>
             <span className={styles.sectionTitleDot} aria-hidden />
-            인터랙티브 · 어휘 테스트
+            인터랙티브 · 어휘 (영어 ↔ 한글 뜻)
           </h2>
           {!vocabConfirmed ? (
             <p className={styles.lockHint}>먼저 단어 목록을 확정해 주세요.</p>
           ) : (
             <>
-              <div className={styles.actions} style={{ marginBottom: "0.75rem" }}>
-                <button
-                  type="button"
-                  className={`${styles.btnSeg} ${wordMode === "en2ko" ? styles.btnSegActive : ""}`}
-                  onClick={() => {
-                    setWordMode("en2ko");
-                    setWordChecked(false);
-                  }}
-                >
-                  영어 → 한글
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.btnSeg} ${wordMode === "ko2en" ? styles.btnSegActive : ""}`}
-                  onClick={() => {
-                    setWordMode("ko2en");
-                    setWordChecked(false);
-                  }}
-                >
-                  한글 → 영어
-                </button>
-              </div>
-              <div>
-                {vocabularyForUse.map((v) => (
-                  <div key={v.id} className={styles.qBlock}>
-                    <p className={styles.qLabel}>
-                      {wordMode === "en2ko" ? (
-                        <>
-                          단어: <strong>{v.word}</strong>
-                        </>
-                      ) : (
-                        <>
-                          뜻: <strong>{v.meaning}</strong>
-                        </>
-                      )}
-                    </p>
-                    <input
-                      className={styles.input48}
-                      placeholder={wordMode === "en2ko" ? "한국어 뜻" : "영어 단어"}
-                      value={wordAnswers[v.id] ?? ""}
-                      onChange={(e) =>
-                        setWordAnswers((m) => ({ ...m, [v.id]: e.target.value }))
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
+              <h3 className={styles.subHeading}>A. 영어 단어 → 한글 뜻</h3>
+              {vocabularyForUse.map((v, idx) => (
+                <div key={`ek-${v.id}`} className={styles.qBlock}>
+                  <p className={styles.qLabel}>
+                    문항 {idx + 1}. <strong>{v.word}</strong>
+                  </p>
+                  <input
+                    className={styles.input48}
+                    placeholder="한국어 뜻을 입력하세요"
+                    value={wordAnswersEnKo[v.id] ?? ""}
+                    onChange={(e) =>
+                      setWordAnswersEnKo((m) => ({ ...m, [v.id]: e.target.value }))
+                    }
+                  />
+                </div>
+              ))}
+              <h3 className={styles.subHeading}>B. 한글 뜻 → 영어 단어</h3>
+              {vocabularyForUse.map((v, idx) => (
+                <div key={`ke-${v.id}`} className={styles.qBlock}>
+                  <p className={styles.qLabel}>
+                    문항 {idx + 1}. <strong>{v.meaning}</strong>
+                  </p>
+                  <input
+                    className={styles.input48}
+                    placeholder="영어 단어를 입력하세요"
+                    value={wordAnswersKoEn[v.id] ?? ""}
+                    onChange={(e) =>
+                      setWordAnswersKoEn((m) => ({ ...m, [v.id]: e.target.value }))
+                    }
+                  />
+                </div>
+              ))}
               <div className={styles.actions}>
                 <button
                   type="button"
@@ -325,19 +359,9 @@ export function EnglishPassageLabPage() {
                   disabled={!vocabularyForUse.length}
                   onClick={() => setWordChecked(true)}
                 >
-                  채점
+                  어휘 채점
                 </button>
               </div>
-              {wordResults && (
-                <ul style={{ margin: "0.75rem 0 0", paddingLeft: "1.1rem", color: "#475569" }}>
-                  {wordResults.map(({ v, ok }) => (
-                    <li key={v.id}>
-                      <strong>{v.word}</strong> — {ok ? "○" : "×"}{" "}
-                      {!ok && <> (정답: {wordMode === "en2ko" ? v.meaning : v.word})</>}
-                    </li>
-                  ))}
-                </ul>
-              )}
             </>
           )}
         </section>
@@ -345,26 +369,27 @@ export function EnglishPassageLabPage() {
         <section className={styles.sectionCard}>
           <h2 className={styles.sectionTitle}>
             <span className={styles.sectionTitleDot} aria-hidden />
-            인터랙티브 · 직독직해 (한국어 빈칸)
+            인터랙티브 · 직독직해 (영문 → 한국어 해석 전체)
           </h2>
           {!vocabConfirmed || !analysis ? (
             <p className={styles.lockHint}>단어 확정 후 이용할 수 있습니다.</p>
           ) : (
             <>
-              {analysis.sentences.map((s) => (
+              {analysis.sentences.map((s, idx) => (
                 <div key={s.id} className={styles.qBlock}>
-                  <p className={styles.qLabel}>{s.koreanWithBlanks}</p>
-                  <p className={styles.passageBox} style={{ fontSize: "0.85rem" }}>
-                    원문: {s.english}
+                  <p className={styles.qLabel}>문항 {idx + 1}.</p>
+                  <p className={styles.passageBox} style={{ fontSize: "0.9rem" }}>
+                    {s.english}
                   </p>
                   <label className={styles.label}>
-                    빈칸 정답을 순서대로 (쉼표로 구분)
-                    <input
-                      className={styles.input48}
-                      placeholder="예: 어구1, 어구2"
-                      value={blankAnswers[s.id] ?? ""}
+                    한국어 해석 (전체 문장)
+                    <textarea
+                      className={styles.textareaPassage}
+                      style={{ minHeight: "120px" }}
+                      placeholder="위 영문의 한국어 해석을 완전히 쓰세요."
+                      value={translationAnswers[s.id] ?? ""}
                       onChange={(e) =>
-                        setBlankAnswers((m) => ({ ...m, [s.id]: e.target.value }))
+                        setTranslationAnswers((m) => ({ ...m, [s.id]: e.target.value }))
                       }
                     />
                   </label>
@@ -374,20 +399,11 @@ export function EnglishPassageLabPage() {
                 <button
                   type="button"
                   className={styles.btnPrimary}
-                  onClick={() => setBlankChecked(true)}
+                  onClick={() => setTranslationChecked(true)}
                 >
-                  채점
+                  직독직해 채점
                 </button>
               </div>
-              {blankResults && (
-                <ul style={{ margin: "0.75rem 0 0", paddingLeft: "1.1rem", color: "#475569" }}>
-                  {blankResults.map(({ s, ok }, i) => (
-                    <li key={s.id}>
-                      문장 {i + 1}: {ok ? "○" : "×"} (정답: {s.blankAnswersKo.join(", ")})
-                    </li>
-                  ))}
-                </ul>
-              )}
             </>
           )}
         </section>
@@ -395,24 +411,30 @@ export function EnglishPassageLabPage() {
         <section className={styles.sectionCard}>
           <h2 className={styles.sectionTitle}>
             <span className={styles.sectionTitleDot} aria-hidden />
-            인터랙티브 · 영작
+            인터랙티브 · 영작 (한국어 해석 → 영문 전체)
           </h2>
           {!vocabConfirmed || !analysis ? (
             <p className={styles.lockHint}>단어 확정 후 이용할 수 있습니다.</p>
           ) : (
             <>
-              {analysis.sentences.map((s) => (
-                <div key={s.id} className={styles.qBlock}>
-                  <p className={styles.qLabel}>{s.compositionKorean}</p>
-                  <textarea
-                    className={styles.textareaPassage}
-                    style={{ minHeight: "96px" }}
-                    placeholder="영어로 작성하세요."
-                    value={compAnswers[s.id] ?? ""}
-                    onChange={(e) =>
-                      setCompAnswers((m) => ({ ...m, [s.id]: e.target.value }))
-                    }
-                  />
+              {analysis.sentences.map((s, idx) => (
+                <div key={`w-${s.id}`} className={styles.qBlock}>
+                  <p className={styles.qLabel}>문항 {idx + 1}.</p>
+                  <p className={styles.passageBox} style={{ fontSize: "0.9rem", whiteSpace: "pre-wrap" }}>
+                    {s.koreanFull}
+                  </p>
+                  <label className={styles.label}>
+                    영어 문장 (전체)
+                    <textarea
+                      className={styles.textareaPassage}
+                      style={{ minHeight: "120px" }}
+                      placeholder="위 한국어 뜻에 맞는 영문을 완전히 쓰세요."
+                      value={compAnswers[s.id] ?? ""}
+                      onChange={(e) =>
+                        setCompAnswers((m) => ({ ...m, [s.id]: e.target.value }))
+                      }
+                    />
+                  </label>
                 </div>
               ))}
               <div className={styles.actions}>
@@ -421,24 +443,9 @@ export function EnglishPassageLabPage() {
                   className={styles.btnPrimary}
                   onClick={() => setCompChecked(true)}
                 >
-                  채점
+                  영작 채점
                 </button>
               </div>
-              {compResults && (
-                <ul style={{ margin: "0.75rem 0 0", paddingLeft: "1.1rem", color: "#475569" }}>
-                  {compResults.map(({ s, ok }, i) => (
-                    <li key={s.id}>
-                      문장 {i + 1}: {ok ? "○" : "×"}
-                      {!ok && (
-                        <>
-                          {" "}
-                          참고 영문: <em>{s.compositionEnglish}</em>
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
             </>
           )}
         </section>
@@ -446,8 +453,90 @@ export function EnglishPassageLabPage() {
         <section className={styles.sectionCard}>
           <h2 className={styles.sectionTitle}>
             <span className={styles.sectionTitleDot} aria-hidden />
-            PDF 출력
+            정답 · 채점 결과
           </h2>
+          <p className={styles.hintMuted}>
+            모범 정답과, 위에서 「채점」을 누른 항목의 결과만 표시됩니다.
+          </p>
+
+          {vocabConfirmed && vocabularyForUse.length > 0 && (
+            <details className={styles.answerDetails} open>
+              <summary>어휘 모범 정답</summary>
+              <ol className={styles.answerOl}>
+                {vocabularyForUse.map((v) => (
+                  <li key={v.id}>
+                    <strong>{v.word}</strong> — {v.meaning}
+                  </li>
+                ))}
+              </ol>
+              {wordChecked && wordResultsEnKo && (
+                <p className={styles.answerSub}>A (영→한) 채점</p>
+              )}
+              {wordChecked &&
+                wordResultsEnKo?.map(({ n, v, ok }) => (
+                  <p key={`rea-${v.id}`} className={styles.answerLine}>
+                    문항 {n}: {ok ? "○" : "×"} {!ok && `(정답 뜻: ${v.meaning})`}
+                  </p>
+                ))}
+              {wordChecked && wordResultsKoEn && (
+                <p className={styles.answerSub}>B (한→영) 채점</p>
+              )}
+              {wordChecked &&
+                wordResultsKoEn?.map(({ n, v, ok }) => (
+                  <p key={`reb-${v.id}`} className={styles.answerLine}>
+                    문항 {n}: {ok ? "○" : "×"} {!ok && `(정답 단어: ${v.word})`}
+                  </p>
+                ))}
+            </details>
+          )}
+
+          {vocabConfirmed && analysis && analysis.sentences.length > 0 && (
+            <details className={styles.answerDetails} open>
+              <summary>직독직해 모범 정답 (한국어 전체)</summary>
+              <ol className={styles.answerOl}>
+                {analysis.sentences.map((s, i) => (
+                  <li key={s.id}>
+                    문항 {i + 1}: {s.koreanFull}
+                  </li>
+                ))}
+              </ol>
+              {translationChecked &&
+                translationResults?.map(({ n, s, ok }) => (
+                  <p key={`tr-${s.id}`} className={styles.answerLine}>
+                    문항 {n}: {ok ? "○" : "×"}
+                  </p>
+                ))}
+            </details>
+          )}
+
+          {vocabConfirmed && analysis && analysis.sentences.length > 0 && (
+            <details className={styles.answerDetails} open>
+              <summary>영작 모범 정답 (영어 원문)</summary>
+              <ol className={styles.answerOl}>
+                {analysis.sentences.map((s, i) => (
+                  <li key={`a-${s.id}`}>
+                    문항 {i + 1}: {s.english}
+                  </li>
+                ))}
+              </ol>
+              {compChecked &&
+                compResults?.map(({ n, s, ok }) => (
+                  <p key={`cr-${s.id}`} className={styles.answerLine}>
+                    문항 {n}: {ok ? "○" : "×"}
+                  </p>
+                ))}
+            </details>
+          )}
+        </section>
+
+        <section className={styles.sectionCard}>
+          <h2 className={styles.sectionTitle}>
+            <span className={styles.sectionTitleDot} aria-hidden />
+            문제지 미리보기 · PDF · 인쇄
+          </h2>
+          <p className={styles.hintMuted}>
+            ① 미리보기 생성 → ② 서버 PDF (실패 시 안내) → ③ 새 창 인쇄로 PDF 저장
+          </p>
           <div className={styles.pdfRow132}>
             <label className={styles.label}>
               레이아웃
@@ -460,18 +549,71 @@ export function EnglishPassageLabPage() {
                 <option value="2col">2단 (작성란 분할)</option>
               </select>
             </label>
-            <div />
-            <div className={styles.actions} style={{ justifyContent: "flex-end" }}>
+            <div className={styles.actions}>
               <button
                 type="button"
                 className={styles.btnPrimary}
-                disabled={pdfBusy || !vocabConfirmed || !analysis}
+                disabled={!vocabConfirmed || !analysis}
+                onClick={buildPreview}
+              >
+                문제지 미리보기 생성
+              </button>
+            </div>
+            <div className={styles.actions} style={{ justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={pdfBusy || !previewReady || !vocabConfirmed || !analysis}
                 onClick={() => void downloadPdf()}
               >
-                {pdfBusy ? "PDF 생성 중…" : "PDF 다운로드"}
+                {pdfBusy ? "PDF 생성 중…" : "PDF 파일 받기"}
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={!vocabConfirmed || !analysis}
+                onClick={handlePrint}
+              >
+                인쇄 / PDF 저장
               </button>
             </div>
           </div>
+
+          {previewReady && analysis && (
+            <div className={styles.previewSheet}>
+              <p className={styles.previewBadge}>미리보기 (인쇄 레이아웃과 유사)</p>
+              <h3 className={styles.previewH3}>{title.trim() || "영어 지문 학습"}</h3>
+              <p className={styles.previewMeta}>
+                {teacherName} · {examDate} · {pdfLayout === "2col" ? "2단" : "1단"}
+              </p>
+              <h4 className={styles.previewH4}>원문</h4>
+              <div className={styles.previewPassage}>{passageText.trim()}</div>
+              <h4 className={styles.previewH4}>A. 영어 → 한글</h4>
+              <ol>
+                {vocabularyForUse.map((v) => (
+                  <li key={v.id}>{v.word}</li>
+                ))}
+              </ol>
+              <h4 className={styles.previewH4}>B. 한글 → 영어</h4>
+              <ol>
+                {vocabularyForUse.map((v) => (
+                  <li key={`p-${v.id}`}>{v.meaning}</li>
+                ))}
+              </ol>
+              <h4 className={styles.previewH4}>C. 직독직해</h4>
+              <ol>
+                {analysis.sentences.map((s) => (
+                  <li key={s.id}>{s.english}</li>
+                ))}
+              </ol>
+              <h4 className={styles.previewH4}>D. 영작</h4>
+              <ol>
+                {analysis.sentences.map((s) => (
+                  <li key={`pk-${s.id}`}>{s.koreanFull}</li>
+                ))}
+              </ol>
+            </div>
+          )}
         </section>
       </div>
 

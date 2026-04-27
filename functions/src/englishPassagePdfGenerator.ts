@@ -26,10 +26,7 @@ export type EnglishPassagePdfLayout = "1col" | "2col";
 
 export type EnglishPassagePdfSentence = {
   english: string;
-  koreanWithBlanks: string;
-  compositionKorean: string;
-  blankAnswersKo: string[];
-  compositionEnglish: string;
+  koreanFull: string;
 };
 
 export type EnglishPassagePdfInput = {
@@ -258,83 +255,26 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
     y -= 6;
   };
 
-  /** 1단 본문 */
   drawHeading("원문 지문");
   drawParagraph("", passage.slice(0, 9000) || "(없음)");
-  drawHeading("A. 핵심 어휘");
-  ensureSpace(14);
-  page.drawText("영단어 → 뜻", {
-    x: MARGIN_L,
-    y: y - BODY_PT,
-    size: BODY_PT,
-    font: fontBold,
-    color: rgb(0.18, 0.2, 0.26),
-  });
-  y -= BODY_LH + 6;
 
   const vocab = input.vocabulary ?? [];
-  for (let i = 0; i < vocab.length; i++) {
-    const item = vocab[i];
-    if (!item) continue;
-    const line = `${i + 1}. ${item.word} → ${item.meaning}`;
-    const lines = wrapLines(line, fontReg, BODY_PT * 0.92, contentWidth - 4);
-    for (const ln of lines) {
-      ensureSpace(BODY_LH + 8);
-      page.drawText(ln, {
-        x: MARGIN_L,
-        y: y - BODY_PT * 0.92,
-        size: BODY_PT * 0.92,
-        font: fontReg,
-        color: rgb(0.14, 0.16, 0.2),
-      });
-      y -= BODY_LH * 0.92;
-    }
-    y -= 4;
-  }
-
-  drawHeading("B. 어휘 확인 (영어 단어를 보고 뜻을 쓰세요)");
-  drawParagraph("", "(학생 작성란 — 순서대로 작성)");
-
-  const boxH = Math.min(Math.max(vocab.length * 12, 96), 280);
-  ensureSpace(boxH + 12);
-  if (layout === "2col") {
-    const gw = 8;
-    const cw = (contentWidth - gw) / 2;
-    page.drawRectangle({
-      x: MARGIN_L,
-      y: y - boxH,
-      width: cw,
-      height: boxH,
-      borderColor: rgb(0.82, 0.85, 0.88),
-      borderWidth: 0.55,
-    });
-    page.drawRectangle({
-      x: MARGIN_L + cw + gw,
-      y: y - boxH,
-      width: cw,
-      height: boxH,
-      borderColor: rgb(0.82, 0.85, 0.88),
-      borderWidth: 0.55,
-    });
-  } else {
-    page.drawRectangle({
-      x: MARGIN_L,
-      y: y - boxH,
-      width: contentWidth,
-      height: boxH,
-      borderColor: rgb(0.82, 0.85, 0.88),
-      borderWidth: 0.55,
-    });
-  }
-  y -= boxH + 14;
-
-  drawHeading("C. 한국어 해석 빈칸 (직독직해)");
   const sentences = input.sentences ?? [];
-  sentences.forEach((s, idx) => {
-    const block = `[${idx + 1}] ${s.koreanWithBlanks}`;
-    const lines = wrapLines(block, fontReg, BODY_PT, contentWidth);
-    ensureSpace(lines.length * BODY_LH + BODY_LH * 5);
+
+  drawHeading("A. 어휘 — 영어 단어 → 한글 뜻");
+  page.drawText("(문항 번호에 맞추어 한글 뜻을 작성하세요.)", {
+    x: MARGIN_L,
+    y: y - BODY_PT * 0.88,
+    size: BODY_PT * 0.88,
+    font: fontReg,
+    color: muted,
+  });
+  y -= BODY_LH;
+  vocab.forEach((v, idx) => {
+    const line = `${idx + 1}. ${v.word}`;
+    const lines = wrapLines(line, fontReg, BODY_PT, contentWidth - 4);
     for (const ln of lines) {
+      ensureSpace(BODY_LH + 6);
       page.drawText(ln, {
         x: MARGIN_L,
         y: y - BODY_PT,
@@ -344,79 +284,174 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
       });
       y -= BODY_LH;
     }
-    y -= 8;
-    page.drawText("원문:", {
+    ensureSpace(36);
+    page.drawRectangle({
       x: MARGIN_L,
-      y: y - BODY_PT,
-      size: BODY_PT * 0.85,
-      font: fontBold,
-      color: rgb(0.45, 0.48, 0.52),
+      y: y - 28,
+      width: contentWidth,
+      height: 28,
+      borderColor: rgb(0.82, 0.85, 0.88),
+      borderWidth: 0.45,
     });
-    y -= BODY_LH;
-    const enc = wrapLines(s.english, fontReg, BODY_PT * 0.88, contentWidth);
-    for (const ln of enc) {
-      ensureSpace(BODY_LH);
-      page.drawText(ln, {
-        x: MARGIN_L,
-        y: y - BODY_PT * 0.88,
-        size: BODY_PT * 0.88,
-        font: fontReg,
-        color: rgb(0.35, 0.38, 0.42),
-      });
-      y -= BODY_LH * 0.92;
-    }
-    y -= 14;
+    y -= 36;
   });
 
-  drawHeading("D. 영작");
-  sentences.forEach((s, idx) => {
-    const prompt = `[${idx + 1}] ${s.compositionKorean}`;
-    const lines = wrapLines(prompt, fontReg, BODY_PT, contentWidth);
-    ensureSpace(lines.length * BODY_LH + 72);
+  drawHeading("B. 어휘 — 한글 뜻 → 영어 단어");
+  page.drawText("(문항 번호에 맞추어 영어 단어를 작성하세요.)", {
+    x: MARGIN_L,
+    y: y - BODY_PT * 0.88,
+    size: BODY_PT * 0.88,
+    font: fontReg,
+    color: muted,
+  });
+  y -= BODY_LH;
+  vocab.forEach((v, idx) => {
+    const line = `${idx + 1}. ${v.meaning}`;
+    const lines = wrapLines(line, fontReg, BODY_PT, contentWidth - 4);
     for (const ln of lines) {
+      ensureSpace(BODY_LH + 6);
       page.drawText(ln, {
         x: MARGIN_L,
         y: y - BODY_PT,
         size: BODY_PT,
         font: fontReg,
-        color: rgb(0.1, 0.12, 0.16),
+        color: rgb(0.12, 0.14, 0.18),
       });
       y -= BODY_LH;
     }
+    ensureSpace(36);
     page.drawRectangle({
       x: MARGIN_L,
-      y: y - 52,
+      y: y - 28,
       width: contentWidth,
-      height: 52,
+      height: 28,
       borderColor: rgb(0.82, 0.85, 0.88),
       borderWidth: 0.45,
     });
-    y -= 62;
+    y -= 36;
   });
 
-  drawHeading("교사용 정답 요약");
+  drawHeading("C. 직독직해 (영문 → 한국어 해석 전체)");
+  sentences.forEach((s, idx) => {
+    ensureSpace(BODY_LH * 3);
+    page.drawText(`${idx + 1}. 아래 영문을 한국어로 옮겨 쓰세요.`, {
+      x: MARGIN_L,
+      y: y - BODY_PT,
+      size: BODY_PT,
+      font: fontBold,
+      color: rgb(0.12, 0.14, 0.18),
+    });
+    y -= BODY_LH * 1.2;
+    const enc = wrapLines(s.english, fontReg, BODY_PT * 0.92, contentWidth);
+    for (const ln of enc) {
+      ensureSpace(BODY_LH);
+      page.drawText(ln, {
+        x: MARGIN_L,
+        y: y - BODY_PT * 0.92,
+        size: BODY_PT * 0.92,
+        font: fontReg,
+        color: rgb(0.25, 0.28, 0.32),
+      });
+      y -= BODY_LH * 0.95;
+    }
+    const answerH = layout === "2col" ? 56 : 64;
+    ensureSpace(answerH + 8);
+    if (layout === "2col") {
+      const gw = 8;
+      const cw = (contentWidth - gw) / 2;
+      page.drawRectangle({
+        x: MARGIN_L,
+        y: y - answerH,
+        width: cw,
+        height: answerH,
+        borderColor: rgb(0.82, 0.85, 0.88),
+        borderWidth: 0.5,
+      });
+      page.drawRectangle({
+        x: MARGIN_L + cw + gw,
+        y: y - answerH,
+        width: cw,
+        height: answerH,
+        borderColor: rgb(0.82, 0.85, 0.88),
+        borderWidth: 0.5,
+      });
+    } else {
+      page.drawRectangle({
+        x: MARGIN_L,
+        y: y - answerH,
+        width: contentWidth,
+        height: answerH,
+        borderColor: rgb(0.82, 0.85, 0.88),
+        borderWidth: 0.5,
+      });
+    }
+    y -= answerH + 14;
+  });
+
+  drawHeading("D. 영작 (한국어 해석 → 영문 전체)");
+  sentences.forEach((s, idx) => {
+    ensureSpace(BODY_LH * 4);
+    page.drawText(`${idx + 1}. 아래 한국어를 영어 문장으로 옮겨 쓰세요.`, {
+      x: MARGIN_L,
+      y: y - BODY_PT,
+      size: BODY_PT,
+      font: fontBold,
+      color: rgb(0.12, 0.14, 0.18),
+    });
+    y -= BODY_LH * 1.2;
+    const ko = wrapLines(s.koreanFull, fontReg, BODY_PT * 0.92, contentWidth);
+    for (const ln of ko) {
+      ensureSpace(BODY_LH);
+      page.drawText(ln, {
+        x: MARGIN_L,
+        y: y - BODY_PT * 0.92,
+        size: BODY_PT * 0.92,
+        font: fontReg,
+        color: rgb(0.18, 0.2, 0.24),
+      });
+      y -= BODY_LH * 0.95;
+    }
+    const ah = layout === "2col" ? 52 : 58;
+    ensureSpace(ah + 8);
+    if (layout === "2col") {
+      const gw = 8;
+      const cw = (contentWidth - gw) / 2;
+      page.drawRectangle({
+        x: MARGIN_L,
+        y: y - ah,
+        width: cw,
+        height: ah,
+        borderColor: rgb(0.82, 0.85, 0.88),
+        borderWidth: 0.5,
+      });
+      page.drawRectangle({
+        x: MARGIN_L + cw + gw,
+        y: y - ah,
+        width: cw,
+        height: ah,
+        borderColor: rgb(0.82, 0.85, 0.88),
+        borderWidth: 0.5,
+      });
+    } else {
+      page.drawRectangle({
+        x: MARGIN_L,
+        y: y - ah,
+        width: contentWidth,
+        height: ah,
+        borderColor: rgb(0.82, 0.85, 0.88),
+        borderWidth: 0.5,
+      });
+    }
+    y -= ah + 14;
+  });
+
+  drawHeading("교사용 · 모범 정답");
   vocab.forEach((v, idx) => {
     drawParagraph(`${idx + 1}. `, `${v.word} — ${v.meaning}`);
   });
   sentences.forEach((s, idx) => {
-    ensureSpace(BODY_LH * 8);
-    const blanks = (s.blankAnswersKo ?? []).join(", ");
-    page.drawText(`${idx + 1}) 빈칸 정답(한글): ${blanks}`, {
-      x: MARGIN_L,
-      y: y - BODY_PT,
-      size: BODY_PT * 0.88,
-      font: fontReg,
-      color: rgb(0.22, 0.25, 0.32),
-    });
-    y -= BODY_LH;
-    page.drawText(`${idx + 1}) 영작 참고 영문: ${s.compositionEnglish}`, {
-      x: MARGIN_L,
-      y: y - BODY_PT,
-      size: BODY_PT * 0.88,
-      font: fontReg,
-      color: rgb(0.22, 0.25, 0.32),
-    });
-    y -= BODY_LH * 1.35;
+    drawParagraph(`[직독 ${idx + 1}] 한국어: `, s.koreanFull);
+    drawParagraph(`[영작 ${idx + 1}] 영어: `, s.english);
   });
 
   drawFootersAll();

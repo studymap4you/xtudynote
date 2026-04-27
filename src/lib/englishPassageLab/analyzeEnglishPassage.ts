@@ -18,20 +18,15 @@ Schema:
   "vocabulary": [ { "word": "English lemma or phrase", "meaning": "Korean gloss, short" } ],
   "sentences": [
     {
-      "english": "sentence from passage",
-      "koreanFull": "natural Korean translation of the sentence",
-      "koreanWithBlanks": "same translation but replace 1-3 key meaning chunks with _____ (underscores only as blanks)",
-      "blankAnswersKo": ["missing phrase 1", "missing phrase 2"],
-      "compositionKorean": "One Korean prompt asking the student to express the main idea of this sentence in English (clear, classroom-safe)",
-      "compositionEnglish": "model English sentence that answers compositionKorean and matches the original sentence closely"
+      "english": "exact sentence from the passage (English)",
+      "koreanFull": "complete, natural Korean translation of that sentence (no blanks)"
     }
   ]
 }
 
 Rules:
-- vocabulary: IMPORTANT — exclude elementary/basic English words (a, the, is, go, school, …). Include content words, phrases, and useful collocations only (max 28 items).
-- sentences: one entry per sentence in the passage order; split on sentence boundaries (. ! ?). Merge very short fragments with neighbors if needed.
-- koreanWithBlanks must use _____ for each blank and blankAnswersKo must match in order.
+- vocabulary: exclude elementary/basic English words (a, the, is, go, school, …). Content words and useful phrases only (max 28 items).
+- sentences: split the passage into sentences in order (. ! ?). One JSON object per sentence. koreanFull must be the full translation students can write for dictation-style practice.
 - No opinions; stick to the passage text.
 `;
 
@@ -120,20 +115,15 @@ function normalizeAnalysis(raw: unknown): EnglishPassageAnalysis {
     const r = row as Record<string, unknown>;
     const english = String(r.english ?? "").trim();
     const koreanFull = String(r.koreanFull ?? "").trim();
-    const koreanWithBlanks = String(r.koreanWithBlanks ?? "").trim();
-    const compositionKorean = String(r.compositionKorean ?? "").trim();
-    const compositionEnglish = String(r.compositionEnglish ?? "").trim();
-    const blankRaw = Array.isArray(r.blankAnswersKo) ? r.blankAnswersKo : [];
-    const blankAnswersKo = blankRaw.map((x) => String(x ?? "").trim()).filter(Boolean);
     if (!english || !koreanFull) continue;
     sentences.push({
       id: crypto.randomUUID(),
       english,
       koreanFull,
-      koreanWithBlanks: koreanWithBlanks || koreanFull,
-      blankAnswersKo,
-      compositionKorean: compositionKorean || koreanFull,
-      compositionEnglish: compositionEnglish || english,
+      koreanWithBlanks: koreanFull,
+      blankAnswersKo: [],
+      compositionKorean: koreanFull,
+      compositionEnglish: english,
     });
   }
 

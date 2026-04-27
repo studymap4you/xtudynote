@@ -31,10 +31,7 @@ export type EnglishPassagePdfPayload = {
   vocabulary: { word: string; meaning: string }[];
   sentences: Array<{
     english: string;
-    koreanWithBlanks: string;
-    compositionKorean: string;
-    compositionEnglish: string;
-    blankAnswersKo: string[];
+    koreanFull: string;
   }>;
 };
 

@@ -225,19 +225,9 @@ function parseEnglishPassagePdfBody(raw: Record<string, unknown>): EnglishPassag
       if (!row || typeof row !== "object") continue;
       const o = row as Record<string, unknown>;
       const english = String(o.english ?? "").trim();
-      const koreanWithBlanks = String(o.koreanWithBlanks ?? "").trim();
-      const compositionKorean = String(o.compositionKorean ?? "").trim();
-      const compositionEnglish = String(o.compositionEnglish ?? "").trim();
-      const blankRaw = Array.isArray(o.blankAnswersKo) ? o.blankAnswersKo : [];
-      const blankAnswersKo = blankRaw.map((x) => String(x ?? "").trim()).filter(Boolean);
-      if (!english || !koreanWithBlanks) continue;
-      sentences.push({
-        english,
-        koreanWithBlanks,
-        compositionKorean,
-        compositionEnglish,
-        blankAnswersKo,
-      });
+      const koreanFull = String(o.koreanFull ?? "").trim();
+      if (!english || !koreanFull) continue;
+      sentences.push({ english, koreanFull });
     }
   }
 
