@@ -33,6 +33,8 @@ export interface ContentDocument {
   homeworkInstruction: string | null;
   /** 강의실에서 등록된 경우 해당 강의실 문서 ID */
   classroomId?: string | null;
+  /** 강의실 표시명 (과제 검색·카드용, 학생 식별 편의) */
+  classroomTitle?: string | null;
   createdAt: unknown;
 }
 
@@ -49,6 +51,9 @@ export interface HomeworkCodeDocument {
   learningMaterialFilePaths: string[];
   referenceMaterialFilePaths: string[];
   authorId: string;
+  /** 과제 출제 시 배포 강의실 */
+  classroomId?: string | null;
+  classroomTitle?: string | null;
   /** contents.status 와 동기화 — 학생은 approved 만 조회 */
   status: ContentStatus;
   updatedAt: unknown;

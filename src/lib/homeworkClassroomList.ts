@@ -1,5 +1,7 @@
 import {
   collection,
+  doc,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -7,15 +9,18 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
-import type { ContentDocument } from "@/types/content";
+import type { ClassroomDocument } from "@/types/classroom";
 
 export type HomeworkListRow = {
   contentId: string;
   homeworkCode: string;
   shortCode: string | null;
+  /** 과제 제목(과거 스키마의 subject 필드와 동일) */
   subject: string;
   learningTopic: string;
   classroomId: string | null;
+  /** 강의실 이름 — 검색·표시용 */
+  classroomTitle: string | null;
   createdAt: unknown;
 };
 
@@ -23,15 +28,45 @@ function toRow(id: string, d: Record<string, unknown>): HomeworkListRow | null {
   const homeworkCode = (d.homeworkCode as string | null | undefined) ?? null;
   if (!homeworkCode) return null;
   const shortCode = (d.shortCode as string | null | undefined) ?? null;
+  const classroomId = (d.classroomId as string | null | undefined) ?? null;
+  const classroomTitleRaw = d.classroomTitle;
+  const classroomTitle =
+    typeof classroomTitleRaw === "string" && classroomTitleRaw.trim().length > 0
+      ? classroomTitleRaw.trim()
+      : null;
   return {
     contentId: id,
     homeworkCode,
     shortCode,
     subject: (d.subject as string) ?? "",
     learningTopic: (d.learningTopic as string) ?? "",
-    classroomId: (d.classroomId as string | null | undefined) ?? null,
+    classroomId,
+    classroomTitle,
     createdAt: d.createdAt,
   };
+}
+
+async function attachClassroomTitles(rows: HomeworkListRow[]): Promise<HomeworkListRow[]> {
+  const need = new Set<string>();
+  for (const r of rows) {
+    if (!r.classroomTitle && r.classroomId) need.add(r.classroomId);
+  }
+  if (need.size === 0) return rows;
+
+  const titleById = new Map<string, string>();
+  await Promise.all(
+    [...need].map(async (classroomId) => {
+      const snap = await getDoc(doc(db, "classrooms", classroomId));
+      if (!snap.exists()) return;
+      const t = (snap.data() as ClassroomDocument).title?.trim();
+      if (t) titleById.set(classroomId, t);
+    })
+  );
+
+  return rows.map((r) => ({
+    ...r,
+    classroomTitle: r.classroomTitle ?? (r.classroomId ? titleById.get(r.classroomId) ?? null : null),
+  }));
 }
 
 function createdAtMillis(at: unknown): number {
@@ -82,7 +117,7 @@ async function fetchHomeworkByAuthor(authorId: string): Promise<HomeworkListRow[
   const snap = await getDocs(q);
   const out: HomeworkListRow[] = [];
   snap.forEach((docSnap) => {
-    const raw = docSnap.data() as ContentDocument & Record<string, unknown>;
+    const raw = docSnap.data() as Record<string, unknown> & { status?: string };
     if (raw.status !== "approved") return;
     const row = toRow(docSnap.id, raw as Record<string, unknown>);
     if (row) out.push(row);
@@ -114,5 +149,8 @@ export async function fetchHomeworkListForUser(
     if (!map.has(row.contentId)) map.set(row.contentId, row);
   }
 
-  return [...map.values()].sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt));
+  const sorted = [...map.values()].sort(
+    (a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt)
+  );
+  return attachClassroomTitles(sorted);
 }

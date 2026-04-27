@@ -179,7 +179,8 @@ export function HomeworkStudentPage() {
               <h2 className="panel__title">자료 소개</h2>
               <RichHtmlView html={snap.introduction} />
               <p style={{ color: "var(--text-muted)", marginTop: "0.5rem" }}>
-                {snap.subject} · {snap.learningTopic}
+                {[snap.classroomTitle, snap.subject].filter(Boolean).join(" · ") || snap.subject}
+                {snap.learningTopic ? ` · ${snap.learningTopic}` : ""}
               </p>
             </section>
             <div className="homework-student__actions">

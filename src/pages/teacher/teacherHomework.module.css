@@ -1,0 +1,246 @@
+/* 과제 출제 — Bright & Clean (대시보드 내 밝은 톤) */
+
+.wrap {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 0 0 2.5rem;
+}
+
+.hero {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.35rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 55%, #f0fdf4 100%);
+  border: 1px solid rgba(14, 165, 233, 0.18);
+  box-shadow: 0 4px 20px -8px rgba(15, 23, 42, 0.12);
+}
+
+.heroTitle {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.35rem, 2.5vw, 1.65rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.heroTitleAccent {
+  color: #0284c7;
+}
+
+.heroMeta {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #475569;
+}
+
+.lede {
+  margin: 0.65rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  letter-spacing: -0.02em;
+  color: #64748b;
+}
+
+.panel {
+  margin: 0 0 1.25rem;
+  padding: 1.15rem 1.25rem;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+  min-width: 0;
+}
+
+.panel legend.panelLegend {
+  padding: 0;
+  margin-bottom: 0.85rem;
+  float: none;
+}
+
+.panelLegend {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.panelHint {
+  margin: 0 0 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #64748b;
+}
+
+.panel > legend + .panelHint {
+  margin-top: -0.25rem;
+}
+
+.fieldGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.fieldGridTwo {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .fieldGridTwo {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #334155;
+}
+
+.optionalTag {
+  font-weight: 600;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.65rem;
+  min-height: 2.75rem;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: #0f172a;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
+}
+
+.textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.textareaTall {
+  min-height: 12rem;
+}
+
+.fileInput {
+  padding: 0.45rem;
+  font-size: 0.85rem;
+}
+
+.noticeStrip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 1rem;
+  border-radius: 10px;
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #0c4a6e;
+}
+
+.noticeStrip strong {
+  color: #0369a1;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.15rem;
+  border-radius: 10px;
+  border: 1px solid rgba(22, 163, 74, 0.35);
+  background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px -2px rgba(22, 163, 74, 0.35);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.15s ease;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px -4px rgba(22, 163, 74, 0.45);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.btnGhost:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.emptyClassrooms {
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.emptyClassrooms a {
+  color: #b45309;
+  font-weight: 700;
+}

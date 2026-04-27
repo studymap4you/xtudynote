@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
@@ -8,7 +8,9 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { db, storage } from "@/firebase/config";
 import { allocateUniqueHomeworkCode } from "@/lib/allocateHomeworkCode";
 import { getClassroomIfTeacher } from "@/lib/classroom";
+import { listClassroomsByTeacher, type ClassroomRow } from "@/lib/classroom/listTeacherClassrooms";
 import "@/pages/pages.css";
+import styles from "@/pages/teacher/teacherHomework.module.css";
 
 function safeFileName(name: string): string {
   return name.replace(/[^\w.\-가-힣]+/g, "_").slice(0, 180) || "file";
@@ -35,10 +37,10 @@ function Inner() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { firebaseUser, isSuperAdmin, isTeacherApproved } = useAuth();
-  const [subject, setSubject] = useState("");
-  const [audience, setAudience] = useState("");
-  const [section, setSection] = useState("");
-  const [identifier, setIdentifier] = useState("");
+  const [classrooms, setClassrooms] = useState<ClassroomRow[]>([]);
+  const [classroomsLoading, setClassroomsLoading] = useState(true);
+  const [selectedClassroomId, setSelectedClassroomId] = useState("");
+  const [assignmentTitle, setAssignmentTitle] = useState("");
   const [learningTopic, setLearningTopic] = useState("");
   const [introduction, setIntroduction] = useState("");
   const [homeworkInstruction, setHomeworkInstruction] = useState("");
@@ -52,43 +54,76 @@ function Inner() {
 
   const defaultStatus = useMemo(() => (isSuperAdmin ? "approved" : "pending"), [isSuperAdmin]);
 
+  useEffect(() => {
+    if (!firebaseUser?.uid) {
+      setClassrooms([]);
+      setClassroomsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setClassroomsLoading(true);
+    listClassroomsByTeacher(firebaseUser.uid).then((rows) => {
+      if (!cancelled) {
+        setClassrooms(rows);
+        setClassroomsLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseUser?.uid]);
+
+  useEffect(() => {
+    if (!classroomIdParam || classrooms.length === 0) return;
+    const ok = classrooms.some((c) => c.id === classroomIdParam);
+    if (ok) setSelectedClassroomId(classroomIdParam);
+  }, [classroomIdParam, classrooms]);
+
+  const selectedClassroom = useMemo(
+    () => classrooms.find((c) => c.id === selectedClassroomId) ?? null,
+    [classrooms, selectedClassroomId]
+  );
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!firebaseUser) return;
+
+    const classroomId = selectedClassroomId.trim();
+    const titleTrim = assignmentTitle.trim();
+    const lt = learningTopic.trim();
     const trimmed = {
-      subject: subject.trim(),
-      audience: audience.trim(),
-      section: section.trim(),
-      identifier: identifier.trim(),
-      learningTopic: learningTopic.trim(),
+      learningTopic: lt,
       introduction: introduction.trim(),
       homeworkInstruction: homeworkInstruction.trim(),
       lectureLink: lectureLink.trim(),
     };
-    if (
-      !trimmed.subject ||
-      !trimmed.audience ||
-      !trimmed.section ||
-      !trimmed.identifier ||
-      !trimmed.learningTopic ||
-      !trimmed.introduction ||
-      !trimmed.homeworkInstruction
-    ) {
-      setError("필수 항목과 과제 가이드(Instruction)를 입력해 주세요.");
+
+    if (!classroomId) {
+      setError("과제를 등록할 강의실을 선택해 주세요.");
       return;
     }
-    setError(null);
-
-    let verifiedClassroomId: string | null = null;
-    if (classroomIdParam) {
-      const cr = await getClassroomIfTeacher(classroomIdParam, firebaseUser.uid);
-      if (!cr) {
-        setError("강의실을 찾을 수 없거나 이 강의실에 과제를 등록할 권한이 없습니다.");
-        return;
-      }
-      verifiedClassroomId = classroomIdParam;
+    if (!titleTrim) {
+      setError("과제 제목을 입력해 주세요.");
+      return;
+    }
+    if (!trimmed.introduction || !trimmed.homeworkInstruction) {
+      setError("자료 소개와 과제 가이드(Instruction)를 입력해 주세요.");
+      return;
+    }
+    if (!trimmed.learningTopic && learningMaterialFiles.length === 0) {
+      setError("학습 주제를 입력하거나 학습 자료 파일을 최소 1개 업로드해 주세요.");
+      return;
     }
 
+    const cr = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
+    if (!cr) {
+      setError("강의실을 찾을 수 없거나 이 강의실에 과제를 등록할 권한이 없습니다.");
+      return;
+    }
+
+    const classroomTitle = (cr.title ?? "").trim() || selectedClassroom?.data.title?.trim() || "";
+
+    setError(null);
     setSaving(true);
     const authorId = firebaseUser.uid;
     const uploadStarted = performance.now();
@@ -108,14 +143,13 @@ function Inner() {
       const { homeworkCode: code, shortCode } = await allocateUniqueHomeworkCode();
       const contentRef = doc(collection(db, "contents"));
       const batch = writeBatch(db);
-      const publishStatus =
-        isSuperAdmin || (verifiedClassroomId && isTeacherApproved) ? "approved" : defaultStatus;
+      const publishStatus = isSuperAdmin || isTeacherApproved ? "approved" : defaultStatus;
       batch.set(contentRef, {
         authorId,
-        subject: trimmed.subject,
-        audience: trimmed.audience,
-        section: trimmed.section,
-        identifier: trimmed.identifier,
+        subject: titleTrim,
+        audience: "",
+        section: "",
+        identifier: "",
         learningTopic: trimmed.learningTopic,
         introduction: trimmed.introduction,
         lectureLink: trimmed.lectureLink.length > 0 ? trimmed.lectureLink : null,
@@ -127,7 +161,8 @@ function Inner() {
         homeworkCode: code,
         shortCode,
         homeworkInstruction: trimmed.homeworkInstruction,
-        ...(verifiedClassroomId ? { classroomId: verifiedClassroomId } : {}),
+        classroomId,
+        classroomTitle: classroomTitle.length > 0 ? classroomTitle : null,
         createdAt: serverTimestamp(),
       });
       batch.set(doc(db, "homework_codes", code), {
@@ -135,7 +170,7 @@ function Inner() {
         homeworkCode: code,
         shortCode,
         authorId,
-        subject: trimmed.subject,
+        subject: titleTrim,
         learningTopic: trimmed.learningTopic,
         introduction: trimmed.introduction,
         homeworkInstruction: trimmed.homeworkInstruction,
@@ -143,15 +178,15 @@ function Inner() {
         learningMaterialFilePaths,
         referenceMaterialFilePaths,
         status: publishStatus,
+        classroomId,
+        classroomTitle: classroomTitle.length > 0 ? classroomTitle : null,
         updatedAt: serverTimestamp(),
       });
       await batch.commit();
       window.alert(
         `과제가 등록되었습니다.\n\n학생에게 안내할 번호(4자리): ${shortCode}\n전체 코드: ${code}`
       );
-      navigate(verifiedClassroomId ? `/classroom/${verifiedClassroomId}/manage` : "/dashboard", {
-        replace: true,
-      });
+      navigate(`/classroom/${classroomId}/manage`, { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
     } finally {
@@ -159,125 +194,167 @@ function Inner() {
     }
   }
 
+  const noClassrooms = !classroomsLoading && classrooms.length === 0;
+
   return (
     <DashboardShell>
-      <main className="admin-layout add-passage">
-        <div className="admin-layout__title-row">
-          <h1>과제 출제</h1>
-          <span className="ui-ko">과제 타입 · 가이드(Instruction) · 자동 과제번호</span>
-        </div>
-        <p style={{ color: "var(--text-muted)", marginBottom: "1rem" }}>
-          {classroomIdParam
-            ? "강의실에서 등록하는 과제는 승인된 선생님 계정 기준으로 검수 없이 라이브러리에 공개됩니다."
-            : isSuperAdmin
-              ? "관리자 계정으로 등록 시 바로 승인 상태로 저장됩니다."
-              : "등록 후 관리자 승인이 필요합니다. 승인 전까지 학생은 번호로 조회할 수 없습니다."}
-        </p>
-        {error && <p className="auth-error">{error}</p>}
-        <form onSubmit={(e) => void handleSubmit(e)} className="add-passage__form">
-          <fieldset className="add-passage__fieldset">
-            <legend className="add-passage__legend">표준 분류</legend>
-            <div className="add-passage__grid">
-              <label className="auth-field add-passage__field">
-                과목
-                <input className="add-passage__control" value={subject} onChange={(e) => setSubject(e.target.value)} />
-              </label>
-              <label className="auth-field add-passage__field">
-                대상
-                <input className="add-passage__control" value={audience} onChange={(e) => setAudience(e.target.value)} />
-              </label>
-              <label className="auth-field add-passage__field">
-                단원·섹션
-                <input className="add-passage__control" value={section} onChange={(e) => setSection(e.target.value)} />
-              </label>
-              <label className="auth-field add-passage__field">
-                식별번호
+      <main className={`admin-layout admin-layout--light ${styles.wrap}`}>
+        <header className={styles.hero}>
+          <h1 className={styles.heroTitle}>
+            <span className={styles.heroTitleAccent}>과제 출제</span>
+          </h1>
+          <p className={styles.heroMeta}>배포 강의실 · 과제 제목 · 자동 과제번호 · 가이드(Instruction)</p>
+          <p className={styles.lede}>
+            먼저 과제를 낼 강의실을 선택한 뒤 과제 제목과 안내를 입력합니다. 학생은{" "}
+            <strong>강의실 이름·과제 제목·안내 번호</strong>로 과제를 찾을 수 있습니다.
+            {!isSuperAdmin ? (
+              <>
+                {" "}
+                승인된 선생님 계정으로 강의실에 연 과제는 검수 없이 학생 과제함에 반영됩니다.
+              </>
+            ) : (
+              <> 관리자 계정으로 등록 시 바로 승인 상태로 저장됩니다.</>
+            )}
+          </p>
+        </header>
+
+        {error ? <p className="auth-error">{error}</p> : null}
+
+        {noClassrooms ? (
+          <div className={styles.emptyClassrooms}>
+            개설된 강의실이 없습니다. 과제를 내려면 먼저 강의실을 만든 뒤 다시 오세요.{" "}
+            <Link to="/classroom">강의실 개설로 이동</Link>
+          </div>
+        ) : null}
+
+        {!noClassrooms ? (
+          <form onSubmit={(e) => void handleSubmit(e)} className={styles.fieldGrid}>
+            <fieldset className={`${styles.panel}`}>
+              <legend className={styles.panelLegend}>표준 분류</legend>
+              <p className={styles.panelHint}>강의실 → 과제 제목 순으로 입력</p>
+
+              <div className={`${styles.fieldGrid} ${styles.fieldGridTwo}`}>
+                <label className={styles.label}>
+                  배포 강의실
+                  <select
+                    className={styles.select}
+                    value={selectedClassroomId}
+                    onChange={(e) => setSelectedClassroomId(e.target.value)}
+                    disabled={classroomsLoading || saving}
+                    required
+                  >
+                    <option value="">{classroomsLoading ? "불러오는 중…" : "강의실을 선택하세요"}</option>
+                    {classrooms.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.data.title?.trim() || c.id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className={styles.label}>
+                  과제 제목
+                  <input
+                    className={styles.input}
+                    value={assignmentTitle}
+                    onChange={(e) => setAssignmentTitle(e.target.value)}
+                    placeholder="예: 3월 둘째 주 독해 과제"
+                    autoComplete="off"
+                  />
+                </label>
+              </div>
+
+              <label className={`${styles.label}`} style={{ marginTop: "1rem" }}>
+                학습 주제 <span className={styles.optionalTag}>(선택 · 비워두려면 학습 자료 업로드 필수)</span>
                 <input
-                  className="add-passage__control"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                />
-              </label>
-              <label className="auth-field add-passage__field add-passage__field--wide">
-                학습 주제
-                <input
-                  className="add-passage__control"
+                  className={styles.input}
                   value={learningTopic}
                   onChange={(e) => setLearningTopic(e.target.value)}
+                  placeholder="비워두면 학습 자료 파일을 반드시 첨부해 주세요."
+                  autoComplete="off"
                 />
               </label>
-            </div>
-          </fieldset>
 
-          <fieldset className="add-passage__fieldset">
-            <legend className="add-passage__legend">과제 가이드 (최우선 표시)</legend>
-            <label className="auth-field">
-              과제 수행 가이드 및 주의사항 (Instruction)
-              <textarea
-                className="add-passage__control add-passage__intro"
-                rows={12}
-                value={homeworkInstruction}
-                onChange={(e) => setHomeworkInstruction(e.target.value)}
-                placeholder="학생이 과제 번호로 들어왔을 때 가장 먼저 보게 됩니다."
-              />
-            </label>
-          </fieldset>
+              <div className={styles.noticeStrip} role="note">
+                <strong>안내:</strong> 과목·대상·단원·식별번호는 더 이상 사용하지 않습니다. 검색은 강의실 이름과 과제
+                제목으로 충분합니다.
+              </div>
+            </fieldset>
 
-          <fieldset className="add-passage__fieldset">
-            <legend className="add-passage__legend">자료 소개·링크·파일</legend>
-            <label className="auth-field">
-              자료 소개 (Introduction)
-              <textarea
-                className="add-passage__control add-passage__intro"
-                rows={8}
-                value={introduction}
-                onChange={(e) => setIntroduction(e.target.value)}
-              />
-            </label>
-            <label className="auth-field">
-              강의 링크 (선택)
-              <input
-                className="add-passage__control"
-                type="url"
-                value={lectureLink}
-                onChange={(e) => setLectureLink(e.target.value)}
-              />
-            </label>
-            <div className="add-passage__block">
-              <label className="auth-field">학습 자료 업로드</label>
-              <input
-                type="file"
-                multiple
-                className="add-passage__control add-passage__control--file"
-                onChange={(ev) => {
-                  const list = ev.target.files;
-                  setLearningMaterialFiles(list ? Array.from(list) : []);
-                }}
-              />
-            </div>
-            <div className="add-passage__block">
-              <label className="auth-field">참고 자료 업로드</label>
-              <input
-                type="file"
-                multiple
-                className="add-passage__control add-passage__control--file"
-                onChange={(ev) => {
-                  const list = ev.target.files;
-                  setReferenceMaterialFiles(list ? Array.from(list) : []);
-                }}
-              />
-            </div>
-          </fieldset>
+            <fieldset className={styles.panel}>
+              <legend className={styles.panelLegend}>과제 가이드 (최우선 표시)</legend>
+              <label className={styles.label}>
+                과제 수행 가이드 및 주의사항 (Instruction)
+                <textarea
+                  className={`${styles.textarea} ${styles.textareaTall}`}
+                  rows={12}
+                  value={homeworkInstruction}
+                  onChange={(e) => setHomeworkInstruction(e.target.value)}
+                  placeholder="학생이 과제 번호로 들어왔을 때 가장 먼저 보게 됩니다."
+                />
+              </label>
+            </fieldset>
 
-          <div className="add-passage__actions">
-            <button type="submit" className="btn btn--primary btn--stack" disabled={saving}>
-              {saving ? "저장 중…" : "과제 등록"}
-            </button>
-            <Link to="/dashboard" className="btn btn--ghost btn--stack">
-              취소
-            </Link>
-          </div>
-        </form>
+            <fieldset className={styles.panel}>
+              <legend className={styles.panelLegend}>자료 소개·링크·파일</legend>
+              <label className={styles.label}>
+                자료 소개 (Introduction)
+                <textarea
+                  className={`${styles.textarea}`}
+                  rows={8}
+                  value={introduction}
+                  onChange={(e) => setIntroduction(e.target.value)}
+                />
+              </label>
+              <label className={`${styles.label}`} style={{ marginTop: "0.85rem" }}>
+                강의 링크 (선택)
+                <input
+                  className={styles.input}
+                  type="url"
+                  value={lectureLink}
+                  onChange={(e) => setLectureLink(e.target.value)}
+                />
+              </label>
+              <div style={{ marginTop: "0.85rem" }}>
+                <label className={styles.label}>
+                  학습 자료 업로드
+                  <input
+                    type="file"
+                    multiple
+                    className={`${styles.input} ${styles.fileInput}`}
+                    onChange={(ev) => {
+                      const list = ev.target.files;
+                      setLearningMaterialFiles(list ? Array.from(list) : []);
+                    }}
+                  />
+                </label>
+              </div>
+              <div style={{ marginTop: "0.85rem" }}>
+                <label className={styles.label}>
+                  참고 자료 업로드
+                  <input
+                    type="file"
+                    multiple
+                    className={`${styles.input} ${styles.fileInput}`}
+                    onChange={(ev) => {
+                      const list = ev.target.files;
+                      setReferenceMaterialFiles(list ? Array.from(list) : []);
+                    }}
+                  />
+                </label>
+              </div>
+            </fieldset>
+
+            <div className={styles.actions}>
+              <button type="submit" className={styles.btnPrimary} disabled={saving || classroomsLoading}>
+                {saving ? "저장 중…" : "과제 등록"}
+              </button>
+              <Link to="/dashboard" className={styles.btnGhost}>
+                취소
+              </Link>
+            </div>
+          </form>
+        ) : null}
       </main>
     </DashboardShell>
   );

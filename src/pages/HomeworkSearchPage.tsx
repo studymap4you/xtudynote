@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PublicShell } from "@/components/PublicShell";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +21,7 @@ export function HomeworkSearchPage() {
   const [rows, setRows] = useState<HomeworkListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const includeAuthorHomework = isTeacherApproved || isSuperAdmin;
 
@@ -48,6 +49,21 @@ export function HomeworkSearchPage() {
     if (authLoading) return;
     void load();
   }, [authLoading, load]);
+
+  const filteredRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((row) => {
+      const hay = [
+        row.subject,
+        row.learningTopic,
+        row.classroomTitle ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [rows, searchQuery]);
 
   const roleHint = isStudent
     ? "수강 중인 강의실에 배포된 과제가 여기 모입니다."
@@ -95,6 +111,22 @@ export function HomeworkSearchPage() {
 
         {firebaseUser && loading ? <p className="homework-hub__loading">불러오는 중…</p> : null}
 
+        {firebaseUser && !loading && !error && rows.length > 0 ? (
+          <div className="homework-hub__panel homework-hub__panel--notice homework-hub__search-panel">
+            <label className="homework-search__label">
+              강의실 이름 · 과제 제목 · 학습 주제로 검색
+              <input
+                type="search"
+                className="homework-search__input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="예: 고1 영어, 독해 과제…"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+        ) : null}
+
         {firebaseUser && !loading && !error && rows.length === 0 ? (
           <div className="homework-hub__panel homework-hub__panel--notice">
             <p className="homework-hub__notice-title">표시할 과제가 없습니다</p>
@@ -112,17 +144,23 @@ export function HomeworkSearchPage() {
           </div>
         ) : null}
 
-        {firebaseUser && !loading && rows.length > 0 ? (
+        {firebaseUser && !loading && rows.length > 0 && filteredRows.length === 0 ? (
+          <p className="homework-hub__loading">검색 결과가 없습니다.</p>
+        ) : null}
+
+        {firebaseUser && !loading && filteredRows.length > 0 ? (
           <ul className="homework-hub__list" aria-label="과제 목록">
-            {rows.map((row) => (
+            {filteredRows.map((row) => (
               <li key={row.contentId}>
                 <Link
                   to={`/homework/${encodeURIComponent(row.homeworkCode)}`}
                   className="homework-hub__card"
                 >
                   <div className="homework-hub__card-main">
-                    <h2 className="homework-hub__card-title">{row.learningTopic || row.subject}</h2>
-                    <p className="homework-hub__card-subject">{row.subject}</p>
+                    <h2 className="homework-hub__card-title">{row.subject || "제목 없음"}</h2>
+                    <p className="homework-hub__card-subject">
+                      {[row.classroomTitle ?? "강의실 미표시", row.learningTopic].filter(Boolean).join(" · ")}
+                    </p>
                   </div>
                   <div className="homework-hub__card-meta">
                     <span className="homework-hub__pill" aria-label="과제 안내 번호">
