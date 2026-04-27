@@ -233,15 +233,6 @@
 .app-shell--landing textarea.worksheet-pdf__textarea--compact {
   min-height: 48px;
 }
-@media (min-width: 768px) {
-  .app-shell--landing .worksheet-pdf__grid--row3 {
-    display: grid;
-    grid-template-columns: 1fr 1fr 2fr;
-    gap: 16px;
-    align-items: start;
-  }
-}
-
 .app-shell--landing .intro-hero__brand .brand-lockup {
   filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.95)) drop-shadow(0 2px 12px rgba(15, 23, 42, 0.12));
 }
@@ -1796,7 +1787,7 @@ button.intro-login-card__btn {
 
 .worksheet-create-page__wrap {
   width: 100%;
-  max-width: 42rem;
+  max-width: min(var(--mp-landing-max), 100%);
   margin: 0 auto;
   padding: 1.25rem 1rem 2.5rem;
   box-sizing: border-box;
@@ -1847,6 +1838,11 @@ button.intro-login-card__btn {
   letter-spacing: -0.02em;
 }
 .worksheet-pdf__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.worksheet-pdf__grid--row3 {
   display: flex;
   flex-direction: column;
   gap: 16px;
