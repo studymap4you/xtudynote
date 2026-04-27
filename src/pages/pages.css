@@ -476,6 +476,21 @@
 .app-shell--landing a.intro-login-card__btn--secondary:hover {
   color: var(--premium-accent);
 }
+/* 로그인 후 병렬 버튼 — 연한 네이비 / 연한 분홍 (위 일반 규칙 덮어씀) */
+.app-shell--landing .intro-login-card__actions--logged-in a.intro-login-card__btn--primary,
+.app-shell--landing .intro-login-card__actions--logged-in a.intro-login-card__btn--primary:visited {
+  color: #1e293b;
+}
+.app-shell--landing .intro-login-card__actions--logged-in a.intro-login-card__btn--primary:hover {
+  color: #0f172a;
+}
+.app-shell--landing .intro-login-card__actions--logged-in .intro-login-card__btn--secondary,
+.app-shell--landing .intro-login-card__actions--logged-in .intro-login-card__btn--secondary:visited {
+  color: #9d174d;
+}
+.app-shell--landing .intro-login-card__actions--logged-in .intro-login-card__btn--secondary:hover {
+  color: #831843;
+}
 
 /* —— Intro hero: 세로 스택 · Bright & Clean —— */
 .intro-hero {
@@ -1610,6 +1625,51 @@ a.intro-login-card__row--interactive:focus-visible {
 }
 .intro-login-card__actions--logged-in {
   margin-top: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px;
+}
+.intro-login-card__actions--logged-in .intro-login-card__btn {
+  flex: 1 1 calc(50% - 6px);
+  min-width: min(100%, 8rem);
+  min-height: 3.35rem;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+@media (max-width: 420px) {
+  .intro-login-card__actions--logged-in {
+    flex-direction: column;
+  }
+  .intro-login-card__actions--logged-in .intro-login-card__btn {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 3.15rem;
+  }
+}
+.intro-login-card__actions--logged-in .intro-login-card__btn--primary {
+  background: linear-gradient(180deg, #e9eef7 0%, #dde7f4 100%);
+  border: 2px solid rgba(51, 65, 85, 0.38);
+  color: #1e293b;
+  box-shadow: 0 6px 16px -8px rgba(30, 41, 59, 0.35);
+}
+.intro-login-card__actions--logged-in .intro-login-card__btn--primary:hover {
+  background: linear-gradient(180deg, #dfe8f2 0%, #d0ddee 100%);
+  border-color: rgba(51, 65, 85, 0.52);
+  color: #0f172a;
+}
+.intro-login-card__actions--logged-in .intro-login-card__btn--secondary {
+  background: linear-gradient(180deg, #fdf2f8 0%, #fce8f4 100%);
+  border: 2px solid rgba(244, 114, 182, 0.5);
+  color: #9d174d;
+  box-shadow: 0 6px 16px -8px rgba(219, 39, 119, 0.22);
+}
+.intro-login-card__actions--logged-in .intro-login-card__btn--secondary:hover {
+  background: linear-gradient(180deg, #fce7f3 0%, #fbcfe8 100%);
+  border-color: rgba(219, 39, 119, 0.55);
+  color: #831843;
 }
 .intro-login-card__btn {
   display: flex;
