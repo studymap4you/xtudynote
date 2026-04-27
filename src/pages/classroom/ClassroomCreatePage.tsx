@@ -101,6 +101,7 @@ function Inner() {
         title: t,
         description: description.trim(),
         introduction: intro,
+        pricingType: "free",
         createdAt: serverTimestamp(),
       };
       if (isSuperAdmin && matId) {

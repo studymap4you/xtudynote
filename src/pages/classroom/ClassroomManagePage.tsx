@@ -2,13 +2,18 @@ import { FirebaseError } from "firebase/app";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
+  arrayUnion,
   collection,
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
+  orderBy,
   query,
+  serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherRoute } from "@/components/TeacherRoute";
@@ -18,13 +23,13 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
 import { db } from "@/firebase/config";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
-import type { ClassroomDocument } from "@/types/classroom";
+import type { ClassroomDocument, ClassroomEnrollmentRequestDocument } from "@/types/classroom";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
 import "@/pages/pages.css";
 
-type TabId = "intro" | "materials" | "video" | "qa" | "members";
+type TabId = "intro" | "materials" | "video" | "qa" | "enrollment" | "members";
 
 function tsLabel(t: unknown): string {
   if (t && typeof t === "object" && "toMillis" in t && typeof (t as { toMillis: () => number }).toMillis === "function") {
@@ -57,6 +62,12 @@ function Inner() {
   const [savingMembers, setSavingMembers] = useState(false);
   const [membersErr, setMembersErr] = useState<string | null>(null);
 
+  const [pricingType, setPricingType] = useState<"free" | "paid">("free");
+  const [enrollmentRows, setEnrollmentRows] = useState<{ id: string; data: ClassroomEnrollmentRequestDocument }[]>([]);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
+  const [enrollmentActionErr, setEnrollmentActionErr] = useState<string | null>(null);
+  const [enrollmentBusyId, setEnrollmentBusyId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id || !firebaseUser) return;
     let cancelled = false;
@@ -78,6 +89,7 @@ function Inner() {
           setTitle(d.title);
           setDescription(d.description ?? "");
           setIntroduction(d.introduction ?? "");
+          setPricingType(d.pricingType === "paid" ? "paid" : "free");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -93,6 +105,30 @@ function Inner() {
       setMemberIdsText((room.memberStudentIds ?? []).join("\n"));
     }
   }, [room]);
+
+  useEffect(() => {
+    if (!id || tab !== "enrollment" || !room) return;
+    setEnrollmentLoading(true);
+    setEnrollmentActionErr(null);
+    const q = query(
+      collection(db, "classrooms", id, "enrollment_requests"),
+      orderBy("createdAt", "desc"),
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const rows: { id: string; data: ClassroomEnrollmentRequestDocument }[] = [];
+        snap.forEach((d) => rows.push({ id: d.id, data: d.data() as ClassroomEnrollmentRequestDocument }));
+        setEnrollmentRows(rows);
+        setEnrollmentLoading(false);
+      },
+      (e) => {
+        setEnrollmentActionErr(e.message || "목록을 불러오지 못했습니다.");
+        setEnrollmentLoading(false);
+      },
+    );
+    return () => unsub();
+  }, [id, tab, room]);
 
   useEffect(() => {
     if (!id || !room) return;
@@ -169,6 +205,43 @@ function Inner() {
     return err instanceof Error ? err.message : "저장에 실패했습니다.";
   }
 
+  async function approveEnrollment(studentId: string) {
+    if (!id || !room) return;
+    setEnrollmentBusyId(studentId);
+    setEnrollmentActionErr(null);
+    try {
+      const batch = writeBatch(db);
+      const cRef = doc(db, "classrooms", id);
+      const rRef = doc(db, "classrooms", id, "enrollment_requests", studentId);
+      batch.update(cRef, { memberStudentIds: arrayUnion(studentId) });
+      batch.update(rRef, { status: "approved", reviewedAt: serverTimestamp() });
+      await batch.commit();
+      setRoom((prev) =>
+        prev ? { ...prev, memberStudentIds: [...new Set([...(prev.memberStudentIds ?? []), studentId])] } : prev,
+      );
+    } catch (e) {
+      setEnrollmentActionErr(e instanceof Error ? e.message : "승인에 실패했습니다.");
+    } finally {
+      setEnrollmentBusyId(null);
+    }
+  }
+
+  async function rejectEnrollment(studentId: string) {
+    if (!id) return;
+    setEnrollmentBusyId(studentId);
+    setEnrollmentActionErr(null);
+    try {
+      await updateDoc(doc(db, "classrooms", id, "enrollment_requests", studentId), {
+        status: "rejected",
+        reviewedAt: serverTimestamp(),
+      });
+    } catch (e) {
+      setEnrollmentActionErr(e instanceof Error ? e.message : "처리에 실패했습니다.");
+    } finally {
+      setEnrollmentBusyId(null);
+    }
+  }
+
   async function saveIntro(e: React.FormEvent) {
     e.preventDefault();
     if (!id || !firebaseUser || !room) return;
@@ -186,8 +259,15 @@ function Inner() {
         title: t,
         description: description.trim(),
         introduction: introduction.trim(),
+        pricingType,
       });
-      setRoom({ ...room, title: t, description: description.trim(), introduction: introduction.trim() });
+      setRoom({
+        ...room,
+        title: t,
+        description: description.trim(),
+        introduction: introduction.trim(),
+        pricingType,
+      });
       setIntroSaveOk("저장했습니다. 입장 화면에도 곧바로 반영됩니다.");
     } catch (err) {
       setIntroErr(introSaveErrorMessage(err));
@@ -227,6 +307,7 @@ function Inner() {
     { id: "materials", label: "강의 자료", sub: "파일 업로드·신청 현황" },
     { id: "video", label: "강의 영상", sub: "영상 URL 등록·신청 현황" },
     { id: "qa", label: "질의응답", sub: "게시판" },
+    { id: "enrollment", label: "수강 신청", sub: "유료 대기 · 연락처" },
     { id: "members", label: "학습지 멤버", sub: "학생 UID 목록" },
   ];
 
@@ -304,6 +385,17 @@ function Inner() {
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="예: 고2 통합수학 A반 · 2026 봄"
                   />
+                </label>
+                <label className="auth-field">
+                  <span className="classroom-hub__field-label">강의 유형 (수강 신청)</span>
+                  <select
+                    className="add-passage__control"
+                    value={pricingType}
+                    onChange={(e) => setPricingType(e.target.value === "paid" ? "paid" : "free")}
+                  >
+                    <option value="free">무료 — 학생이 전체 강의실에서 바로 수강(멤버 등록)</option>
+                    <option value="paid">유료 — 수강 신청 후 연락처 접수 · 강사 승인 (PG 결제 전)</option>
+                  </select>
                 </label>
                 <div className="auth-field classroom-hub__field classroom-hub__field--intro">
                   <span className="classroom-hub__field-label">강의 소개</span>
@@ -451,6 +543,68 @@ function Inner() {
               </h2>
               <p className="classroom-hub__hint">학습자와 소통합니다. 부적절한 글은 삭제할 수 있습니다.</p>
               <ClassroomQaBoard classroomId={id} isClassroomTeacher />
+            </section>
+          )}
+
+          {tab === "enrollment" && id && (
+            <section className="classroom-hub__section" aria-labelledby="hub-enroll-h">
+              <h2 id="hub-enroll-h" className="classroom-hub__section-title">
+                유료 수강 신청 대기
+              </h2>
+              <p className="classroom-hub__hint">
+                학생이 <strong>수강신청요청</strong>으로 남긴 연락처입니다. <strong>승인</strong> 시 멤버 UID에 자동
+                반영되며, <strong>반려</strong> 시 학생이 다시 신청할 수 있습니다. 무료 강의는 전체 강의실에서 학생이
+                직접 수강합니다.
+              </p>
+              {enrollmentActionErr ? <p className="auth-error">{enrollmentActionErr}</p> : null}
+              {enrollmentLoading ? (
+                <p className="classroom-hub__hint">목록 불러오는 중…</p>
+              ) : enrollmentRows.length === 0 ? (
+                <p className="classroom-hub__hint">접수된 수강 신청이 없습니다.</p>
+              ) : (
+                <ul className="classroom-hub__request-list">
+                  {enrollmentRows.map((row) => {
+                    const st = row.data.status;
+                    const label =
+                      st === "pending" ? "수강 대기" : st === "approved" ? "승인됨" : "반려";
+                    return (
+                      <li key={row.id} className="classroom-hub__request-item">
+                        <div>
+                          <strong>학생 UID {row.data.studentId}</strong>
+                          <span className="classroom-hub__request-meta">
+                            {label}
+                            {" · "}
+                            {tsLabel(row.data.createdAt)}
+                          </span>
+                        </div>
+                        <p className="classroom-hub__request-desc">
+                          전화 {row.data.phone} · 이메일 {row.data.email}
+                        </p>
+                        {st === "pending" ? (
+                          <div className="classroom-hub__cta-row" style={{ marginTop: "0.5rem" }}>
+                            <button
+                              type="button"
+                              className="btn btn--primary btn--stack"
+                              disabled={enrollmentBusyId === row.id}
+                              onClick={() => void approveEnrollment(row.id)}
+                            >
+                              {enrollmentBusyId === row.id ? "처리 중…" : "승인 (멤버 등록)"}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--stack"
+                              disabled={enrollmentBusyId === row.id}
+                              onClick={() => void rejectEnrollment(row.id)}
+                            >
+                              반려
+                            </button>
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </section>
           )}
 
