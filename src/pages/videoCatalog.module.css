@@ -97,7 +97,10 @@
 }
 
 .rowTitle a:hover {
-  text-decoration: underline;
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 36%, transparent);
+  text-decoration-thickness: max(1.25px, 0.065em);
+  text-underline-offset: 0.28em;
 }
 
 .rowMeta {

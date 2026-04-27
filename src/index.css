@@ -106,6 +106,12 @@
   --intro-pastel-f: rgba(244, 114, 182, 0.12);
   --intro-pastel-g: rgba(52, 211, 153, 0.12);
   --intro-pastel-h: rgba(147, 197, 253, 0.12);
+
+  /* Inline link underline — 호버 시 글자색과 조화되는 소프트 틴트 */
+  --xu-link-ul-offset: 0.28em;
+  --xu-link-ul-thick: max(1.25px, 0.065em);
+  --xu-link-ul-hover: color-mix(in srgb, currentColor 34%, transparent);
+  --xu-link-ul-focus-ring: rgba(94, 184, 236, 0.38);
 }
 
 /* 210 마마블록 Bold — 산돌구름·디자인210 등에서 구매한 웹폰트 파일을 public/fonts/ 에 두면 로드됩니다. */
@@ -145,12 +151,50 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a {
+a:any-link {
   color: var(--accent);
-  text-decoration: none;
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-decoration-color: transparent;
+  text-decoration-thickness: var(--xu-link-ul-thick);
+  text-underline-offset: var(--xu-link-ul-offset);
+  text-decoration-skip-ink: auto;
+  transition:
+    color 0.2s ease,
+    text-decoration-color 0.28s cubic-bezier(0.22, 1, 0.34, 1);
 }
-a:hover {
-  text-decoration: underline;
+
+a:any-link:hover {
+  text-decoration-color: var(--xu-link-ul-hover);
+}
+
+a:any-link:focus-visible {
+  text-decoration-color: color-mix(in srgb, currentColor 42%, transparent);
+  outline: 2px solid var(--xu-link-ul-focus-ring);
+  outline-offset: 3px;
+}
+
+/* 버튼·카드형 링크 — 본문 인라인 밑줄 규칙 적용 안 함 */
+a.btn,
+a.btn:hover,
+a.btn:focus-visible,
+a[class*="top-nav__auth-link"],
+a[class*="top-nav__auth-link"]:hover,
+a[class*="top-nav__auth-link"]:focus-visible,
+a.mp-btn,
+a.mp-btn:hover,
+a.mp-btn:focus-visible,
+a[class*="intro-login-card__btn"],
+a[class*="intro-login-card__btn"]:hover,
+a[class*="intro-login-card__btn"]:focus-visible,
+a.intro-login-card__row--interactive:hover,
+a.intro-login-card__row--interactive:focus-visible,
+a.intro-login-card__row--gate:hover,
+a.intro-login-card__row--gate:focus-visible,
+a.intro-worksheet-cta,
+a.intro-worksheet-cta:hover,
+a.intro-worksheet-cta:focus-visible {
+  text-decoration: none;
 }
 
 button {
