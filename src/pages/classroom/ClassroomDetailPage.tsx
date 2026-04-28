@@ -23,7 +23,7 @@ import type { ContentDocument, ContentStatus, ContentType } from "@/types/conten
 import "@/pages/pages.css";
 
 type ContentRow = { id: string; data: ContentDocument };
-type TabId = "intro" | "materials" | "video" | "qa";
+type TabId = "intro" | "todayExam" | "materials" | "video" | "qa";
 
 function labelType(t: ContentType | undefined): string {
   if (t === "paid") return "유료";
@@ -61,6 +61,7 @@ export function ClassroomDetailPage() {
   const [examAssignments, setExamAssignments] = useState<
     { id: string; data: ClassroomExamAssignmentDocument }[]
   >([]);
+  const [examAssignmentsErr, setExamAssignmentsErr] = useState<string | null>(null);
 
   const isOwner = useMemo(
     () => !!(room && firebaseUser && room.teacherId === firebaseUser.uid),
@@ -135,10 +136,14 @@ export function ClassroomDetailPage() {
 
   useEffect(() => {
     if (!id || loading || !canAccessRoom) {
-      if (!loading) setExamAssignments([]);
+      if (!loading) {
+        setExamAssignments([]);
+        setExamAssignmentsErr(null);
+      }
       return;
     }
 
+    setExamAssignmentsErr(null);
     const aq = query(
       collection(db, "classroom_exam_assignments"),
       where("classroomId", "==", id),
@@ -150,8 +155,12 @@ export function ClassroomDetailPage() {
         const list: { id: string; data: ClassroomExamAssignmentDocument }[] = [];
         snap.forEach((d) => list.push({ id: d.id, data: d.data() as ClassroomExamAssignmentDocument }));
         setExamAssignments(list);
+        setExamAssignmentsErr(null);
       },
-      () => setExamAssignments([]),
+      (e) => {
+        setExamAssignments([]);
+        setExamAssignmentsErr(e instanceof Error ? e.message : "학습문제 목록을 불러오지 못했습니다.");
+      },
     );
     return () => unsub();
   }, [id, loading, canAccessRoom]);
@@ -191,6 +200,7 @@ export function ClassroomDetailPage() {
 
   const tabs: { id: TabId; label: string; sub: string }[] = [
     { id: "intro", label: "강의 소개", sub: "목표·안내" },
+    { id: "todayExam", label: "오늘의 학습문제", sub: "AI·자동채점" },
     { id: "materials", label: "학습 자료", sub: "파일·문서" },
     { id: "video", label: "강의 영상", sub: "링크" },
     { id: "qa", label: "질의응답", sub: "게시판" },
@@ -279,32 +289,6 @@ export function ClassroomDetailPage() {
                 </ul>
               </section>
             ) : null}
-            {examAssignments.length > 0 ? (
-              <section className="classroom-hub__section" style={{ marginBottom: "var(--space-3)" }}>
-                <h2 className="classroom-hub__section-title">오늘의 학습문제</h2>
-                <p style={{ color: "var(--light-text-muted, #6b7280)", marginTop: 0, marginBottom: "var(--space-2)" }}>
-                  선생님이 배포한 AI 문제를 풀고 제출하면 자동 채점됩니다.
-                </p>
-                <ul className="classroom-page__materials" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                  {examAssignments.map((row) => (
-                    <li key={row.id} className="classroom-page__material">
-                      <div>
-                        <h3 className="classroom-page__material-title">{row.data.title}</h3>
-                        <p className="classroom-page__material-topic">{row.data.subject}</p>
-                      </div>
-                      <div>
-                        <Link
-                          to={`/classroom/${id}/learn/${row.id}`}
-                          className="btn btn--ghost btn--stack"
-                        >
-                          풀기
-                        </Link>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
             <div className="admin-layout__title-row">
               <h1>{room.title}</h1>
               <span className="ui-ko">강의실</span>
@@ -335,6 +319,50 @@ export function ClassroomDetailPage() {
             </div>
 
             <div className="classroom-hub__panel">
+              {tab === "todayExam" && (
+                <section className="classroom-hub__section">
+                  <h2 className="classroom-hub__section-title">오늘의 학습문제</h2>
+                  <p style={{ color: "var(--light-text-muted, #6b7280)", marginTop: 0 }}>
+                    선생님이 이 강의실에 배포한 AI 문제를 풀고 제출하면 자동 채점됩니다.
+                  </p>
+                  {examAssignmentsErr ? (
+                    <div className="auth-error" role="alert">
+                      <p style={{ margin: 0 }}>{examAssignmentsErr}</p>
+                      {examAssignmentsErr.includes("index") || examAssignmentsErr.includes("Index") ? (
+                        <p style={{ margin: "0.5rem 0 0" }}>
+                          Firestore에 classroom_exam_assignments용 복합 인덱스(classroomId + createdAt) 배포가
+                          필요할 수 있습니다.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : examAssignments.length === 0 ? (
+                    <p style={{ color: "var(--light-text-muted, #6b7280)" }}>
+                      아직 배포된 학습문제가 없습니다. 선생님이 시험 생성 화면에서 이 강의실을 선택해 배포하면 여기에
+                      표시됩니다.
+                    </p>
+                  ) : (
+                    <ul className="classroom-page__materials">
+                      {examAssignments.map((row) => (
+                        <li key={row.id} className="classroom-page__material">
+                          <div>
+                            <h3 className="classroom-page__material-title">{row.data.title}</h3>
+                            <p className="classroom-page__material-topic">{row.data.subject}</p>
+                          </div>
+                          <div>
+                            <Link
+                              to={`/classroom/${id}/learn/${row.id}`}
+                              className="btn btn--ghost btn--stack"
+                            >
+                              풀기
+                            </Link>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
+
               {tab === "intro" && (
                 <section className="classroom-hub__section">
                   <h2 className="classroom-hub__section-title">강의 소개</h2>
