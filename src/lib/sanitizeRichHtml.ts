@@ -35,6 +35,7 @@ const CONFIG = {
     "pre",
   ],
   ALLOWED_ATTR: ["href", "target", "rel", "src", "alt", "title", "class", "style"],
+  ADD_ATTR: ["data-rich-slider"],
   ALLOW_DATA_ATTR: false,
 };
 

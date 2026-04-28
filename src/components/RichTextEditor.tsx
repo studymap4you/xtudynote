@@ -4,6 +4,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react";
 import type { Editor } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -16,10 +17,12 @@ import { StarterKit } from "@tiptap/starter-kit";
 import { Underline } from "@tiptap/extension-underline";
 import { uploadEditorImageWithProgress } from "@/lib/editorUploads";
 import { escapeHtmlAttr, escapeHtmlText } from "@/lib/richTextUtils";
+import { RichTextImageLayoutDialog, type RichTextImageLayoutChoice } from "@/components/rich-text/RichTextImageLayoutDialog";
+import { RichImageSliderExtension } from "@/components/rich-text/richImageSliderExtension";
 import "@/components/rich-text/rich-text.css";
 
 export type RichTextEditorHandle = {
-  insertImageUrls: (urls: string[]) => void;
+  insertImageUrls: (urls: string[], layout?: RichTextImageLayoutChoice) => void;
   insertFileLinks: (items: { url: string; name: string }[]) => void;
 };
 
@@ -50,47 +53,40 @@ function htmlLooselyEqual(a: string, b: string): boolean {
   return compactBetweenTags(a) === compactBetweenTags(b);
 }
 
+function insertUrlsWithLayout(editor: Editor, urls: string[], layout: RichTextImageLayoutChoice) {
+  if (layout === "slider") {
+    editor.chain().focus().insertRichImageSlider(urls).run();
+  } else {
+    for (const u of urls) {
+      if (!u.trim()) continue;
+      editor.chain().focus().setImage({ src: u.trim() }).run();
+    }
+  }
+}
+
+function offerUrlsAfterUpload(
+  editor: Editor | null,
+  urls: string[],
+  openLayoutChoice: (urls: string[]) => void
+) {
+  const cleaned = urls.map((u) => u.trim()).filter(Boolean);
+  if (!cleaned.length || !editor) return;
+  if (cleaned.length === 1) {
+    editor.chain().focus().setImage({ src: cleaned[0] }).run();
+  } else {
+    openLayoutChoice(cleaned);
+  }
+}
+
 function MenuBar({
   editor,
-  userId,
   disabled,
+  onPickImages,
 }: {
   editor: Editor;
-  userId: string | undefined;
   disabled: boolean;
+  onPickImages: () => void;
 }) {
-  const addImages = useCallback(() => {
-    if (disabled) return;
-    if (!userId) {
-      window.alert("이미지를 넣으려면 로그인이 필요합니다.");
-      return;
-    }
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.multiple = true;
-    input.onchange = async () => {
-      const list = input.files;
-      if (!list?.length) return;
-      const files = Array.from(list).filter((f) => f.type.startsWith("image/"));
-      for (const file of files) {
-        if (file.size > MAX_IMAGE_BYTES) {
-          window.alert(`이미지는 ${MAX_IMAGE_BYTES / (1024 * 1024)}MB 이하만 업로드할 수 있습니다: ${file.name}`);
-          return;
-        }
-      }
-      try {
-        for (const file of files) {
-          const url = await uploadEditorImageWithProgress(userId, file);
-          editor.chain().focus().setImage({ src: url }).run();
-        }
-      } catch (e) {
-        window.alert(e instanceof Error ? e.message : "이미지 업로드에 실패했습니다.");
-      }
-    };
-    input.click();
-  }, [editor, userId, disabled]);
-
   const setLink = useCallback(() => {
     if (disabled) return;
     const prev = editor.getAttributes("link").href as string | undefined;
@@ -291,7 +287,7 @@ function MenuBar({
         <button type="button" className={editor.isActive("link") ? "is-active" : undefined} onClick={setLink} disabled={disabled} title="링크">
           링크
         </button>
-        <button type="button" onClick={addImages} disabled={disabled} title="이미지 (여러 장)">
+        <button type="button" onClick={onPickImages} disabled={disabled} title="이미지 (여러 장)">
           이미지
         </button>
         <button
@@ -320,6 +316,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
   ref
 ) {
   const editorRef = useRef<Editor | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const afterUploadUrlsRef = useRef<(urls: string[]) => void>(() => {});
+  const [layoutDialogUrls, setLayoutDialogUrls] = useState<string[] | null>(null);
 
   const editor = useEditor(
     {
@@ -348,6 +347,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
           inline: false,
           allowBase64: false,
         }),
+        RichImageSliderExtension,
         Placeholder.configure({
           placeholder: placeholder ?? "내용을 입력하세요.",
         }),
@@ -385,19 +385,29 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
             const pos =
               view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? ed.state.selection.from;
             ed.chain().focus().setTextSelection(pos).run();
+            const urls: string[] = [];
+            let done = 0;
             for (const file of images) {
               if (file.size > MAX_IMAGE_BYTES) {
                 window.alert(`이미지는 ${MAX_IMAGE_BYTES / (1024 * 1024)}MB 이하만 가능합니다.`);
                 continue;
               }
               try {
-                const url = await uploadEditorImageWithProgress(userId, file, (p) => onUploadProgress?.(p));
-                ed.chain().focus().setImage({ src: url }).run();
+                const url = await uploadEditorImageWithProgress(userId, file, (p) => {
+                  if (p == null) return;
+                  const n = images.length;
+                  const base = (done / n) * 100;
+                  const slice = (p / 100) * (1 / n) * 100;
+                  onUploadProgress?.(Math.min(100, Math.round(base + slice)));
+                });
+                urls.push(url);
+                done++;
               } catch (e) {
                 window.alert(e instanceof Error ? e.message : "이미지 업로드에 실패했습니다.");
               }
             }
             onUploadProgress?.(null);
+            afterUploadUrlsRef.current(urls);
           })();
           return true;
         },
@@ -411,17 +421,28 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
           void (async () => {
             const ed = editorRef.current;
             if (!ed) return;
-            for (const it of imageItems) {
-              const file = it.getAsFile();
-              if (!file || file.size > MAX_IMAGE_BYTES) continue;
+            const urls: string[] = [];
+            let done = 0;
+            const toUpload = imageItems
+              .map((it) => it.getAsFile())
+              .filter((f): f is File => !!f && f.size <= MAX_IMAGE_BYTES);
+            for (const file of toUpload) {
               try {
-                const url = await uploadEditorImageWithProgress(userId, file, (p) => onUploadProgress?.(p));
-                ed.chain().focus().setImage({ src: url }).run();
+                const url = await uploadEditorImageWithProgress(userId, file, (p) => {
+                  if (p == null) return;
+                  const n = Math.max(1, toUpload.length);
+                  const base = (done / n) * 100;
+                  const slice = (p / 100) * (1 / n) * 100;
+                  onUploadProgress?.(Math.min(100, Math.round(base + slice)));
+                });
+                urls.push(url);
+                done++;
               } catch (e) {
                 window.alert(e instanceof Error ? e.message : "붙여넣기 이미지 업로드에 실패했습니다.");
               }
             }
             onUploadProgress?.(null);
+            afterUploadUrlsRef.current(urls);
           })();
           return true;
         },
@@ -430,16 +451,63 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
     [placeholder, disabled, userId, onUploadProgress]
   );
 
+  useEffect(() => {
+    afterUploadUrlsRef.current = (urls: string[]) => {
+      offerUrlsAfterUpload(editorRef.current, urls, setLayoutDialogUrls);
+    };
+  }, []);
+
+  const onPickImages = useCallback(() => {
+    if (disabled) return;
+    if (!userId) {
+      window.alert("이미지를 넣으려면 로그인이 필요합니다.");
+      return;
+    }
+    fileInputRef.current?.click();
+  }, [disabled, userId]);
+
+  const onImageFilesChanged = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files;
+    e.target.value = "";
+    if (!list?.length || disabled || !userId) return;
+    const files = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    for (const file of files) {
+      if (file.size > MAX_IMAGE_BYTES) {
+        window.alert(`이미지는 ${MAX_IMAGE_BYTES / (1024 * 1024)}MB 이하만 업로드할 수 있습니다: ${file.name}`);
+        return;
+      }
+    }
+    const urls: string[] = [];
+    let done = 0;
+    try {
+      for (const file of files) {
+        const url = await uploadEditorImageWithProgress(userId, file, (p) => {
+          if (p == null) return;
+          const n = files.length;
+          const base = (done / n) * 100;
+          const slice = (p / 100) * (1 / n) * 100;
+          onUploadProgress?.(Math.min(100, Math.round(base + slice)));
+        });
+        urls.push(url);
+        done++;
+      }
+      onUploadProgress?.(null);
+      offerUrlsAfterUpload(editorRef.current, urls, setLayoutDialogUrls);
+    } catch (err) {
+      onUploadProgress?.(null);
+      window.alert(err instanceof Error ? err.message : "이미지 업로드에 실패했습니다.");
+    }
+  };
+
   useImperativeHandle(
     ref,
     () => ({
-      insertImageUrls(urls: string[]) {
+      insertImageUrls(urls: string[], layout: RichTextImageLayoutChoice = "sequential") {
         const ed = editorRef.current;
         if (!ed) return;
-        for (const u of urls) {
-          if (!u.trim()) continue;
-          ed.chain().focus().setImage({ src: u.trim() }).run();
-        }
+        const cleaned = urls.map((u) => u.trim()).filter(Boolean);
+        if (!cleaned.length) return;
+        insertUrlsWithLayout(ed, cleaned, layout);
       },
       insertFileLinks(items: { url: string; name: string }[]) {
         const ed = editorRef.current;
@@ -484,7 +552,29 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
       id={id}
       className={`rich-text-editor${compact ? " rich-text-editor--compact" : ""}${disabled ? " rich-text-editor--disabled" : ""}`}
     >
-      <MenuBar editor={editor} userId={userId} disabled={!!disabled} />
+      <RichTextImageLayoutDialog
+        open={layoutDialogUrls !== null}
+        onOpenChange={(open) => {
+          if (!open) setLayoutDialogUrls(null);
+        }}
+        imageCount={layoutDialogUrls?.length ?? 0}
+        onChoose={(layout) => {
+          if (!editor || !layoutDialogUrls?.length) return;
+          insertUrlsWithLayout(editor, layoutDialogUrls, layout);
+        }}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        disabled={!!disabled}
+        className="rich-text-editor__hidden-file"
+        aria-hidden
+        tabIndex={-1}
+        onChange={onImageFilesChanged}
+      />
+      <MenuBar editor={editor} disabled={!!disabled} onPickImages={onPickImages} />
       <EditorContent editor={editor} />
     </div>
   );
