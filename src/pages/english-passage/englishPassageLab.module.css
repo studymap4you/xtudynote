@@ -504,10 +504,10 @@
   color: #475569;
 }
 
-/* 인쇄·PDF와 동일하게 문제지 본문 여백 30mm */
+/* 인쇄·PDF와 동일하게 문제지 본문 여백 25mm */
 .previewSheet {
   margin-top: 1rem;
-  padding: 30mm;
+  padding: 25mm;
   box-sizing: border-box;
   border-radius: 12px;
   border: 1px solid rgba(37, 99, 235, 0.22);

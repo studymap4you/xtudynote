@@ -11,12 +11,12 @@ const PAGE_W = 595.28;
 const PAGE_H = 841.89;
 
 /**
- * 상하좌우 30mm (pdf-lib 좌표계). Puppeteer 미사용 — 레이아웃·분페이지는 본 파일에서 계산.
+ * 상하좌우 25mm (pdf-lib 좌표계). Puppeteer 미사용 — 레이아웃·분페이지는 본 파일에서 계산.
  */
-const MARGIN_L = 30 * MM;
-const MARGIN_R = 30 * MM;
-const MARGIN_TOP = 30 * MM;
-const MARGIN_BOT = 30 * MM;
+const MARGIN_L = 25 * MM;
+const MARGIN_R = 25 * MM;
+const MARGIN_TOP = 25 * MM;
+const MARGIN_BOT = 25 * MM;
 
 const BODY_PT = 9.5;
 const BODY_LH = BODY_PT * 1.45;

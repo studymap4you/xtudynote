@@ -1,6 +1,6 @@
 /**
  * react-to-print `pageStyle` — 인쇄 iframe에 주입되어 A4·여백·색 재현을 맞춥니다.
- * 인쇄 대화상자에서 여백「없음」이어도 iframe body 안쪽 패딩으로 상·하 30mm·좌·우 25mm를 확보합니다.
+ * 인쇄 대화상자에서 여백「없음」이어도 iframe body 안쪽 패딩으로 상하좌우 25mm를 확보합니다.
  * @see https://github.com/MatthewHerbst/react-to-print
  */
 export const REACT_TO_PRINT_A4_PAGE_STYLE = `
@@ -26,7 +26,7 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
       -webkit-print-color-adjust: exact !important;
     }
     body {
-      padding: 30mm 25mm 34mm !important;
+      padding: 25mm !important;
     }
     .passage-deep-print p,
     .passage-deep-print li {

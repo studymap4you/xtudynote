@@ -70,10 +70,10 @@ export function openEnglishWorksheetPrint(payload: EnglishWorksheetPrintPayload)
 
   const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${esc(payload.title)}</title>
 <style>
-  /* @page 여백 = 모든 인쇄 페이지 상하좌우 30mm (브라우저가「여백: 없음」이면 사용자 설정이 우선될 수 있음) */
+  /* @page 여백 = 모든 인쇄 페이지 상하좌우 25mm (브라우저가「여백: 없음」이면 사용자 설정이 우선될 수 있음) */
   @page {
     size: A4;
-    margin: 30mm;
+    margin: 25mm;
   }
   html {
     margin: 0;

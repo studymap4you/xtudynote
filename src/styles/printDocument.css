@@ -4,7 +4,7 @@
  */
 @page {
   size: A4 portrait;
-  margin: 30mm 25mm;
+  margin: 25mm;
   @bottom-center {
     font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif;
     font-size: 8.5pt;
