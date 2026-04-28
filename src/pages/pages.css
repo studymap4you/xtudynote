@@ -820,14 +820,15 @@
   color: #007aff;
   text-align: center;
 }
-.intro-hero__classroom {
+/* 랜딩 · 내 강의실 + 서비스 안내 — 동일 트랙 너비로 상·하단 그리드 정렬 */
+.intro-hero__action-stack {
   margin-top: var(--space-2);
   width: 100%;
   max-width: min(36rem, 100%);
   margin-left: auto;
   margin-right: auto;
 }
-.intro-hero__classroom-heading {
+.intro-hero__action-stack__heading {
   margin: 0 0 0.75rem;
   font-size: 0.95rem;
   font-weight: 800;
@@ -835,11 +836,17 @@
   color: #0f172a;
   text-align: center;
 }
-.intro-hero__classroom-tiles {
+.intro-hero__action-stack__heading--follow {
+  margin-top: 1.35rem;
+}
+.intro-hero__action-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   width: 100%;
+}
+.intro-hero__action-grid--single {
+  grid-template-columns: 1fr;
 }
 .intro-hero__classroom-hint {
   margin: 0.75rem 0 0;
@@ -855,166 +862,139 @@
   font-weight: 700;
 }
 
-/* 랜딩 · 큰 액션 타일 (내 강의실 / 대시보드 등 — 색 구분 + 궤도 장식) */
+/* 랜딩 · 액션 카드 (심플 아이콘 + 타이틀, 궤도 장식 없음) */
 .intro-landing-tile {
   position: relative;
   display: block;
   overflow: hidden;
-  min-height: 5.6rem;
-  border-radius: 1.12rem;
-  border: 1px solid transparent;
+  min-height: 6.75rem;
+  border-radius: 1.15rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: #fff;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.22) inset,
-    0 14px 36px -16px rgba(15, 23, 42, 0.22);
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 28px -12px rgba(15, 23, 42, 0.12);
   text-decoration: none;
   color: inherit;
   transition:
     transform 0.18s ease,
     box-shadow 0.18s ease,
-    filter 0.18s ease,
-    border-color 0.18s ease;
+    border-color 0.18s ease,
+    filter 0.18s ease;
 }
 button.intro-landing-tile {
   width: 100%;
   font: inherit;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
 }
 .intro-landing-tile:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.28) inset,
-    0 22px 44px -18px rgba(15, 23, 42, 0.28);
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 16px 36px -14px rgba(15, 23, 42, 0.16);
 }
 .intro-landing-tile:focus-visible {
   outline: 2px solid #6366f1;
   outline-offset: 3px;
 }
-.intro-landing-tile__orbit {
-  position: absolute;
-  right: -12%;
-  top: 50%;
-  transform: translateY(-50%);
-  width: min(58%, 11.5rem);
-  pointer-events: none;
-  z-index: 0;
-}
-.intro-landing-tile__orbit-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.intro-landing-tile__orbit--on-dark {
-  color: rgba(255, 255, 255, 0.88);
-}
-.intro-landing-tile__orbit--on-mint {
-  color: rgba(4, 120, 87, 0.45);
-}
-.intro-landing-tile__orbit--on-amber {
-  color: rgba(180, 83, 9, 0.4);
-}
 .intro-landing-tile__inner {
   position: relative;
   z-index: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  padding: 1.15rem 1.2rem;
-  min-height: 5.6rem;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 1.2rem 0.9rem 1.25rem;
+  min-height: 6.75rem;
   box-sizing: border-box;
+  text-align: center;
 }
 .intro-landing-tile__badge {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 3.1rem;
-  height: 3.1rem;
-  border-radius: 0.9rem;
-  background: rgba(255, 255, 255, 0.22);
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.2);
   color: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 .intro-landing-tile__title {
-  font-size: 1.08rem;
+  font-size: 1.02rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  line-height: 1.25;
+  line-height: 1.3;
+  color: inherit;
 }
 .intro-landing-tile--classroom-enter {
-  background: linear-gradient(128deg, #312e81 0%, #4f46e5 38%, #7c3aed 92%);
-  border-color: rgba(167, 139, 250, 0.45);
+  background: linear-gradient(145deg, #3730a3 0%, #4f46e5 42%, #6366f1 100%);
+  border-color: rgba(165, 180, 252, 0.5);
   color: #ffffff;
 }
 .intro-landing-tile--classroom-enter .intro-landing-tile__badge {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.35);
-  color: #ffffff;
-}
-.intro-landing-tile--classroom-enter:hover {
-  filter: brightness(1.04);
-}
-.intro-landing-tile--classroom-new {
-  background: linear-gradient(145deg, #ecfdf5 0%, #a7f3d0 48%, #6ee7b7 100%);
-  border-color: rgba(16, 185, 129, 0.35);
-  color: #064e3b;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.65) inset,
-    0 12px 32px -14px rgba(16, 185, 129, 0.35);
-}
-.intro-landing-tile--classroom-new .intro-landing-tile__badge {
-  background: rgba(255, 255, 255, 0.65);
-  border-color: rgba(6, 95, 70, 0.18);
-  color: #047857;
-}
-.intro-landing-tile--classroom-new:hover {
-  filter: saturate(1.05);
-}
-.intro-landing-tile--dashboard {
-  background: linear-gradient(135deg, #0f766e 0%, #0d9488 42%, #0891b2 100%);
-  border-color: rgba(45, 212, 191, 0.4);
-  color: #ffffff;
-}
-.intro-landing-tile--dashboard .intro-landing-tile__badge {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.35);
   color: #ffffff;
 }
-.intro-landing-tile--dashboard:hover {
+.intro-landing-tile--classroom-enter:hover {
   filter: brightness(1.05);
+  border-color: rgba(199, 210, 254, 0.65);
+}
+.intro-landing-tile--classroom-new {
+  background: linear-gradient(160deg, #ecfdf5 0%, #d1fae5 45%, #a7f3d0 100%);
+  border-color: rgba(16, 185, 129, 0.32);
+  color: #064e3b;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 10px 26px -12px rgba(16, 185, 129, 0.22);
+}
+.intro-landing-tile--classroom-new .intro-landing-tile__badge {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(6, 78, 59, 0.15);
+  color: #047857;
+}
+.intro-landing-tile--classroom-new:hover {
+  border-color: rgba(5, 150, 105, 0.4);
+}
+.intro-landing-tile--dashboard {
+  background: linear-gradient(145deg, #115e59 0%, #0d9488 40%, #0e7490 100%);
+  border-color: rgba(45, 212, 191, 0.35);
+  color: #ffffff;
+}
+.intro-landing-tile--dashboard .intro-landing-tile__badge {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.38);
+  color: #ffffff;
+}
+.intro-landing-tile--dashboard .intro-landing-tile__title {
+  color: #ffffff;
+}
+.intro-landing-tile--dashboard:hover {
+  filter: brightness(1.06);
+  border-color: rgba(153, 246, 228, 0.45);
 }
 .intro-landing-tile--logout {
-  background: linear-gradient(165deg, #fffbeb 0%, #fde68a 55%, #fcd34d 100%);
-  border-color: rgba(217, 119, 6, 0.35);
-  color: #451a03;
+  background: linear-gradient(165deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #1c1917;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.75) inset,
-    0 14px 34px -16px rgba(180, 83, 9, 0.28);
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 26px -12px rgba(180, 83, 9, 0.15);
 }
 .intro-landing-tile--logout .intro-landing-tile__badge {
-  background: rgba(255, 255, 255, 0.75);
-  border-color: rgba(120, 53, 15, 0.2);
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(120, 53, 15, 0.18);
   color: #78350f;
 }
+.intro-landing-tile--logout .intro-landing-tile__title {
+  color: #1c1917;
+}
 .intro-landing-tile--logout:hover {
-  filter: brightness(1.02);
-}
-
-.intro-logged-service {
-  width: 100%;
-}
-.intro-logged-service__label {
-  margin: 0 0 0.75rem;
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: #0f172a;
-  text-align: center;
-}
-.intro-logged-service__tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
-  gap: 0.75rem;
+  border-color: rgba(217, 119, 6, 0.45);
 }
 
 /* —— 강의실 —— */
