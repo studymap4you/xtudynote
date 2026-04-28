@@ -53,6 +53,53 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId
           == request.auth.uid;
     }
+    /** ai_exams 에 classroomId 가 있을 때 — 소유 교사 또는 멤버 학생만 읽기 */
+    function aiExamClassroomMemberOrTeacherRead() {
+      return isSignedInActiveAccount()
+        && 'classroomId' in resource.data
+        && resource.data.classroomId is string
+        && resource.data.classroomId.size() > 0
+        && exists(/databases/$(database)/documents/classrooms/$(resource.data.classroomId))
+        && (
+          get(/databases/$(database)/documents/classrooms/$(resource.data.classroomId)).data.teacherId
+            == request.auth.uid
+          || (
+            'memberStudentIds'
+              in get(/databases/$(database)/documents/classrooms/$(resource.data.classroomId)).data
+            && get(/databases/$(database)/documents/classrooms/$(resource.data.classroomId)).data.memberStudentIds
+              is list
+            && request.auth.uid
+              in get(/databases/$(database)/documents/classrooms/$(resource.data.classroomId)).data.memberStudentIds
+          )
+        );
+    }
+    function classroomAssignmentReadable() {
+      return isSignedInActiveAccount()
+        && exists(/databases/$(database)/documents/classrooms/$(resource.data.classroomId))
+        && (
+          resource.data.teacherId == request.auth.uid
+          || get(/databases/$(database)/documents/classrooms/$(resource.data.classroomId)).data.teacherId
+            == request.auth.uid
+          || (
+            'memberStudentIds'
+              in get(/databases/$(database)/documents/classrooms/$(resource.data.classroomId)).data
+            && get(/databases/$(database)/documents/classrooms/$(resource.data.classroomId)).data.memberStudentIds
+              is list
+            && request.auth.uid
+              in get(/databases/$(database)/documents/classrooms/$(resource.data.classroomId)).data.memberStudentIds
+          )
+        );
+    }
+    function studentAnswerClassroomMember() {
+      return isActiveStudent()
+        && exists(/databases/$(database)/documents/classrooms/$(request.resource.data.classroomId))
+        && 'memberStudentIds'
+          in get(/databases/$(database)/documents/classrooms/$(request.resource.data.classroomId)).data
+        && get(/databases/$(database)/documents/classrooms/$(request.resource.data.classroomId)).data.memberStudentIds
+          is list
+        && request.auth.uid
+          in get(/databases/$(database)/documents/classrooms/$(request.resource.data.classroomId)).data.memberStudentIds;
+    }
     /** classrooms 문서용 — memberStudentIds 없으면 빈 목록 */
     function classroomOldMemberIds() {
       return (
@@ -394,14 +441,15 @@ service cloud.firestore {
         || (isActiveTeacher() && resource.data.createdBy == request.auth.uid);
     }
 
-    /** AI 시험지 — 링크로 학생 응시 가능, 작성자만 수정 */
+    /** AI 시험지 — 링크 공개 + 강의실 배포 시 해당 강의실 멤버 읽기 */
     match /ai_exams/{examId} {
       allow read: if resource.data.visibility == 'link'
         || isActiveSuperAdmin()
         || (
           isSignedInActiveAccount()
           && resource.data.teacherId == request.auth.uid
-        );
+        )
+        || aiExamClassroomMemberOrTeacherRead();
 
       allow create: if (isActiveTeacher() || isActiveSuperAdmin())
         && request.resource.data.teacherId == request.auth.uid
@@ -417,7 +465,14 @@ service cloud.firestore {
           'objectiveRatioPercent',
           'visibility',
           'createdAt',
-        ]);
+        ])
+        && (
+          !('classroomId' in request.resource.data)
+          || (
+            request.resource.data.classroomId is string
+            && ownsClassroom(request.resource.data.classroomId)
+          )
+        );
 
       allow update: if (isActiveTeacher() || isActiveSuperAdmin())
         && resource.data.teacherId == request.auth.uid
@@ -425,6 +480,79 @@ service cloud.firestore {
 
       allow delete: if (isActiveTeacher() || isActiveSuperAdmin())
         && resource.data.teacherId == request.auth.uid;
+    }
+
+    /** 강의실별 AI 시험 배포 메타 */
+    match /classroom_exam_assignments/{assignmentId} {
+      allow read: if isActiveSuperAdmin() || classroomAssignmentReadable();
+
+      allow create: if (isActiveTeacher() || isActiveSuperAdmin())
+        && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.classroomId is string
+        && ownsClassroom(request.resource.data.classroomId)
+        && request.resource.data.examId is string
+        && request.resource.data.title is string
+        && request.resource.data.subject is string
+        && request.resource.data.keys().hasAll([
+          'classroomId',
+          'teacherId',
+          'examId',
+          'title',
+          'subject',
+          'createdAt',
+        ]);
+
+      allow update, delete: if (isActiveTeacher() || isActiveSuperAdmin())
+        && resource.data.teacherId == request.auth.uid;
+    }
+
+    /** 학생 응시 결과 — 문서 ID `${assignmentId}_${studentId}` 권장 */
+    match /student_answers/{docId} {
+      allow read: if isActiveSuperAdmin()
+        || (
+          isSignedInActiveAccount()
+          && resource.data.studentId == request.auth.uid
+        )
+        || (
+          isSignedInActiveAccount()
+          && resource.data.teacherId == request.auth.uid
+        );
+
+      allow create: if isActiveStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.classroomId is string
+        && request.resource.data.assignmentId is string
+        && request.resource.data.examId is string
+        && request.resource.data.teacherId is string
+        && request.resource.data.aggregateScore is number
+        && request.resource.data.aggregateScore >= 0
+        && request.resource.data.aggregateScore <= 100
+        && request.resource.data.perQuestion is map
+        && request.resource.data.keys().hasAll([
+          'assignmentId',
+          'classroomId',
+          'examId',
+          'studentId',
+          'teacherId',
+          'perQuestion',
+          'aggregateScore',
+          'submittedAt',
+          'updatedAt',
+        ])
+        && studentAnswerClassroomMember();
+
+      allow update: if isActiveStudent()
+        && resource.data.studentId == request.auth.uid
+        && request.resource.data.studentId == resource.data.studentId
+        && request.resource.data.classroomId == resource.data.classroomId
+        && request.resource.data.assignmentId == resource.data.assignmentId
+        && request.resource.data.examId == resource.data.examId
+        && request.resource.data.teacherId == resource.data.teacherId
+        && request.resource.data.aggregateScore is number
+        && request.resource.data.aggregateScore >= 0
+        && request.resource.data.aggregateScore <= 100
+        && request.resource.data.perQuestion is map
+        && studentAnswerClassroomMember();
     }
 
     /**

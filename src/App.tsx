@@ -34,6 +34,7 @@ import { TeacherAssignmentDetailPage } from "@/pages/assignments/TeacherAssignme
 import { ExternalWorksheetOutreachPage } from "@/pages/assignments/ExternalWorksheetOutreachPage";
 import { WorksheetPdfCreatePage } from "@/pages/WorksheetPdfCreatePage";
 import { ExamBuilderPage } from "@/pages/exam/ExamBuilderPage";
+import { ClassroomTodayExamPage } from "@/pages/exam/ClassroomTodayExamPage";
 import { ExamTakePage } from "@/pages/exam/ExamTakePage";
 import { EnglishPassageLabPage } from "@/pages/english-passage/EnglishPassageLabPage";
 
@@ -226,6 +227,14 @@ export default function App() {
           <TeacherRoute>
             <ExamBuilderPage />
           </TeacherRoute>
+        }
+      />
+      <Route
+        path="/classroom/:classroomId/learn/:assignmentId"
+        element={
+          <ProtectedRoute>
+            <ClassroomTodayExamPage />
+          </ProtectedRoute>
         }
       />
       <Route

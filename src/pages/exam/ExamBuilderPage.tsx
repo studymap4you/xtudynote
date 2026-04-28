@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -8,6 +8,7 @@ import { db } from "@/firebase/config";
 import { generateAiExamQuestions } from "@/lib/aiExam/generateAiExamQuestions";
 import { downloadExamPaperPdf } from "@/lib/exam/examPaperPdfClient";
 import type { AiExamQuestion } from "@/types/aiExam";
+import type { ClassroomDocument } from "@/types/classroom";
 import styles from "@/pages/exam/examPages.module.css";
 
 const MAX_ITEMS = 20;
@@ -19,9 +20,18 @@ type ManualDraft = {
   options: [string, string, string, string];
   correctIndex: number;
   shortAnswer: string;
+  /** 쉼표로 구분 — 단답 채점 시 필수 키워드 */
+  requiredKeywords: string;
   evidenceQuote: string;
   explanation: string;
 };
+
+function parseKeywordList(raw: string): string[] {
+  return raw
+    .split(/[,，]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
 
 function newManual(): ManualDraft {
   return {
@@ -31,6 +41,7 @@ function newManual(): ManualDraft {
     options: ["", "", "", ""],
     correctIndex: 0,
     shortAnswer: "",
+    requiredKeywords: "",
     evidenceQuote: "",
     explanation: "",
   };
@@ -56,6 +67,7 @@ function manualToQuestion(m: ManualDraft): AiExamQuestion | null {
   }
   const ca = m.shortAnswer.trim();
   if (!ca) return null;
+  const kw = parseKeywordList(m.requiredKeywords);
   return {
     id: crypto.randomUUID(),
     source: "manual",
@@ -64,6 +76,7 @@ function manualToQuestion(m: ManualDraft): AiExamQuestion | null {
     correctAnswer: ca,
     evidenceQuote: ev,
     explanation: exp,
+    ...(kw.length ? { requiredKeywords: kw } : {}),
   };
 }
 
@@ -86,6 +99,10 @@ export function ExamBuilderPage() {
 
   const [assembled, setAssembled] = useState<AiExamQuestion[]>([]);
 
+  const [myClassrooms, setMyClassrooms] = useState<{ id: string; title: string }[]>([]);
+  const [selectedClassroomId, setSelectedClassroomId] = useState("");
+  const [lastAssignmentId, setLastAssignmentId] = useState<string | null>(null);
+
   const [pdfLayout, setPdfLayout] = useState<"1col" | "2col">("1col");
   const [pdfStudentName, setPdfStudentName] = useState("");
   const [pdfStudentNo, setPdfStudentNo] = useState("");
@@ -95,6 +112,32 @@ export function ExamBuilderPage() {
   const [pdfBusy, setPdfBusy] = useState(false);
 
   const teacherName = profile?.displayName?.trim() || firebaseUser?.email?.trim() || "선생님";
+
+  useEffect(() => {
+    if (!uid) {
+      setMyClassrooms([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const q = query(collection(db, "classrooms"), where("teacherId", "==", uid));
+        const snap = await getDocs(q);
+        const rows: { id: string; title: string }[] = [];
+        snap.forEach((d) => {
+          const x = d.data() as ClassroomDocument;
+          rows.push({ id: d.id, title: String(x.title ?? "강의실") });
+        });
+        rows.sort((a, b) => a.title.localeCompare(b.title, "ko"));
+        if (!cancelled) setMyClassrooms(rows);
+      } catch {
+        if (!cancelled) setMyClassrooms([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
 
   const totalsOk = totalItems >= 1 && totalItems <= MAX_ITEMS;
 
@@ -181,6 +224,7 @@ export function ExamBuilderPage() {
       const merged = [...manualQs, ...aiQs].slice(0, totalItems);
 
       const examId = crypto.randomUUID();
+      const classroomId = selectedClassroomId.trim();
       await setDoc(doc(db, "ai_exams", examId), {
         teacherId: uid,
         title: ttl,
@@ -191,13 +235,35 @@ export function ExamBuilderPage() {
         visibility: "link",
         questions: merged,
         createdAt: serverTimestamp(),
+        ...(classroomId ? { classroomId } : {}),
       });
+
+      let assignmentId: string | null = null;
+      if (classroomId) {
+        assignmentId = crypto.randomUUID();
+        await setDoc(doc(db, "classroom_exam_assignments", assignmentId), {
+          classroomId,
+          teacherId: uid,
+          examId,
+          title: ttl,
+          subject: subj,
+          createdAt: serverTimestamp(),
+        });
+        setLastAssignmentId(assignmentId);
+      } else {
+        setLastAssignmentId(null);
+      }
 
       const url = `${window.location.origin}/exam/${examId}`;
       setSavedExamUrl(url);
       setLastExamId(examId);
       setAssembled(merged);
-      showToast("ok", "시험지가 저장되었습니다. 학생에게 링크를 공유하세요.");
+      showToast(
+        "ok",
+        classroomId
+          ? "시험지가 저장되었고, 선택한 강의실에 배포되었습니다. 학생은 내 강의실 → 오늘의 학습문제에서 응시합니다."
+          : "시험지가 저장되었습니다. 학생에게 링크를 공유하세요.",
+      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : "저장에 실패했습니다.";
       setError(msg);
@@ -215,6 +281,7 @@ export function ExamBuilderPage() {
     totalItems,
     objectiveRatio,
     showToast,
+    selectedClassroomId,
   ]);
 
   const downloadPdf = useCallback(async () => {
@@ -295,6 +362,24 @@ export function ExamBuilderPage() {
                 <option value="사회" />
                 <option value="과학" />
               </datalist>
+            </label>
+            <label className={styles.label}>
+              강의실 배포 (선택)
+              <select
+                className={styles.select}
+                value={selectedClassroomId}
+                onChange={(e) => setSelectedClassroomId(e.target.value)}
+              >
+                <option value="">없음 — 링크로만 공유</option>
+                {myClassrooms.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+              <span className={styles.hint}>
+                선택 시 해당 강의실 학생의「내 강의실 → 오늘의 학습문제」에 표시됩니다.
+              </span>
             </label>
           </div>
           <label className={styles.label} style={{ marginTop: "0.75rem" }}>
@@ -430,15 +515,26 @@ export function ExamBuilderPage() {
                   </label>
                 </>
               ) : (
-                <label className={styles.label} style={{ marginTop: "0.5rem" }}>
-                  모범 답안
-                  <textarea
-                    className={styles.textarea}
-                    style={{ minHeight: "4rem" }}
-                    value={m.shortAnswer}
-                    onChange={(e) => patchManual(m.key, { shortAnswer: e.target.value })}
-                  />
-                </label>
+                <>
+                  <label className={styles.label} style={{ marginTop: "0.5rem" }}>
+                    모범 답안
+                    <textarea
+                      className={styles.textarea}
+                      style={{ minHeight: "4rem" }}
+                      value={m.shortAnswer}
+                      onChange={(e) => patchManual(m.key, { shortAnswer: e.target.value })}
+                    />
+                  </label>
+                  <label className={styles.label} style={{ marginTop: "0.5rem" }}>
+                    필수 키워드 (쉼표 구분 · 단답 채점)
+                    <input
+                      className={styles.input}
+                      value={m.requiredKeywords}
+                      onChange={(e) => patchManual(m.key, { requiredKeywords: e.target.value })}
+                      placeholder="예: 인과관계, 역설, 범위"
+                    />
+                  </label>
+                </>
               )}
 
               <label className={styles.label} style={{ marginTop: "0.5rem" }}>
@@ -490,6 +586,14 @@ export function ExamBuilderPage() {
               <div style={{ marginTop: "0.5rem" }}>
                 <Link to={`/exam/${lastExamId}`}>이 탭에서 미리 보기 →</Link>
               </div>
+            )}
+            {lastAssignmentId && selectedClassroomId && (
+              <p className={styles.hint} style={{ marginTop: "0.65rem" }}>
+                학생 응시 경로: 내 강의실 → 오늘의 학습문제 →{" "}
+                <Link to={`/classroom/${selectedClassroomId}/learn/${lastAssignmentId}`}>
+                  바로 열기 (테스트)
+                </Link>
+              </p>
             )}
           </div>
         )}

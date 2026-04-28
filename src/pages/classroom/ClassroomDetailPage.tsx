@@ -18,6 +18,7 @@ import { RichHtmlView } from "@/components/RichHtmlView";
 import { db } from "@/firebase/config";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import type { ClassroomDocument, ClassroomNoticeDocument } from "@/types/classroom";
+import type { ClassroomExamAssignmentDocument } from "@/types/classroomExamAssignment";
 import type { ContentDocument, ContentStatus, ContentType } from "@/types/content";
 import "@/pages/pages.css";
 
@@ -57,6 +58,9 @@ export function ClassroomDetailPage() {
   const [tab, setTab] = useState<TabId>("intro");
   const [noticeRows, setNoticeRows] = useState<{ id: string; data: ClassroomNoticeDocument }[]>([]);
   const [noticePopupOpen, setNoticePopupOpen] = useState(true);
+  const [examAssignments, setExamAssignments] = useState<
+    { id: string; data: ClassroomExamAssignmentDocument }[]
+  >([]);
 
   const isOwner = useMemo(
     () => !!(room && firebaseUser && room.teacherId === firebaseUser.uid),
@@ -128,6 +132,29 @@ export function ClassroomDetailPage() {
     setNoticePopupOpen(true);
     setNoticeRows([]);
   }, [id]);
+
+  useEffect(() => {
+    if (!id || loading || !canAccessRoom) {
+      if (!loading) setExamAssignments([]);
+      return;
+    }
+
+    const aq = query(
+      collection(db, "classroom_exam_assignments"),
+      where("classroomId", "==", id),
+      orderBy("createdAt", "desc"),
+    );
+    const unsub = onSnapshot(
+      aq,
+      (snap) => {
+        const list: { id: string; data: ClassroomExamAssignmentDocument }[] = [];
+        snap.forEach((d) => list.push({ id: d.id, data: d.data() as ClassroomExamAssignmentDocument }));
+        setExamAssignments(list);
+      },
+      () => setExamAssignments([]),
+    );
+    return () => unsub();
+  }, [id, loading, canAccessRoom]);
 
   useEffect(() => {
     if (!id || loading || !canAccessRoom || !firebaseUser) {
@@ -249,6 +276,32 @@ export function ClassroomDetailPage() {
                       </li>
                     );
                   })}
+                </ul>
+              </section>
+            ) : null}
+            {examAssignments.length > 0 ? (
+              <section className="classroom-hub__section" style={{ marginBottom: "var(--space-3)" }}>
+                <h2 className="classroom-hub__section-title">오늘의 학습문제</h2>
+                <p style={{ color: "var(--light-text-muted, #6b7280)", marginTop: 0, marginBottom: "var(--space-2)" }}>
+                  선생님이 배포한 AI 문제를 풀고 제출하면 자동 채점됩니다.
+                </p>
+                <ul className="classroom-page__materials" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {examAssignments.map((row) => (
+                    <li key={row.id} className="classroom-page__material">
+                      <div>
+                        <h3 className="classroom-page__material-title">{row.data.title}</h3>
+                        <p className="classroom-page__material-topic">{row.data.subject}</p>
+                      </div>
+                      <div>
+                        <Link
+                          to={`/classroom/${id}/learn/${row.id}`}
+                          className="btn btn--ghost btn--stack"
+                        >
+                          풀기
+                        </Link>
+                      </div>
+                    </li>
+                  ))}
                 </ul>
               </section>
             ) : null}

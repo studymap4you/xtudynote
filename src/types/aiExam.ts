@@ -17,6 +17,11 @@ export type AiExamQuestion = {
   evidenceQuote: string;
   /** 해설(근거 연결) */
   explanation: string;
+  /**
+   * 주관식 단답 채점용 — 답안에 반드시 포함되어야 할 키워드(쉼표 구분으로 입력 후 배열 저장).
+   * 누락 시 감점·피드백에 반영됩니다.
+   */
+  requiredKeywords?: string[];
 };
 
 export type AiExamVisibility = "link";
@@ -32,4 +37,6 @@ export type AiExamDocument = {
   visibility: AiExamVisibility;
   questions: AiExamQuestion[];
   createdAt: unknown;
+  /** 강의실 배포 시 설정 — 해당 강의실 멤버만 문서 읽기 허용(규칙) */
+  classroomId?: string;
 };

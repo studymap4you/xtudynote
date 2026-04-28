@@ -22,6 +22,7 @@ type RawAiItem = {
   correctAnswer?: string;
   evidenceQuote?: string;
   explanation?: string;
+  requiredKeywords?: string[];
 };
 
 function normalizeRawItem(raw: RawAiItem): AiExamQuestion | null {
@@ -53,6 +54,9 @@ function normalizeRawItem(raw: RawAiItem): AiExamQuestion | null {
   }
 
   const ca = typeof raw.correctAnswer === "string" ? raw.correctAnswer.trim() : "";
+  const kw = Array.isArray(raw.requiredKeywords)
+    ? raw.requiredKeywords.map((k) => String(k ?? "").trim()).filter((k) => k.length > 0)
+    : undefined;
   return {
     id: crypto.randomUUID(),
     source: "ai",
@@ -61,6 +65,7 @@ function normalizeRawItem(raw: RawAiItem): AiExamQuestion | null {
     correctAnswer: ca || "(모범답)",
     evidenceQuote: evidenceQuote || "(본문 확인)",
     explanation: explanation || "",
+    ...(kw && kw.length ? { requiredKeywords: kw } : {}),
   };
 }
 
