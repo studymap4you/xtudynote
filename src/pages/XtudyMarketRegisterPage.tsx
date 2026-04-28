@@ -5,6 +5,7 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { isEmptyRichText } from "@/lib/richTextUtils";
+import { MarketRegisterImagePreview } from "@/components/market/MarketRegisterImagePreview";
 import { addXtudyMarketProduct, uploadXtudyMarketImage } from "@/lib/market/xtudyMarketApi";
 import "@/pages/pages.css";
 
@@ -168,36 +169,45 @@ export function XtudyMarketRegisterPage() {
 
                 <div className="classroom-hub__card classroom-hub__card--soft">
                   <h3 className="classroom-hub__card-title">대표 이미지</h3>
-                  <label className="reg-form__field" htmlFor="xm-img-file">
-                    <span className="reg-form__label-line">
-                      <span className="reg-form__label-en">Image file</span>
-                      <span className="reg-form__label-ko">파일 업로드</span>
-                    </span>
-                    <input
-                      id="xm-img-file"
-                      type="file"
-                      accept="image/*"
-                      className="add-passage__control add-passage__control--file video-register-page__file"
-                      onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                  <div className="market-register-image-row">
+                    <div className="market-register-image-row__fields">
+                      <label className="reg-form__field" htmlFor="xm-img-file">
+                        <span className="reg-form__label-line">
+                          <span className="reg-form__label-en">Image file</span>
+                          <span className="reg-form__label-ko">파일 업로드</span>
+                        </span>
+                        <input
+                          id="xm-img-file"
+                          type="file"
+                          accept="image/*"
+                          className="add-passage__control add-passage__control--file video-register-page__file"
+                          onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                        />
+                      </label>
+                      <label className="reg-form__field" htmlFor="xm-img-url">
+                        <span className="reg-form__label-line">
+                          <span className="reg-form__label-en">Or image URL</span>
+                          <span className="reg-form__label-ko">또는 이미지 URL</span>
+                        </span>
+                        <input
+                          id="xm-img-url"
+                          className="add-passage__control material-register-form__input"
+                          type="url"
+                          inputMode="url"
+                          value={imageUrlInput}
+                          onChange={(e) => setImageUrlInput(e.target.value)}
+                          placeholder="https://…"
+                          autoComplete="off"
+                          disabled={!!imageFile}
+                        />
+                      </label>
+                    </div>
+                    <MarketRegisterImagePreview
+                      imageFile={imageFile}
+                      imageUrlInput={imageUrlInput}
+                      purchaseUrl={purchaseUrl}
                     />
-                  </label>
-                  <label className="reg-form__field" htmlFor="xm-img-url">
-                    <span className="reg-form__label-line">
-                      <span className="reg-form__label-en">Or image URL</span>
-                      <span className="reg-form__label-ko">또는 이미지 URL</span>
-                    </span>
-                    <input
-                      id="xm-img-url"
-                      className="add-passage__control material-register-form__input"
-                      type="url"
-                      inputMode="url"
-                      value={imageUrlInput}
-                      onChange={(e) => setImageUrlInput(e.target.value)}
-                      placeholder="https://…"
-                      autoComplete="off"
-                      disabled={!!imageFile}
-                    />
-                  </label>
+                  </div>
                 </div>
 
                 <div className="classroom-hub__card">
