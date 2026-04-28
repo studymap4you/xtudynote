@@ -6,7 +6,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { getAssignment, getStudentWork, saveStudentWorkSubmission } from "@/lib/worksheet/assignmentApi";
-import { fetchWorksheetAttachmentDownloadUrl } from "@/lib/worksheet/worksheetOutreachCalls";
+import { downloadWorksheetAttachmentAuthenticated } from "@/lib/worksheet/worksheetAttachmentDownloadClient";
 import { compressHandwritingAnswers } from "@/lib/worksheet/compressInkImage";
 import type { WorksheetAssignmentDoc, WorksheetItem } from "@/types/worksheetAssignment";
 import styles from "@/pages/assignments/assignmentPages.module.css";
@@ -160,15 +160,7 @@ export function StudentWorksheetPage() {
     setAttachBusy(true);
     setMsg(null);
     try {
-      const { url, originalName } = await fetchWorksheetAttachmentDownloadUrl(assignmentId);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = originalName;
-      a.rel = "noopener";
-      a.target = "_blank";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      await downloadWorksheetAttachmentAuthenticated(assignmentId);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e));
     } finally {

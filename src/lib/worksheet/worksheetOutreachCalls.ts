@@ -61,8 +61,8 @@ export type ExternalWorksheetPayload = {
   passage: string;
   worksheetItems: { id: string; kind: string; prompt: string }[];
   distributedAtLabel: string;
-  /** 이메일 링크용 — 서버에서 발급한 1시간 유효 서명 URL */
-  attachmentDownloadUrl?: string;
+  /** 로컬 첨부 있음 — `buildWorksheetOutreachAttachmentUrl(token)` 으로 다운로드 */
+  attachmentAvailable?: boolean;
   attachmentOriginalName?: string;
 };
 
@@ -70,12 +70,4 @@ export async function getExternalWorksheetByToken(token: string): Promise<Extern
   const fn = httpsCallable(functions, "getExternalWorksheetByToken");
   const res = await fn({ token: token.trim() });
   return res.data as ExternalWorksheetPayload;
-}
-
-export async function fetchWorksheetAttachmentDownloadUrl(
-  assignmentId: string,
-): Promise<{ url: string; originalName: string }> {
-  const fn = httpsCallable(functions, "getWorksheetAttachmentDownloadUrl");
-  const res = await fn({ assignmentId: assignmentId.trim() });
-  return res.data as { url: string; originalName: string };
 }

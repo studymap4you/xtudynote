@@ -91,17 +91,6 @@ function parseLocalAttachmentPayload(raw: unknown): LocalAttachmentIn | undefine
   return { storagePath: sp, originalName: on };
 }
 
-async function signedDownloadUrlForWorksheetFile(storagePath: string, originalName: string): Promise<string> {
-  const bucket = getStorage().bucket();
-  const [url] = await bucket.file(storagePath).getSignedUrl({
-    version: "v4",
-    action: "read",
-    expires: Date.now() + 60 * 60 * 1000,
-    responseDisposition: `attachment; filename="${encodeURIComponent(originalName)}"`,
-  });
-  return url;
-}
-
 function normalizeEmail(e: string): string {
   return e.trim().toLowerCase();
 }
@@ -437,6 +426,143 @@ export const generateEnglishPassagePdf = onRequest(
   },
 );
 
+/**
+ * 학습지 로컬 첨부 다운로드 — Admin SDK 스트리밍 (GCS 서명 URL·signBlob 불필요).
+ * - 학생/선생: GET ?assignmentId=… + Authorization: Bearer (Firebase ID token)
+ * - 외부 링크: GET ?outreachToken=… (external_worksheet_tokens 문서 키)
+ */
+export const downloadWorksheetAttachment = onRequest(
+  {
+    region: REGION,
+    cors: true,
+    invoker: "public",
+    memory: "512MiB",
+    timeoutSeconds: 120,
+  },
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "GET") {
+      res.status(405).set("Allow", "GET").send("Method Not Allowed");
+      return;
+    }
+
+    try {
+      const outreachToken = String(req.query.outreachToken ?? "").trim();
+      const assignmentIdParam = String(req.query.assignmentId ?? "").trim();
+
+      let la: LocalAttachmentIn | undefined;
+
+      if (outreachToken.length >= 16) {
+        const tokRef = db.doc(`external_worksheet_tokens/${outreachToken}`);
+        const tokSnap = await tokRef.get();
+        if (!tokSnap.exists) {
+          res.status(404).send("만료되었거나 잘못된 링크입니다.");
+          return;
+        }
+        const td = tokSnap.data()!;
+        const exp = td.expiresAt as Timestamp | undefined;
+        if (exp && exp.toMillis() < Date.now()) {
+          res.status(410).send("링크가 만료되었습니다.");
+          return;
+        }
+        const aid = String(td.assignmentId ?? "");
+        if (!aid) {
+          res.status(500).send("데이터 오류");
+          return;
+        }
+        const asSnap = await db.doc(`assignments/${aid}`).get();
+        if (!asSnap.exists) {
+          res.status(404).send("과제를 찾을 수 없습니다.");
+          return;
+        }
+        la = parseLocalAttachmentPayload(asSnap.data()!.localAttachment);
+      } else if (assignmentIdParam && assignmentIdParam.length <= 120) {
+        const authHeader = req.get("Authorization");
+        if (!authHeader?.startsWith("Bearer ")) {
+          res.status(401).send("로그인이 필요합니다.");
+          return;
+        }
+        const idToken = authHeader.slice(7);
+        let uid: string;
+        try {
+          const decoded = await authAdmin.verifyIdToken(idToken);
+          uid = decoded.uid;
+        } catch {
+          res.status(401).send("인증이 유효하지 않습니다.");
+          return;
+        }
+        const snap = await db.doc(`assignments/${assignmentIdParam}`).get();
+        if (!snap.exists) {
+          res.status(404).send("과제를 찾을 수 없습니다.");
+          return;
+        }
+        const data = snap.data()!;
+        const teacherId = String(data.teacherId ?? "");
+        const targets = (data.targetStudentIds ?? []) as string[];
+        const prof = (await db.doc(`users/${uid}`).get()).data();
+        const allowed =
+          teacherId === uid || targets.includes(uid) || isActiveSuperAdminProfile(prof);
+        if (!allowed) {
+          res.status(403).send("권한이 없습니다.");
+          return;
+        }
+        la = parseLocalAttachmentPayload(data.localAttachment);
+      } else {
+        res.status(400).send("assignmentId 또는 outreachToken이 필요합니다.");
+        return;
+      }
+
+      if (!la) {
+        res.status(404).send("첨부 파일이 없습니다.");
+        return;
+      }
+
+      const bucket = getStorage().bucket();
+      const file = bucket.file(la.storagePath);
+      const [exists] = await file.exists();
+      if (!exists) {
+        res.status(404).send("파일을 찾을 수 없습니다.");
+        return;
+      }
+
+      const [meta] = await file.getMetadata();
+      const contentType = meta.contentType || "application/octet-stream";
+      const asciiName = la.originalName.replace(/[^\x20-\x7E.]/g, "_") || "attachment";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(la.originalName)}`,
+      );
+      if (meta.size != null) {
+        res.setHeader("Content-Length", String(meta.size));
+      }
+
+      const stream = file.createReadStream();
+      await new Promise<void>((resolve, reject) => {
+        stream.on("error", (err: Error) => {
+          console.error("[downloadWorksheetAttachment] stream", err);
+          if (!res.headersSent) {
+            res.status(500).send("파일 읽기 오류");
+          }
+          reject(err);
+        });
+        res.on("error", reject);
+        res.on("finish", () => resolve());
+        stream.pipe(res);
+      });
+    } catch (e) {
+      console.error("[downloadWorksheetAttachment]", e);
+      if (!res.headersSent) {
+        const msg = e instanceof Error ? e.message : String(e);
+        res.status(500).send(msg.slice(0, 400));
+      }
+    }
+  },
+);
+
 export const lookupStudentByEmail = onCall(
   { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
   async (request) => {
@@ -486,65 +612,14 @@ export const getExternalWorksheetByToken = onCall(
       : "—";
 
     const la = parseLocalAttachmentPayload(a.localAttachment);
-    let attachmentDownloadUrl: string | null = null;
-    let attachmentOriginalName: string | null = null;
-    if (la) {
-      try {
-        attachmentDownloadUrl = await signedDownloadUrlForWorksheetFile(la.storagePath, la.originalName);
-        attachmentOriginalName = la.originalName;
-      } catch (e) {
-        console.error("[getExternalWorksheetByToken] signed URL 실패:", e);
-      }
-    }
 
     return {
       title: String(a.title ?? "학습지"),
       passage: String(a.passage ?? ""),
       worksheetItems: stripAnswerKeys(items),
       distributedAtLabel,
-      ...(attachmentDownloadUrl
-        ? { attachmentDownloadUrl, attachmentOriginalName: attachmentOriginalName ?? la!.originalName }
-        : {}),
+      ...(la ? { attachmentAvailable: true, attachmentOriginalName: la.originalName } : {}),
     };
-  },
-);
-
-export const getWorksheetAttachmentDownloadUrl = onCall(
-  { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
-  async (request) => {
-    if (!request.auth?.uid) {
-      throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
-    }
-    const assignmentId = String(request.data?.assignmentId ?? "").trim();
-    if (!assignmentId || assignmentId.length > 120) {
-      throw new HttpsError("invalid-argument", "과제 ID가 필요합니다.");
-    }
-    const snap = await db.doc(`assignments/${assignmentId}`).get();
-    if (!snap.exists) {
-      throw new HttpsError("not-found", "과제를 찾을 수 없습니다.");
-    }
-    const data = snap.data()!;
-    const teacherId = String(data.teacherId ?? "");
-    const targets = (data.targetStudentIds ?? []) as string[];
-    const uid = request.auth.uid;
-    const prof = (await db.doc(`users/${uid}`).get()).data();
-    const allowed =
-      teacherId === uid || targets.includes(uid) || isActiveSuperAdminProfile(prof);
-    if (!allowed) {
-      throw new HttpsError("permission-denied", "이 첨부를 받을 권한이 없습니다.");
-    }
-    const la = parseLocalAttachmentPayload(data.localAttachment);
-    if (!la) {
-      throw new HttpsError("failed-precondition", "이 과제에는 첨부 파일이 없습니다.");
-    }
-    try {
-      const url = await signedDownloadUrlForWorksheetFile(la.storagePath, la.originalName);
-      return { url, originalName: la.originalName };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[getWorksheetAttachmentDownloadUrl]", e);
-      throw new HttpsError("internal", `다운로드 링크를 만들 수 없습니다: ${msg.slice(0, 200)}`);
-    }
   },
 );
 

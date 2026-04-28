@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useReactToPrint } from "react-to-print";
 import { DashboardShell } from "@/components/DashboardShell";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
+import { buildWorksheetOutreachAttachmentUrl } from "@/lib/worksheet/worksheetAttachmentDownloadClient";
 import { getExternalWorksheetByToken } from "@/lib/worksheet/worksheetOutreachCalls";
 import type { WorksheetItem, WorksheetItemKind } from "@/types/worksheetAssignment";
 import styles from "@/pages/assignments/assignmentPages.module.css";
@@ -92,15 +93,15 @@ export function ExternalWorksheetOutreachPage() {
               <div className={`${styles.passage} ${styles.captureSection}`}>
                 {payload.passage?.trim()
                   ? payload.passage
-                  : payload.attachmentDownloadUrl
+                  : payload.attachmentAvailable
                     ? "※ 지문 텍스트가 없습니다. 아래「첨부 파일 받기」에서 학습지 원본을 내려받아 주세요."
                     : "(지문 없음)"}
               </div>
-              {payload.attachmentDownloadUrl ? (
+              {payload.attachmentAvailable && token ? (
                 <p style={{ margin: "0.75rem 0" }}>
                   <a
                     className="btn btn--ghost btn--stack"
-                    href={payload.attachmentDownloadUrl}
+                    href={buildWorksheetOutreachAttachmentUrl(token)}
                     download={payload.attachmentOriginalName || undefined}
                     target="_blank"
                     rel="noopener noreferrer"
