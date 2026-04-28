@@ -35,6 +35,8 @@ export interface ContentDocument {
   classroomId?: string | null;
   /** 강의실 표시명 (과제 검색·카드용, 학생 식별 편의) */
   classroomTitle?: string | null;
+  /** 강의실 교육용 즉시 공개로 등록됨 — 관리자 모니터링·삭제 대상 식별용 */
+  educationalInstantPublish?: boolean;
   createdAt: unknown;
 }
 

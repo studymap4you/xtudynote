@@ -13,6 +13,8 @@ import { uploadEditorAttachmentWithProgress, uploadEditorImageWithProgress } fro
 import { uploadBytesResumableWithProgress } from "@/lib/storageUploadProgress";
 import { LearningThemeChecklist } from "@/components/LearningThemeChecklist";
 import { extractImageSrcsFromHtml, isEmptyRichText } from "@/lib/richTextUtils";
+import { publishEducationalClassroomMaterial } from "@/lib/adminMaterialRequestPublish";
+import type { ClassroomDocument } from "@/types/classroom";
 import type { ContentType } from "@/types/content";
 import { LEARNING_THEME_OPTIONS, type LearningThemeId } from "@/types/learningTheme";
 import type { UserProfile } from "@/types/user";
@@ -165,6 +167,7 @@ export function MaterialRegisterPage() {
     return LEARNING_THEME_OPTIONS.some((o) => o.id === raw) ? (raw as LearningThemeId) : null;
   }, [searchParams]);
   const teacherMustPickClassroom = isTeacherApproved && !classroomIdFromQuery && !themeFromQuery;
+  const isClassroomTeacherFlow = isTeacherApproved && !!classroomIdFromQuery;
 
   const canSubmit =
     !!profile &&
@@ -194,6 +197,8 @@ export function MaterialRegisterPage() {
   const [descInsertBusy, setDescInsertBusy] = useState(false);
   const [descInsertProgress, setDescInsertProgress] = useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  /** 강의실 연동 교사 전용 — 교육용으로 체크 시 검수 없이 contents 승인 반영 */
+  const [isEducationalInstantPublish, setIsEducationalInstantPublish] = useState(false);
 
   const descImageSrcs = useMemo(() => extractImageSrcsFromHtml(description), [description]);
 
@@ -232,6 +237,16 @@ export function MaterialRegisterPage() {
     setThemes((prev) => (prev.includes(themeFromQuery) ? prev : [...prev, themeFromQuery]));
   }, [themeFromQuery]);
 
+  useEffect(() => {
+    if (isClassroomTeacherFlow && materialType === "paid") {
+      setMaterialType("share");
+    }
+  }, [isClassroomTeacherFlow, materialType]);
+
+  useEffect(() => {
+    if (!isClassroomTeacherFlow) setIsEducationalInstantPublish(false);
+  }, [isClassroomTeacherFlow]);
+
   const showPrice = materialType === "paid";
   const showHomeworkNotes = materialType === "homework";
 
@@ -254,12 +269,16 @@ export function MaterialRegisterPage() {
       window.alert("테마를 하나 이상 선택해 주세요. (라이브러리 분류에 사용됩니다.)");
       return;
     }
-    if (materialType === "paid" && (priceNum == null || priceNum < 0)) {
+    if (!isClassroomTeacherFlow && materialType === "paid" && (priceNum == null || priceNum < 0)) {
       window.alert("유료 자료는 희망 판매 가격(원)을 입력해 주세요.");
       return;
     }
-    if (materialType === "paid" && !thumbnailFile) {
+    if (!isClassroomTeacherFlow && materialType === "paid" && !thumbnailFile) {
       window.alert("유료 자료는 썸네일 이미지를 업로드해 주세요.");
+      return;
+    }
+    if (isClassroomTeacherFlow && materialType === "paid") {
+      window.alert("강의실 자료 등록에서는 유료 유형을 사용할 수 없습니다. 공유 또는 과제를 선택해 주세요.");
       return;
     }
     if (previewSampleFile) {
@@ -281,6 +300,8 @@ export function MaterialRegisterPage() {
     }
 
     let classroomId: string | null = searchParams.get("classroomId")?.trim() || null;
+    let classroomDoc: ClassroomDocument | null = null;
+
     if (isTeacherApproved) {
       if (!classroomId && !themeFromQuery) {
         window.alert(
@@ -288,16 +309,10 @@ export function MaterialRegisterPage() {
         );
         return;
       }
-      if (classroomId) {
-        const ok = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
-        if (!ok) {
-          window.alert("강의실을 찾을 수 없거나 이 강의실에 자료를 연결할 권한이 없습니다.");
-          return;
-        }
-      }
-    } else if (classroomId) {
-      const ok = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
-      if (!ok) {
+    }
+    if (classroomId) {
+      classroomDoc = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
+      if (!classroomDoc) {
         window.alert("강의실을 찾을 수 없거나 이 강의실에 자료를 연결할 권한이 없습니다.");
         return;
       }
@@ -311,7 +326,8 @@ export function MaterialRegisterPage() {
       const t0 = performance.now();
       const learningFiles = lmSlots.flatMap((id) => lmBySlot[id] ?? []);
       const referenceFiles = refSlots.flatMap((id) => refBySlot[id] ?? []);
-      const thumbBytes = materialType === "paid" && thumbnailFile ? thumbnailFile.size : 0;
+      const thumbBytes =
+        !isClassroomTeacherFlow && materialType === "paid" && thumbnailFile ? thumbnailFile.size : 0;
       const previewBytes = previewSampleFile?.size ?? 0;
       const byteTotal =
         learningFiles.reduce((s, f) => s + f.size, 0) +
@@ -345,7 +361,7 @@ export function MaterialRegisterPage() {
       doneBytes += referenceFiles.reduce((s, f) => s + f.size, 0);
 
       let thumbnailPendingPath: string | null = null;
-      if (materialType === "paid" && thumbnailFile) {
+      if (!isClassroomTeacherFlow && materialType === "paid" && thumbnailFile) {
         const path = `pending_materials/${firebaseUser.uid}/${requestId}/thumb_${Math.floor(t0)}_${safeFileName(thumbnailFile.name)}`;
         const { fullPath } = await uploadBytesResumableWithProgress(storage, path, thumbnailFile, (p) => {
           const cur = doneBytes + (thumbnailFile.size * p) / 100;
@@ -368,6 +384,55 @@ export function MaterialRegisterPage() {
         doneBytes += previewSampleFile.size;
       }
       setUploadPct(100);
+
+      if (
+        isEducationalInstantPublish &&
+        isClassroomTeacherFlow &&
+        classroomId &&
+        classroomDoc &&
+        (materialType === "share" || materialType === "homework")
+      ) {
+        await publishEducationalClassroomMaterial(db, {
+          authorId: firebaseUser.uid,
+          classroomId,
+          classroomTitle: (classroomDoc.title ?? "").trim() || null,
+          materialType,
+          title: title.trim(),
+          subject: subject.trim(),
+          audienceGrade: audienceGrade.trim(),
+          descriptionHtml: description.trim(),
+          themes,
+          homeworkInstruction: materialType === "homework" ? homeworkInstruction.trim() : null,
+          learningMaterialFilePaths,
+          referenceMaterialFilePaths,
+          thumbnailPendingPath,
+          previewPendingPath,
+          previewUrl,
+        });
+        window.alert(
+          "교육용 자료로 등록되었습니다. 강의실·라이브러리에서 바로 이용할 수 있습니다. 운영 정책에 맞지 않는 경우 관리자가 삭제할 수 있습니다.",
+        );
+        setDone(true);
+        setTitle("");
+        setSubject("");
+        setAudienceGrade("");
+        setDescription("");
+        setDesiredPrice("");
+        setHomeworkInstruction("");
+        setLmSlots([newFileSlotId()]);
+        setRefSlots([newFileSlotId()]);
+        setLmBySlot({});
+        setRefBySlot({});
+        setThemes([]);
+        setThumbnailFile(null);
+        setPreviewSampleFile(null);
+        setDescQueue([]);
+        setMaterialType("share");
+        setIsEducationalInstantPublish(false);
+        setSaving(false);
+        setUploadPct(null);
+        return;
+      }
 
       const role = resolveSubmitterRole(profile);
 
@@ -605,12 +670,16 @@ export function MaterialRegisterPage() {
                         <span className="reg-form__label-ko"> 자료 유형</span>
                       </legend>
                       <div className="material-register-form__radio-row">
-                        {(
-                          [
-                            ["share", "Share · 공유"],
-                            ["paid", "Paid · 유료"],
-                            ["homework", "Homework · 과제"],
-                          ] as const
+                        {(isClassroomTeacherFlow
+                          ? [
+                              ["share", "Share · 공유"],
+                              ["homework", "Homework · 과제"],
+                            ] as const
+                          : [
+                              ["share", "Share · 공유"],
+                              ["paid", "Paid · 유료"],
+                              ["homework", "Homework · 과제"],
+                            ] as const
                         ).map(([v, label]) => (
                           <label key={v} className="material-register-form__radio">
                             <input
@@ -625,6 +694,22 @@ export function MaterialRegisterPage() {
                         ))}
                       </div>
                     </fieldset>
+                    {isClassroomTeacherFlow ? (
+                      <div className="material-register__educational-ack">
+                        <label className="material-register__educational-label">
+                          <input
+                            type="checkbox"
+                            checked={isEducationalInstantPublish}
+                            onChange={(e) => setIsEducationalInstantPublish(e.target.checked)}
+                          />
+                          <span>
+                            <strong className="material-register__educational-strong">교육용 자료입니다.</strong>{" "}
+                            체크 시 마스터 검수 없이 승인된 콘텐츠로 즉시 공개됩니다. 허위·불법·정책 위반 자료는
+                            관리자가 <strong>언제든지 삭제</strong>할 수 있습니다.
+                          </span>
+                        </label>
+                      </div>
+                    ) : null}
                     <LearningThemeChecklist
                       value={themes}
                       onChange={setThemes}

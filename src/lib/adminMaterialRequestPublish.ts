@@ -19,7 +19,7 @@ import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
 
 const THEME_IDS = new Set<LearningThemeId>(["k_entrance", "global_prep", "professional", "academic"]);
 
-function sanitizeThemes(raw: unknown): LearningThemeId[] {
+export function sanitizeThemes(raw: unknown): LearningThemeId[] {
   if (!Array.isArray(raw)) return [];
   return raw.filter((t): t is LearningThemeId => typeof t === "string" && THEME_IDS.has(t as LearningThemeId));
 }
@@ -308,4 +308,144 @@ export async function rejectVideoMaterialRequest(db: Firestore, requestId: strin
     status: "rejected",
     reviewedAt: serverTimestamp(),
   });
+}
+
+/** 강의실 교육용 자료 — 검수 없이 contents 승인 상태로 즉시 반영 (관리자는 DB에서 조회·삭제 가능) */
+export type EducationalClassroomPublishInput = {
+  authorId: string;
+  classroomId: string;
+  classroomTitle: string | null;
+  materialType: Extract<ContentType, "share" | "homework">;
+  title: string;
+  subject: string;
+  audienceGrade: string;
+  descriptionHtml: string;
+  themes: LearningThemeId[];
+  homeworkInstruction: string | null;
+  learningMaterialFilePaths: string[];
+  referenceMaterialFilePaths: string[];
+  thumbnailPendingPath: string | null;
+  previewPendingPath: string | null;
+  previewUrl: string | null;
+};
+
+export async function publishEducationalClassroomMaterial(
+  db: Firestore,
+  input: EducationalClassroomPublishInput,
+): Promise<string> {
+  if (input.materialType !== "share" && input.materialType !== "homework") {
+    throw new Error("교육용 즉시 공개는 공유·과제 유형만 가능합니다.");
+  }
+  const authorId = input.authorId.trim();
+  if (!authorId) throw new Error("작성자 ID가 없습니다.");
+
+  const title = input.title?.trim() || "제목 없음";
+  const subject = input.subject?.trim() || "—";
+  const audience = input.audienceGrade?.trim() || "—";
+  const section = "일반";
+  const identifier = buildIdentifierFromTitle(title);
+  const learningTopic = title;
+  const introduction = input.descriptionHtml?.trim() || "";
+
+  const seed = performance.now();
+  const learningMaterialFilePaths = await copyPendingPathsToAuthorContents(
+    input.learningMaterialFilePaths ?? [],
+    authorId,
+    seed,
+    "lm",
+  );
+  const referenceMaterialFilePaths = await copyPendingPathsToAuthorContents(
+    input.referenceMaterialFilePaths ?? [],
+    authorId,
+    seed + 1,
+    "ref",
+  );
+
+  const thumbPending = (input.thumbnailPendingPath ?? "").trim();
+  const thumbnailPaths = thumbPending
+    ? await copyPendingPathsToAuthorContents([thumbPending], authorId, seed + 2, "thumb")
+    : [];
+  const thumbnailPath = thumbnailPaths[0] ?? null;
+
+  const previewPending = (input.previewPendingPath ?? "").trim();
+  const previewCopiedPaths = previewPending
+    ? await copyPendingPathsToAuthorContents([previewPending], authorId, seed + 4, "preview")
+    : [];
+  let resolvedPreviewUrl: string | null = input.previewUrl?.trim() || null;
+  if (previewCopiedPaths[0]) {
+    const p = normalizeStorageObjectPath(previewCopiedPaths[0]);
+    if (p) resolvedPreviewUrl = await getDownloadURL(ref(storage, p));
+  }
+
+  const themes = sanitizeThemes(input.themes);
+  const classroomId = input.classroomId.trim();
+  const classroomTitle = input.classroomTitle?.trim() || null;
+
+  const baseContent = {
+    authorId,
+    subject,
+    audience,
+    section,
+    identifier,
+    learningTopic,
+    introduction,
+    lectureLink: null as string | null,
+    learningMaterialFilePaths,
+    referenceMaterialFilePaths,
+    type: input.materialType,
+    status: "approved" as ContentStatus,
+    educationalInstantPublish: true,
+    purchaseLink: null as string | null,
+    themes,
+    clickCount: 0,
+    ...(thumbnailPath ? { thumbnailPath } : {}),
+    ...(resolvedPreviewUrl ? { previewUrl: resolvedPreviewUrl } : {}),
+    createdAt: serverTimestamp(),
+    classroomId,
+    ...(classroomTitle ? { classroomTitle } : { classroomTitle: null }),
+  };
+
+  if (input.materialType === "homework") {
+    const hwInstruction = (input.homeworkInstruction ?? "").trim();
+    if (!hwInstruction) throw new Error("과제 유형인데 과제 안내가 비어 있습니다.");
+
+    const { homeworkCode, shortCode } = await allocateUniqueHomeworkCode();
+    const batch = writeBatch(db);
+    const contentRef = doc(collection(db, "contents"));
+    batch.set(contentRef, {
+      ...baseContent,
+      homeworkCode,
+      shortCode,
+      homeworkInstruction: hwInstruction,
+    });
+    batch.set(doc(db, "homework_codes", homeworkCode), {
+      contentId: contentRef.id,
+      homeworkCode,
+      shortCode,
+      authorId,
+      subject,
+      learningTopic,
+      introduction,
+      homeworkInstruction: hwInstruction,
+      lectureLink: null,
+      learningMaterialFilePaths,
+      referenceMaterialFilePaths,
+      status: "approved" as ContentStatus,
+      classroomId,
+      ...(classroomTitle ? { classroomTitle } : { classroomTitle: null }),
+      updatedAt: serverTimestamp(),
+    });
+    await batch.commit();
+    return contentRef.id;
+  }
+
+  const batch = writeBatch(db);
+  const contentRef = doc(collection(db, "contents"));
+  batch.set(contentRef, {
+    ...baseContent,
+    homeworkCode: null,
+    homeworkInstruction: null,
+  });
+  await batch.commit();
+  return contentRef.id;
 }

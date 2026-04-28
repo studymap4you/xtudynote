@@ -30,6 +30,7 @@ type ContentRow = {
   status: ContentStatus;
   homeworkCode: string | null;
   shortCode: string | null;
+  educationalInstantPublish: boolean;
 };
 
 function formatCreatedAt(raw: unknown): string {
@@ -112,6 +113,7 @@ export function ContentsListPage() {
             status: rawStatus,
             homeworkCode: x.homeworkCode != null ? String(x.homeworkCode) : null,
             shortCode: x.shortCode != null ? String(x.shortCode) : null,
+            educationalInstantPublish: x.educationalInstantPublish === true,
           });
         });
         setRows(list);
@@ -278,6 +280,9 @@ export function ContentsListPage() {
                 <th className="contents-list__col-type" scope="col">
                   유형
                 </th>
+                <th className="contents-list__col-edu" scope="col">
+                  교육용 즉시
+                </th>
                 <th className="contents-list__col-status" scope="col">
                   상태
                 </th>
@@ -300,7 +305,7 @@ export function ContentsListPage() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="contents-list__empty">
+                  <td colSpan={9} className="contents-list__empty">
                     <span className="ui-en">No items yet.</span>
                     <span className="ui-ko contents-list__empty-ko">
                       {isSuperAdmin
@@ -327,6 +332,15 @@ export function ContentsListPage() {
                       <span className={`contents-list__pill contents-list__pill--type-${r.type}`}>
                         {labelType(r.type)}
                       </span>
+                    </td>
+                    <td className="contents-list__col-edu">
+                      {r.educationalInstantPublish ? (
+                        <span className="contents-list__pill contents-list__pill--edu" title="강의실 교육용 즉시 공개">
+                          교육용
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="contents-list__col-status">
                       <span
