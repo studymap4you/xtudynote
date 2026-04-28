@@ -150,7 +150,7 @@ export function EnglishPassageLabPage() {
         examDate: examDate.trim(),
         passage: passageText.trim(),
         layout: pdfLayout,
-        layoutNote: pdfLayout === "2col" ? "2단 (작성란 좌우 분할)" : "1단",
+        layoutNote: pdfLayout === "2col" ? "2단 (원문·타이틀 1열, 문제·정답 2열)" : "1단",
         vocabulary: vocabularyForUse.map((v) => ({ word: v.word, meaning: v.meaning })),
         sentences: analysis.sentences.map((s) => ({
           english: s.english,
@@ -547,7 +547,7 @@ export function EnglishPassageLabPage() {
                 onChange={(e) => setPdfLayout(e.target.value === "2col" ? "2col" : "1col")}
               >
                 <option value="1col">1단</option>
-                <option value="2col">2단 (작성란 분할)</option>
+                <option value="2col">2단 (원문 1열 · 문제·정답 2열)</option>
               </select>
             </label>
             <div className={styles.actions}>
@@ -582,55 +582,71 @@ export function EnglishPassageLabPage() {
 
           {previewReady && analysis && (
             <div className={styles.previewSheet}>
-              <p className={styles.previewBadge}>미리보기 (인쇄 레이아웃과 유사)</p>
-              <h3 className={styles.previewH3}>{title.trim() || "영어 지문 학습"}</h3>
-              <p className={styles.previewMeta}>
-                {teacherName} · {examDate} · {pdfLayout === "2col" ? "2단" : "1단"}
-              </p>
-              <h4 className={styles.previewH4}>원문</h4>
-              <div className={styles.previewPassage}>{passageText.trim()}</div>
-              <h4 className={styles.previewH4}>A. 영어 → 한글</h4>
-              <ol>
-                {vocabularyForUse.map((v) => (
-                  <li key={v.id}>{v.word}</li>
-                ))}
-              </ol>
-              <h4 className={styles.previewH4}>B. 한글 → 영어</h4>
-              <ol>
-                {vocabularyForUse.map((v) => (
-                  <li key={`p-${v.id}`}>{v.meaning}</li>
-                ))}
-              </ol>
-              <h4 className={styles.previewH4}>C. 직독직해 (영문 → 한국어)</h4>
-              {analysis.sentences.map((s, idx) => (
-                <div key={s.id} className={styles.previewBlock}>
-                  <p className={styles.previewQn}>문항 {idx + 1}</p>
-                  <p className={styles.previewEnLine}>{s.english}</p>
-                  {pdfLayout === "2col" ? (
-                    <div className={styles.previewTwinRow} aria-hidden>
-                      <div className={styles.previewTwinCell} />
-                      <div className={styles.previewTwinCell} />
-                    </div>
-                  ) : (
+              <div className={styles.previewSheetTop}>
+                <p className={styles.previewBadge}>미리보기 (인쇄 레이아웃과 유사)</p>
+                <p className={styles.previewBrand}>Xtudy-Universe · English Lab</p>
+                <h3 className={styles.previewH3}>{title.trim() || "영어 지문 학습"}</h3>
+                <p className={styles.previewMeta}>
+                  {teacherName} · {examDate} · {pdfLayout === "2col" ? "2단" : "1단"}
+                </p>
+                <h4 className={styles.previewH4}>원문</h4>
+                <div className={styles.previewPassage}>{passageText.trim()}</div>
+              </div>
+              {pdfLayout === "2col" ? <hr className={styles.previewMajorRule} /> : null}
+              <div
+                className={pdfLayout === "2col" ? styles.previewTwoCol : styles.previewOneColBody}
+              >
+                <h4 className={styles.previewH4}>A. 영어 → 한글</h4>
+                <ol>
+                  {vocabularyForUse.map((v) => (
+                    <li key={v.id}>{v.word}</li>
+                  ))}
+                </ol>
+                <h4 className={styles.previewH4}>B. 한글 → 영어</h4>
+                <ol>
+                  {vocabularyForUse.map((v) => (
+                    <li key={`p-${v.id}`}>{v.meaning}</li>
+                  ))}
+                </ol>
+                <h4 className={styles.previewH4}>C. 직독직해 (영문 → 한국어)</h4>
+                {analysis.sentences.map((s, idx) => (
+                  <div key={s.id} className={styles.previewBlock}>
+                    <p className={styles.previewQn}>문항 {idx + 1}</p>
+                    <p className={styles.previewEnLine}>{s.english}</p>
                     <div className={styles.previewSingleArea} aria-hidden />
-                  )}
-                </div>
-              ))}
-              <h4 className={styles.previewH4}>D. 영작 (한국어 → 영문)</h4>
-              {analysis.sentences.map((s, idx) => (
-                <div key={`pk-${s.id}`} className={styles.previewBlock}>
-                  <p className={styles.previewQn}>문항 {idx + 1}</p>
-                  <p className={styles.previewKoLine}>{s.koreanFull}</p>
-                  {pdfLayout === "2col" ? (
-                    <div className={styles.previewTwinRow} aria-hidden>
-                      <div className={styles.previewTwinCell} />
-                      <div className={styles.previewTwinCell} />
-                    </div>
-                  ) : (
+                  </div>
+                ))}
+                <h4 className={styles.previewH4}>D. 영작 (한국어 → 영문)</h4>
+                {analysis.sentences.map((s, idx) => (
+                  <div key={`pk-${s.id}`} className={styles.previewBlock}>
+                    <p className={styles.previewQn}>문항 {idx + 1}</p>
+                    <p className={styles.previewKoLine}>{s.koreanFull}</p>
                     <div className={styles.previewSingleArea} aria-hidden />
-                  )}
+                  </div>
+                ))}
+                <div className={styles.previewAnswerKey}>
+                  <p className={styles.previewAnswerKeyTitle}>교사용 · 모범 정답</p>
+                  <ol>
+                    {vocabularyForUse.map((v) => (
+                      <li key={`ans-v-${v.id}`}>
+                        <strong>{v.word}</strong> — {v.meaning}
+                      </li>
+                    ))}
+                  </ol>
+                  {analysis.sentences.map((s, idx) => (
+                    <div key={`ans-s-${s.id}`} className={styles.previewBlock}>
+                      <p className={styles.previewQn}>직독 {idx + 1}</p>
+                      <p className={styles.previewKoLine} style={{ borderLeftColor: "#0d9488" }}>
+                        {s.koreanFull}
+                      </p>
+                      <p className={styles.previewQn}>영작 {idx + 1}</p>
+                      <p className={styles.previewEnLine} style={{ borderLeftColor: "#0d9488" }}>
+                        {s.english}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           )}
         </section>

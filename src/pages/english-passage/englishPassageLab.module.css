@@ -504,14 +504,52 @@
   color: #475569;
 }
 
+/* 인쇄·PDF와 동일하게 문제지 본문 여백 30mm */
 .previewSheet {
   margin-top: 1rem;
-  padding: 1rem 1.1rem 1.15rem;
+  padding: 30mm;
+  box-sizing: border-box;
   border-radius: 12px;
   border: 1px solid rgba(37, 99, 235, 0.22);
   background: #fafbfc;
   max-height: min(480px, 70vh);
   overflow: auto;
+}
+
+.previewSheetTop {
+  width: 100%;
+}
+
+.previewBrand {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin: 0 0 0.35rem;
+}
+
+.previewMajorRule {
+  border: none;
+  border-top: 2px solid #1e293b;
+  margin: 1rem 0;
+}
+
+.previewTwoCol {
+  column-count: 2;
+  column-gap: 1.25rem;
+  column-rule: 2px solid #94a3b8;
+}
+
+.previewTwoCol .previewH4 {
+  break-after: avoid;
+}
+
+.previewTwoCol .previewBlock {
+  break-inside: avoid;
+}
+
+.previewOneColBody {
+  width: 100%;
 }
 
 .previewBadge {
@@ -596,24 +634,23 @@
   color: #334155;
 }
 
-.previewTwinRow {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
-}
-
-.previewTwinCell {
-  flex: 1;
-  min-height: 52px;
-  border: 1px dashed rgba(148, 163, 184, 0.95);
-  border-radius: 6px;
-  background: #fff;
-}
-
 .previewSingleArea {
   margin-top: 0.35rem;
   min-height: 56px;
   border: 1px dashed rgba(148, 163, 184, 0.95);
   border-radius: 6px;
   background: #fff;
+}
+
+.previewAnswerKey {
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed rgba(15, 23, 42, 0.15);
+}
+
+.previewAnswerKeyTitle {
+  margin: 0 0 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0f172a;
 }
