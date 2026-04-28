@@ -6,7 +6,6 @@ import { useToast } from "@/contexts/ToastContext";
 import { gradeShortAnswer } from "@/lib/exam/gradeShortAnswer";
 import { analyzeEnglishPassage } from "@/lib/englishPassageLab/analyzeEnglishPassage";
 import { gradeKoreanTranslation } from "@/lib/englishPassageLab/gradeKoreanTranslation";
-import { downloadEnglishPassagePdf } from "@/lib/englishPassage/englishPassagePdfClient";
 import { openEnglishWorksheetPrint } from "@/lib/englishPassage/openEnglishWorksheetPrint";
 import type { EnglishPassageAnalysis, EnglishVocabPair } from "@/types/englishPassageLab";
 import { EnglishVocabReviewModal } from "@/pages/english-passage/EnglishVocabReviewModal";
@@ -41,7 +40,6 @@ export function EnglishPassageLabPage() {
   const [compChecked, setCompChecked] = useState(false);
 
   const [pdfLayout, setPdfLayout] = useState<"1col" | "2col">("1col");
-  const [pdfBusy, setPdfBusy] = useState(false);
   const [previewReady, setPreviewReady] = useState(false);
 
   const vocabularyForUse = finalVocabulary ?? [];
@@ -138,7 +136,7 @@ export function EnglishPassageLabPage() {
       return;
     }
     setPreviewReady(true);
-    showToast("ok", "문제지 미리보기가 아래에 표시됩니다. 이어서 PDF 받기 또는 인쇄를 선택하세요.");
+    showToast("ok", "문제지 미리보기가 아래에 표시됩니다. 「인쇄 / PDF 저장」으로 출력하세요.");
   }, [analysis, showToast, vocabConfirmed]);
 
   const handlePrint = useCallback(() => {
@@ -173,53 +171,6 @@ export function EnglishPassageLabPage() {
     vocabularyForUse,
   ]);
 
-  const downloadPdf = useCallback(async () => {
-    if (!previewReady) {
-      showToast("warn", "먼저 「문제지 미리보기 생성」을 눌러 주세요.");
-      return;
-    }
-    if (!vocabConfirmed || !analysis) {
-      showToast("warn", "단어 목록을 최종 확정한 뒤 이용할 수 있습니다.");
-      return;
-    }
-    if (!vocabularyForUse.length && !analysis.sentences.length) {
-      showToast("warn", "저장할 내용이 없습니다.");
-      return;
-    }
-    setPdfBusy(true);
-    try {
-      await downloadEnglishPassagePdf({
-        title: title.trim() || "영어 지문 학습",
-        teacherName,
-        passage: passageText.trim(),
-        layout: pdfLayout,
-        examDate: examDate.trim(),
-        vocabulary: vocabularyForUse.map((v) => ({ word: v.word, meaning: v.meaning })),
-        sentences: analysis.sentences.map((s) => ({
-          english: s.english,
-          koreanFull: s.koreanFull,
-        })),
-      });
-      showToast("ok", "PDF 파일을 받았습니다. 브라우저에서 인쇄를 선택할 수 있습니다.");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "PDF 생성 실패";
-      showToast("err", `${msg} — 「인쇄 / PDF 저장」으로 대체해 보세요.`);
-    } finally {
-      setPdfBusy(false);
-    }
-  }, [
-    previewReady,
-    vocabConfirmed,
-    analysis,
-    vocabularyForUse,
-    passageText,
-    title,
-    teacherName,
-    pdfLayout,
-    examDate,
-    showToast,
-  ]);
-
   return (
     <DashboardShell light>
       <div className={styles.wrap}>
@@ -227,7 +178,7 @@ export function EnglishPassageLabPage() {
         <p className={styles.heroLead}>
           단어 확정 후 문항 번호가 붙은 어휘·직독직해·영작을 풀고,{" "}
           <strong>정답은 하단 정답 섹션</strong>에서 확인합니다. 출력은{" "}
-          <strong>미리보기 → PDF → 인쇄</strong> 순서입니다.
+          <strong>미리보기 → 인쇄</strong> 순서입니다.
         </p>
 
         <section className={styles.sectionCard}>
@@ -298,7 +249,7 @@ export function EnglishPassageLabPage() {
 
         {!vocabConfirmed && (
           <p className={styles.lockHint}>
-            단어 목록을 확정하면 연습·미리보기·PDF가 사용할 수 있습니다.
+            단어 목록을 확정하면 연습·미리보기·인쇄가 사용할 수 있습니다.
           </p>
         )}
 
@@ -533,10 +484,10 @@ export function EnglishPassageLabPage() {
         <section className={styles.sectionCard}>
           <h2 className={styles.sectionTitle}>
             <span className={styles.sectionTitleDot} aria-hidden />
-            문제지 미리보기 · PDF · 인쇄
+            문제지 미리보기 · 인쇄
           </h2>
           <p className={styles.hintMuted}>
-            ① 미리보기 생성 → ② 서버 PDF (실패 시 안내) → ③ 새 창 인쇄로 PDF 저장
+            ① 미리보기 생성 → ② 새 창 인쇄에서 「PDF로 저장」 선택
           </p>
           <div className={styles.pdfRow132}>
             <label className={styles.label}>
@@ -561,14 +512,6 @@ export function EnglishPassageLabPage() {
               </button>
             </div>
             <div className={styles.actions} style={{ justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                className={styles.btnGhost}
-                disabled={pdfBusy || !previewReady || !vocabConfirmed || !analysis}
-                onClick={() => void downloadPdf()}
-              >
-                {pdfBusy ? "PDF 생성 중…" : "PDF 파일 받기"}
-              </button>
               <button
                 type="button"
                 className={styles.btnGhost}
