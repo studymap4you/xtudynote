@@ -10,14 +10,14 @@ import {
 } from "@/lib/brand";
 
 const SHORTCUTS = [
-  { to: "/library", label: "라이브러리", hint: "테마별 학습 자료", tone: "a" as const },
-  { to: "/homework", label: "과제 검색", hint: "코드·제목으로 찾기", tone: "b" as const },
-  { to: "/classroom", label: "내 강의실", hint: "수업·참여", tone: "c" as const },
-  { to: "/digital-market", label: "디지털마켓", hint: "다운로드·배송형", tone: "d" as const },
-  { to: "/material/register", label: "새자료 등록", hint: "검수 신청", tone: "e" as const },
-  { to: "/videos", label: "동영상 강의", hint: "영상 카탈로그", tone: "f" as const },
-  { to: "/xtudy-market", label: "엑스터디마켓", hint: "상품·공유 링크", tone: "g" as const },
-  { to: "/logic-dashboard", label: "시그널로직", hint: "학습 신호 대시보드", tone: "h" as const },
+  { to: "/library", label: "라이브러리", tone: "a" as const },
+  { to: "/homework", label: "과제 검색", tone: "b" as const },
+  { to: "/classroom", label: "내 강의실", tone: "c" as const },
+  { to: "/digital-market", label: "디지털마켓", tone: "d" as const },
+  { to: "/material/register", label: "새자료 등록", tone: "e" as const },
+  { to: "/videos", label: "동영상 강의", tone: "f" as const },
+  { to: "/xtudy-market", label: "엑스터디마켓", tone: "g" as const },
+  { to: "/logic-dashboard", label: "시그널로직", tone: "h" as const },
 ] as const;
 
 const SHARE_TITLE = BRAND_SHARE_TITLE;
@@ -334,8 +334,8 @@ function IconTeacher() {
 
 const shortcutIconProps = {
   className: "intro-shortcut__icon",
-  width: 30,
-  height: 30,
+  width: 32,
+  height: 32,
   viewBox: "0 0 24 24",
   fill: "none" as const,
   "aria-hidden": true as const,
@@ -586,10 +586,7 @@ function IntroLandingPanel() {
                 <span className="intro-shortcut__orb" aria-hidden>
                   <ShortcutOrbIcon tone={s.tone} />
                 </span>
-                <span className="intro-shortcut__text">
-                  <span className="intro-shortcut__label">{s.label}</span>
-                  <span className="intro-shortcut__hint">{s.hint}</span>
-                </span>
+                <span className="intro-shortcut__label">{s.label}</span>
               </Link>
             </li>
           ))}
