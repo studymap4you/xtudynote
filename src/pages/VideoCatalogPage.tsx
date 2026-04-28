@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PublicShell } from "@/components/PublicShell";
-import { useAuth } from "@/contexts/AuthContext";
 import { subscribeVideoCatalog } from "@/lib/videoCatalog/videoCatalogApi";
 import type { VideoCatalogDoc } from "@/types/videoCatalog";
 import styles from "@/pages/videoCatalog.module.css";
@@ -17,7 +16,6 @@ function formatCreated(at: unknown): string {
 }
 
 export function VideoCatalogPage() {
-  const { isSuperAdmin } = useAuth();
   const [rows, setRows] = useState<{ id: string; data: VideoCatalogDoc }[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
 
@@ -43,11 +41,6 @@ export function VideoCatalogPage() {
               자료와 별도로 운영됩니다.
             </p>
           </div>
-          {isSuperAdmin ? (
-            <Link to="/videos/register" className={`btn btn--primary ${styles.catalogRegisterBtn}`}>
-              동영상 등록
-            </Link>
-          ) : null}
         </header>
 
         {loadErr ? <p className={styles.err}>{loadErr}</p> : null}

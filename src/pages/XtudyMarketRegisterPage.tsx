@@ -85,7 +85,7 @@ export function XtudyMarketRegisterPage() {
         } catch {
           showToast("ok", "등록되었습니다. 상세 페이지에서 링크를 복사할 수 있습니다.");
         }
-        navigate(`/xtudy-market/p/${newId}`, { replace: true });
+        navigate("/admin/storefront?tab=xtudy", { replace: true });
       } catch (err) {
         setFormMsg(err instanceof Error ? err.message : String(err));
       } finally {
@@ -100,8 +100,8 @@ export function XtudyMarketRegisterPage() {
       <main className="admin-layout admin-layout--light material-register classroom-hub classroom-hub--manage video-register-page">
         <div className="classroom-hub__shell">
           <div className="classroom-hub__hero-card">
-            <Link to="/xtudy-market" className="material-register__text-link" style={{ fontSize: "0.9rem" }}>
-              ← 엑스터디마켓
+            <Link to="/admin/storefront?tab=xtudy" className="material-register__text-link" style={{ fontSize: "0.9rem" }}>
+              ← 스토어 관리
             </Link>
             <div className="admin-layout__title-row">
               <h1>엑스터디마켓 상품 등록</h1>
@@ -232,7 +232,7 @@ export function XtudyMarketRegisterPage() {
                     <span className="ui-en">{busy ? "Saving…" : "Save & open detail"}</span>
                     <span className="ui-ko">{busy ? "저장 중…" : "등록하고 상세 페이지로 이동"}</span>
                   </button>
-                  <Link to="/xtudy-market" className="btn btn--ghost btn--stack" style={{ marginTop: "0.65rem" }}>
+                  <Link to="/admin/storefront?tab=xtudy" className="btn btn--ghost btn--stack" style={{ marginTop: "0.65rem" }}>
                     취소
                   </Link>
                 </div>

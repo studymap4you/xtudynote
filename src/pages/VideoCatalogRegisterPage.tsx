@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { PublicShell } from "@/components/PublicShell";
+import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { addVideoCatalogEntry, uploadVideoCatalogThumbnail } from "@/lib/videoCatalog/videoCatalogApi";
@@ -74,7 +74,7 @@ export function VideoCatalogRegisterPage() {
           createdBy: uid,
         });
         showToast("ok", "동영상이 등록되었습니다.");
-        navigate("/videos", { replace: true });
+        navigate("/admin/storefront?tab=videos", { replace: true });
       } catch (err) {
         setFormMsg(err instanceof Error ? err.message : String(err));
       } finally {
@@ -85,11 +85,11 @@ export function VideoCatalogRegisterPage() {
   );
 
   return (
-    <PublicShell light>
+    <DashboardShell light>
       <main className={styles.wrap}>
         <nav className={styles.registerNav}>
-          <Link to="/videos" className={styles.registerBack}>
-            ← 동영상 강의 목록
+          <Link to="/admin/storefront?tab=videos" className={styles.registerBack}>
+            ← 스토어 관리
           </Link>
         </nav>
 
@@ -176,7 +176,7 @@ export function VideoCatalogRegisterPage() {
               <button type="submit" className="btn btn--primary btn--stack" disabled={busy}>
                 {busy ? "등록 중…" : "등록하기"}
               </button>
-              <Link to="/videos" className="btn btn--ghost btn--stack">
+              <Link to="/admin/storefront?tab=videos" className="btn btn--ghost btn--stack">
                 취소
               </Link>
             </div>
@@ -184,6 +184,6 @@ export function VideoCatalogRegisterPage() {
           </form>
         </div>
       </main>
-    </PublicShell>
+    </DashboardShell>
   );
 }

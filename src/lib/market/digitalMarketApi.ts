@@ -1,6 +1,8 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   limit,
   onSnapshot,
   orderBy,
@@ -68,4 +70,8 @@ export async function addDigitalMarketProduct(input: {
     createdAt: serverTimestamp(),
   });
   return docRef.id;
+}
+
+export async function deleteDigitalMarketProduct(id: string): Promise<void> {
+  await deleteDoc(doc(db, COL, id));
 }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PublicShell } from "@/components/PublicShell";
-import { useAuth } from "@/contexts/AuthContext";
 import { subscribeXtudyMarketProducts } from "@/lib/market/xtudyMarketApi";
 import type { XtudyMarketProductDoc } from "@/types/xtudyMarketProduct";
 import styles from "@/pages/videoCatalog.module.css";
@@ -23,7 +22,6 @@ function stripHtmlToPreview(html: string, max = 120): string {
 }
 
 export function XtudyMarketPage() {
-  const { isSuperAdmin } = useAuth();
   const [rows, setRows] = useState<{ id: string; data: XtudyMarketProductDoc }[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
 
@@ -49,11 +47,6 @@ export function XtudyMarketPage() {
               주소를 복사할 수 있습니다.
             </p>
           </div>
-          {isSuperAdmin ? (
-            <Link to="/xtudy-market/register" className={`btn btn--primary ${styles.catalogRegisterBtn}`}>
-              상품 등록
-            </Link>
-          ) : null}
         </header>
 
         {loadErr ? <p className={styles.err}>{loadErr}</p> : null}

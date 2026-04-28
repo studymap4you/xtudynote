@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   limit,
@@ -74,4 +75,8 @@ export async function addXtudyMarketProduct(input: {
     createdAt: serverTimestamp(),
   });
   return docRef.id;
+}
+
+export async function deleteXtudyMarketProduct(id: string): Promise<void> {
+  await deleteDoc(doc(db, COL, id));
 }

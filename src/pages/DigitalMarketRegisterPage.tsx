@@ -85,7 +85,7 @@ export function DigitalMarketRegisterPage() {
           createdBy: uid,
         });
         showToast("ok", "디지털마켓 상품이 등록되었습니다.");
-        navigate("/digital-market", { replace: true });
+        navigate("/admin/storefront?tab=digital", { replace: true });
       } catch (err) {
         setFormMsg(err instanceof Error ? err.message : String(err));
       } finally {
@@ -100,8 +100,8 @@ export function DigitalMarketRegisterPage() {
       <main className="admin-layout admin-layout--light material-register classroom-hub classroom-hub--manage video-register-page">
         <div className="classroom-hub__shell">
           <div className="classroom-hub__hero-card">
-            <Link to="/digital-market" className="material-register__text-link" style={{ fontSize: "0.9rem" }}>
-              ← 디지털마켓
+            <Link to="/admin/storefront?tab=digital" className="material-register__text-link" style={{ fontSize: "0.9rem" }}>
+              ← 스토어 관리
             </Link>
             <div className="admin-layout__title-row">
               <h1>디지털마켓 상품 등록</h1>
@@ -267,7 +267,7 @@ export function DigitalMarketRegisterPage() {
                     <span className="ui-en">{busy ? "Saving…" : "Publish"}</span>
                     <span className="ui-ko">{busy ? "저장 중…" : "등록"}</span>
                   </button>
-                  <Link to="/digital-market" className="btn btn--ghost btn--stack" style={{ marginTop: "0.65rem" }}>
+                  <Link to="/admin/storefront?tab=digital" className="btn btn--ghost btn--stack" style={{ marginTop: "0.65rem" }}>
                     취소
                   </Link>
                 </div>

@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { StorefrontManagePage } from "@/pages/admin/StorefrontManagePage";
 import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
@@ -54,33 +55,44 @@ export default function App() {
       <Route path="/homework" element={<HomeworkSearchPage />} />
       <Route path="/logic-dashboard" element={<LogicDashboardPage />} />
       <Route path="/videos" element={<VideoCatalogPage />} />
+      <Route path="/digital-market" element={<DigitalMarketPage />} />
+      <Route path="/xtudy-market" element={<XtudyMarketPage />} />
+      <Route path="/xtudy-market/p/:id" element={<XtudyMarketProductPage />} />
       <Route
-        path="/videos/register"
+        path="/admin/storefront"
+        element={
+          <SuperAdminRoute>
+            <StorefrontManagePage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/storefront/videos/new"
         element={
           <SuperAdminRoute>
             <VideoCatalogRegisterPage />
           </SuperAdminRoute>
         }
       />
-      <Route path="/digital-market" element={<DigitalMarketPage />} />
       <Route
-        path="/digital-market/register"
+        path="/admin/storefront/digital-market/new"
         element={
           <SuperAdminRoute>
             <DigitalMarketRegisterPage />
           </SuperAdminRoute>
         }
       />
-      <Route path="/xtudy-market" element={<XtudyMarketPage />} />
-      <Route path="/xtudy-market/p/:id" element={<XtudyMarketProductPage />} />
       <Route
-        path="/xtudy-market/register"
+        path="/admin/storefront/xtudy-market/new"
         element={
           <SuperAdminRoute>
             <XtudyMarketRegisterPage />
           </SuperAdminRoute>
         }
       />
+      <Route path="/videos/register" element={<Navigate to="/admin/storefront/videos/new" replace />} />
+      <Route path="/digital-market/register" element={<Navigate to="/admin/storefront/digital-market/new" replace />} />
+      <Route path="/xtudy-market/register" element={<Navigate to="/admin/storefront/xtudy-market/new" replace />} />
       <Route path="/homework/:code" element={<HomeworkStudentPage />} />
       <Route path="/worksheet/outreach" element={<ExternalWorksheetOutreachPage />} />
       <Route path="/worksheet/create" element={<WorksheetPdfCreatePage />} />

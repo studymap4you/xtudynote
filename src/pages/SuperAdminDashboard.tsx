@@ -87,6 +87,10 @@ export function SuperAdminDashboard() {
               <span className="ui-en">Knowledge curation</span>
               <span className="ui-ko">지식 큐레이션 · 검색·저장·학습자료</span>
             </Link>
+            <Link to="/admin/storefront" className="btn btn--stack super-admin-actions__storefront">
+              <span className="ui-en">Storefront & home videos</span>
+              <span className="ui-ko">디지털·엑스터디마켓 · 홈 동영상 등록·삭제</span>
+            </Link>
           </div>
         </section>
 

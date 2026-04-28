@@ -5485,6 +5485,153 @@ button.top-nav__auth-link--logout:hover {
   color: #064e3b;
 }
 
+.app-shell--light .dashboard--super-admin .super-admin-actions__storefront {
+  width: 100%;
+  justify-content: center;
+  padding: 0.58rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1.5px solid rgba(245, 158, 11, 0.55);
+  background: linear-gradient(178deg, #fef3c7 0%, #fde68a 42%, #fffbeb 100%);
+  box-shadow: 0 4px 14px -8px rgba(180, 83, 9, 0.35);
+  transition: transform 0.08s ease, border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__storefront:hover {
+  border-color: rgba(217, 119, 6, 0.85);
+  filter: saturate(1.06);
+  box-shadow: 0 8px 22px -12px rgba(180, 83, 9, 0.32);
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__storefront:active {
+  transform: scale(0.99);
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__storefront .ui-en,
+.app-shell--light .dashboard--super-admin .super-admin-actions__storefront .ui-ko {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #92400e;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__storefront .ui-ko {
+  color: #78350f;
+}
+
+/* /admin/storefront — 마스터 스토어·홈 동영상 관리 */
+.storefront-admin__hero {
+  margin-bottom: 1.25rem;
+}
+
+.storefront-admin__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.storefront-admin__tab {
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--light-border, #e5e7eb);
+  background: var(--light-surface, #fff);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.storefront-admin__tab:hover {
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #1d4ed8;
+}
+
+.storefront-admin__tab.is-active {
+  border-color: rgba(37, 99, 235, 0.55);
+  background: rgba(37, 99, 235, 0.1);
+  color: #1e40af;
+}
+
+.storefront-admin__panel .panel__head {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.storefront-admin__err {
+  margin-bottom: 1rem;
+}
+
+.storefront-admin__empty {
+  margin: 0;
+  padding: 1rem 0;
+  color: var(--light-text-muted, #64748b);
+  font-size: 0.92rem;
+}
+
+.storefront-admin__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.storefront-admin__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--light-border, #e5e7eb);
+}
+
+.storefront-admin__row:last-child {
+  border-bottom: none;
+}
+
+.storefront-admin__row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.storefront-admin__title {
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.storefront-admin__meta {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.storefront-admin__link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: underline;
+  width: fit-content;
+}
+
+.storefront-admin__danger {
+  color: #b91c1c !important;
+  border-color: rgba(185, 28, 28, 0.35) !important;
+  flex-shrink: 0;
+}
+
+.storefront-admin__danger:hover:not(:disabled) {
+  background: rgba(254, 226, 226, 0.6) !important;
+}
+
+.storefront-admin__footer {
+  margin-top: 1.75rem;
+}
+
 .super-admin-security-badge {
   display: flex;
   align-items: center;
