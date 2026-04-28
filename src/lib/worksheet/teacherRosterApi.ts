@@ -9,7 +9,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
-import type { ClassroomRow } from "@/lib/classroom/listTeacherClassrooms";
+import { listClassroomsByTeacher, type ClassroomRow } from "@/lib/classroom/listTeacherClassrooms";
 import type { RosterCandidate, WorksheetGroupDoc, WorksheetRosterEntryDoc } from "@/types/worksheetRoster";
 
 function rosterCol(teacherUid: string) {
@@ -57,6 +57,52 @@ export async function upsertWorksheetRosterEntry(
 
 export async function deleteWorksheetRosterEntry(teacherUid: string, studentUid: string): Promise<void> {
   await deleteDoc(doc(db, "users", teacherUid, "worksheet_roster", studentUid.trim()));
+}
+
+/**
+ * 강의실 멤버가 바뀐 뒤 호출합니다. 새 UID는 주소록(worksheet_roster)에 합류시키고,
+ * 제외된 UID는 다른 강의실에 더 이상 속하지 않을 때만 주소록 문서에서 제거합니다.
+ * (먼저 콜러가 Firestore classrooms 문서 반영 후 호출해야 합니다.)
+ */
+export async function syncTeacherRosterForClassroomMemberDelta(
+  teacherUid: string,
+  delta: { added: string[]; removed: string[] },
+): Promise<void> {
+  const added = [...new Set(delta.added.map((s) => s.trim()).filter((u) => u.length >= 8))];
+  const removed = [...new Set(delta.removed.map((s) => s.trim()).filter((u) => u.length >= 8))];
+
+  await Promise.all(
+    added.map((u) =>
+      upsertWorksheetRosterEntry(teacherUid, { studentUid: u }).catch(() => undefined),
+    ),
+  );
+
+  if (!removed.length) return;
+
+  const rooms = await listClassroomsByTeacher(teacherUid);
+  const uidStillInSomeClassroom = new Set<string>();
+  for (const row of rooms) {
+    for (const raw of row.data.memberStudentIds ?? []) {
+      uidStillInSomeClassroom.add(String(raw).trim());
+    }
+  }
+  await Promise.all(
+    removed.map((u) =>
+      uidStillInSomeClassroom.has(u)
+        ? Promise.resolve()
+        : deleteWorksheetRosterEntry(teacherUid, u).catch(() => undefined),
+    ),
+  );
+}
+
+/** 학생 한 명 추가 시 — 승인·무료 수강 직후 단순 업서트 */
+export async function ensureTeacherRosterForStudent(
+  teacherUid: string,
+  studentUid: string,
+): Promise<void> {
+  const u = studentUid.trim();
+  if (u.length < 8) return;
+  await upsertWorksheetRosterEntry(teacherUid, { studentUid: u });
 }
 
 export async function addWorksheetGroup(teacherUid: string, name: string, studentUids: string[]): Promise<string> {

@@ -20,6 +20,10 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
 import { db } from "@/firebase/config";
+import {
+  ensureTeacherRosterForStudent,
+  syncTeacherRosterForClassroomMemberDelta,
+} from "@/lib/worksheet/teacherRosterApi";
 import type {
   ClassroomDocument,
   ClassroomEnrollmentRequestDocument,
@@ -201,6 +205,7 @@ export function ClassroomCatalogPage() {
       await updateDoc(doc(db, "classrooms", r.id), {
         memberStudentIds: arrayRemove(uid),
       });
+      await syncTeacherRosterForClassroomMemberDelta(r.teacherId, { added: [], removed: [uid] });
       setActionMsg(`「${r.title}」수강을 취소했습니다.`);
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : "수강 취소에 실패했습니다.");
@@ -234,6 +239,7 @@ export function ClassroomCatalogPage() {
       await updateDoc(doc(db, "classrooms", r.id), {
         memberStudentIds: arrayUnion(uid),
       });
+      await ensureTeacherRosterForStudent(r.teacherId, uid);
       setActionMsg(`「${r.title}」에 수강 등록되었습니다. 내 강의실에서 입장할 수 있습니다.`);
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : "수강 처리에 실패했습니다.");

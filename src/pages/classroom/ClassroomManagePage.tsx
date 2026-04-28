@@ -34,6 +34,11 @@ import type {
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
+import {
+  ensureTeacherRosterForStudent,
+  listWorksheetRoster,
+  syncTeacherRosterForClassroomMemberDelta,
+} from "@/lib/worksheet/teacherRosterApi";
 import "@/pages/pages.css";
 
 type TabId = "intro" | "notices" | "materials" | "video" | "qa" | "enrollment" | "members";
@@ -66,9 +71,13 @@ function Inner() {
   const [videoRows, setVideoRows] = useState<{ id: string; data: VideoMaterialRequestDocument }[]>([]);
   const [listsLoading, setListsLoading] = useState(false);
 
-  const [memberIdsText, setMemberIdsText] = useState("");
+  const [bulkMemberText, setBulkMemberText] = useState("");
+  const [newMemberUid, setNewMemberUid] = useState("");
   const [savingMembers, setSavingMembers] = useState(false);
   const [membersErr, setMembersErr] = useState<string | null>(null);
+  const [memberRosterHint, setMemberRosterHint] = useState<
+    Record<string, { displayName?: string; emailLower?: string }>
+  >({});
 
   const [pricingType, setPricingType] = useState<"free" | "paid">("free");
   const [enrollmentRows, setEnrollmentRows] = useState<{ id: string; data: ClassroomEnrollmentRequestDocument }[]>([]);
@@ -117,10 +126,27 @@ function Inner() {
   }, [id, firebaseUser]);
 
   useEffect(() => {
-    if (room) {
-      setMemberIdsText((room.memberStudentIds ?? []).join("\n"));
-    }
+    if (room) setBulkMemberText((room.memberStudentIds ?? []).join("\n"));
   }, [room]);
+
+  useEffect(() => {
+    if (!firebaseUser?.uid || tab !== "members") return;
+    let cancelled = false;
+    void listWorksheetRoster(firebaseUser.uid).then((rows) => {
+      if (cancelled) return;
+      const m: Record<string, { displayName?: string; emailLower?: string }> = {};
+      for (const r of rows) {
+        m[r.id] = {
+          displayName: r.data.displayName,
+          emailLower: r.data.emailLower,
+        };
+      }
+      setMemberRosterHint(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseUser?.uid, tab, room?.memberStudentIds]);
 
   useEffect(() => {
     if (!id || !room) return;
@@ -215,21 +241,101 @@ function Inner() {
 
   const q = (path: string) => `${path}?classroomId=${encodeURIComponent(id ?? "")}`;
 
-  async function saveMembers(e: React.FormEvent) {
+  async function saveBulkMembers(e: React.FormEvent) {
     e.preventDefault();
-    if (!id || !room) return;
-    const raw = memberIdsText
+    if (!id || !room || !firebaseUser) return;
+    const raw = bulkMemberText
       .split(/[\s,;]+/g)
       .map((s) => s.trim())
       .filter(Boolean);
     const uniq = [...new Set(raw)].slice(0, 120);
+    const prev = room.memberStudentIds ?? [];
+    const prevSet = new Set(prev.map(String));
+    const added = uniq.filter((u) => !prevSet.has(u));
+    const removed = prev.filter((u) => !uniq.includes(u)).map(String);
+    const invalidShort = uniq.filter((u) => u.length < 8);
+    if (invalidShort.length > 0) {
+      setMembersErr("UID는 8자 이상 문자열로 입력되어야 합니다. 잘못된 줄을 확인해 주세요.");
+      return;
+    }
     setSavingMembers(true);
     setMembersErr(null);
     try {
       await updateDoc(doc(db, "classrooms", id), { memberStudentIds: uniq });
       setRoom({ ...room, memberStudentIds: uniq });
+      await syncTeacherRosterForClassroomMemberDelta(firebaseUser.uid, { added, removed });
     } catch (err) {
       setMembersErr(err instanceof Error ? err.message : "저장에 실패했습니다.");
+    } finally {
+      setSavingMembers(false);
+    }
+  }
+
+  async function addSingleMember(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !room || !firebaseUser) return;
+    const uid = newMemberUid.trim();
+    if (uid.length < 8) {
+      setMembersErr("UID는 최소 8자 이상이어야 합니다.");
+      return;
+    }
+    const prev = room.memberStudentIds ?? [];
+    if (prev.some((x) => String(x).trim() === uid)) {
+      setMembersErr("이미 목록에 있는 UID입니다.");
+      return;
+    }
+    if (prev.length >= 120) {
+      setMembersErr("최대 120명까지 등록할 수 있습니다.");
+      return;
+    }
+    setSavingMembers(true);
+    setMembersErr(null);
+    try {
+      const next = [...prev.map(String), uid];
+      await updateDoc(doc(db, "classrooms", id), { memberStudentIds: next });
+      setRoom({ ...room, memberStudentIds: next });
+      await syncTeacherRosterForClassroomMemberDelta(firebaseUser.uid, { added: [uid], removed: [] });
+      setNewMemberUid("");
+      await listWorksheetRoster(firebaseUser.uid).then((rows) => {
+        const m: Record<string, { displayName?: string; emailLower?: string }> = {};
+        for (const r of rows) {
+          m[r.id] = {
+            displayName: r.data.displayName,
+            emailLower: r.data.emailLower,
+          };
+        }
+        setMemberRosterHint(m);
+      });
+    } catch (err) {
+      setMembersErr(err instanceof Error ? err.message : "추가에 실패했습니다.");
+    } finally {
+      setSavingMembers(false);
+    }
+  }
+
+  async function removeSingleMember(studentUid: string) {
+    if (!id || !room || !firebaseUser) return;
+    const uid = studentUid.trim();
+    const prev = room.memberStudentIds ?? [];
+    const next = prev.map(String).filter((x) => x !== uid);
+    setSavingMembers(true);
+    setMembersErr(null);
+    try {
+      await updateDoc(doc(db, "classrooms", id), { memberStudentIds: next });
+      setRoom({ ...room, memberStudentIds: next });
+      await syncTeacherRosterForClassroomMemberDelta(firebaseUser.uid, { added: [], removed: [uid] });
+      await listWorksheetRoster(firebaseUser.uid).then((rows) => {
+        const m: Record<string, { displayName?: string; emailLower?: string }> = {};
+        for (const r of rows) {
+          m[r.id] = {
+            displayName: r.data.displayName,
+            emailLower: r.data.emailLower,
+          };
+        }
+        setMemberRosterHint(m);
+      });
+    } catch (err) {
+      setMembersErr(err instanceof Error ? err.message : "제거에 실패했습니다.");
     } finally {
       setSavingMembers(false);
     }
@@ -256,6 +362,7 @@ function Inner() {
       setRoom((prev) =>
         prev ? { ...prev, memberStudentIds: [...new Set([...(prev.memberStudentIds ?? []), studentId])] } : prev,
       );
+      await ensureTeacherRosterForStudent(room.teacherId, studentId);
     } catch (e) {
       setEnrollmentActionErr(e instanceof Error ? e.message : "승인에 실패했습니다.");
     } finally {
@@ -789,33 +896,97 @@ function Inner() {
                 학습지 배포용 멤버 UID
               </h2>
               <p className="classroom-hub__hint">
-                각 학생의 <strong>Firebase 로그인 UID</strong>를 한 줄에 하나씩 저장해 두면, 학습지 배포 화면에서 이
-                강의실을 고르고 한 번에 대상 목록에 넣을 수 있습니다. (최대 120명)
+                멤버는 <strong>강좌 신청 승인</strong> 또는 <strong>무료 강좌 참여</strong> 시 담당 선생님
+                학습지 주소록에도 자동으로 올라갑니다. 아래에서 UID를 직접 추가·제거할 수 있습니다. 학습지
+                배포 시 이 강의실 링크로 들어오면 해당 멤버가 자동으로 선택됩니다. (최대 120명)
               </p>
               {membersErr ? <p className="auth-error">{membersErr}</p> : null}
-              <form className="classroom-hub__form" onSubmit={(e) => void saveMembers(e)}>
+              <form className="classroom-hub__form" onSubmit={(e) => void addSingleMember(e)}>
                 <label className="auth-field">
-                  <span className="classroom-hub__field-label">학생 UID (줄바꿈·쉼표 구분)</span>
-                  <textarea
-                    className="classroom-hub__intro-textarea"
-                    rows={10}
-                    value={memberIdsText}
-                    onChange={(e) => setMemberIdsText(e.target.value)}
-                    placeholder="학생 계정의 Auth UID"
-                  />
+                  <span className="classroom-hub__field-label">학생 UID 추가</span>
+                  <div className="classroom-hub__inline-add">
+                    <input
+                      type="text"
+                      className="add-passage__control"
+                      value={newMemberUid}
+                      onChange={(e) => setNewMemberUid(e.target.value)}
+                      placeholder="Firebase Auth UID"
+                      disabled={savingMembers}
+                      autoComplete="off"
+                      spellCheck={false}
+                      style={{ flex: "1 1 12rem" }}
+                    />
+                    <button type="submit" className="btn btn--primary btn--stack" disabled={savingMembers}>
+                      {savingMembers ? "처리 중…" : "추가"}
+                    </button>
+                  </div>
                 </label>
-                <div className="add-passage__actions" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
-                  <button type="submit" className="btn btn--primary btn--stack" disabled={savingMembers}>
-                    {savingMembers ? "저장 중…" : "멤버 목록 저장"}
-                  </button>
-                  <Link
-                    to={`/teacher/assignments/new?classroomId=${encodeURIComponent(id)}`}
-                    className="btn btn--ghost btn--stack"
-                  >
-                    <span className="ui-ko">학습지 배포 화면 열기</span>
-                  </Link>
-                </div>
               </form>
+              {(room.memberStudentIds ?? []).length === 0 ? (
+                <p className="classroom-hub__hint" style={{ marginTop: "0.75rem" }}>
+                  등록된 멤버가 없습니다. 학생 수강·승인으로 들어오면 자동으로 채워집니다.
+                </p>
+              ) : (
+                <ul className="classroom-member-list">
+                  {(room.memberStudentIds ?? []).map((uidRaw) => {
+                    const uid = String(uidRaw).trim();
+                    const hint = memberRosterHint[uid];
+                    return (
+                      <li key={uid} className="classroom-member-list__item">
+                        <div className="classroom-member-list__main">
+                          <code className="classroom-member-list__uid">{uid}</code>
+                          {hint?.emailLower || hint?.displayName ? (
+                            <span className="classroom-member-list__hint">
+                              {[hint?.displayName, hint?.emailLower].filter(Boolean).join(" · ") || ""}
+                            </span>
+                          ) : (
+                            <span className="classroom-member-list__hint classroom-member-list__hint--muted">
+                              주소록에 이름·메일이 없음
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--stack classroom-member-list__remove"
+                          disabled={savingMembers}
+                          onClick={() => void removeSingleMember(uid)}
+                        >
+                          제거
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <details className="classroom-hub__bulk-paste">
+                <summary>여러 UID 한 번에 반영 (붙여넣기)</summary>
+                <form className="classroom-hub__form" onSubmit={(e) => void saveBulkMembers(e)} style={{ marginTop: "0.65rem" }}>
+                  <label className="auth-field">
+                    <span className="classroom-hub__field-label">학생 UID 목록 — 줄바꿈·쉼표 구분 (최대 120명)</span>
+                    <textarea
+                      className="classroom-hub__intro-textarea"
+                      rows={7}
+                      value={bulkMemberText}
+                      onChange={(e) => setBulkMemberText(e.target.value)}
+                      placeholder="학생 계정의 Auth UID"
+                      disabled={savingMembers}
+                    />
+                  </label>
+                  <div className="add-passage__actions" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+                    <button type="submit" className="btn btn--primary btn--stack" disabled={savingMembers}>
+                      {savingMembers ? "저장 중…" : "일괄 반영"}
+                    </button>
+                  </div>
+                </form>
+              </details>
+              <div className="add-passage__actions" style={{ flexWrap: "wrap", gap: "0.5rem", marginTop: "0.75rem" }}>
+                <Link
+                  to={`/teacher/assignments/new?classroomId=${encodeURIComponent(id)}`}
+                  className="btn btn--ghost btn--stack"
+                >
+                  <span className="ui-ko">이 강의실로 학습지 배포 열기</span>
+                </Link>
+              </div>
             </section>
           )}
         </div>

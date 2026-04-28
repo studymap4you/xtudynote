@@ -145,6 +145,59 @@
   line-height: 1.45;
 }
 
+.internalClassBanner {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.65) 0%, #fff 70%);
+}
+
+.internalClassBannerText {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.internalClassBannerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.internalClassBtn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.internalClassBtn:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.internalClassBtnGhost {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.85);
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+}
+
+.internalClassBtnGhost:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
 .internalTableWrap {
   max-height: 320px;
   overflow: auto;

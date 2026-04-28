@@ -73,6 +73,7 @@ export function TeacherAssignmentNewPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const signalReportId = params.get("signalReportId")?.trim() ?? "";
+  const focusClassroomId = params.get("classroomId")?.trim() ?? "";
   const { firebaseUser } = useAuth();
   const { showToast } = useToast();
   const uid = firebaseUser?.uid ?? "";
@@ -127,6 +128,11 @@ export function TeacherAssignmentNewPage() {
     [classrooms, rosterRows],
   );
 
+  const classPrefillAppliedRef = useRef(false);
+  useEffect(() => {
+    classPrefillAppliedRef.current = false;
+  }, [focusClassroomId]);
+
   useEffect(() => {
     if (!uid || internalCandidates.length === 0) {
       setRegisterByUid({});
@@ -156,6 +162,30 @@ export function TeacherAssignmentNewPage() {
       cancelled = true;
     };
   }, [uid, internalCandidates]);
+
+  useEffect(() => {
+    if (!focusClassroomId || internalCandidates.length === 0 || classPrefillAppliedRef.current) return;
+    const cr = classrooms.find((c) => c.id === focusClassroomId);
+    if (!cr) return;
+    const memberSet = new Set((cr.data.memberStudentIds ?? []).map(String));
+    const next = internalCandidates.filter((c) => memberSet.has(c.studentUid)).map((c) => c.studentUid);
+    setSelectedStudentIds(next);
+    classPrefillAppliedRef.current = true;
+  }, [focusClassroomId, classrooms, internalCandidates]);
+
+  const focusClassroomTitle = useMemo(
+    () => classrooms.find((c) => c.id === focusClassroomId)?.data.title?.trim(),
+    [focusClassroomId, classrooms],
+  );
+
+  const applyFocusedClassMembers = useCallback(() => {
+    if (!focusClassroomId) return;
+    const cr = classrooms.find((c) => c.id === focusClassroomId);
+    if (!cr) return;
+    const memberSet = new Set((cr.data.memberStudentIds ?? []).map(String));
+    const next = internalCandidates.filter((c) => memberSet.has(c.studentUid)).map((c) => c.studentUid);
+    setSelectedStudentIds(next);
+  }, [focusClassroomId, classrooms, internalCandidates]);
 
   useEffect(() => {
     if (!signalReportId || !uid) {
@@ -406,6 +436,23 @@ export function TeacherAssignmentNewPage() {
           {deployTrack === "internal" ? (
             <div className={styles.deployTabPanel} role="tabpanel">
               <p className={styles.internalHint}>체크한 학생에게만 과제가 생성되며, 학생 앱 과제함에 바로 표시됩니다.</p>
+              {focusClassroomId ? (
+                <div className={styles.internalClassBanner}>
+                  <p className={styles.internalClassBannerText}>
+                    <strong>강의실 연동</strong>{" "}
+                    {focusClassroomTitle ? `「${focusClassroomTitle}」` : `ID: ${focusClassroomId}`} 멤버가 있으면 아래 목록에서
+                    자동으로 선택되었습니다. 체크를 바꿔 이번 배포 대상만 조정할 수 있습니다.
+                  </p>
+                  <div className={styles.internalClassBannerActions}>
+                    <button type="button" className={styles.internalClassBtn} onClick={applyFocusedClassMembers}>
+                      이 강의실 멤버만 선택
+                    </button>
+                    <button type="button" className={styles.internalClassBtnGhost} onClick={() => setSelectedStudentIds([])}>
+                      선택 전체 해제
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               {internalCandidates.length === 0 ? (
                 <p className={styles.meta}>표시할 학생이 없습니다. 강의실에 멤버 UID를 넣거나 주소록을 채워 주세요.</p>
               ) : (

@@ -1395,6 +1395,74 @@
   gap: var(--space-2);
 }
 
+.classroom-hub__inline-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.classroom-member-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.classroom-member-list__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-ui, 8px);
+  border: 1px solid var(--light-border, #e5e7eb);
+  background: #fafafa;
+}
+
+.classroom-member-list__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.classroom-member-list__uid {
+  display: block;
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.classroom-member-list__hint {
+  display: block;
+  font-size: 0.78rem;
+  color: #475569;
+  margin-top: 0.22rem;
+}
+
+.classroom-member-list__hint--muted {
+  color: #94a3b8;
+}
+
+.classroom-member-list__remove {
+  flex-shrink: 0;
+}
+
+.classroom-hub__bulk-paste {
+  margin-top: 1rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+}
+
+.classroom-hub__bulk-paste summary {
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: #334155;
+}
+
 /* 강의 허브 폼: label이 세로 스택이 되도록 (기본 label은 inline이라 텍스트영역과 어긋남) */
 .classroom-hub label.auth-field {
   display: flex;
