@@ -40,6 +40,11 @@ type Props = {
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
+function looksLikeImageFile(f: File): boolean {
+  if (f.type.startsWith("image/")) return true;
+  return /\.(jpe?g|png|gif|webp|avif|bmp|svg|heic|heif)$/i.test(f.name);
+}
+
 function normalizeHtml(s: string): string {
   const t = s?.trim() ?? "";
   return t || "<p></p>";
@@ -376,7 +381,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
           if (!(event instanceof DragEvent)) return false;
           const dt = event.dataTransfer;
           if (!dt?.files?.length || !userId) return false;
-          const images = Array.from(dt.files).filter((f) => f.type.startsWith("image/"));
+          const images = Array.from(dt.files).filter(looksLikeImageFile);
           if (!images.length) return false;
           event.preventDefault();
           void (async () => {
@@ -467,10 +472,16 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
   }, [disabled, userId]);
 
   const onImageFilesChanged = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = e.target.files;
-    e.target.value = "";
-    if (!list?.length || disabled || !userId) return;
-    const files = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    const input = e.target;
+    /** `FileList`는 input과 연결된 live 객체이라, value 초기화 후에는 비어 있을 수 있음 — 먼저 복사 */
+    const picked = input.files?.length ? Array.from(input.files) : [];
+    input.value = "";
+    if (!picked.length || disabled || !userId) return;
+    const files = picked.filter(looksLikeImageFile);
+    if (!files.length) {
+      if (picked.length) window.alert("이미지 파일만 선택해 주세요.");
+      return;
+    }
     for (const file of files) {
       if (file.size > MAX_IMAGE_BYTES) {
         window.alert(`이미지는 ${MAX_IMAGE_BYTES / (1024 * 1024)}MB 이하만 업로드할 수 있습니다: ${file.name}`);
