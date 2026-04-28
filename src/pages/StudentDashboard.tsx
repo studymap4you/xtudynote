@@ -58,82 +58,113 @@ export function StudentDashboard() {
             </span>
           </p>
           <ul className="learner-hero__chips" aria-label="대시보드 영역">
-            <li className="learner-hero__chip">자료 · 과제</li>
-            <li className="learner-hero__chip">라이브러리</li>
-            <li className="learner-hero__chip">진행 · 정산</li>
+            <li className="learner-hero__chip">학습 · 과제</li>
+            <li className="learner-hero__chip">라이브러리 · 강의실</li>
+            <li className="learner-hero__chip">자료 · 정산 · 판매</li>
           </ul>
         </div>
       </header>
 
-      <div className="dashboard-grid dashboard-grid--student dashboard-grid--learner">
-        <section className="panel learner-panel--accent">
-          <div className="panel__head">
-            <div>
-              <h2 className="panel__title">자료 등록 신청</h2>
-              <span className="ui-ko panel__tagline">
-                마스터 검수 후 등록
+      <section className="learner-dash-section" aria-labelledby="learner-sec-learning">
+        <h2 id="learner-sec-learning" className="learner-dash-section__title">
+          <span className="learner-dash-section__title-en">Learning</span>
+          <span className="learner-dash-section__title-ko">학습 · 과제 · 보관함</span>
+        </h2>
+        <div className="dashboard-grid dashboard-grid--student dashboard-grid--learner learner-dash-section__grid">
+          <StudentAssignmentsPanel />
+
+          <StudentLearningVault />
+
+          <section className="panel">
+            <div className="panel__head">
+              <div>
+                <h2 className="panel__title">Progress</h2>
+                <span className="ui-ko panel__tagline">
+                  진행 현황
+                </span>
+              </div>
+            </div>
+            <div className="badge-row learner-stat-row">
+              <span className="stat-pill stat-pill--learner">
+                <span className="ui-en">
+                  <strong>0</strong> modules done
+                </span>
+                <span className="ui-ko">완료 모듈 0</span>
+              </span>
+              <span className="stat-pill stat-pill--learner">
+                <span className="ui-en">
+                  <strong>0</strong> submissions
+                </span>
+                <span className="ui-ko">제출 0</span>
               </span>
             </div>
-            <span className="panel__badge panel__badge--ok">Student</span>
-          </div>
-          <div className="badge-row learner-panel__actions">
-            <AddMaterialButton />
-          </div>
-        </section>
+          </section>
+        </div>
+      </section>
 
-        <StudentAssignmentsPanel />
-
-        <StudentLearningVault />
-
-        <StudentSalesSection />
-
-        <StudentSettlementForm />
-
-        <section className="panel">
-          <div className="panel__head">
-            <div>
-              <h2 className="panel__title">Progress</h2>
-              <span className="ui-ko panel__tagline">
-                진행 현황
-              </span>
+      <section className="learner-dash-section" aria-labelledby="learner-sec-links">
+        <h2 id="learner-sec-links" className="learner-dash-section__title">
+          <span className="learner-dash-section__title-en">Explore</span>
+          <span className="learner-dash-section__title-ko">라이브러리 · 강의실 · 과제 검색</span>
+        </h2>
+        <div className="dashboard-grid dashboard-grid--student dashboard-grid--learner learner-dash-section__grid">
+          <section className="panel learner-panel--library">
+            <div className="panel__head">
+              <div>
+                <h2 className="panel__title">Smart library & classrooms</h2>
+                <span className="ui-ko panel__tagline">
+                  자료 탐색 · 내 강의실 · 강의 신청
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="badge-row learner-stat-row">
-            <span className="stat-pill stat-pill--learner">
-              <span className="ui-en">
-                <strong>0</strong> modules done
-              </span>
-              <span className="ui-ko">완료 모듈 0</span>
-            </span>
-            <span className="stat-pill stat-pill--learner">
-              <span className="ui-en">
-                <strong>0</strong> submissions
-              </span>
-              <span className="ui-ko">제출 0</span>
-            </span>
-          </div>
-        </section>
-        <section className="panel learner-panel--library">
-          <div className="panel__head">
-            <div>
-              <h2 className="panel__title">Smart library</h2>
-              <span className="ui-ko panel__tagline">
-                스마트 라이브러리
-              </span>
+            <div className="badge-row learner-panel__actions">
+              <Link to="/library" className="btn btn--primary btn--stack">
+                <span className="ui-en">Open library</span>
+                <span className="ui-ko">라이브러리</span>
+              </Link>
+              <Link to="/classroom" className="btn btn--ghost btn--stack">
+                <span className="ui-en">My classroom</span>
+                <span className="ui-ko">내 강의실</span>
+              </Link>
+              <Link to="/classrooms" className="btn btn--ghost btn--stack">
+                <span className="ui-en">Browse courses</span>
+                <span className="ui-ko">강의 신청 · 전체 강의실</span>
+              </Link>
+              <Link to="/homework" className="btn btn--ghost btn--stack">
+                <span className="ui-en">Homework hub</span>
+                <span className="ui-ko">과제함 · 번호 검색</span>
+              </Link>
             </div>
-          </div>
-          <div className="badge-row learner-panel__actions">
-            <Link to="/library" className="btn btn--primary btn--stack">
-              <span className="ui-en">Open library</span>
-              <span className="ui-ko">라이브러리</span>
-            </Link>
-            <Link to="/homework" className="btn btn--ghost btn--stack">
-              <span className="ui-en">Homework code</span>
-              <span className="ui-ko">과제 번호 검색</span>
-            </Link>
-          </div>
-        </section>
-      </div>
+          </section>
+        </div>
+      </section>
+
+      <section className="learner-dash-section" aria-labelledby="learner-sec-ops">
+        <h2 id="learner-sec-ops" className="learner-dash-section__title">
+          <span className="learner-dash-section__title-en">Materials &amp; settlement</span>
+          <span className="learner-dash-section__title-ko">자료 등록 · 정산 · 판매</span>
+        </h2>
+        <div className="dashboard-grid dashboard-grid--student dashboard-grid--learner learner-dash-section__grid">
+          <section className="panel learner-panel--accent">
+            <div className="panel__head">
+              <div>
+                <h2 className="panel__title">자료 등록 신청</h2>
+                <span className="ui-ko panel__tagline">
+                  마스터 검수 후 등록
+                </span>
+              </div>
+              <span className="panel__badge panel__badge--ok">Student</span>
+            </div>
+            <div className="badge-row learner-panel__actions">
+              <AddMaterialButton />
+            </div>
+          </section>
+
+          <StudentSettlementForm />
+
+          <StudentSalesSection />
+        </div>
+      </section>
     </main>
   );
 }

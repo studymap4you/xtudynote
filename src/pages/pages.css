@@ -3563,6 +3563,39 @@ button.top-nav__auth-link--logout:hover {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 288px), 1fr));
 }
 
+.learner-dash-section {
+  margin-top: 2rem;
+}
+.learner-dash-section:first-of-type {
+  margin-top: 0;
+}
+.learner-dash-section__title {
+  margin: 0 0 0.85rem;
+  padding: 0 0.1rem;
+  border: none;
+  background: none;
+  font: inherit;
+}
+.learner-dash-section__title-en {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.learner-dash-section__title-ko {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+.learner-dash-section__grid {
+  margin-top: 0;
+}
+
 .app-shell--light .dashboard--learner section.panel {
   background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
   border: 1px solid rgba(15, 23, 42, 0.08);
