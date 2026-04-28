@@ -1617,6 +1617,430 @@
   color: #1e293b;
 }
 
+/* —— 강의실 허브 · 관리/개설 프리미엄 카드 UI —— */
+.classroom-hub.classroom-hub--manage {
+  --hub-accent: #4f46e5;
+  --hub-accent-2: #2563eb;
+  min-height: 100%;
+  background:
+    radial-gradient(90% 45% at 50% -8%, rgba(99, 102, 241, 0.11), transparent 52%),
+    radial-gradient(55% 35% at 100% 0%, rgba(14, 165, 233, 0.08), transparent 48%),
+    linear-gradient(180deg, #eef2f6 0%, #f8fafc 28%, #ffffff 100%);
+}
+
+.classroom-hub__shell {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 0 1rem 2.75rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .classroom-hub__shell {
+    padding: 0 1.35rem 3.25rem;
+  }
+}
+
+.classroom-hub__hero-card {
+  margin-bottom: 1.15rem;
+  padding: 1.2rem 1.3rem 1.35rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background:
+    radial-gradient(100% 80% at 100% 0%, rgba(99, 102, 241, 0.09) 0%, transparent 55%),
+    linear-gradient(145deg, #ffffff 0%, #f8fafc 48%, #f1f5f9 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.92) inset,
+    0 14px 40px rgba(15, 23, 42, 0.07);
+}
+
+.classroom-hub__hero-card .classroom-page__breadcrumb {
+  margin-bottom: 0.6rem;
+}
+
+.classroom-hub__hero-card .admin-layout__title-row h1 {
+  margin: 0.25rem 0 0.2rem;
+  font-size: clamp(1.45rem, 3.2vw, 1.9rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  color: #0f172a;
+}
+
+.classroom-hub__hero-card .admin-layout__title-row .ui-ko {
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.classroom-hub__hero-lede {
+  margin: 0.65rem 0 0;
+  max-width: 44rem;
+}
+
+.classroom-hub__preview-label--hero {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.classroom-hub--manage .classroom-hub__tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding: 0.2rem 0.1rem 0.9rem;
+  margin: 0 0 1.05rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.classroom-hub--manage .classroom-hub__tab {
+  flex: 0 0 auto;
+  min-width: 7.75rem;
+  padding: 0.72rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+}
+
+.classroom-hub--manage .classroom-hub__tab:hover {
+  border-color: rgba(79, 70, 229, 0.35);
+  background: #fff;
+}
+
+.classroom-hub--manage .classroom-hub__tab--active {
+  border-color: rgba(79, 70, 229, 0.5);
+  background: linear-gradient(155deg, #eef2ff 0%, #e0e7ff 55%, #f5f3ff 100%);
+  box-shadow:
+    0 0 0 1px rgba(79, 70, 229, 0.12),
+    0 10px 26px rgba(79, 70, 229, 0.16);
+}
+
+.classroom-hub--manage .classroom-hub__tab--preview,
+.classroom-hub--manage .classroom-hub__tab--preview:hover {
+  opacity: 0.72;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #f1f5f9 !important;
+  border-style: dashed !important;
+  box-shadow: none !important;
+}
+
+.classroom-hub--manage .classroom-hub__tab--preview .classroom-hub__tab-label {
+  color: #64748b;
+}
+
+.classroom-hub--manage .classroom-hub__tab-label {
+  color: #1e1b4b;
+}
+
+.classroom-hub__panel--manage {
+  border-radius: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 20px 50px rgba(15, 23, 42, 0.08);
+  padding: clamp(1.2rem, 2.8vw, 1.85rem);
+  min-height: 14rem;
+}
+
+.classroom-hub__section-title {
+  font-size: clamp(1.05rem, 2.2vw, 1.22rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.classroom-hub--manage .classroom-hub__hint {
+  max-width: 44rem;
+}
+
+.classroom-hub__card {
+  margin-bottom: 1.15rem;
+  padding: 1.2rem 1.28rem 1.35rem;
+  border-radius: 1.05rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: #fff;
+  box-shadow: 0 2px 14px rgba(15, 23, 42, 0.045);
+}
+
+.classroom-hub__card:last-child {
+  margin-bottom: 0;
+}
+
+.classroom-hub__card--soft {
+  background: linear-gradient(165deg, rgba(248, 250, 252, 0.98) 0%, #ffffff 55%);
+  border-color: rgba(129, 140, 248, 0.22);
+}
+
+.classroom-hub__card--flush {
+  padding: 1rem 1.05rem 1.15rem;
+}
+
+.classroom-hub__card--danger {
+  margin-top: 1.35rem;
+  border-color: rgba(248, 113, 113, 0.42);
+  background: linear-gradient(180deg, #fffefe 0%, #fef2f2 100%);
+  box-shadow: 0 4px 20px rgba(185, 28, 28, 0.06);
+}
+
+.classroom-hub__card--danger.classroom-page__danger-zone {
+  margin-top: 1.35rem;
+  padding-top: 1.2rem;
+  border-top: none;
+}
+
+.classroom-hub__card--danger h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.98rem;
+  color: #b91c1c;
+}
+
+.classroom-hub__card-title {
+  margin: 0 0 1rem;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #334155;
+}
+
+.classroom-hub__card-title.classroom-hub__subhead {
+  margin-bottom: 0.85rem;
+}
+
+.classroom-hub__callout {
+  margin: 0 0 1.1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.classroom-hub__callout-code {
+  font-size: 0.82em;
+  word-break: break-all;
+}
+
+.classroom-hub__field-hint--block {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.classroom-hub__hint--tight-top {
+  margin-top: 0;
+}
+
+.classroom-hub__input-grow {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.classroom-hub__form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+  align-items: center;
+}
+
+.classroom-hub__form-actions--spaced {
+  margin-top: 1rem;
+}
+
+.classroom-hub__cta-row--tight {
+  margin-top: 0.65rem;
+  margin-bottom: 0;
+}
+
+.classroom-hub__btn-inline {
+  margin-top: 0.55rem;
+  align-self: flex-start;
+}
+
+.classroom-hub__btn-danger {
+  border: 1px solid rgba(248, 113, 113, 0.65) !important;
+  color: #b91c1c !important;
+  background: rgba(254, 242, 242, 0.85) !important;
+  border-radius: 0.85rem;
+  font-weight: 700;
+}
+
+.classroom-hub__btn-danger:hover:not(:disabled) {
+  background: #fee2e2 !important;
+  border-color: rgba(220, 38, 38, 0.55) !important;
+}
+
+.classroom-hub--manage .auth-field input,
+.classroom-hub--manage .auth-field select,
+.classroom-hub--manage select.add-passage__control,
+.classroom-hub--manage input.add-passage__control {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.88rem 1.05rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+}
+
+.classroom-hub--manage .auth-field input::placeholder,
+.classroom-hub--manage input.add-passage__control::placeholder {
+  color: #94a3b8;
+}
+
+.classroom-hub--manage .auth-field input:hover,
+.classroom-hub--manage .auth-field select:hover,
+.classroom-hub--manage select.add-passage__control:hover,
+.classroom-hub--manage input.add-passage__control:hover {
+  border-color: rgba(100, 116, 139, 0.55);
+  background: #fff;
+}
+
+.classroom-hub--manage .auth-field input:focus,
+.classroom-hub--manage .auth-field select:focus,
+.classroom-hub--manage select.add-passage__control:focus,
+.classroom-hub--manage input.add-passage__control:focus {
+  outline: none;
+  background: #fff;
+  border-color: rgba(79, 70, 229, 0.5);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
+}
+
+.app-shell--light .classroom-hub--manage .btn.btn--primary {
+  border: none;
+  border-radius: 0.9rem;
+  padding: 0.72rem 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 45%, #2563eb 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 8px 22px rgba(79, 70, 229, 0.35);
+  color: #fff;
+}
+
+.app-shell--light .classroom-hub--manage .btn.btn--primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 12px 28px rgba(79, 70, 229, 0.4);
+}
+
+.app-shell--light .classroom-hub--manage .btn.btn--ghost {
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  color: #334155;
+}
+
+.app-shell--light .classroom-hub--manage .btn.btn--ghost:hover:not(:disabled) {
+  border-color: rgba(79, 70, 229, 0.35);
+  background: #fff;
+  color: #1e1b4b;
+}
+
+.classroom-hub--manage .classroom-hub__request-item {
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  border-color: rgba(148, 163, 184, 0.28);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+
+.classroom-hub--manage .classroom-member-list__item {
+  background: #fff;
+  border-color: rgba(148, 163, 184, 0.28);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  padding: 0.75rem 0.85rem;
+}
+
+.classroom-hub__bulk-paste--in-card {
+  margin-top: 1.1rem;
+  border-radius: 0.9rem;
+  border: 1px dashed rgba(148, 163, 184, 0.55);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.classroom-hub__bulk-paste--in-card summary {
+  font-weight: 600;
+  color: #475569;
+}
+
+/* 학습자 강의실(입장) — 탭·Q&A 톤 맞춤 */
+.classroom-room-view .classroom-room-nav.classroom-hub__tabs {
+  gap: 0.65rem;
+  padding: 0.15rem 0 1rem;
+}
+
+.classroom-room-view .classroom-room-nav__card.classroom-hub__tab {
+  border-radius: 1.05rem;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.classroom-room-view .classroom-room-nav__card.classroom-hub__tab--active {
+  box-shadow:
+    0 0 0 1px rgba(79, 70, 229, 0.15),
+    0 12px 32px rgba(79, 70, 229, 0.18);
+}
+
+.classroom-room-view .classroom-room-qa {
+  padding: 1.2rem 1.25rem 1.35rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.88) 100%);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+}
+
+.classroom-room-view .classroom-qa__textarea {
+  padding: 0.85rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: #f8fafc;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.classroom-room-view .classroom-qa__textarea:focus {
+  outline: none;
+  border-color: rgba(79, 70, 229, 0.45);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.classroom-room-view .classroom-qa__thread {
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
+}
+
+.classroom-room-view .classroom-qa__composer .btn.btn--primary {
+  border-radius: 0.85rem;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .classroom-hub--manage .classroom-hub__tab,
+  .classroom-hub--manage .auth-field input,
+  .classroom-room-view .classroom-qa__textarea {
+    transition: none;
+  }
+}
+
 /* —— 강의실 입장 화면 (학생·선생님 공통) 카드형 레이아웃 —— */
 .classroom-room-view {
   --room-accent: #2563eb;

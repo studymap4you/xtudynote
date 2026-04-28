@@ -518,151 +518,161 @@ function Inner() {
 
   return (
     <DashboardShell light>
-      <main className="admin-layout classroom-page admin-layout--light classroom-hub">
-        <nav className="classroom-page__breadcrumb">
-          <Link to="/classroom">← 강의실 목록</Link>
-          {" · "}
-          <Link to={`/classroom/${room.id}`}>입장 화면</Link>
-        </nav>
-        <div className="admin-layout__title-row">
-          <h1>{room.title}</h1>
-          <span className="ui-ko">강의실 허브 — 소개·공지·자료·영상·질의응답</span>
-        </div>
-        <p className="classroom-page__lede">
-          <span className="ui-en" style={{ display: "block", marginBottom: "0.35rem" }}>
-            Tabs organize lecture intro, announcements, file/video registration, and Q&amp;A.
-          </span>
-          <span className="ui-ko">
-            탭으로 강의 소개·공지·자료·영상·질의응답을 나눕니다. 자료·영상 <strong>신청</strong>은 관리자 검수 후 라이브러리에
-            반영됩니다.
-          </span>
-        </p>
+      <main className="admin-layout classroom-page admin-layout--light classroom-hub classroom-hub--manage">
+        <div className="classroom-hub__shell">
+          <div className="classroom-hub__hero-card">
+            <nav className="classroom-page__breadcrumb">
+              <Link to="/classroom">← 강의실 목록</Link>
+              {" · "}
+              <Link to={`/classroom/${room.id}`}>입장 화면</Link>
+            </nav>
+            <div className="admin-layout__title-row">
+              <h1>{room.title}</h1>
+              <span className="ui-ko">강의실 허브 — 소개·공지·자료·영상·질의응답</span>
+            </div>
+            <p className="classroom-page__lede classroom-hub__hero-lede">
+              <span className="ui-en" style={{ display: "block", marginBottom: "0.35rem" }}>
+                Tabs organize lecture intro, announcements, file/video registration, and Q&amp;A.
+              </span>
+              <span className="ui-ko">
+                탭으로 강의 소개·공지·자료·영상·질의응답을 나눕니다. 자료·영상 <strong>신청</strong>은 관리자 검수 후
+                라이브러리에 반영됩니다.
+              </span>
+            </p>
+          </div>
 
-        <div className="classroom-hub__tabs" role="tablist" aria-label="강의실 관리 구역">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.id}
-              className={`classroom-hub__tab ${tab === t.id ? "classroom-hub__tab--active" : ""}`}
-              onClick={() => setTab(t.id)}
-            >
-              <span className="classroom-hub__tab-label">{t.label}</span>
-              <span className="classroom-hub__tab-sub">{t.sub}</span>
-            </button>
-          ))}
-        </div>
+          <div className="classroom-hub__tabs" role="tablist" aria-label="강의실 관리 구역">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                className={`classroom-hub__tab ${tab === t.id ? "classroom-hub__tab--active" : ""}`}
+                onClick={() => setTab(t.id)}
+              >
+                <span className="classroom-hub__tab-label">{t.label}</span>
+                <span className="classroom-hub__tab-sub">{t.sub}</span>
+              </button>
+            ))}
+          </div>
 
-        <div className="classroom-hub__panel">
-          {tab === "intro" && (
-            <section className="classroom-hub__section" aria-labelledby="hub-intro-h">
-              <h2 id="hub-intro-h" className="classroom-hub__section-title">
-                강의 소개 편집
-              </h2>
-              <p className="classroom-hub__hint">
-                학습자 입장 화면 상단에 표시됩니다. <strong>요약</strong>은 짧은 한 줄, <strong>강의 소개</strong>는 목표·주차
-                안내 등을 자유롭게 작성하세요.
-              </p>
-              {room.knowledgeMaterialId ? (
-                <p className="classroom-hub__hint" style={{ borderLeft: "3px solid #2563eb", paddingLeft: "0.65rem" }}>
-                  <span className="ui-ko">
-                    개설 시 <strong>지식 큐레이션</strong> 학습자료가 본문에 합쳐졌습니다. 참조 ID:{" "}
-                    <code style={{ fontSize: "0.85em" }}>{room.knowledgeMaterialId}</code>
-                  </span>
+          <div className="classroom-hub__panel classroom-hub__panel--manage">
+            {tab === "intro" && (
+              <section className="classroom-hub__section" aria-labelledby="hub-intro-h">
+                <h2 id="hub-intro-h" className="classroom-hub__section-title">
+                  강의 소개 편집
+                </h2>
+                <p className="classroom-hub__hint">
+                  학습자 입장 화면 상단에 표시됩니다. <strong>요약</strong>은 짧은 한 줄, <strong>강의 소개</strong>는 목표·주차
+                  안내 등을 자유롭게 작성하세요.
                 </p>
-              ) : null}
-              <form className="classroom-hub__form" onSubmit={(e) => void saveIntro(e)}>
-                <label className="auth-field">
-                  <span className="classroom-hub__field-label">강의실 이름</span>
-                  <input
-                    className="add-passage__control"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                  />
-                </label>
-                <label className="auth-field">
-                  <span className="classroom-hub__field-label">요약 (한 줄)</span>
-                  <input
-                    className="add-passage__control"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="예: 고2 통합수학 A반 · 2026 봄"
-                  />
-                </label>
-                <label className="auth-field">
-                  <span className="classroom-hub__field-label">강의 유형 (수강 신청)</span>
-                  <select
-                    className="add-passage__control"
-                    value={pricingType}
-                    onChange={(e) => setPricingType(e.target.value === "paid" ? "paid" : "free")}
+                {room.knowledgeMaterialId ? (
+                  <div className="classroom-hub__callout classroom-hub__callout--info">
+                    <span className="ui-ko">
+                      개설 시 <strong>지식 큐레이션</strong> 학습자료가 본문에 합쳐졌습니다. 참조 ID:{" "}
+                      <code className="classroom-hub__callout-code">{room.knowledgeMaterialId}</code>
+                    </span>
+                  </div>
+                ) : null}
+                <form className="classroom-hub__form" onSubmit={(e) => void saveIntro(e)}>
+                  <div className="classroom-hub__card">
+                    <h3 className="classroom-hub__card-title">기본 정보</h3>
+                    <label className="auth-field">
+                      <span className="classroom-hub__field-label">강의실 이름</span>
+                      <input
+                        className="add-passage__control"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className="auth-field">
+                      <span className="classroom-hub__field-label">요약 (한 줄)</span>
+                      <input
+                        className="add-passage__control"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="예: 고2 통합수학 A반 · 2026 봄"
+                      />
+                    </label>
+                    <label className="auth-field">
+                      <span className="classroom-hub__field-label">강의 유형 (수강 신청)</span>
+                      <select
+                        className="add-passage__control"
+                        value={pricingType}
+                        onChange={(e) => setPricingType(e.target.value === "paid" ? "paid" : "free")}
+                      >
+                        <option value="free">무료 — 학생이 전체 강의실에서 바로 수강(멤버 등록)</option>
+                        <option value="paid">유료 — 수강 신청 후 연락처 접수 · 강사 승인 (PG 결제 전)</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="classroom-hub__card classroom-hub__card--soft">
+                    <h3 className="classroom-hub__card-title">강의 소개 본문</h3>
+                    <div className="auth-field classroom-hub__field classroom-hub__field--intro">
+                      <span className="classroom-hub__field-label">강의 소개</span>
+                      <span className="classroom-hub__field-hint">
+                        굵게·링크·이미지 등 서식을 쓸 수 있습니다. 입장 화면에 동일하게 표시됩니다.
+                      </span>
+                      <RichTextEditor
+                        value={introduction}
+                        onChange={setIntroduction}
+                        placeholder="수업 목표, 주차별 안내, 과제·시험 정책 등을 적어 주세요."
+                        userId={firebaseUser?.uid}
+                      />
+                    </div>
+                  </div>
+                  <div className="classroom-hub__card">
+                    <p className="classroom-hub__preview-label">미리보기 (입장 화면과 동일)</p>
+                    <div className="classroom-hub__preview">
+                      {(() => {
+                        const body = getClassroomIntroBody({
+                          ...room,
+                          title,
+                          description,
+                          introduction,
+                        });
+                        return body ? <RichHtmlView html={body} /> : "소개 글이 비어 있으면 요약만 표시됩니다.";
+                      })()}
+                    </div>
+                    <div className="add-passage__actions classroom-hub__form-actions">
+                      <button type="submit" className="btn btn--primary btn--stack" disabled={savingIntro}>
+                        {savingIntro ? "저장 중…" : "저장"}
+                      </button>
+                    </div>
+                    <div
+                      ref={introFeedbackRef}
+                      className="classroom-hub__save-feedback"
+                      role="status"
+                      aria-live="polite"
+                      aria-atomic="true"
+                    >
+                      {introErr ? <p className="classroom-hub__save-feedback--err">{introErr}</p> : null}
+                      {introSaveOk && !introErr ? (
+                        <p className="classroom-hub__save-feedback--ok">{introSaveOk}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </form>
+                <div className="classroom-hub__card classroom-hub__card--danger classroom-page__danger-zone">
+                  <h3>강의실 영구 삭제</h3>
+                  <p>
+                    <strong>등록된 학습지 멤버(수강생)가 1명이라도 있으면 삭제할 수 없습니다.</strong> 현재 등록된 UID{" "}
+                    <strong>{memberCount}</strong>명. 삭제 시 이 강의실의 수강 신청·질문·공지 등 함께 제거됩니다.
+                  </p>
+                  {deleteClassroomErr ? <p className="auth-error">{deleteClassroomErr}</p> : null}
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--stack classroom-hub__btn-danger"
+                    disabled={memberCount > 0 || deleteClassroomBusy}
+                    onClick={() => void deleteClassroomAsTeacher()}
                   >
-                    <option value="free">무료 — 학생이 전체 강의실에서 바로 수강(멤버 등록)</option>
-                    <option value="paid">유료 — 수강 신청 후 연락처 접수 · 강사 승인 (PG 결제 전)</option>
-                  </select>
-                </label>
-                <div className="auth-field classroom-hub__field classroom-hub__field--intro">
-                  <span className="classroom-hub__field-label">강의 소개</span>
-                  <span className="classroom-hub__field-hint">
-                    굵게·링크·이미지 등 서식을 쓸 수 있습니다. 입장 화면에 동일하게 표시됩니다.
-                  </span>
-                  <RichTextEditor
-                    value={introduction}
-                    onChange={setIntroduction}
-                    placeholder="수업 목표, 주차별 안내, 과제·시험 정책 등을 적어 주세요."
-                    userId={firebaseUser?.uid}
-                  />
-                </div>
-                <p className="classroom-hub__preview-label">미리보기 (입장 화면과 동일)</p>
-                <div className="classroom-hub__preview">
-                  {(() => {
-                    const body = getClassroomIntroBody({
-                      ...room,
-                      title,
-                      description,
-                      introduction,
-                    });
-                    return body ? <RichHtmlView html={body} /> : "소개 글이 비어 있으면 요약만 표시됩니다.";
-                  })()}
-                </div>
-                <div className="add-passage__actions">
-                  <button type="submit" className="btn btn--primary btn--stack" disabled={savingIntro}>
-                    {savingIntro ? "저장 중…" : "저장"}
+                    {deleteClassroomBusy ? "삭제 중…" : "강의실 삭제"}
                   </button>
                 </div>
-                <div
-                  ref={introFeedbackRef}
-                  className="classroom-hub__save-feedback"
-                  role="status"
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  {introErr ? <p className="classroom-hub__save-feedback--err">{introErr}</p> : null}
-                  {introSaveOk && !introErr ? (
-                    <p className="classroom-hub__save-feedback--ok">{introSaveOk}</p>
-                  ) : null}
-                </div>
-              </form>
-              <div className="classroom-page__danger-zone">
-                <h3>강의실 영구 삭제</h3>
-                <p>
-                  <strong>등록된 학습지 멤버(수강생)가 1명이라도 있으면 삭제할 수 없습니다.</strong> 현재 등록된 UID{" "}
-                  <strong>{memberCount}</strong>명. 삭제 시 이 강의실의 수강 신청·질문·공지 등 함께 제거됩니다.
-                </p>
-                {deleteClassroomErr ? <p className="auth-error">{deleteClassroomErr}</p> : null}
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--stack"
-                  disabled={memberCount > 0 || deleteClassroomBusy}
-                  onClick={() => void deleteClassroomAsTeacher()}
-                  style={{ borderColor: "#fecaca", color: "#b91c1c" }}
-                >
-                  {deleteClassroomBusy ? "삭제 중…" : "강의실 삭제"}
-                </button>
-              </div>
-            </section>
-          )}
+              </section>
+            )}
 
           {tab === "notices" && id && (
             <section className="classroom-hub__section" aria-labelledby="hub-notices-h">
@@ -674,53 +684,57 @@ function Inner() {
                 확인할 수 있습니다. 강의실마다 따로 적용됩니다.
               </p>
               {noticeErr ? <p className="auth-error">{noticeErr}</p> : null}
-              <form className="classroom-hub__form" onSubmit={(e) => void addNotice(e)}>
-                <label className="auth-field">
-                  <span className="classroom-hub__field-label">새 공지</span>
-                  <textarea
-                    className="classroom-hub__intro-textarea"
-                    rows={4}
-                    value={newNoticeBody}
-                    onChange={(e) => setNewNoticeBody(e.target.value)}
-                    placeholder="전체 학습자에게 전할 안내를 입력하세요."
-                    maxLength={8000}
-                  />
-                </label>
-                <div className="add-passage__actions">
-                  <button type="submit" className="btn btn--primary btn--stack" disabled={noticeBusy}>
-                    {noticeBusy ? "처리 중…" : "공지 추가"}
-                  </button>
-                </div>
-              </form>
-              <h3 className="classroom-hub__subhead">등록된 공지</h3>
-              {noticesLoading ? (
-                <p className="classroom-hub__hint">목록 불러오는 중…</p>
-              ) : noticeRows.length === 0 ? (
-                <p className="classroom-hub__hint">등록된 공지가 없습니다.</p>
-              ) : (
-                <ul className="classroom-hub__request-list">
-                  {noticeRows.map((row) => (
-                    <li key={row.id} className="classroom-hub__request-item">
-                      <div>
-                        <strong>공지</strong>
-                        <span className="classroom-hub__request-meta">{tsLabel(row.data.createdAt)}</span>
-                      </div>
-                      <p className="classroom-hub__request-desc" style={{ whiteSpace: "pre-wrap" }}>
-                        {row.data.body.length > 500 ? `${row.data.body.slice(0, 500)}…` : row.data.body}
-                      </p>
-                      <button
-                        type="button"
-                        className="btn btn--ghost btn--stack"
-                        style={{ marginTop: "0.45rem", alignSelf: "flex-start" }}
-                        disabled={noticeBusy}
-                        onClick={() => void removeNotice(row.id)}
-                      >
-                        이 공지 제거
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="classroom-hub__card">
+                <h3 className="classroom-hub__card-title">새 공지 작성</h3>
+                <form className="classroom-hub__form" onSubmit={(e) => void addNotice(e)}>
+                  <label className="auth-field">
+                    <span className="classroom-hub__field-label">새 공지</span>
+                    <textarea
+                      className="classroom-hub__intro-textarea"
+                      rows={4}
+                      value={newNoticeBody}
+                      onChange={(e) => setNewNoticeBody(e.target.value)}
+                      placeholder="전체 학습자에게 전할 안내를 입력하세요."
+                      maxLength={8000}
+                    />
+                  </label>
+                  <div className="add-passage__actions classroom-hub__form-actions">
+                    <button type="submit" className="btn btn--primary btn--stack" disabled={noticeBusy}>
+                      {noticeBusy ? "처리 중…" : "공지 추가"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+              <div className="classroom-hub__card">
+                <h3 className="classroom-hub__subhead classroom-hub__card-title">등록된 공지</h3>
+                {noticesLoading ? (
+                  <p className="classroom-hub__hint">목록 불러오는 중…</p>
+                ) : noticeRows.length === 0 ? (
+                  <p className="classroom-hub__hint">등록된 공지가 없습니다.</p>
+                ) : (
+                  <ul className="classroom-hub__request-list">
+                    {noticeRows.map((row) => (
+                      <li key={row.id} className="classroom-hub__request-item">
+                        <div>
+                          <strong>공지</strong>
+                          <span className="classroom-hub__request-meta">{tsLabel(row.data.createdAt)}</span>
+                        </div>
+                        <p className="classroom-hub__request-desc" style={{ whiteSpace: "pre-wrap" }}>
+                          {row.data.body.length > 500 ? `${row.data.body.slice(0, 500)}…` : row.data.body}
+                        </p>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--stack classroom-hub__btn-inline"
+                          disabled={noticeBusy}
+                          onClick={() => void removeNotice(row.id)}
+                        >
+                          이 공지 제거
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </section>
           )}
 
@@ -733,42 +747,47 @@ function Inner() {
                 이 강의실 <strong>담당 선생님만</strong> 자료를 등록할 수 있습니다. 라이브러리 테마 분류는 홈「새자료
                 등록」경로에서만 설정합니다. 교육용으로 즉시 공개하거나 검수 신청 중 선택할 수 있습니다.
               </p>
-              <div className="classroom-hub__cta-row">
-                <Link to={q("/material/register")} className="btn btn--primary btn--stack">
-                  자료 등록 신청 열기
-                </Link>
-                <Link to={q("/teacher/homework/new")} className="btn btn--ghost btn--stack">
-                  과제 출제 (강의실 연동)
-                </Link>
+              <div className="classroom-hub__card">
+                <h3 className="classroom-hub__card-title">자료 등록</h3>
+                <div className="classroom-hub__cta-row">
+                  <Link to={q("/material/register")} className="btn btn--primary btn--stack">
+                    자료 등록 신청 열기
+                  </Link>
+                  <Link to={q("/teacher/homework/new")} className="btn btn--ghost btn--stack">
+                    과제 출제 (강의실 연동)
+                  </Link>
+                </div>
               </div>
-              <h3 className="classroom-hub__subhead">이 강의실로 접수된 자료 신청</h3>
-              {listsLoading ? (
-                <p className="classroom-hub__hint">목록 불러오는 중…</p>
-              ) : materialRows.length === 0 ? (
-                <p className="classroom-hub__hint">아직 접수된 자료 신청이 없습니다.</p>
-              ) : (
-                <ul className="classroom-hub__request-list">
-                  {materialRows.map((r) => (
-                    <li key={r.id} className="classroom-hub__request-item">
-                      <div>
-                        <strong>{r.data.title}</strong>
-                        <span className="classroom-hub__request-meta">
-                          {r.data.status === "pending" && "검수 대기"}
-                          {r.data.status === "approved" && "승인됨"}
-                          {r.data.status === "rejected" && "반려"}
-                          {" · "}
-                          {tsLabel(r.data.createdAt)}
-                        </span>
-                      </div>
-                      <p className="classroom-hub__request-desc">
-                        {r.data.description.length > 180
-                          ? `${r.data.description.slice(0, 180)}…`
-                          : r.data.description}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="classroom-hub__card">
+                <h3 className="classroom-hub__subhead classroom-hub__card-title">이 강의실로 접수된 자료 신청</h3>
+                {listsLoading ? (
+                  <p className="classroom-hub__hint">목록 불러오는 중…</p>
+                ) : materialRows.length === 0 ? (
+                  <p className="classroom-hub__hint">아직 접수된 자료 신청이 없습니다.</p>
+                ) : (
+                  <ul className="classroom-hub__request-list">
+                    {materialRows.map((r) => (
+                      <li key={r.id} className="classroom-hub__request-item">
+                        <div>
+                          <strong>{r.data.title}</strong>
+                          <span className="classroom-hub__request-meta">
+                            {r.data.status === "pending" && "검수 대기"}
+                            {r.data.status === "approved" && "승인됨"}
+                            {r.data.status === "rejected" && "반려"}
+                            {" · "}
+                            {tsLabel(r.data.createdAt)}
+                          </span>
+                        </div>
+                        <p className="classroom-hub__request-desc">
+                          {r.data.description.length > 180
+                            ? `${r.data.description.slice(0, 180)}…`
+                            : r.data.description}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </section>
           )}
 
@@ -780,41 +799,46 @@ function Inner() {
               <p className="classroom-hub__hint">
                 YouTube·Vimeo 등 공개 재생 URL을 제출합니다. 검수 후 콘텐츠로 연결됩니다.
               </p>
-              <div className="classroom-hub__cta-row">
-                <Link to={q("/video/register")} className="btn btn--primary btn--stack">
-                  동영상 강의 등록 신청 열기
-                </Link>
+              <div className="classroom-hub__card">
+                <h3 className="classroom-hub__card-title">영상 링크 등록</h3>
+                <div className="classroom-hub__cta-row">
+                  <Link to={q("/video/register")} className="btn btn--primary btn--stack">
+                    동영상 강의 등록 신청 열기
+                  </Link>
+                </div>
               </div>
-              <h3 className="classroom-hub__subhead">이 강의실로 접수된 영상 신청</h3>
-              {listsLoading ? (
-                <p className="classroom-hub__hint">목록 불러오는 중…</p>
-              ) : videoRows.length === 0 ? (
-                <p className="classroom-hub__hint">아직 접수된 영상 신청이 없습니다.</p>
-              ) : (
-                <ul className="classroom-hub__request-list">
-                  {videoRows.map((r) => (
-                    <li key={r.id} className="classroom-hub__request-item">
-                      <div>
-                        <strong>{r.data.title}</strong>
-                        <span className="classroom-hub__request-meta">
-                          {r.data.status === "pending" && "검수 대기"}
-                          {r.data.status === "approved" && "승인됨"}
-                          {r.data.status === "rejected" && "반려"}
-                          {" · "}
-                          {tsLabel(r.data.createdAt)}
-                        </span>
-                      </div>
-                      <div className="classroom-hub__request-desc">
-                        {collectVideoUrlsFromRequest(r.data).map((u, vi) => (
-                          <p key={`${r.id}-v-${vi}`} style={{ wordBreak: "break-all", margin: "0.2rem 0 0" }}>
-                            {u}
-                          </p>
-                        ))}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="classroom-hub__card">
+                <h3 className="classroom-hub__subhead classroom-hub__card-title">이 강의실로 접수된 영상 신청</h3>
+                {listsLoading ? (
+                  <p className="classroom-hub__hint">목록 불러오는 중…</p>
+                ) : videoRows.length === 0 ? (
+                  <p className="classroom-hub__hint">아직 접수된 영상 신청이 없습니다.</p>
+                ) : (
+                  <ul className="classroom-hub__request-list">
+                    {videoRows.map((r) => (
+                      <li key={r.id} className="classroom-hub__request-item">
+                        <div>
+                          <strong>{r.data.title}</strong>
+                          <span className="classroom-hub__request-meta">
+                            {r.data.status === "pending" && "검수 대기"}
+                            {r.data.status === "approved" && "승인됨"}
+                            {r.data.status === "rejected" && "반려"}
+                            {" · "}
+                            {tsLabel(r.data.createdAt)}
+                          </span>
+                        </div>
+                        <div className="classroom-hub__request-desc">
+                          {collectVideoUrlsFromRequest(r.data).map((u, vi) => (
+                            <p key={`${r.id}-v-${vi}`} style={{ wordBreak: "break-all", margin: "0.2rem 0 0" }}>
+                              {u}
+                            </p>
+                          ))}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </section>
           )}
 
@@ -824,7 +848,9 @@ function Inner() {
                 질의응답 게시판
               </h2>
               <p className="classroom-hub__hint">학습자와 소통합니다. 부적절한 글은 삭제할 수 있습니다.</p>
-              <ClassroomQaBoard classroomId={id} isClassroomTeacher />
+              <div className="classroom-hub__card classroom-hub__card--flush">
+                <ClassroomQaBoard classroomId={id} isClassroomTeacher />
+              </div>
             </section>
           )}
 
@@ -839,54 +865,56 @@ function Inner() {
                 직접 수강합니다.
               </p>
               {enrollmentActionErr ? <p className="auth-error">{enrollmentActionErr}</p> : null}
-              {enrollmentLoading ? (
-                <p className="classroom-hub__hint">목록 불러오는 중…</p>
-              ) : enrollmentRows.length === 0 ? (
-                <p className="classroom-hub__hint">접수된 수강 신청이 없습니다.</p>
-              ) : (
-                <ul className="classroom-hub__request-list">
-                  {enrollmentRows.map((row) => {
-                    const st = row.data.status;
-                    const label =
-                      st === "pending" ? "수강 대기" : st === "approved" ? "승인됨" : "반려";
-                    return (
-                      <li key={row.id} className="classroom-hub__request-item">
-                        <div>
-                          <strong>학생 UID {row.data.studentId}</strong>
-                          <span className="classroom-hub__request-meta">
-                            {label}
-                            {" · "}
-                            {tsLabel(row.data.createdAt)}
-                          </span>
-                        </div>
-                        <p className="classroom-hub__request-desc">
-                          전화 {row.data.phone} · 이메일 {row.data.email}
-                        </p>
-                        {st === "pending" ? (
-                          <div className="classroom-hub__cta-row" style={{ marginTop: "0.5rem" }}>
-                            <button
-                              type="button"
-                              className="btn btn--primary btn--stack"
-                              disabled={enrollmentBusyId === row.id}
-                              onClick={() => void approveEnrollment(row.id)}
-                            >
-                              {enrollmentBusyId === row.id ? "처리 중…" : "승인 (멤버 등록)"}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn--ghost btn--stack"
-                              disabled={enrollmentBusyId === row.id}
-                              onClick={() => void rejectEnrollment(row.id)}
-                            >
-                              반려
-                            </button>
+              <div className="classroom-hub__card">
+                {enrollmentLoading ? (
+                  <p className="classroom-hub__hint">목록 불러오는 중…</p>
+                ) : enrollmentRows.length === 0 ? (
+                  <p className="classroom-hub__hint">접수된 수강 신청이 없습니다.</p>
+                ) : (
+                  <ul className="classroom-hub__request-list">
+                    {enrollmentRows.map((row) => {
+                      const st = row.data.status;
+                      const label =
+                        st === "pending" ? "수강 대기" : st === "approved" ? "승인됨" : "반려";
+                      return (
+                        <li key={row.id} className="classroom-hub__request-item">
+                          <div>
+                            <strong>학생 UID {row.data.studentId}</strong>
+                            <span className="classroom-hub__request-meta">
+                              {label}
+                              {" · "}
+                              {tsLabel(row.data.createdAt)}
+                            </span>
                           </div>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+                          <p className="classroom-hub__request-desc">
+                            전화 {row.data.phone} · 이메일 {row.data.email}
+                          </p>
+                          {st === "pending" ? (
+                            <div className="classroom-hub__cta-row classroom-hub__cta-row--tight">
+                              <button
+                                type="button"
+                                className="btn btn--primary btn--stack"
+                                disabled={enrollmentBusyId === row.id}
+                                onClick={() => void approveEnrollment(row.id)}
+                              >
+                                {enrollmentBusyId === row.id ? "처리 중…" : "승인 (멤버 등록)"}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn--ghost btn--stack"
+                                disabled={enrollmentBusyId === row.id}
+                                onClick={() => void rejectEnrollment(row.id)}
+                              >
+                                반려
+                              </button>
+                            </div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             </section>
           )}
 
@@ -901,94 +929,100 @@ function Inner() {
                 배포 시 이 강의실 링크로 들어오면 해당 멤버가 자동으로 선택됩니다. (최대 120명)
               </p>
               {membersErr ? <p className="auth-error">{membersErr}</p> : null}
-              <form className="classroom-hub__form" onSubmit={(e) => void addSingleMember(e)}>
-                <label className="auth-field">
-                  <span className="classroom-hub__field-label">학생 UID 추가</span>
-                  <div className="classroom-hub__inline-add">
-                    <input
-                      type="text"
-                      className="add-passage__control"
-                      value={newMemberUid}
-                      onChange={(e) => setNewMemberUid(e.target.value)}
-                      placeholder="Firebase Auth UID"
-                      disabled={savingMembers}
-                      autoComplete="off"
-                      spellCheck={false}
-                      style={{ flex: "1 1 12rem" }}
-                    />
-                    <button type="submit" className="btn btn--primary btn--stack" disabled={savingMembers}>
-                      {savingMembers ? "처리 중…" : "추가"}
-                    </button>
-                  </div>
-                </label>
-              </form>
-              {(room.memberStudentIds ?? []).length === 0 ? (
-                <p className="classroom-hub__hint" style={{ marginTop: "0.75rem" }}>
-                  등록된 멤버가 없습니다. 학생 수강·승인으로 들어오면 자동으로 채워집니다.
-                </p>
-              ) : (
-                <ul className="classroom-member-list">
-                  {(room.memberStudentIds ?? []).map((uidRaw) => {
-                    const uid = String(uidRaw).trim();
-                    const hint = memberRosterHint[uid];
-                    return (
-                      <li key={uid} className="classroom-member-list__item">
-                        <div className="classroom-member-list__main">
-                          <code className="classroom-member-list__uid">{uid}</code>
-                          {hint?.emailLower || hint?.displayName ? (
-                            <span className="classroom-member-list__hint">
-                              {[hint?.displayName, hint?.emailLower].filter(Boolean).join(" · ") || ""}
-                            </span>
-                          ) : (
-                            <span className="classroom-member-list__hint classroom-member-list__hint--muted">
-                              주소록에 이름·메일이 없음
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          className="btn btn--ghost btn--stack classroom-member-list__remove"
-                          disabled={savingMembers}
-                          onClick={() => void removeSingleMember(uid)}
-                        >
-                          제거
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              <details className="classroom-hub__bulk-paste">
-                <summary>여러 UID 한 번에 반영 (붙여넣기)</summary>
-                <form className="classroom-hub__form" onSubmit={(e) => void saveBulkMembers(e)} style={{ marginTop: "0.65rem" }}>
+              <div className="classroom-hub__card">
+                <h3 className="classroom-hub__card-title">멤버 추가</h3>
+                <form className="classroom-hub__form" onSubmit={(e) => void addSingleMember(e)}>
                   <label className="auth-field">
-                    <span className="classroom-hub__field-label">학생 UID 목록 — 줄바꿈·쉼표 구분 (최대 120명)</span>
-                    <textarea
-                      className="classroom-hub__intro-textarea"
-                      rows={7}
-                      value={bulkMemberText}
-                      onChange={(e) => setBulkMemberText(e.target.value)}
-                      placeholder="학생 계정의 Auth UID"
-                      disabled={savingMembers}
-                    />
+                    <span className="classroom-hub__field-label">학생 UID 추가</span>
+                    <div className="classroom-hub__inline-add">
+                      <input
+                        type="text"
+                        className="add-passage__control classroom-hub__input-grow"
+                        value={newMemberUid}
+                        onChange={(e) => setNewMemberUid(e.target.value)}
+                        placeholder="Firebase Auth UID"
+                        disabled={savingMembers}
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                      <button type="submit" className="btn btn--primary btn--stack" disabled={savingMembers}>
+                        {savingMembers ? "처리 중…" : "추가"}
+                      </button>
+                    </div>
                   </label>
-                  <div className="add-passage__actions" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
-                    <button type="submit" className="btn btn--primary btn--stack" disabled={savingMembers}>
-                      {savingMembers ? "저장 중…" : "일괄 반영"}
-                    </button>
-                  </div>
                 </form>
-              </details>
-              <div className="add-passage__actions" style={{ flexWrap: "wrap", gap: "0.5rem", marginTop: "0.75rem" }}>
-                <Link
-                  to={`/teacher/assignments/new?classroomId=${encodeURIComponent(id)}`}
-                  className="btn btn--ghost btn--stack"
-                >
-                  <span className="ui-ko">이 강의실로 학습지 배포 열기</span>
-                </Link>
+              </div>
+              <div className="classroom-hub__card">
+                <h3 className="classroom-hub__card-title">등록된 멤버</h3>
+                {(room.memberStudentIds ?? []).length === 0 ? (
+                  <p className="classroom-hub__hint classroom-hub__hint--tight-top">
+                    등록된 멤버가 없습니다. 학생 수강·승인으로 들어오면 자동으로 채워집니다.
+                  </p>
+                ) : (
+                  <ul className="classroom-member-list">
+                    {(room.memberStudentIds ?? []).map((uidRaw) => {
+                      const uid = String(uidRaw).trim();
+                      const hint = memberRosterHint[uid];
+                      return (
+                        <li key={uid} className="classroom-member-list__item">
+                          <div className="classroom-member-list__main">
+                            <code className="classroom-member-list__uid">{uid}</code>
+                            {hint?.emailLower || hint?.displayName ? (
+                              <span className="classroom-member-list__hint">
+                                {[hint?.displayName, hint?.emailLower].filter(Boolean).join(" · ") || ""}
+                              </span>
+                            ) : (
+                              <span className="classroom-member-list__hint classroom-member-list__hint--muted">
+                                주소록에 이름·메일이 없음
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn--ghost btn--stack classroom-member-list__remove"
+                            disabled={savingMembers}
+                            onClick={() => void removeSingleMember(uid)}
+                          >
+                            제거
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <details className="classroom-hub__bulk-paste classroom-hub__bulk-paste--in-card">
+                  <summary>여러 UID 한 번에 반영 (붙여넣기)</summary>
+                  <form className="classroom-hub__form" onSubmit={(e) => void saveBulkMembers(e)}>
+                    <label className="auth-field">
+                      <span className="classroom-hub__field-label">학생 UID 목록 — 줄바꿈·쉼표 구분 (최대 120명)</span>
+                      <textarea
+                        className="classroom-hub__intro-textarea"
+                        rows={7}
+                        value={bulkMemberText}
+                        onChange={(e) => setBulkMemberText(e.target.value)}
+                        placeholder="학생 계정의 Auth UID"
+                        disabled={savingMembers}
+                      />
+                    </label>
+                    <div className="add-passage__actions classroom-hub__form-actions">
+                      <button type="submit" className="btn btn--primary btn--stack" disabled={savingMembers}>
+                        {savingMembers ? "저장 중…" : "일괄 반영"}
+                      </button>
+                    </div>
+                  </form>
+                </details>
+                <div className="add-passage__actions classroom-hub__form-actions classroom-hub__form-actions--spaced">
+                  <Link
+                    to={`/teacher/assignments/new?classroomId=${encodeURIComponent(id)}`}
+                    className="btn btn--ghost btn--stack"
+                  >
+                    <span className="ui-ko">이 강의실로 학습지 배포 열기</span>
+                  </Link>
+                </div>
               </div>
             </section>
           )}
+        </div>
         </div>
       </main>
     </DashboardShell>
