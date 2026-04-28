@@ -332,6 +332,86 @@ function IconTeacher() {
   );
 }
 
+const tileIconProps = {
+  width: 26,
+  height: 26,
+  viewBox: "0 0 24 24",
+  fill: "none" as const,
+  "aria-hidden": true as const,
+};
+
+function IconTileClassroom() {
+  return (
+    <svg {...tileIconProps}>
+      <path
+        d="M3 10.5 12 5l9 5.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1v-9.5Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconTileClassroomNew() {
+  return (
+    <svg {...tileIconProps}>
+      <path
+        d="M12 5v14M5 12h14"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function IconTileDashboard() {
+  return (
+    <svg {...tileIconProps}>
+      <rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="13" y="3" width="8" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="13" y="11" width="8" height="4" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="13" y="17" width="8" height="4" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function IconTileLogout() {
+  return (
+    <svg {...tileIconProps}>
+      <path
+        d="M10 17H5V7h5M14 12H3M11 8l4 4-4 4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IntroLandingTileOrbits({ tone }: { tone: "on-dark" | "on-mint" | "on-amber" }) {
+  const c =
+    tone === "on-dark"
+      ? "intro-landing-tile__orbit intro-landing-tile__orbit--on-dark"
+      : tone === "on-mint"
+        ? "intro-landing-tile__orbit intro-landing-tile__orbit--on-mint"
+        : "intro-landing-tile__orbit intro-landing-tile__orbit--on-amber";
+  return (
+    <span className={c} aria-hidden>
+      <svg viewBox="0 0 140 100" fill="none" className="intro-landing-tile__orbit-svg">
+        <ellipse cx="72" cy="50" rx="52" ry="32" stroke="currentColor" strokeWidth="1" opacity="0.4" />
+        <ellipse cx="72" cy="50" rx="34" ry="20" stroke="currentColor" strokeWidth="0.9" opacity="0.32" />
+        <circle cx="118" cy="38" r="4" fill="currentColor" opacity="0.5" />
+        <circle cx="28" cy="58" r="3" fill="currentColor" opacity="0.4" />
+      </svg>
+    </span>
+  );
+}
+
 const shortcutIconProps = {
   className: "intro-shortcut__icon",
   width: 32,
@@ -490,23 +570,37 @@ function IntroLandingPanel() {
 
   const stack = (
     <>
-      <div className="intro-login-card">
-        <p className="intro-login-card__hint">서비스 이용 안내</p>
-        {firebaseUser ? (
-          <div className="intro-login-card__actions intro-login-card__actions--logged-in">
-            <Link to="/dashboard" className="intro-login-card__btn intro-login-card__btn--primary">
-              대시보드
+      {firebaseUser ? (
+        <div className="intro-logged-service">
+          <p className="intro-logged-service__label">서비스 이용 안내</p>
+          <div className="intro-logged-service__tiles">
+            <Link to="/dashboard" className="intro-landing-tile intro-landing-tile--dashboard">
+              <IntroLandingTileOrbits tone="on-dark" />
+              <span className="intro-landing-tile__inner">
+                <span className="intro-landing-tile__badge">
+                  <IconTileDashboard />
+                </span>
+                <span className="intro-landing-tile__title">대시보드</span>
+              </span>
             </Link>
             <button
               type="button"
-              className="intro-login-card__btn intro-login-card__btn--secondary"
+              className="intro-landing-tile intro-landing-tile--logout"
               onClick={() => void logOut()}
             >
-              로그아웃
+              <IntroLandingTileOrbits tone="on-amber" />
+              <span className="intro-landing-tile__inner">
+                <span className="intro-landing-tile__badge">
+                  <IconTileLogout />
+                </span>
+                <span className="intro-landing-tile__title">로그아웃</span>
+              </span>
             </button>
           </div>
-        ) : (
-          <>
+        </div>
+      ) : (
+        <div className="intro-login-card">
+          <p className="intro-login-card__hint">서비스 이용 안내</p>
             <div className="intro-login-card__rows intro-login-card__rows--gate">
               <Link
                 to="/login?audience=learner"
@@ -546,9 +640,8 @@ function IntroLandingPanel() {
                 아이디 · 비밀번호 안내
               </Link>
             </div>
-          </>
-        )}
-      </div>
+        </div>
+      )}
 
       <Link
         to={firebaseUser ? "/worksheet/create" : "/login"}
@@ -619,21 +712,27 @@ export function Intro() {
             </p>
           </div>
           <IntroHeroShare />
-          <div className="intro-hero__classroom intro-hero__classroom--premium">
+          <div className="intro-hero__classroom">
             <p className="intro-hero__classroom-heading">내 강의실</p>
-            <div className="intro-hero__classroom-row">
-              <Link
-                to="/classroom"
-                className="intro-hero__classroom-btn intro-hero__classroom-btn--enter"
-              >
-                내 강의실
+            <div className="intro-hero__classroom-tiles">
+              <Link to="/classroom" className="intro-landing-tile intro-landing-tile--classroom-enter">
+                <IntroLandingTileOrbits tone="on-dark" />
+                <span className="intro-landing-tile__inner">
+                  <span className="intro-landing-tile__badge">
+                    <IconTileClassroom />
+                  </span>
+                  <span className="intro-landing-tile__title">내 강의실</span>
+                </span>
               </Link>
               {isTeacherApproved ? (
-                <Link
-                  to="/classroom/new"
-                  className="intro-hero__classroom-btn intro-hero__classroom-btn--create"
-                >
-                  강의실 개설
+                <Link to="/classroom/new" className="intro-landing-tile intro-landing-tile--classroom-new">
+                  <IntroLandingTileOrbits tone="on-mint" />
+                  <span className="intro-landing-tile__inner">
+                    <span className="intro-landing-tile__badge">
+                      <IconTileClassroomNew />
+                    </span>
+                    <span className="intro-landing-tile__title">강의실 개설</span>
+                  </span>
                 </Link>
               ) : null}
             </div>
