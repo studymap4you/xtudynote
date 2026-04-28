@@ -104,39 +104,26 @@ export function LoginPage() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="top-nav">
+    <div className="app-shell app-shell--light login-page-shell">
+      <header className="top-nav top-nav--landing">
         <Link to="/" className="top-nav__brand">
           <BrandLockup />
         </Link>
       </header>
-      <main className="auth-page">
-        <div className="auth-card">
+      <main className="auth-page auth-page--bright">
+        <div className="auth-card auth-card--premium">
           <h1>
             <span className="ui-en ui-en--lg">Log in</span>
             <span className="ui-ko">로그인</span>
           </h1>
           <p className="auth-card__hint">
-            <span className="ui-en" style={{ fontSize: "0.95rem", color: "var(--text-muted)" }}>
-              Sign in with Google, or use your registered email and password.
-            </span>
+            <span className="ui-en">Sign in with Google, or use your registered email and password.</span>
             <span className="ui-ko">
               구글로 로그인하거나, 등록한 이메일과 비밀번호로 로그인하세요.
             </span>
           </p>
           {audienceHint ? (
-            <p
-              className="auth-card__hint"
-              style={{
-                marginTop: "0.65rem",
-                padding: "0.55rem 0.65rem",
-                borderRadius: "8px",
-                background: "rgba(37, 99, 235, 0.08)",
-                border: "1px solid rgba(37, 99, 235, 0.2)",
-                fontSize: "0.88rem",
-                color: "var(--text, #0f172a)",
-              }}
-            >
+            <p className="auth-card__audience-hint">
               <span className="ui-ko">{audienceHint}</span>
             </p>
           ) : null}
