@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
@@ -8,8 +8,10 @@ import { isEmptyRichText } from "@/lib/richTextUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
 import { db, storage } from "@/firebase/config";
+import { publishEducationalClassroomVideoMaterial } from "@/lib/adminMaterialRequestPublish";
 import type { ContentType } from "@/types/content";
 import type { LearningThemeId } from "@/types/learningTheme";
+import type { ClassroomDocument } from "@/types/classroom";
 import type { UserProfile } from "@/types/user";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { getClassroomIfTeacher } from "@/lib/classroom";
@@ -39,8 +41,11 @@ function safeFileName(name: string): string {
 }
 
 export function VideoLectureRegisterPage() {
-  const { firebaseUser, profile, canManageMaterials, isStudent, isSuperAdmin } = useAuth();
+  const { firebaseUser, profile, canManageMaterials, isStudent, isSuperAdmin, isTeacherApproved } =
+    useAuth();
   const [searchParams] = useSearchParams();
+  const classroomIdFromQuery = searchParams.get("classroomId")?.trim() ?? "";
+  const isClassroomTeacherFlow = isTeacherApproved && !!classroomIdFromQuery;
 
   const canSubmit =
     !!profile &&
@@ -59,8 +64,19 @@ export function VideoLectureRegisterPage() {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [isEducationalInstantPublish, setIsEducationalInstantPublish] = useState(false);
 
-  const showPrice = materialType === "paid";
+  useEffect(() => {
+    if (classroomIdFromQuery) setThemes([]);
+  }, [classroomIdFromQuery]);
+
+  useEffect(() => {
+    if (isClassroomTeacherFlow && materialType === "paid") {
+      setMaterialType("share");
+    }
+  }, [isClassroomTeacherFlow, materialType]);
+
+  const showPrice = materialType === "paid" && !isClassroomTeacherFlow;
   const showHomeworkNotes = materialType === "homework";
 
   const priceNum = useMemo(() => {
@@ -79,8 +95,8 @@ export function VideoLectureRegisterPage() {
       window.alert("제목·과목·학년·설명은 필수입니다.");
       return;
     }
-    if (themes.length === 0) {
-      window.alert("테마를 하나 이상 선택해 주세요.");
+    if (!classroomIdFromQuery && themes.length === 0) {
+      window.alert("테마를 하나 이상 선택해 주세요. (라이브러리 분류에 사용됩니다.)");
       return;
     }
     if (urls.length === 0) {
@@ -93,12 +109,16 @@ export function VideoLectureRegisterPage() {
         return;
       }
     }
-    if (materialType === "paid" && (priceNum == null || priceNum < 0)) {
+    if (!isClassroomTeacherFlow && materialType === "paid" && (priceNum == null || priceNum < 0)) {
       window.alert("유료 강의는 희망 판매 가격(원)을 입력해 주세요.");
       return;
     }
-    if (materialType === "paid" && !thumbnailFile) {
+    if (!isClassroomTeacherFlow && materialType === "paid" && !thumbnailFile) {
       window.alert("유료 강의는 썸네일 이미지를 업로드해 주세요.");
+      return;
+    }
+    if (isClassroomTeacherFlow && materialType === "paid") {
+      window.alert("강의실 동영상 등록에서는 유료 유형을 사용할 수 없습니다. 공유 또는 과제를 선택해 주세요.");
       return;
     }
     if (materialType === "homework" && !homeworkInstruction.trim()) {
@@ -107,23 +127,65 @@ export function VideoLectureRegisterPage() {
     }
 
     let classroomId: string | null = searchParams.get("classroomId")?.trim() || null;
+    let classroomDoc: ClassroomDocument | null = null;
     if (classroomId) {
-      const ok = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
-      if (!ok) {
+      classroomDoc = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
+      if (!classroomDoc) {
         window.alert("강의실을 찾을 수 없거나 이 강의실에 동영상을 연결할 권한이 없습니다.");
         return;
       }
     }
 
+    const themesForSubmit = classroomIdFromQuery ? [] : themes;
+
     setSaving(true);
     try {
+      if (
+        isEducationalInstantPublish &&
+        isClassroomTeacherFlow &&
+        classroomId &&
+        classroomDoc &&
+        (materialType === "share" || materialType === "homework")
+      ) {
+        await publishEducationalClassroomVideoMaterial(db, {
+          authorId: firebaseUser.uid,
+          classroomId,
+          classroomTitle: (classroomDoc.title ?? "").trim() || null,
+          materialType,
+          title: title.trim(),
+          subject: subject.trim(),
+          audienceGrade: audienceGrade.trim(),
+          descriptionHtml: description.trim(),
+          urls,
+          homeworkInstruction: materialType === "homework" ? homeworkInstruction.trim() : null,
+          thumbnailPendingPath: null,
+        });
+        window.alert(
+          "교육용 자료로 등록되었습니다. 강의실·라이브러리에서 바로 이용할 수 있습니다. 운영 정책에 맞지 않는 경우 관리자가 삭제할 수 있습니다.",
+        );
+        setDone(true);
+        setTitle("");
+        setSubject("");
+        setAudienceGrade("");
+        setMaterialType("share");
+        setDesiredPrice("");
+        setHomeworkInstruction("");
+        setVideoUrlRows([newUrlRow()]);
+        setDescription("");
+        setThemes([]);
+        setThumbnailFile(null);
+        setIsEducationalInstantPublish(false);
+        setSaving(false);
+        return;
+      }
+
       const reqRef = doc(collection(db, "video_material_requests"));
       const requestId = reqRef.id;
       const t0 = performance.now();
       const role = resolveSubmitterRole(profile);
 
       let thumbnailPendingPath: string | null = null;
-      if (materialType === "paid" && thumbnailFile) {
+      if (!isClassroomTeacherFlow && materialType === "paid" && thumbnailFile) {
         const path = `pending_materials/${firebaseUser.uid}/${requestId}/thumb_${Math.floor(t0)}_${safeFileName(thumbnailFile.name)}`;
         const sref = ref(storage, path);
         await uploadBytes(sref, thumbnailFile);
@@ -142,7 +204,7 @@ export function VideoLectureRegisterPage() {
         description: description.trim(),
         desiredPrice: materialType === "paid" ? priceNum : null,
         homeworkInstruction: materialType === "homework" ? homeworkInstruction.trim() : null,
-        themes,
+        themes: themesForSubmit,
         ...(thumbnailPendingPath ? { thumbnailPendingPath } : {}),
         status: "pending",
         ...(classroomId ? { classroomId } : {}),
@@ -183,7 +245,10 @@ export function VideoLectureRegisterPage() {
           </span>
         </div>
         <p className="material-register__notice">
-          <strong>YouTube·Vimeo 등</strong> 링크를 제출하면 검수 후 라이브러리에 반영됩니다.
+          <strong>YouTube·Vimeo 등</strong> 링크를 제출하면{" "}
+          {classroomIdFromQuery
+            ? "강의실에서「교육용 자료」로 체크한 경우 즉시 반영되며, 그렇지 않으면 검수 후 안내드립니다."
+            : "검수 후 라이브러리에 반영됩니다."}
         </p>
 
         {!firebaseUser && <p className="auth-error">로그인이 필요합니다.</p>}
@@ -250,12 +315,18 @@ export function VideoLectureRegisterPage() {
                   <span className="reg-form__label-ko"> 강의 유형</span>
                 </legend>
                 <div className="material-register-form__radio-row">
-                  {(
-                    [
-                      ["share", "Share · 공유"],
-                      ["paid", "Paid · 유료"],
-                      ["homework", "Homework · 과제"],
-                    ] as const
+                  {(isClassroomTeacherFlow
+                    ? [
+                        ["share", "Share · 공유"],
+                        ["homework", "Homework · 과제"],
+                      ] as const
+                    : (
+                        [
+                          ["share", "Share · 공유"],
+                          ["paid", "Paid · 유료"],
+                          ["homework", "Homework · 과제"],
+                        ] as const
+                      )
                   ).map(([v, label]) => (
                     <label key={v} className="material-register-form__radio">
                       <input
@@ -271,7 +342,26 @@ export function VideoLectureRegisterPage() {
                 </div>
               </fieldset>
 
-              <LearningThemeChecklist value={themes} onChange={setThemes} disabled={saving} idPrefix="vid" />
+              {isClassroomTeacherFlow ? (
+                <div className="material-register__educational-ack">
+                  <label className="material-register__educational-label">
+                    <input
+                      type="checkbox"
+                      checked={isEducationalInstantPublish}
+                      onChange={(e) => setIsEducationalInstantPublish(e.target.checked)}
+                    />
+                    <span>
+                      <strong className="material-register__educational-strong">교육용 자료입니다.</strong>{" "}
+                      체크 시 마스터 검수 없이 승인된 콘텐츠로 즉시 공개됩니다. 허위·불법·정책 위반 자료는
+                      관리자가 <strong>언제든지 삭제</strong>할 수 있습니다.
+                    </span>
+                  </label>
+                </div>
+              ) : null}
+
+              {!classroomIdFromQuery ? (
+                <LearningThemeChecklist value={themes} onChange={setThemes} disabled={saving} idPrefix="vid" />
+              ) : null}
 
               {showPrice && (
                 <>

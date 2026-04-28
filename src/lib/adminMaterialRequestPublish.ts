@@ -449,3 +449,119 @@ export async function publishEducationalClassroomMaterial(
   await batch.commit();
   return contentRef.id;
 }
+
+/** 강의실 동영상(링크) — 교육용으로 즉시 contents 승인 반영 (video_material_requests 없음) */
+export type EducationalClassroomVideoPublishInput = {
+  authorId: string;
+  classroomId: string;
+  classroomTitle: string | null;
+  materialType: Extract<ContentType, "share" | "homework">;
+  title: string;
+  subject: string;
+  audienceGrade: string;
+  descriptionHtml: string;
+  urls: string[];
+  homeworkInstruction: string | null;
+  thumbnailPendingPath: string | null;
+};
+
+export async function publishEducationalClassroomVideoMaterial(
+  db: Firestore,
+  input: EducationalClassroomVideoPublishInput,
+): Promise<string> {
+  if (input.materialType !== "share" && input.materialType !== "homework") {
+    throw new Error("교육용 동영상 즉시 공개는 공유·과제 유형만 가능합니다.");
+  }
+  const authorId = input.authorId.trim();
+  if (!authorId) throw new Error("작성자 ID가 없습니다.");
+
+  const urls = (input.urls ?? []).map((u) => String(u).trim()).filter(Boolean);
+  if (urls.length === 0) throw new Error("동영상 URL이 없습니다.");
+
+  const title = input.title?.trim() || "제목 없음";
+  const subject = input.subject?.trim() || "—";
+  const audience = input.audienceGrade?.trim() || "—";
+  const section = "동영상";
+  const identifier = buildIdentifierFromTitle(title);
+  const learningTopic = title;
+  const introduction = input.descriptionHtml?.trim() || "";
+  const lectureLinkValue = urls.join("\n\n");
+
+  const videoSeed = performance.now();
+  const thumbPending = (input.thumbnailPendingPath ?? "").trim();
+  const thumbnailPaths = thumbPending
+    ? await copyPendingPathsToAuthorContents([thumbPending], authorId, videoSeed + 2, "thumb")
+    : [];
+  const thumbnailPath = thumbnailPaths[0] ?? null;
+
+  const themes = [] as LearningThemeId[];
+  const classroomId = input.classroomId.trim();
+  const classroomTitle = input.classroomTitle?.trim() || null;
+
+  const baseContent = {
+    authorId,
+    subject,
+    audience,
+    section,
+    identifier,
+    learningTopic,
+    introduction,
+    lectureLink: lectureLinkValue,
+    learningMaterialFilePaths: [] as string[],
+    referenceMaterialFilePaths: [] as string[],
+    type: input.materialType,
+    status: "approved" as ContentStatus,
+    educationalInstantPublish: true,
+    purchaseLink: null as string | null,
+    themes,
+    clickCount: 0,
+    ...(thumbnailPath ? { thumbnailPath } : {}),
+    createdAt: serverTimestamp(),
+    classroomId,
+    ...(classroomTitle ? { classroomTitle } : { classroomTitle: null }),
+  };
+
+  if (input.materialType === "homework") {
+    const hwInstruction = (input.homeworkInstruction ?? "").trim();
+    if (!hwInstruction) throw new Error("과제 유형인데 과제 안내가 비어 있습니다.");
+
+    const { homeworkCode, shortCode } = await allocateUniqueHomeworkCode();
+    const batch = writeBatch(db);
+    const contentRef = doc(collection(db, "contents"));
+    batch.set(contentRef, {
+      ...baseContent,
+      homeworkCode,
+      shortCode,
+      homeworkInstruction: hwInstruction,
+    });
+    batch.set(doc(db, "homework_codes", homeworkCode), {
+      contentId: contentRef.id,
+      homeworkCode,
+      shortCode,
+      authorId,
+      subject,
+      learningTopic,
+      introduction,
+      homeworkInstruction: hwInstruction,
+      lectureLink: lectureLinkValue,
+      learningMaterialFilePaths: [],
+      referenceMaterialFilePaths: [],
+      status: "approved" as ContentStatus,
+      classroomId,
+      ...(classroomTitle ? { classroomTitle } : { classroomTitle: null }),
+      updatedAt: serverTimestamp(),
+    });
+    await batch.commit();
+    return contentRef.id;
+  }
+
+  const batch = writeBatch(db);
+  const contentRef = doc(collection(db, "contents"));
+  batch.set(contentRef, {
+    ...baseContent,
+    homeworkCode: null,
+    homeworkInstruction: null,
+  });
+  await batch.commit();
+  return contentRef.id;
+}
