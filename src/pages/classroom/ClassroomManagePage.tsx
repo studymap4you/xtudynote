@@ -1,9 +1,11 @@
 import { FirebaseError } from "firebase/app";
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  addDoc,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -22,14 +24,19 @@ import { RichHtmlView } from "@/components/RichHtmlView";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
 import { db } from "@/firebase/config";
+import { deleteClassroomCascade } from "@/lib/classroom/deleteClassroomCascade";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
-import type { ClassroomDocument, ClassroomEnrollmentRequestDocument } from "@/types/classroom";
+import type {
+  ClassroomDocument,
+  ClassroomEnrollmentRequestDocument,
+  ClassroomNoticeDocument,
+} from "@/types/classroom";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
 import "@/pages/pages.css";
 
-type TabId = "intro" | "materials" | "video" | "qa" | "enrollment" | "members";
+type TabId = "intro" | "notices" | "materials" | "video" | "qa" | "enrollment" | "members";
 
 function tsLabel(t: unknown): string {
   if (t && typeof t === "object" && "toMillis" in t && typeof (t as { toMillis: () => number }).toMillis === "function") {
@@ -40,6 +47,7 @@ function tsLabel(t: unknown): string {
 
 function Inner() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { firebaseUser } = useAuth();
   const [room, setRoom] = useState<(ClassroomDocument & { id: string }) | null>(null);
   const [forbidden, setForbidden] = useState(false);
@@ -67,6 +75,14 @@ function Inner() {
   const [enrollmentLoading, setEnrollmentLoading] = useState(false);
   const [enrollmentActionErr, setEnrollmentActionErr] = useState<string | null>(null);
   const [enrollmentBusyId, setEnrollmentBusyId] = useState<string | null>(null);
+
+  const [noticeRows, setNoticeRows] = useState<{ id: string; data: ClassroomNoticeDocument }[]>([]);
+  const [noticesLoading, setNoticesLoading] = useState(true);
+  const [newNoticeBody, setNewNoticeBody] = useState("");
+  const [noticeBusy, setNoticeBusy] = useState(false);
+  const [noticeErr, setNoticeErr] = useState<string | null>(null);
+  const [deleteClassroomBusy, setDeleteClassroomBusy] = useState(false);
+  const [deleteClassroomErr, setDeleteClassroomErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -105,6 +121,27 @@ function Inner() {
       setMemberIdsText((room.memberStudentIds ?? []).join("\n"));
     }
   }, [room]);
+
+  useEffect(() => {
+    if (!id || !room) return;
+    setNoticesLoading(true);
+    setNoticeErr(null);
+    const nq = query(collection(db, "classrooms", id, "notices"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(
+      nq,
+      (snap) => {
+        const rowsN: { id: string; data: ClassroomNoticeDocument }[] = [];
+        snap.forEach((d) => rowsN.push({ id: d.id, data: d.data() as ClassroomNoticeDocument }));
+        setNoticeRows(rowsN);
+        setNoticesLoading(false);
+      },
+      (e) => {
+        setNoticeErr(e.message || "공지를 불러오지 못했습니다.");
+        setNoticesLoading(false);
+      },
+    );
+    return () => unsub();
+  }, [id, room]);
 
   useEffect(() => {
     if (!id || tab !== "enrollment" || !room) return;
@@ -242,6 +279,64 @@ function Inner() {
     }
   }
 
+  async function addNotice(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !room) return;
+    const b = newNoticeBody.trim();
+    if (!b) return;
+    setNoticeBusy(true);
+    setNoticeErr(null);
+    try {
+      await addDoc(collection(db, "classrooms", id, "notices"), {
+        body: b.slice(0, 8000),
+        createdAt: serverTimestamp(),
+      });
+      setNewNoticeBody("");
+    } catch (err) {
+      setNoticeErr(err instanceof Error ? err.message : "등록에 실패했습니다.");
+    } finally {
+      setNoticeBusy(false);
+    }
+  }
+
+  async function removeNotice(noticeId: string) {
+    if (!id) return;
+    setNoticeBusy(true);
+    setNoticeErr(null);
+    try {
+      await deleteDoc(doc(db, "classrooms", id, "notices", noticeId));
+    } catch (err) {
+      setNoticeErr(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+    } finally {
+      setNoticeBusy(false);
+    }
+  }
+
+  async function deleteClassroomAsTeacher() {
+    if (!id || !room) return;
+    const n = room.memberStudentIds?.length ?? 0;
+    if (n > 0) return;
+    const ok =
+      typeof window !== "undefined"
+        ? window.confirm(
+            "이 강의실과 글감 데이터(유료 신청 목록·질문·공지 등)가 모두 삭제됩니다. 정말 삭제할까요?",
+          )
+        : false;
+    if (!ok) return;
+    setDeleteClassroomBusy(true);
+    setDeleteClassroomErr(null);
+    try {
+      await deleteClassroomCascade(db, id);
+      navigate("/classroom");
+    } catch (err) {
+      setDeleteClassroomErr(
+        err instanceof Error ? err.message : "삭제하지 못했습니다. 멤버가 남았는지·권한을 확인해 주세요.",
+      );
+    } finally {
+      setDeleteClassroomBusy(false);
+    }
+  }
+
   async function saveIntro(e: React.FormEvent) {
     e.preventDefault();
     if (!id || !firebaseUser || !room) return;
@@ -302,8 +397,11 @@ function Inner() {
     );
   }
 
+  const memberCount = room ? (room.memberStudentIds ?? []).length : 0;
+
   const tabs: { id: TabId; label: string; sub: string }[] = [
     { id: "intro", label: "강의 소개", sub: "이름·요약·상세 소개" },
+    { id: "notices", label: "공지사항", sub: "입장 시 팝업·목록" },
     { id: "materials", label: "강의 자료", sub: "파일 업로드·신청 현황" },
     { id: "video", label: "강의 영상", sub: "영상 URL 등록·신청 현황" },
     { id: "qa", label: "질의응답", sub: "게시판" },
@@ -321,14 +419,14 @@ function Inner() {
         </nav>
         <div className="admin-layout__title-row">
           <h1>{room.title}</h1>
-          <span className="ui-ko">강의실 허브 — 소개·자료·영상·질의응답</span>
+          <span className="ui-ko">강의실 허브 — 소개·공지·자료·영상·질의응답</span>
         </div>
         <p className="classroom-page__lede">
           <span className="ui-en" style={{ display: "block", marginBottom: "0.35rem" }}>
-            Tabs organize lecture intro, file/video registration (linked to library review policy), and the Q&amp;A board.
+            Tabs organize lecture intro, announcements, file/video registration, and Q&amp;A.
           </span>
           <span className="ui-ko">
-            탭으로 강의 소개·자료·영상·질의응답을 나눕니다. 자료·영상 <strong>신청</strong>은 관리자 검수 후 라이브러리에
+            탭으로 강의 소개·공지·자료·영상·질의응답을 나눕니다. 자료·영상 <strong>신청</strong>은 관리자 검수 후 라이브러리에
             반영됩니다.
           </span>
         </p>
@@ -439,6 +537,83 @@ function Inner() {
                   ) : null}
                 </div>
               </form>
+              <div className="classroom-page__danger-zone">
+                <h3>강의실 영구 삭제</h3>
+                <p>
+                  <strong>등록된 학습지 멤버(수강생)가 1명이라도 있으면 삭제할 수 없습니다.</strong> 현재 등록된 UID{" "}
+                  <strong>{memberCount}</strong>명. 삭제 시 이 강의실의 수강 신청·질문·공지 등 함께 제거됩니다.
+                </p>
+                {deleteClassroomErr ? <p className="auth-error">{deleteClassroomErr}</p> : null}
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--stack"
+                  disabled={memberCount > 0 || deleteClassroomBusy}
+                  onClick={() => void deleteClassroomAsTeacher()}
+                  style={{ borderColor: "#fecaca", color: "#b91c1c" }}
+                >
+                  {deleteClassroomBusy ? "삭제 중…" : "강의실 삭제"}
+                </button>
+              </div>
+            </section>
+          )}
+
+          {tab === "notices" && id && (
+            <section className="classroom-hub__section" aria-labelledby="hub-notices-h">
+              <h2 id="hub-notices-h" className="classroom-hub__section-title">
+                공지사항 관리
+              </h2>
+              <p className="classroom-hub__hint">
+                등록된 공지는 멤버·선생님이 입장할 때 최상단 팝업으로 보이며, 팝업을 닫은 뒤에도 페이지 상단 목록으로
+                확인할 수 있습니다. 강의실마다 따로 적용됩니다.
+              </p>
+              {noticeErr ? <p className="auth-error">{noticeErr}</p> : null}
+              <form className="classroom-hub__form" onSubmit={(e) => void addNotice(e)}>
+                <label className="auth-field">
+                  <span className="classroom-hub__field-label">새 공지</span>
+                  <textarea
+                    className="classroom-hub__intro-textarea"
+                    rows={4}
+                    value={newNoticeBody}
+                    onChange={(e) => setNewNoticeBody(e.target.value)}
+                    placeholder="전체 학습자에게 전할 안내를 입력하세요."
+                    maxLength={8000}
+                  />
+                </label>
+                <div className="add-passage__actions">
+                  <button type="submit" className="btn btn--primary btn--stack" disabled={noticeBusy}>
+                    {noticeBusy ? "처리 중…" : "공지 추가"}
+                  </button>
+                </div>
+              </form>
+              <h3 className="classroom-hub__subhead">등록된 공지</h3>
+              {noticesLoading ? (
+                <p className="classroom-hub__hint">목록 불러오는 중…</p>
+              ) : noticeRows.length === 0 ? (
+                <p className="classroom-hub__hint">등록된 공지가 없습니다.</p>
+              ) : (
+                <ul className="classroom-hub__request-list">
+                  {noticeRows.map((row) => (
+                    <li key={row.id} className="classroom-hub__request-item">
+                      <div>
+                        <strong>공지</strong>
+                        <span className="classroom-hub__request-meta">{tsLabel(row.data.createdAt)}</span>
+                      </div>
+                      <p className="classroom-hub__request-desc" style={{ whiteSpace: "pre-wrap" }}>
+                        {row.data.body.length > 500 ? `${row.data.body.slice(0, 500)}…` : row.data.body}
+                      </p>
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--stack"
+                        style={{ marginTop: "0.45rem", alignSelf: "flex-start" }}
+                        disabled={noticeBusy}
+                        onClick={() => void removeNotice(row.id)}
+                      >
+                        이 공지 제거
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
 

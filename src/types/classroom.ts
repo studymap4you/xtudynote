@@ -39,3 +39,9 @@ export interface ClassroomQaPostDocument {
   parentPostId: string | null;
   createdAt: unknown;
 }
+
+/** 강의실별 공지사항 (classrooms/{id}/notices) */
+export interface ClassroomNoticeDocument {
+  body: string;
+  createdAt: unknown;
+}

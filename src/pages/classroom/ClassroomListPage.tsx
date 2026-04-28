@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
 import { db } from "@/firebase/config";
+import { deleteClassroomCascade } from "@/lib/classroom/deleteClassroomCascade";
 import type { ClassroomDocument } from "@/types/classroom";
 import "@/pages/pages.css";
 
@@ -38,6 +39,9 @@ export function ClassroomListPage() {
   const [rowsMem, setRowsMem] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [pendingDeleteRoom, setPendingDeleteRoom] = useState<Row | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
 
   const mergedRows = useMemo(() => {
     const m = new Map<string, Row>();
@@ -129,6 +133,23 @@ export function ClassroomListPage() {
     return () => unsub();
   }, [firebaseUser?.uid, isTeacherApproved, isSuperAdmin]);
 
+  async function confirmDeleteClassroom() {
+    if (!pendingDeleteRoom) return;
+    const cid = pendingDeleteRoom.id;
+    const n = pendingDeleteRoom.memberStudentIds?.length ?? 0;
+    if (n > 0) return;
+    setDeleteBusy(true);
+    setDeleteErr(null);
+    try {
+      await deleteClassroomCascade(db, cid);
+      setPendingDeleteRoom(null);
+    } catch (e) {
+      setDeleteErr(e instanceof Error ? e.message : "삭제하지 못했습니다.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
   return (
     <DashboardShell light>
       <main className="admin-layout classroom-page admin-layout--light">
@@ -154,6 +175,7 @@ export function ClassroomListPage() {
           </p>
         )}
         {err && <p className="auth-error">{err}</p>}
+        {deleteErr && <p className="auth-error">{deleteErr}</p>}
         {loading ? (
           <div className="route-loading route-loading--light">
             <div className="route-loading__spinner" />
@@ -167,27 +189,89 @@ export function ClassroomListPage() {
           </p>
         ) : (
           <ul className="classroom-page__list">
-            {mergedRows.map((r) => (
+            {mergedRows.map((r) => {
+              const isOwnerTeacher = !!(isTeacherApproved && firebaseUser?.uid === r.teacherId);
+              const mc = r.memberStudentIds?.length ?? 0;
+              return (
               <li key={r.id} className="classroom-page__card">
                 <div>
                   <h2 className="classroom-page__card-title">{r.title}</h2>
                   <p className="classroom-page__card-desc">{r.description || "설명 없음"}</p>
                   <p className="classroom-page__card-meta">개설 {formatAt(r.createdAt)}</p>
+                  {isOwnerTeacher ? (
+                    <p className="classroom-page__card-meta">수강생(등록 UID) {mc}명</p>
+                  ) : null}
                 </div>
                 <div className="classroom-page__card-actions">
                   <Link to={`/classroom/${r.id}`} className="btn btn--primary btn--stack">
                     입장
                   </Link>
-                  {isTeacherApproved && firebaseUser?.uid === r.teacherId && (
-                    <Link to={`/classroom/${r.id}/manage`} className="btn btn--ghost btn--stack">
-                      관리
-                    </Link>
-                  )}
+                  {isOwnerTeacher ? (
+                    <>
+                      <Link to={`/classroom/${r.id}/manage`} className="btn btn--ghost btn--stack">
+                        관리
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--stack"
+                        style={{ borderColor: "#fecaca", color: "#b91c1c" }}
+                        disabled={mc > 0}
+                        title={mc > 0 ? "수강생이 한 명이라도 있으면 삭제할 수 없습니다." : undefined}
+                        onClick={() => {
+                          setDeleteErr(null);
+                          setPendingDeleteRoom(r);
+                        }}
+                      >
+                        삭제
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
+        {pendingDeleteRoom ? (
+          <div className="classroom-page__danger-modal" role="presentation">
+            <button
+              type="button"
+              className="classroom-page__danger-modal-backdrop"
+              aria-label="취소"
+              onClick={() => {
+                if (!deleteBusy) setPendingDeleteRoom(null);
+              }}
+            />
+            <div className="classroom-page__danger-modal-panel" role="dialog" aria-modal="true" aria-labelledby="classroom-del-title">
+              <h2 id="classroom-del-title" style={{ margin: "0 0 0.5rem", fontSize: "1.05rem" }}>
+                강의실을 삭제할까요?
+              </h2>
+              <p style={{ margin: 0, fontSize: "0.88rem", lineHeight: 1.55, color: "var(--light-text-muted, #4b5563)" }}>
+                <strong>{pendingDeleteRoom.title}</strong>와 이 강의실에 연결된 수강 신청·질문·공지 등이 모두 삭제됩니다.
+                되돌릴 수 없습니다.
+              </p>
+              <div className="classroom-page__danger-modal-actions">
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--stack"
+                  disabled={deleteBusy}
+                  onClick={() => setPendingDeleteRoom(null)}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--primary btn--stack"
+                  disabled={deleteBusy}
+                  onClick={() => void confirmDeleteClassroom()}
+                  style={{ background: "#b91c1c", borderColor: "#b91c1c" }}
+                >
+                  {deleteBusy ? "삭제 중…" : "삭제 확정"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </main>
     </DashboardShell>
   );

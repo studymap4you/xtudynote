@@ -62,6 +62,15 @@ service cloud.firestore {
         ? resource.data.memberStudentIds
         : [];
     }
+    /** 강의실 수강생(등록 UID) 수 — 삭제 허용 시 0 필요 */
+    function classroomMemberCount() {
+      return (
+        'memberStudentIds' in resource.data
+        && resource.data.memberStudentIds is list
+      )
+        ? resource.data.memberStudentIds.size()
+        : 0;
+    }
     /** 무료 강의실에 활성 학생이 본인 UID만 arrayUnion 하는 업데이트 */
     function studentSelfEnrollFreeClassroom() {
       return isActiveStudent()
@@ -726,8 +735,13 @@ service cloud.firestore {
         || studentSelfEnrollFreeClassroom()
         || studentSelfLeaveClassroomMembers();
 
+      /** 교사 삭제는 수강생(membership) 이 1명이라도 없을 때만 허용. 마스터는 예외 처리용으로 제한 없음 */
       allow delete: if isActiveSuperAdmin()
-        || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
+        || (
+          isActiveTeacher()
+          && resource.data.teacherId == request.auth.uid
+          && classroomMemberCount() == 0
+        );
 
       /** 유료 수강 신청 (강사가 멤버 승인 전 연락처 수집) */
       match /enrollment_requests/{requestId} {
@@ -821,6 +835,22 @@ service cloud.firestore {
             || isActiveSuperAdmin()
             || (isActiveTeacher() && ownsClassroom(classroomId))
           );
+      }
+
+      /** 강의실 공지사항 — 입장 시 팝업·목록 표시용 (강의실별) */
+      match /notices/{noticeId} {
+        allow read: if isSignedInActiveAccount();
+
+        allow create: if isActiveTeacher()
+          && ownsClassroom(classroomId)
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0
+          && request.resource.data.body.size() <= 8000
+          && request.resource.data.keys().hasAll(['body', 'createdAt']);
+
+        allow delete: if isActiveTeacher() && ownsClassroom(classroomId);
+
+        allow update: if false;
       }
     }
 

@@ -5,16 +5,19 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
+  orderBy,
   query,
   where,
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
+import { ClassroomNoticePopup } from "@/components/classroom/ClassroomNoticePopup";
 import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
 import { DashboardShell } from "@/components/DashboardShell";
 import { RichHtmlView } from "@/components/RichHtmlView";
 import { db } from "@/firebase/config";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
-import type { ClassroomDocument } from "@/types/classroom";
+import type { ClassroomDocument, ClassroomNoticeDocument } from "@/types/classroom";
 import type { ContentDocument, ContentStatus, ContentType } from "@/types/content";
 import "@/pages/pages.css";
 
@@ -32,6 +35,17 @@ function hasVideoLink(c: ContentDocument): boolean {
   return !!u;
 }
 
+function noticeTsLabel(raw: unknown): string {
+  if (raw && typeof raw === "object" && "toMillis" in raw && typeof (raw as { toMillis: () => number }).toMillis === "function") {
+    try {
+      return new Date((raw as { toMillis: () => number }).toMillis()).toLocaleString();
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
 export function ClassroomDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { firebaseUser, isTeacherApproved, isSuperAdmin } = useAuth();
@@ -41,6 +55,8 @@ export function ClassroomDetailPage() {
   const [err, setErr] = useState<string | null>(null);
   const [contentsErr, setContentsErr] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>("intro");
+  const [noticeRows, setNoticeRows] = useState<{ id: string; data: ClassroomNoticeDocument }[]>([]);
+  const [noticePopupOpen, setNoticePopupOpen] = useState(true);
 
   const isOwner = useMemo(
     () => !!(room && firebaseUser && room.teacherId === firebaseUser.uid),
@@ -107,6 +123,30 @@ export function ClassroomDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    setNoticePopupOpen(true);
+    setNoticeRows([]);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || loading || !canAccessRoom || !firebaseUser) {
+      if (!loading) setNoticeRows([]);
+      return;
+    }
+
+    const nq = query(collection(db, "classrooms", id, "notices"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(
+      nq,
+      (snap) => {
+        const list: { id: string; data: ClassroomNoticeDocument }[] = [];
+        snap.forEach((d) => list.push({ id: d.id, data: d.data() as ClassroomNoticeDocument }));
+        setNoticeRows(list);
+      },
+      () => setNoticeRows([]),
+    );
+    return () => unsub();
+  }, [id, loading, canAccessRoom, firebaseUser]);
 
   const visibleContents = useMemo(() => {
     const showAll = isOwner && isTeacherApproved;
@@ -188,6 +228,30 @@ export function ClassroomDetailPage() {
           </div>
         ) : (
           <>
+            <ClassroomNoticePopup
+              open={noticeRows.length > 0 && noticePopupOpen}
+              classroomTitle={room.title}
+              rows={noticeRows}
+              onClose={() => setNoticePopupOpen(false)}
+            />
+            {noticeRows.length > 0 && !noticePopupOpen ? (
+              <section className="classroom-notices-inline" aria-labelledby="classroom-inline-notices-h">
+                <h2 id="classroom-inline-notices-h" className="classroom-notices-inline__heading">
+                  공지사항
+                </h2>
+                <ul className="classroom-notices-inline__list">
+                  {noticeRows.map((r) => {
+                    const meta = noticeTsLabel(r.data.createdAt);
+                    return (
+                      <li key={r.id}>
+                        <p className="classroom-notices-inline__item">{r.data.body}</p>
+                        {meta ? <span className="classroom-notices-inline__meta">{meta}</span> : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
             <div className="admin-layout__title-row">
               <h1>{room.title}</h1>
               <span className="ui-ko">강의실</span>
@@ -196,7 +260,7 @@ export function ClassroomDetailPage() {
             {isOwner && (
               <p style={{ marginBottom: "var(--space-2)" }}>
                 <Link to={`/classroom/${room.id}/manage`} className="btn btn--primary btn--stack">
-                  강의실 관리 (소개·자료·영상·질의응답)
+                  강의실 관리 (소개·자료·영상·질의응답·공지)
                 </Link>
               </p>
             )}
