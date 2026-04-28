@@ -211,8 +211,8 @@ export function ClassroomDetailPage() {
     const st = (c.data.status ?? "pending") as ContentStatus;
     const isPaid = t === "paid";
     return (
-      <li key={c.id} className="classroom-page__material">
-        <div>
+      <li key={c.id} className="classroom-page__material classroom-room-content-card">
+        <div className="classroom-room-content-card__body">
           <span className="classroom-page__badge">{labelType(t)}</span>
           {st !== "approved" && (
             <span className="classroom-page__badge classroom-page__badge--muted">
@@ -225,9 +225,9 @@ export function ClassroomDetailPage() {
             <p className="classroom-page__paid-note">유료 자료입니다. 상세에서 결제·구매 안내를 확인하세요.</p>
           )}
         </div>
-        <div>
+        <div className="classroom-room-content-card__action">
           {st === "approved" ? (
-            <Link to={`/content/${c.id}`} className="btn btn--ghost btn--stack">
+            <Link to={`/content/${c.id}`} className="btn btn--primary btn--stack classroom-room-content-card__btn">
               열기
             </Link>
           ) : (
@@ -241,11 +241,13 @@ export function ClassroomDetailPage() {
   return (
     <DashboardShell light>
       <main className="admin-layout classroom-page admin-layout--light classroom-hub">
-        <nav className="classroom-page__breadcrumb">
-          <Link to="/classrooms">← 전체 강의실</Link>
-          {" · "}
-          <Link to="/classroom">내 강의실</Link>
-        </nav>
+        {!(room && canAccessRoom) ? (
+          <nav className="classroom-page__breadcrumb">
+            <Link to="/classrooms">← 전체 강의실</Link>
+            {" · "}
+            <Link to="/classroom">내 강의실</Link>
+          </nav>
+        ) : null}
         {err && <p className="auth-error">{err}</p>}
         {contentsErr && !err ? <p className="auth-error">{contentsErr}</p> : null}
         {loading ? (
@@ -271,145 +273,212 @@ export function ClassroomDetailPage() {
               rows={noticeRows}
               onClose={() => setNoticePopupOpen(false)}
             />
-            {noticeRows.length > 0 && !noticePopupOpen ? (
-              <section className="classroom-notices-inline" aria-labelledby="classroom-inline-notices-h">
-                <h2 id="classroom-inline-notices-h" className="classroom-notices-inline__heading">
-                  공지사항
-                </h2>
-                <ul className="classroom-notices-inline__list">
-                  {noticeRows.map((r) => {
-                    const meta = noticeTsLabel(r.data.createdAt);
-                    return (
-                      <li key={r.id}>
-                        <p className="classroom-notices-inline__item">{r.data.body}</p>
-                        {meta ? <span className="classroom-notices-inline__meta">{meta}</span> : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ) : null}
-            <div className="admin-layout__title-row">
-              <h1>{room.title}</h1>
-              <span className="ui-ko">강의실</span>
-            </div>
-
-            {isOwner && (
-              <p style={{ marginBottom: "var(--space-2)" }}>
-                <Link to={`/classroom/${room.id}/manage`} className="btn btn--primary btn--stack">
-                  강의실 관리 (소개·자료·영상·질의응답·공지)
-                </Link>
-              </p>
-            )}
-
-            <div className="classroom-hub__tabs" role="tablist" aria-label="강의실 보기">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === t.id}
-                  className={`classroom-hub__tab ${tab === t.id ? "classroom-hub__tab--active" : ""}`}
-                  onClick={() => setTab(t.id)}
-                >
-                  <span className="classroom-hub__tab-label">{t.label}</span>
-                  <span className="classroom-hub__tab-sub">{t.sub}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="classroom-hub__panel">
-              {tab === "todayExam" && (
-                <section className="classroom-hub__section">
-                  <h2 className="classroom-hub__section-title">오늘의 학습문제</h2>
-                  <p style={{ color: "var(--light-text-muted, #6b7280)", marginTop: 0 }}>
-                    선생님이 이 강의실에 배포한 AI 문제를 풀고 제출하면 자동 채점됩니다.
-                  </p>
-                  {examAssignmentsErr ? (
-                    <div className="auth-error" role="alert">
-                      <p style={{ margin: 0 }}>{examAssignmentsErr}</p>
-                      {examAssignmentsErr.includes("index") || examAssignmentsErr.includes("Index") ? (
-                        <p style={{ margin: "0.5rem 0 0" }}>
-                          Firestore에 classroom_exam_assignments용 복합 인덱스(classroomId + createdAt) 배포가
-                          필요할 수 있습니다.
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : examAssignments.length === 0 ? (
-                    <p style={{ color: "var(--light-text-muted, #6b7280)" }}>
-                      아직 배포된 학습문제가 없습니다. 선생님이 시험 생성 화면에서 이 강의실을 선택해 배포하면 여기에
-                      표시됩니다.
-                    </p>
-                  ) : (
-                    <ul className="classroom-page__materials">
-                      {examAssignments.map((row) => (
-                        <li key={row.id} className="classroom-page__material">
-                          <div>
-                            <h3 className="classroom-page__material-title">{row.data.title}</h3>
-                            <p className="classroom-page__material-topic">{row.data.subject}</p>
-                          </div>
-                          <div>
-                            <Link
-                              to={`/classroom/${id}/learn/${row.id}`}
-                              className="btn btn--ghost btn--stack"
-                            >
-                              풀기
-                            </Link>
-                          </div>
+            <div className="classroom-room-view">
+              {noticeRows.length > 0 && !noticePopupOpen ? (
+                <section className="classroom-notices-inline classroom-room-view__notices" aria-labelledby="classroom-inline-notices-h">
+                  <h2 id="classroom-inline-notices-h" className="classroom-notices-inline__heading">
+                    공지사항
+                  </h2>
+                  <ul className="classroom-notices-inline__list">
+                    {noticeRows.map((r) => {
+                      const meta = noticeTsLabel(r.data.createdAt);
+                      return (
+                        <li key={r.id}>
+                          <p className="classroom-notices-inline__item">{r.data.body}</p>
+                          {meta ? <span className="classroom-notices-inline__meta">{meta}</span> : null}
                         </li>
-                      ))}
-                    </ul>
-                  )}
+                      );
+                    })}
+                  </ul>
                 </section>
-              )}
+              ) : null}
 
-              {tab === "intro" && (
-                <section className="classroom-hub__section">
-                  <h2 className="classroom-hub__section-title">강의 소개</h2>
-                  {introBody ? (
-                    <div className="classroom-hub__intro-body">
-                      <RichHtmlView html={introBody} />
+              <header className="classroom-room-hero">
+                <div className="classroom-room-hero__glow" aria-hidden />
+                <nav className="classroom-room-hero__breadcrumb classroom-page__breadcrumb">
+                  <Link to="/classrooms">← 전체 강의실</Link>
+                  {" · "}
+                  <Link to="/classroom">내 강의실</Link>
+                </nav>
+                <div className="classroom-room-hero__head">
+                  <div className="classroom-room-hero__titles">
+                    <p className="classroom-room-hero__eyebrow">Xtudy 강의실</p>
+                    <h1 className="classroom-room-hero__title">{room.title}</h1>
+                    {room.description?.trim() ? (
+                      <p className="classroom-room-hero__lede">{room.description.trim()}</p>
+                    ) : null}
+                  </div>
+                  {isOwner ? (
+                    <Link
+                      to={`/classroom/${room.id}/manage`}
+                      className="btn btn--primary classroom-room-hero__manage"
+                    >
+                      강의실 관리
+                    </Link>
+                  ) : null}
+                </div>
+                <ul className="classroom-room-hero__stats" aria-label="강의실 콘텐츠 요약">
+                  <li>
+                    <span className="classroom-room-hero__stat-value">{fileItems.length}</span>
+                    <span className="classroom-room-hero__stat-label">학습 자료</span>
+                  </li>
+                  <li>
+                    <span className="classroom-room-hero__stat-value">{videoItems.length}</span>
+                    <span className="classroom-room-hero__stat-label">강의 영상</span>
+                  </li>
+                  <li>
+                    <span className="classroom-room-hero__stat-value">{examAssignments.length}</span>
+                    <span className="classroom-room-hero__stat-label">학습문제</span>
+                  </li>
+                </ul>
+              </header>
+
+              <div className="classroom-room-nav classroom-hub__tabs" role="tablist" aria-label="강의실 보기">
+                {tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === t.id}
+                    className={`classroom-hub__tab classroom-room-nav__card classroom-room-nav__card--${t.id} ${
+                      tab === t.id ? "classroom-hub__tab--active" : ""
+                    }`}
+                    onClick={() => setTab(t.id)}
+                  >
+                    <span className={`classroom-room-nav__icon classroom-room-nav__icon--${t.id}`} aria-hidden />
+                    <span className="classroom-room-nav__text">
+                      <span className="classroom-hub__tab-label">{t.label}</span>
+                      <span className="classroom-hub__tab-sub">{t.sub}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="classroom-hub__panel classroom-room-panel">
+                {tab === "todayExam" && (
+                  <section className="classroom-hub__section classroom-room-section">
+                    <div className="classroom-room-section__intro">
+                      <h2 className="classroom-hub__section-title classroom-room-section__title">오늘의 학습문제</h2>
+                      <p className="classroom-room-section__desc">
+                        선생님이 이 강의실에 배포한 AI 문제를 풀고 제출하면 자동 채점됩니다.
+                      </p>
                     </div>
-                  ) : (
-                    <p style={{ color: "var(--light-text-muted, #6b7280)" }}>
-                      등록된 강의 소개가 없습니다. 선생님이 관리 화면에서 작성할 수 있습니다.
-                    </p>
-                  )}
-                </section>
-              )}
+                    {examAssignmentsErr ? (
+                      <div className="auth-error classroom-room-callout classroom-room-callout--warn" role="alert">
+                        <p style={{ margin: 0 }}>{examAssignmentsErr}</p>
+                        {examAssignmentsErr.includes("index") || examAssignmentsErr.includes("Index") ? (
+                          <p style={{ margin: "0.5rem 0 0" }}>
+                            Firestore에 classroom_exam_assignments용 복합 인덱스(classroomId + createdAt) 배포가
+                            필요할 수 있습니다.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : examAssignments.length === 0 ? (
+                      <div className="classroom-room-empty">
+                        <span className="classroom-room-empty__visual" aria-hidden />
+                        <p className="classroom-room-empty__text">
+                          아직 배포된 학습문제가 없습니다. 선생님이 시험 생성 화면에서 이 강의실을 선택해 배포하면 여기에
+                          표시됩니다.
+                        </p>
+                      </div>
+                    ) : (
+                      <ul className="classroom-page__materials classroom-room-card-grid">
+                        {examAssignments.map((row) => (
+                          <li
+                            key={row.id}
+                            className="classroom-page__material classroom-room-content-card classroom-room-content-card--exam"
+                          >
+                            <div className="classroom-room-content-card__body">
+                              <p className="classroom-room-content-card__kicker">AI 학습문제</p>
+                              <h3 className="classroom-page__material-title">{row.data.title}</h3>
+                              <p className="classroom-page__material-topic">{row.data.subject}</p>
+                            </div>
+                            <div className="classroom-room-content-card__action">
+                              <Link
+                                to={`/classroom/${id}/learn/${row.id}`}
+                                className="btn btn--primary btn--stack classroom-room-content-card__btn"
+                              >
+                                풀기
+                              </Link>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                )}
 
-              {tab === "materials" && (
-                <section className="classroom-hub__section">
-                  <h2 className="classroom-hub__section-title">학습 자료</h2>
-                  {fileItems.length === 0 ? (
-                    <p style={{ color: "var(--light-text-muted, #6b7280)" }}>
-                      아직 표시할 자료가 없습니다. (승인 대기 중이거나 등록 전일 수 있습니다.)
-                    </p>
-                  ) : (
-                    <ul className="classroom-page__materials">{fileItems.map(renderMaterialRow)}</ul>
-                  )}
-                </section>
-              )}
+                {tab === "intro" && (
+                  <section className="classroom-hub__section classroom-room-section">
+                    <div className="classroom-room-section__intro">
+                      <h2 className="classroom-hub__section-title classroom-room-section__title">강의 소개</h2>
+                      <p className="classroom-room-section__desc">커리큘럼과 목표를 확인하세요.</p>
+                    </div>
+                    {introBody ? (
+                      <div className="classroom-room-intro-card">
+                        <div className="classroom-hub__intro-body classroom-room-intro-card__body">
+                          <RichHtmlView html={introBody} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="classroom-room-empty">
+                        <span className="classroom-room-empty__visual" aria-hidden />
+                        <p className="classroom-room-empty__text">
+                          등록된 강의 소개가 없습니다. 선생님이 관리 화면에서 작성할 수 있습니다.
+                        </p>
+                      </div>
+                    )}
+                  </section>
+                )}
 
-              {tab === "video" && (
-                <section className="classroom-hub__section">
-                  <h2 className="classroom-hub__section-title">강의 영상</h2>
-                  {videoItems.length === 0 ? (
-                    <p style={{ color: "var(--light-text-muted, #6b7280)" }}>
-                      등록된 강의 영상(링크)이 없습니다.
-                    </p>
-                  ) : (
-                    <ul className="classroom-page__materials">{videoItems.map(renderMaterialRow)}</ul>
-                  )}
-                </section>
-              )}
+                {tab === "materials" && (
+                  <section className="classroom-hub__section classroom-room-section">
+                    <div className="classroom-room-section__intro">
+                      <h2 className="classroom-hub__section-title classroom-room-section__title">학습 자료</h2>
+                      <p className="classroom-room-section__desc">파일·문서 자료를 카드에서 선택해 열 수 있습니다.</p>
+                    </div>
+                    {fileItems.length === 0 ? (
+                      <div className="classroom-room-empty">
+                        <span className="classroom-room-empty__visual" aria-hidden />
+                        <p className="classroom-room-empty__text">
+                          아직 표시할 자료가 없습니다. (승인 대기 중이거나 등록 전일 수 있습니다.)
+                        </p>
+                      </div>
+                    ) : (
+                      <ul className="classroom-page__materials classroom-room-card-grid">{fileItems.map(renderMaterialRow)}</ul>
+                    )}
+                  </section>
+                )}
 
-              {tab === "qa" && id && (
-                <section className="classroom-hub__section">
-                  <h2 className="classroom-hub__section-title">질의응답</h2>
-                  <ClassroomQaBoard classroomId={id} isClassroomTeacher={isOwner} />
-                </section>
-              )}
+                {tab === "video" && (
+                  <section className="classroom-hub__section classroom-room-section">
+                    <div className="classroom-room-section__intro">
+                      <h2 className="classroom-hub__section-title classroom-room-section__title">강의 영상</h2>
+                      <p className="classroom-room-section__desc">등록된 영상 링크로 이동합니다.</p>
+                    </div>
+                    {videoItems.length === 0 ? (
+                      <div className="classroom-room-empty">
+                        <span className="classroom-room-empty__visual" aria-hidden />
+                        <p className="classroom-room-empty__text">등록된 강의 영상(링크)이 없습니다.</p>
+                      </div>
+                    ) : (
+                      <ul className="classroom-page__materials classroom-room-card-grid">{videoItems.map(renderMaterialRow)}</ul>
+                    )}
+                  </section>
+                )}
+
+                {tab === "qa" && id && (
+                  <section className="classroom-hub__section classroom-room-section">
+                    <div className="classroom-room-section__intro">
+                      <h2 className="classroom-hub__section-title classroom-room-section__title">질의응답</h2>
+                      <p className="classroom-room-section__desc">강의 내용을 묻고 답을 나누는 공간입니다.</p>
+                    </div>
+                    <div className="classroom-room-qa">
+                      <ClassroomQaBoard classroomId={id} isClassroomTeacher={isOwner} />
+                    </div>
+                  </section>
+                )}
+              </div>
             </div>
           </>
         )}

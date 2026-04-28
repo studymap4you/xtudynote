@@ -1617,6 +1617,454 @@
   color: #1e293b;
 }
 
+/* —— 강의실 입장 화면 (학생·선생님 공통) 카드형 레이아웃 —— */
+.classroom-room-view {
+  --room-accent: #2563eb;
+  --room-accent-soft: rgba(37, 99, 235, 0.12);
+  --room-violet: #7c3aed;
+  --room-teal: #0d9488;
+  --room-amber: #d97706;
+  --room-slate: #0f172a;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.classroom-room-view__notices {
+  margin-bottom: 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%);
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.06);
+}
+
+.classroom-room-hero {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  padding: clamp(1.35rem, 4vw, 2.25rem) clamp(1.15rem, 3vw, 2rem);
+  border-radius: 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(99, 102, 241, 0.2) 0%, transparent 55%),
+    radial-gradient(80% 70% at 0% 100%, rgba(14, 165, 233, 0.18) 0%, transparent 50%),
+    linear-gradient(145deg, #f8fafc 0%, #eef2ff 38%, #f0f9ff 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 20px 50px rgba(15, 23, 42, 0.08),
+    0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.classroom-room-hero__glow {
+  pointer-events: none;
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: min(28rem, 70vw);
+  height: min(28rem, 70vw);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.22) 0%, transparent 68%);
+  opacity: 0.85;
+}
+
+.classroom-room-hero__breadcrumb {
+  position: relative;
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  opacity: 0.92;
+}
+
+.classroom-room-hero__breadcrumb a {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: none;
+}
+.classroom-room-hero__breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.classroom-room-hero__head {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.classroom-room-hero__titles {
+  flex: 1;
+  min-width: min(100%, 16rem);
+}
+
+.classroom-room-hero__eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #4338ca;
+}
+
+.classroom-room-hero__title {
+  margin: 0;
+  font-size: clamp(1.45rem, 3.6vw, 2.05rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--room-slate);
+}
+
+.classroom-room-hero__lede {
+  margin: 0.65rem 0 0;
+  max-width: 42rem;
+  font-size: clamp(0.92rem, 2vw, 1.02rem);
+  line-height: 1.55;
+  color: #475569;
+}
+
+.classroom-room-hero__manage {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0.65rem 1.15rem;
+  border-radius: 999px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+}
+
+.classroom-room-hero__stats {
+  position: relative;
+  list-style: none;
+  margin: 1.35rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  max-width: 28rem;
+}
+
+.classroom-room-hero__stats li {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  backdrop-filter: blur(8px);
+  text-align: center;
+}
+
+.classroom-room-hero__stat-value {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #1e3a8a;
+  line-height: 1.1;
+}
+
+.classroom-room-hero__stat-label {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+@media (max-width: 520px) {
+  .classroom-room-hero__stats {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+}
+
+/* 카테고리 네비게이션 — 큰 카드 그리드 */
+.classroom-room-view .classroom-room-nav.classroom-hub__tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 0.85rem;
+  margin: 0 0 1.25rem;
+}
+
+.classroom-room-nav__card.classroom-hub__tab {
+  position: relative;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 5.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(165deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  text-align: left;
+  overflow: hidden;
+}
+
+.classroom-room-nav__card.classroom-hub__tab::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: 1rem 1rem 0 0;
+  opacity: 0.55;
+  background: var(--room-tab-accent, var(--room-accent));
+}
+
+.classroom-room-nav__card.classroom-hub__tab:hover {
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.classroom-room-nav__card.classroom-hub__tab--active {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: linear-gradient(165deg, #eff6ff 0%, #ffffff 55%);
+  box-shadow:
+    0 0 0 1px rgba(37, 99, 235, 0.12),
+    0 12px 32px rgba(37, 99, 235, 0.12);
+}
+
+.classroom-room-nav__card.classroom-hub__tab--active::after {
+  opacity: 1;
+  height: 4px;
+}
+
+.classroom-room-nav__card--intro {
+  --room-tab-accent: #2563eb;
+}
+.classroom-room-nav__card--todayExam {
+  --room-tab-accent: #7c3aed;
+}
+.classroom-room-nav__card--materials {
+  --room-tab-accent: #0d9488;
+}
+.classroom-room-nav__card--video {
+  --room-tab-accent: #ea580c;
+}
+.classroom-room-nav__card--qa {
+  --room-tab-accent: #db2777;
+}
+
+.classroom-room-nav__icon {
+  flex-shrink: 0;
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 0.85rem;
+  background: var(--room-tab-accent, var(--room-accent));
+  opacity: 0.92;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.classroom-room-nav__icon--intro {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+.classroom-room-nav__icon--todayExam {
+  background: linear-gradient(135deg, #a78bfa, #6d28d9);
+}
+.classroom-room-nav__icon--materials {
+  background: linear-gradient(135deg, #2dd4bf, #0f766e);
+}
+.classroom-room-nav__icon--video {
+  background: linear-gradient(135deg, #fb923c, #c2410c);
+}
+.classroom-room-nav__icon--qa {
+  background: linear-gradient(135deg, #f472b6, #be185d);
+}
+
+.classroom-room-nav__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.classroom-room-nav__text .classroom-hub__tab-label {
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.classroom-room-nav__text .classroom-hub__tab-sub {
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+/* 메인 콘텐츠 패널 */
+.classroom-room-view .classroom-room-panel.classroom-hub__panel {
+  min-height: 14rem;
+  padding: clamp(1.15rem, 3vw, 1.75rem);
+  border-radius: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 18px 48px rgba(15, 23, 42, 0.07);
+}
+
+.classroom-room-view .classroom-hub__section.classroom-room-section {
+  max-width: none;
+}
+
+.classroom-room-section__intro {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+}
+
+.classroom-room-section__title.classroom-hub__section-title {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.15rem, 2.5vw, 1.35rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.classroom-room-section__desc {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.classroom-room-intro-card {
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.classroom-room-intro-card__body {
+  padding: clamp(1rem, 2.5vw, 1.5rem) clamp(1rem, 2.5vw, 1.65rem);
+  font-size: clamp(0.92rem, 1.5vw, 1rem);
+  line-height: 1.75;
+  color: #334155;
+}
+
+.classroom-room-intro-card__body h1,
+.classroom-room-intro-card__body h2,
+.classroom-room-intro-card__body h3 {
+  color: #0f172a;
+}
+
+.classroom-room-card-grid.classroom-page__materials {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 1fr));
+  gap: 1rem;
+}
+
+.classroom-room-content-card.classroom-page__material {
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 11rem;
+  padding: 1.1rem 1.15rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: linear-gradient(165deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.classroom-room-content-card.classroom-page__material:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.09);
+  transform: translateY(-2px);
+}
+
+.classroom-room-content-card--exam.classroom-page__material {
+  border-color: rgba(124, 58, 237, 0.35);
+  background: linear-gradient(155deg, rgba(245, 243, 255, 0.95) 0%, #ffffff 45%, rgba(239, 246, 255, 0.65) 100%);
+  box-shadow:
+    0 0 0 1px rgba(124, 58, 237, 0.08),
+    0 10px 32px rgba(91, 33, 182, 0.1);
+}
+
+.classroom-room-content-card--exam.classroom-page__material:hover {
+  border-color: rgba(124, 58, 237, 0.5);
+}
+
+.classroom-room-content-card__kicker {
+  margin: 0 0 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6d28d9;
+}
+
+.classroom-room-content-card__body {
+  flex: 1;
+}
+
+.classroom-room-content-card__action {
+  margin-top: auto;
+  padding-top: 0.85rem;
+}
+
+.classroom-room-content-card__btn {
+  width: 100%;
+  justify-content: center;
+  border-radius: 0.75rem;
+  font-weight: 700;
+}
+
+.classroom-room-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2.25rem 1.5rem;
+  border-radius: 1rem;
+  border: 1px dashed rgba(148, 163, 184, 0.55);
+  background: rgba(248, 250, 252, 0.85);
+  text-align: center;
+}
+
+.classroom-room-empty__visual {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+  opacity: 0.85;
+}
+
+.classroom-room-empty__text {
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+.classroom-room-callout {
+  padding: 1rem 1.15rem;
+  border-radius: 0.85rem;
+}
+
+.classroom-room-callout--warn {
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  background: rgba(254, 242, 242, 0.9);
+}
+
+.classroom-room-qa {
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .classroom-room-nav__card.classroom-hub__tab,
+  .classroom-room-content-card.classroom-page__material {
+    transition: none;
+  }
+  .classroom-room-nav__card.classroom-hub__tab:hover,
+  .classroom-room-content-card.classroom-page__material:hover {
+    transform: none;
+  }
+}
+
 /* 질의응답 */
 .classroom-qa__hint {
   margin: 0;
