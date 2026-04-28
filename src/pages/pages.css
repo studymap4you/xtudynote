@@ -3645,14 +3645,75 @@ button.top-nav__auth-link--logout:hover {
   margin-top: 0.35rem;
 }
 
+.learner-panel__actions--explore {
+  gap: 0.6rem;
+}
+
+/* Explore: 색상별 고대비 버튼 (학습자 대시보드) */
+.app-shell--light .dashboard--learner .learner-explore-btn {
+  text-decoration: none;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  color: #fff;
+  transition:
+    filter 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+.app-shell--light .dashboard--learner .learner-explore-btn:hover {
+  filter: brightness(1.07);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.16);
+}
+.app-shell--light .dashboard--learner .learner-explore-btn:active {
+  transform: scale(0.98);
+}
+.app-shell--light .dashboard--learner .learner-explore-btn .ui-en {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+.app-shell--light .dashboard--learner .learner-explore-btn .ui-ko {
+  margin-top: 0.12rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+.app-shell--light .dashboard--learner .learner-explore-btn--library {
+  background: linear-gradient(165deg, #3b82f6 0%, #1d4ed8 100%);
+  border-color: rgba(29, 78, 216, 0.45);
+}
+.app-shell--light .dashboard--learner .learner-explore-btn--classroom {
+  background: linear-gradient(165deg, #14b8a6 0%, #0d9488 100%);
+  border-color: rgba(13, 148, 136, 0.45);
+}
+.app-shell--light .dashboard--learner .learner-explore-btn--courses {
+  background: linear-gradient(165deg, #8b5cf6 0%, #6d28d9 100%);
+  border-color: rgba(109, 40, 217, 0.45);
+}
+.app-shell--light .dashboard--learner .learner-explore-btn--homework {
+  background: linear-gradient(165deg, #f97316 0%, #ea580c 100%);
+  border-color: rgba(234, 88, 12, 0.5);
+}
+
 .learner-stat-row {
   margin-top: 0.35rem;
 }
 
 .dashboard--learner .stat-pill--learner {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+.dashboard--learner .stat-pill--learner .ui-en {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.dashboard--learner .stat-pill--learner .ui-ko {
+  font-weight: 600;
+  color: #334155;
 }
 
 .dashboard--learner .stat-pill--learner strong {

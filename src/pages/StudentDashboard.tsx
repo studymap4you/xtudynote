@@ -117,20 +117,32 @@ export function StudentDashboard() {
                 </span>
               </div>
             </div>
-            <div className="badge-row learner-panel__actions">
-              <Link to="/library" className="btn btn--primary btn--stack">
+            <div className="badge-row learner-panel__actions learner-panel__actions--explore">
+              <Link
+                to="/library"
+                className="btn btn--stack learner-explore-btn learner-explore-btn--library"
+              >
                 <span className="ui-en">Open library</span>
                 <span className="ui-ko">라이브러리</span>
               </Link>
-              <Link to="/classroom" className="btn btn--ghost btn--stack">
+              <Link
+                to="/classroom"
+                className="btn btn--stack learner-explore-btn learner-explore-btn--classroom"
+              >
                 <span className="ui-en">My classroom</span>
                 <span className="ui-ko">내 강의실</span>
               </Link>
-              <Link to="/classrooms" className="btn btn--ghost btn--stack">
+              <Link
+                to="/classrooms"
+                className="btn btn--stack learner-explore-btn learner-explore-btn--courses"
+              >
                 <span className="ui-en">Browse courses</span>
                 <span className="ui-ko">강의 신청 · 전체 강의실</span>
               </Link>
-              <Link to="/homework" className="btn btn--ghost btn--stack">
+              <Link
+                to="/homework"
+                className="btn btn--stack learner-explore-btn learner-explore-btn--homework"
+              >
                 <span className="ui-en">Homework hub</span>
                 <span className="ui-ko">과제함 · 번호 검색</span>
               </Link>
