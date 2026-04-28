@@ -1,0 +1,86 @@
+/* 디지털마켓·엑스터디마켓 보조 스타일 */
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.fulfillmentBadge {
+  display: inline-block;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.fulfillmentBadge--email {
+  background: rgba(124, 58, 237, 0.12);
+  color: #6d28d9;
+}
+
+.detailArticle {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1rem, 3vw, 1.5rem) 2.5rem;
+}
+
+.detailHeroImg {
+  width: 100%;
+  max-height: 20rem;
+  object-fit: contain;
+  border-radius: 1rem;
+  background: #f1f5f9;
+  margin-bottom: 1.25rem;
+}
+
+.detailTitle {
+  margin: 0 0 1rem;
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.detailBody {
+  margin: 1.25rem 0;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #334155;
+}
+
+.sharePanel {
+  margin: 1.5rem 0;
+  padding: 1rem 1.1rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #f8fafc;
+}
+
+.shareLabel {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.shareRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.shareInput {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.82rem;
+}

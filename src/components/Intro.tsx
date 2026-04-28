@@ -13,11 +13,11 @@ const SHORTCUTS = [
   { to: "/library", label: "라이브러리", tone: "a" as const },
   { to: "/homework", label: "과제 검색", tone: "b" as const },
   { to: "/classroom", label: "내 강의실", tone: "c" as const },
-  { to: "/#marketplace-categories", label: "테마별 자료", tone: "d" as const },
+  { to: "/digital-market", label: "디지털마켓", tone: "d" as const },
   { to: "/material/register", label: "새자료 등록", tone: "e" as const },
   { to: "/videos", label: "동영상 강의", tone: "f" as const },
-  { to: "/login", label: "로그인", tone: "g" as const },
-  { to: "/#landing-features", label: "플랫폼 소개", tone: "h" as const },
+  { to: "/xtudy-market", label: "엑스터디마켓", tone: "g" as const },
+  { to: "/logic-dashboard", label: "시그널로직", tone: "h" as const },
 ] as const;
 
 const SHARE_TITLE = BRAND_SHARE_TITLE;
@@ -390,14 +390,17 @@ function IconShortcutPaid() {
   );
 }
 
-/** 테마별 — 격자 */
-function IconShortcutGrid() {
+/** 디지털마켓 — 다운로드 */
+function IconShortcutDigital() {
   return (
     <svg {...shortcutIconProps}>
-      <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -428,28 +431,33 @@ function IconShortcutVideo() {
   );
 }
 
-/** 로그인 — 사용자 */
-function IconShortcutUser() {
+/** 엑스터디마켓 — 스토어 */
+function IconShortcutStorefront() {
   return (
     <svg {...shortcutIconProps}>
-      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5" />
       <path
-        d="M5 20a7 7 0 0 1 14 0"
+        d="M3 9h18v2a4 4 0 0 1-4 4h-1M3 9 5 5h14l2 4M9 17v4h6v-4"
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
+      <path d="M7 21h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
 
-/** 플랫폼 소개 — 정보/레이어 */
-function IconShortcutInfo() {
+/** 시그널로직 — 파형 */
+function IconShortcutSignal() {
   return (
     <svg {...shortcutIconProps}>
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M12 16v-5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-      <circle cx="12" cy="8" r="1" fill="currentColor" />
+      <path
+        d="M4 12h2l2-7 4 14 3-10 2 3h5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -463,15 +471,15 @@ function ShortcutOrbIcon({ tone }: { tone: (typeof SHORTCUTS)[number]["tone"] })
     case "c":
       return <IconShortcutPaid />;
     case "d":
-      return <IconShortcutGrid />;
+      return <IconShortcutDigital />;
     case "e":
       return <IconShortcutNewDoc />;
     case "f":
       return <IconShortcutVideo />;
     case "g":
-      return <IconShortcutUser />;
+      return <IconShortcutStorefront />;
     case "h":
-      return <IconShortcutInfo />;
+      return <IconShortcutSignal />;
     default:
       return null;
   }
@@ -572,21 +580,16 @@ function IntroLandingPanel() {
 
       <nav className="intro-shortcuts intro-shortcuts--panel" aria-label="주요 메뉴 바로가기">
         <ul className="intro-shortcuts__list">
-          {SHORTCUTS.map((s) => {
-            const isLogin = s.to === "/login";
-            const to = firebaseUser && isLogin ? "/dashboard" : s.to;
-            const label = firebaseUser && isLogin ? "대시보드" : s.label;
-            return (
-              <li key={s.to}>
-                <Link to={to} className={`intro-shortcut intro-shortcut--${s.tone}`}>
-                  <span className="intro-shortcut__orb" aria-hidden>
-                    <ShortcutOrbIcon tone={s.tone} />
-                  </span>
-                  <span className="intro-shortcut__label">{label}</span>
-                </Link>
-              </li>
-            );
-          })}
+          {SHORTCUTS.map((s) => (
+            <li key={s.to}>
+              <Link to={s.to} className={`intro-shortcut intro-shortcut--${s.tone}`}>
+                <span className="intro-shortcut__orb" aria-hidden>
+                  <ShortcutOrbIcon tone={s.tone} />
+                </span>
+                <span className="intro-shortcut__label">{s.label}</span>
+              </Link>
+            </li>
+          ))}
         </ul>
       </nav>
     </>

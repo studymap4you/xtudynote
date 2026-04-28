@@ -22,6 +22,11 @@ import { ThemeMaterialPickPage } from "@/pages/ThemeMaterialPickPage";
 import { VideoLectureRegisterPage } from "@/pages/VideoLectureRegisterPage";
 import { VideoCatalogPage } from "@/pages/VideoCatalogPage";
 import { VideoCatalogRegisterPage } from "@/pages/VideoCatalogRegisterPage";
+import { DigitalMarketPage } from "@/pages/DigitalMarketPage";
+import { DigitalMarketRegisterPage } from "@/pages/DigitalMarketRegisterPage";
+import { XtudyMarketPage } from "@/pages/XtudyMarketPage";
+import { XtudyMarketProductPage } from "@/pages/XtudyMarketProductPage";
+import { XtudyMarketRegisterPage } from "@/pages/XtudyMarketRegisterPage";
 import { ContentDbManageRoute, ProtectedRoute, SuperAdminRoute } from "@/components/ProtectedRoute";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { ClassroomListPage } from "@/pages/classroom/ClassroomListPage";
@@ -54,6 +59,25 @@ export default function App() {
         element={
           <SuperAdminRoute>
             <VideoCatalogRegisterPage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route path="/digital-market" element={<DigitalMarketPage />} />
+      <Route
+        path="/digital-market/register"
+        element={
+          <SuperAdminRoute>
+            <DigitalMarketRegisterPage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route path="/xtudy-market" element={<XtudyMarketPage />} />
+      <Route path="/xtudy-market/p/:id" element={<XtudyMarketProductPage />} />
+      <Route
+        path="/xtudy-market/register"
+        element={
+          <SuperAdminRoute>
+            <XtudyMarketRegisterPage />
           </SuperAdminRoute>
         }
       />

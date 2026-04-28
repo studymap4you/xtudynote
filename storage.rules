@@ -168,6 +168,30 @@ service firebase.storage {
       allow delete: if isActiveSuperAdmin() && request.auth.uid == uid;
     }
 
+    /** 디지털마켓 상품 이미지 — 마스터만 업로드, 공개 읽기 */
+    match /digital_market_images/{uid}/{allPaths=**} {
+      allow create, update: if isActiveSuperAdmin()
+        && request.auth.uid == uid
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow read: if true;
+
+      allow delete: if isActiveSuperAdmin() && request.auth.uid == uid;
+    }
+
+    /** 엑스터디마켓 상품 이미지 — 마스터만 업로드, 공개 읽기 */
+    match /xtudy_market_images/{uid}/{allPaths=**} {
+      allow create, update: if isActiveSuperAdmin()
+        && request.auth.uid == uid
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow read: if true;
+
+      allow delete: if isActiveSuperAdmin() && request.auth.uid == uid;
+    }
+
     /** 홈 전체 배경 — 이미지 10MB·동영상 40MB 이하, 공개 읽기 */
     match /site_assets/landing_page_bg/{allPaths=**} {
       allow create, update: if isActiveSuperAdmin()

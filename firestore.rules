@@ -461,6 +461,97 @@ service cloud.firestore {
       allow delete: if isActiveSuperAdmin();
     }
 
+    /** 디지털마켓 — 공개 카드, 마스터만 등록 (/digital-market) */
+    match /digital_market_products/{docId} {
+      allow read: if true;
+
+      allow create: if isActiveSuperAdmin()
+        && request.auth.uid == request.resource.data.createdBy
+        && request.resource.data.keys().hasAll([
+          'title',
+          'summary',
+          'descriptionHtml',
+          'imageUrl',
+          'purchaseUrl',
+          'fulfillmentType',
+          'createdAt',
+          'createdBy',
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 240
+        && request.resource.data.summary is string
+        && request.resource.data.summary.size() <= 2000
+        && request.resource.data.descriptionHtml is string
+        && request.resource.data.descriptionHtml.size() <= 120000
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.size() > 8
+        && request.resource.data.imageUrl.size() <= 2048
+        && request.resource.data.imageUrl.matches('https?://.*')
+        && request.resource.data.purchaseUrl is string
+        && request.resource.data.purchaseUrl.size() > 8
+        && request.resource.data.purchaseUrl.size() <= 2048
+        && request.resource.data.purchaseUrl.matches('https?://.*')
+        && request.resource.data.fulfillmentType in ['download', 'email']
+        && request.resource.data.createdBy is string;
+
+      allow update: if isActiveSuperAdmin()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 240
+        && request.resource.data.summary is string
+        && request.resource.data.summary.size() <= 2000
+        && request.resource.data.descriptionHtml is string
+        && request.resource.data.descriptionHtml.size() <= 120000
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.matches('https?://.*')
+        && request.resource.data.purchaseUrl is string
+        && request.resource.data.purchaseUrl.matches('https?://.*')
+        && request.resource.data.fulfillmentType in ['download', 'email'];
+
+      allow delete: if isActiveSuperAdmin();
+    }
+
+    /** 엑스터디마켓 — 공개 상세, 마스터만 등록 (/xtudy-market) */
+    match /xtudy_market_products/{docId} {
+      allow read: if true;
+
+      allow create: if isActiveSuperAdmin()
+        && request.auth.uid == request.resource.data.createdBy
+        && request.resource.data.keys().hasAll([
+          'title',
+          'detailHtml',
+          'imageUrl',
+          'purchaseUrl',
+          'createdAt',
+          'createdBy',
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 240
+        && request.resource.data.detailHtml is string
+        && request.resource.data.detailHtml.size() <= 200000
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.matches('https?://.*')
+        && request.resource.data.purchaseUrl is string
+        && request.resource.data.purchaseUrl.matches('https?://.*')
+        && request.resource.data.createdBy is string;
+
+      allow update: if isActiveSuperAdmin()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.detailHtml is string
+        && request.resource.data.detailHtml.size() <= 200000
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.matches('https?://.*')
+        && request.resource.data.purchaseUrl is string
+        && request.resource.data.purchaseUrl.matches('https?://.*');
+
+      allow delete: if isActiveSuperAdmin();
+    }
+
     /** AI 시험지 — 링크 공개 + 강의실 배포 시 해당 강의실 멤버 읽기 */
     match /ai_exams/{examId} {
       allow read: if resource.data.visibility == 'link'
