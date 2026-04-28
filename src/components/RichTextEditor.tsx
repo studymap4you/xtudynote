@@ -18,6 +18,10 @@ import { Underline } from "@tiptap/extension-underline";
 import { uploadEditorImageWithProgress } from "@/lib/editorUploads";
 import { escapeHtmlAttr, escapeHtmlText } from "@/lib/richTextUtils";
 import { RichTextImageLayoutDialog, type RichTextImageLayoutChoice } from "@/components/rich-text/RichTextImageLayoutDialog";
+import {
+  RichTextImageUploadStatusDialog,
+  type RichTextImageUploadUiState,
+} from "@/components/rich-text/RichTextImageUploadStatusDialog";
 import { RichImageSliderExtension } from "@/components/rich-text/richImageSliderExtension";
 import "@/components/rich-text/rich-text.css";
 
@@ -43,6 +47,14 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 function looksLikeImageFile(f: File): boolean {
   if (f.type.startsWith("image/")) return true;
   return /\.(jpe?g|png|gif|webp|avif|bmp|svg|heic|heif)$/i.test(f.name);
+}
+
+/** 여러 파일 순차 업로드 시 전체 진행률(0–100) */
+function combineUploadPercent(done: number, total: number, filePercent: number): number {
+  if (total <= 0) return 0;
+  const base = (done / total) * 100;
+  const slice = (filePercent / 100) * (1 / total) * 100;
+  return Math.min(100, Math.round(base + slice));
 }
 
 function normalizeHtml(s: string): string {
@@ -324,6 +336,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
   const fileInputRef = useRef<HTMLInputElement>(null);
   const afterUploadUrlsRef = useRef<(urls: string[]) => void>(() => {});
   const [layoutDialogUrls, setLayoutDialogUrls] = useState<string[] | null>(null);
+  const [imageUploadUi, setImageUploadUi] = useState<RichTextImageUploadUiState>({ kind: "closed" });
+  const setImageUploadUiRef = useRef(setImageUploadUi);
+  setImageUploadUiRef.current = setImageUploadUi;
 
   const editor = useEditor(
     {
@@ -383,36 +398,49 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
           if (!dt?.files?.length || !userId) return false;
           const images = Array.from(dt.files).filter(looksLikeImageFile);
           if (!images.length) return false;
+          for (const file of images) {
+            if (file.size > MAX_IMAGE_BYTES) {
+              event.preventDefault();
+              setImageUploadUiRef.current({
+                kind: "error",
+                message: `이미지는 ${MAX_IMAGE_BYTES / (1024 * 1024)}MB 이하만 가능합니다: ${file.name}`,
+              });
+              return true;
+            }
+          }
           event.preventDefault();
           void (async () => {
+            setImageUploadUiRef.current({ kind: "uploading", percent: 0 });
             const ed = editorRef.current;
-            if (!ed) return;
+            if (!ed) {
+              setImageUploadUiRef.current({ kind: "closed" });
+              return;
+            }
             const pos =
               view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? ed.state.selection.from;
             ed.chain().focus().setTextSelection(pos).run();
             const urls: string[] = [];
             let done = 0;
-            for (const file of images) {
-              if (file.size > MAX_IMAGE_BYTES) {
-                window.alert(`이미지는 ${MAX_IMAGE_BYTES / (1024 * 1024)}MB 이하만 가능합니다.`);
-                continue;
-              }
-              try {
+            try {
+              for (const file of images) {
                 const url = await uploadEditorImageWithProgress(userId, file, (p) => {
-                  if (p == null) return;
-                  const n = images.length;
-                  const base = (done / n) * 100;
-                  const slice = (p / 100) * (1 / n) * 100;
-                  onUploadProgress?.(Math.min(100, Math.round(base + slice)));
+                  const pct = combineUploadPercent(done, images.length, p);
+                  setImageUploadUiRef.current({ kind: "uploading", percent: pct });
+                  onUploadProgress?.(pct);
                 });
                 urls.push(url);
                 done++;
-              } catch (e) {
-                window.alert(e instanceof Error ? e.message : "이미지 업로드에 실패했습니다.");
               }
+              onUploadProgress?.(null);
+              setImageUploadUiRef.current({ kind: "closed" });
+              afterUploadUrlsRef.current(urls);
+            } catch (e) {
+              onUploadProgress?.(null);
+              setImageUploadUiRef.current({
+                kind: "error",
+                message: e instanceof Error ? e.message : "이미지 업로드에 실패했습니다.",
+              });
             }
-            onUploadProgress?.(null);
-            afterUploadUrlsRef.current(urls);
           })();
           return true;
         },
@@ -422,32 +450,48 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
           if (!items?.length) return false;
           const imageItems = Array.from(items).filter((it) => it.type.startsWith("image/"));
           if (!imageItems.length) return false;
+          const rawFiles = imageItems.map((it) => it.getAsFile()).filter((f): f is File => !!f);
+          const tooBig = rawFiles.find((f) => f.size > MAX_IMAGE_BYTES);
+          if (tooBig) {
+            event.preventDefault();
+            setImageUploadUiRef.current({
+              kind: "error",
+              message: `이미지는 ${MAX_IMAGE_BYTES / (1024 * 1024)}MB 이하만 가능합니다.`,
+            });
+            return true;
+          }
+          const toUpload = rawFiles.filter((f) => f.size <= MAX_IMAGE_BYTES);
+          if (!toUpload.length) return false;
           event.preventDefault();
           void (async () => {
+            setImageUploadUiRef.current({ kind: "uploading", percent: 0 });
             const ed = editorRef.current;
-            if (!ed) return;
+            if (!ed) {
+              setImageUploadUiRef.current({ kind: "closed" });
+              return;
+            }
             const urls: string[] = [];
             let done = 0;
-            const toUpload = imageItems
-              .map((it) => it.getAsFile())
-              .filter((f): f is File => !!f && f.size <= MAX_IMAGE_BYTES);
-            for (const file of toUpload) {
-              try {
+            try {
+              for (const file of toUpload) {
                 const url = await uploadEditorImageWithProgress(userId, file, (p) => {
-                  if (p == null) return;
-                  const n = Math.max(1, toUpload.length);
-                  const base = (done / n) * 100;
-                  const slice = (p / 100) * (1 / n) * 100;
-                  onUploadProgress?.(Math.min(100, Math.round(base + slice)));
+                  const pct = combineUploadPercent(done, toUpload.length, p);
+                  setImageUploadUiRef.current({ kind: "uploading", percent: pct });
+                  onUploadProgress?.(pct);
                 });
                 urls.push(url);
                 done++;
-              } catch (e) {
-                window.alert(e instanceof Error ? e.message : "붙여넣기 이미지 업로드에 실패했습니다.");
               }
+              onUploadProgress?.(null);
+              setImageUploadUiRef.current({ kind: "closed" });
+              afterUploadUrlsRef.current(urls);
+            } catch (e) {
+              onUploadProgress?.(null);
+              setImageUploadUiRef.current({
+                kind: "error",
+                message: e instanceof Error ? e.message : "붙여넣기 이미지 업로드에 실패했습니다.",
+              });
             }
-            onUploadProgress?.(null);
-            afterUploadUrlsRef.current(urls);
           })();
           return true;
         },
@@ -488,25 +532,28 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
         return;
       }
     }
+    setImageUploadUi({ kind: "uploading", percent: 0 });
     const urls: string[] = [];
     let done = 0;
     try {
       for (const file of files) {
         const url = await uploadEditorImageWithProgress(userId, file, (p) => {
-          if (p == null) return;
-          const n = files.length;
-          const base = (done / n) * 100;
-          const slice = (p / 100) * (1 / n) * 100;
-          onUploadProgress?.(Math.min(100, Math.round(base + slice)));
+          const pct = combineUploadPercent(done, files.length, p);
+          setImageUploadUi({ kind: "uploading", percent: pct });
+          onUploadProgress?.(pct);
         });
         urls.push(url);
         done++;
       }
       onUploadProgress?.(null);
+      setImageUploadUi({ kind: "closed" });
       offerUrlsAfterUpload(editorRef.current, urls, setLayoutDialogUrls);
     } catch (err) {
       onUploadProgress?.(null);
-      window.alert(err instanceof Error ? err.message : "이미지 업로드에 실패했습니다.");
+      setImageUploadUi({
+        kind: "error",
+        message: err instanceof Error ? err.message : "이미지 업로드에 실패했습니다.",
+      });
     }
   };
 
@@ -563,6 +610,10 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function R
       id={id}
       className={`rich-text-editor${compact ? " rich-text-editor--compact" : ""}${disabled ? " rich-text-editor--disabled" : ""}`}
     >
+      <RichTextImageUploadStatusDialog
+        state={imageUploadUi}
+        onDismissError={() => setImageUploadUi({ kind: "closed" })}
+      />
       <RichTextImageLayoutDialog
         open={layoutDialogUrls !== null}
         onOpenChange={(open) => {
