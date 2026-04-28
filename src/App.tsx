@@ -20,6 +20,7 @@ import { TeacherStatsPage } from "@/pages/teacher/TeacherStatsPage";
 import { MaterialRegisterPage } from "@/pages/MaterialRegisterPage";
 import { VideoLectureRegisterPage } from "@/pages/VideoLectureRegisterPage";
 import { VideoCatalogPage } from "@/pages/VideoCatalogPage";
+import { VideoCatalogRegisterPage } from "@/pages/VideoCatalogRegisterPage";
 import { ContentDbManageRoute, ProtectedRoute, SuperAdminRoute } from "@/components/ProtectedRoute";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { ClassroomListPage } from "@/pages/classroom/ClassroomListPage";
@@ -47,6 +48,14 @@ export default function App() {
       <Route path="/homework" element={<HomeworkSearchPage />} />
       <Route path="/logic-dashboard" element={<LogicDashboardPage />} />
       <Route path="/videos" element={<VideoCatalogPage />} />
+      <Route
+        path="/videos/register"
+        element={
+          <SuperAdminRoute>
+            <VideoCatalogRegisterPage />
+          </SuperAdminRoute>
+        }
+      />
       <Route path="/homework/:code" element={<HomeworkStudentPage />} />
       <Route path="/worksheet/outreach" element={<ExternalWorksheetOutreachPage />} />
       <Route path="/worksheet/create" element={<WorksheetPdfCreatePage />} />

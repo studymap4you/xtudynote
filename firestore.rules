@@ -394,11 +394,11 @@ service cloud.firestore {
       allow write: if isActiveSuperAdmin();
     }
 
-    /** 공개 동영상 링크 목록 (랜딩 /videos) */
+    /** 공개 동영상 링크 목록 (/videos) — 강의실 자료와 별도, 등록·수정·삭제는 마스터만 */
     match /video_catalog/{vid} {
       allow read: if true;
 
-      allow create: if (isActiveSuperAdmin() || isActiveTeacher())
+      allow create: if isActiveSuperAdmin()
         && request.auth.uid == request.resource.data.createdBy
         && request.resource.data.keys().hasAll(['title', 'watchUrl', 'createdAt', 'createdBy'])
         && request.resource.data.title is string
@@ -415,30 +415,44 @@ service cloud.firestore {
             request.resource.data.description is string
             && request.resource.data.description.size() <= 2000
           )
-        );
-
-      allow update: if isActiveSuperAdmin()
-        || (
-          isActiveTeacher()
-          && resource.data.createdBy == request.auth.uid
-          && request.resource.data.createdBy == resource.data.createdBy
-          && request.resource.data.title is string
-          && request.resource.data.title.size() > 0
-          && request.resource.data.title.size() <= 240
-          && request.resource.data.watchUrl is string
-          && request.resource.data.watchUrl.size() > 8
-          && request.resource.data.watchUrl.matches('https?://.*')
-          && (
-            !('description' in request.resource.data)
-            || (
-              request.resource.data.description is string
-              && request.resource.data.description.size() <= 2000
-            )
+        )
+        && (
+          !('thumbnailUrl' in request.resource.data)
+          || (
+            request.resource.data.thumbnailUrl is string
+            && request.resource.data.thumbnailUrl.size() > 8
+            && request.resource.data.thumbnailUrl.size() <= 2048
+            && request.resource.data.thumbnailUrl.matches('https?://.*')
           )
         );
 
-      allow delete: if isActiveSuperAdmin()
-        || (isActiveTeacher() && resource.data.createdBy == request.auth.uid);
+      allow update: if isActiveSuperAdmin()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 240
+        && request.resource.data.watchUrl is string
+        && request.resource.data.watchUrl.size() > 8
+        && request.resource.data.watchUrl.size() <= 2048
+        && request.resource.data.watchUrl.matches('https?://.*')
+        && (
+          !('description' in request.resource.data)
+          || (
+            request.resource.data.description is string
+            && request.resource.data.description.size() <= 2000
+          )
+        )
+        && (
+          !('thumbnailUrl' in request.resource.data)
+          || (
+            request.resource.data.thumbnailUrl is string
+            && request.resource.data.thumbnailUrl.size() > 8
+            && request.resource.data.thumbnailUrl.size() <= 2048
+            && request.resource.data.thumbnailUrl.matches('https?://.*')
+          )
+        );
+
+      allow delete: if isActiveSuperAdmin();
     }
 
     /** AI 시험지 — 링크 공개 + 강의실 배포 시 해당 강의실 멤버 읽기 */

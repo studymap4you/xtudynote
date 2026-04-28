@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PublicShell } from "@/components/PublicShell";
 import { useAuth } from "@/contexts/AuthContext";
-import { addVideoCatalogEntry, subscribeVideoCatalog } from "@/lib/videoCatalog/videoCatalogApi";
+import { subscribeVideoCatalog } from "@/lib/videoCatalog/videoCatalogApi";
 import type { VideoCatalogDoc } from "@/types/videoCatalog";
 import styles from "@/pages/videoCatalog.module.css";
 
@@ -16,24 +16,10 @@ function formatCreated(at: unknown): string {
   return "";
 }
 
-function isHttpUrl(s: string): boolean {
-  try {
-    const u = new URL(s);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 export function VideoCatalogPage() {
-  const { firebaseUser, canManageMaterials } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const [rows, setRows] = useState<{ id: string; data: VideoCatalogDoc }[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [watchUrl, setWatchUrl] = useState("");
-  const [description, setDescription] = useState("");
-  const [formBusy, setFormBusy] = useState(false);
-  const [formMsg, setFormMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = subscribeVideoCatalog(
@@ -46,128 +32,63 @@ export function VideoCatalogPage() {
     return () => unsub();
   }, []);
 
-  const onAdd = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!firebaseUser?.uid || !canManageMaterials) return;
-      const t = title.trim();
-      const u = watchUrl.trim();
-      if (!t) {
-        setFormMsg("제목을 입력해 주세요.");
-        return;
-      }
-      if (!isHttpUrl(u)) {
-        setFormMsg("시청 링크는 http(s):// 로 시작하는 전체 URL이어야 합니다.");
-        return;
-      }
-      setFormBusy(true);
-      setFormMsg(null);
-      try {
-        await addVideoCatalogEntry({
-          title: t,
-          watchUrl: u,
-          description: description.trim() || undefined,
-          createdBy: firebaseUser.uid,
-        });
-        setTitle("");
-        setWatchUrl("");
-        setDescription("");
-        setFormMsg("등록되었습니다.");
-      } catch (err) {
-        setFormMsg(err instanceof Error ? err.message : String(err));
-      } finally {
-        setFormBusy(false);
-      }
-    },
-    [firebaseUser?.uid, canManageMaterials, title, watchUrl, description],
-  );
-
   return (
     <PublicShell light>
-      <main className={styles.wrap}>
-        <div className={styles.head}>
-          <div className={styles.titleBlock}>
-            <h1>동영상 강의</h1>
+      <main className={styles.catalogMain}>
+        <header className={styles.catalogTop}>
+          <div className={styles.catalogTopText}>
+            <h1 className={styles.catalogH1}>동영상 강의</h1>
             <p className={styles.lead}>
-              등록된 강의 영상 링크를 눌러 새 창에서 시청합니다. 아래 목록은 실시간으로 갱신됩니다.
+              카드를 누르면 새 창에서 시청 페이지로 이동합니다. 목록은 실시간으로 갱신됩니다. 이 영상들은 강의실
+              자료와 별도로 운영됩니다.
             </p>
           </div>
-          {canManageMaterials && firebaseUser ? (
-            <aside className={styles.registerCard} aria-label="새 동영상 등록">
-              <h2>새 동영상 등록</h2>
-              <form onSubmit={(ev) => void onAdd(ev)}>
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor="vc-title">
-                    제목
-                  </label>
-                  <input
-                    id="vc-title"
-                    className={styles.input}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    maxLength={240}
-                    placeholder="예: 수능 영어 독해 전략 1강"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor="vc-url">
-                    시청 링크 (URL)
-                  </label>
-                  <input
-                    id="vc-url"
-                    className={styles.input}
-                    value={watchUrl}
-                    onChange={(e) => setWatchUrl(e.target.value)}
-                    maxLength={2048}
-                    placeholder="https://…"
-                    inputMode="url"
-                    autoComplete="url"
-                  />
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor="vc-desc">
-                    설명 (선택)
-                  </label>
-                  <textarea
-                    id="vc-desc"
-                    className={styles.textarea}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    maxLength={2000}
-                    placeholder="한 줄 소개"
-                  />
-                </div>
-                <button type="submit" className="btn btn--primary btn--stack" disabled={formBusy}>
-                  {formBusy ? "등록 중…" : "등록"}
-                </button>
-                {formMsg ? (
-                  <p className={formMsg.includes("등록되") ? styles.ok : styles.err}>{formMsg}</p>
-                ) : null}
-              </form>
-            </aside>
-          ) : (
-            <p className={styles.lead} style={{ maxWidth: "14rem", fontSize: "0.82rem" }}>
-              동영상을 추가하려면 <Link to="/login">로그인</Link> 후 교육자·마스터 계정이 필요합니다.
-            </p>
-          )}
-        </div>
+          {isSuperAdmin ? (
+            <Link to="/videos/register" className={`btn btn--primary ${styles.catalogRegisterBtn}`}>
+              동영상 등록
+            </Link>
+          ) : null}
+        </header>
 
         {loadErr ? <p className={styles.err}>{loadErr}</p> : null}
 
         {rows.length === 0 && !loadErr ? (
-          <p style={{ color: "#64748b" }}>아직 등록된 동영상이 없습니다.</p>
+          <div className={styles.emptyState}>
+            <span className={styles.emptyVisual} aria-hidden />
+            <p className={styles.emptyText}>아직 등록된 동영상이 없습니다.</p>
+          </div>
         ) : (
-          <ul className={styles.list}>
+          <ul className={styles.cardGrid}>
             {rows.map(({ id, data }) => (
-              <li key={id} className={styles.row}>
-                <h2 className={styles.rowTitle}>
-                  <a href={data.watchUrl} target="_blank" rel="noopener noreferrer">
-                    {data.title}
-                  </a>
-                </h2>
-                <p className={styles.rowMeta}>{formatCreated(data.createdAt)}</p>
-                {data.description ? <p className={styles.rowDesc}>{data.description}</p> : null}
+              <li key={id} className={styles.cardCell}>
+                <a
+                  className={styles.videoCard}
+                  href={data.watchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <div className={styles.videoCardThumb}>
+                    {data.thumbnailUrl ? (
+                      <img
+                        src={data.thumbnailUrl}
+                        alt={data.title}
+                        className={styles.videoCardImg}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <div className={styles.videoCardPlaceholder} aria-hidden>
+                        <span className={styles.videoCardPlay} />
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.videoCardBody}>
+                    <h2 className={styles.videoCardTitle}>{data.title}</h2>
+                    <p className={styles.videoCardMeta}>{formatCreated(data.createdAt)}</p>
+                    {data.description ? <p className={styles.videoCardDesc}>{data.description}</p> : null}
+                    <span className={styles.videoCardCta}>새 창에서 시청</span>
+                  </div>
+                </a>
               </li>
             ))}
           </ul>

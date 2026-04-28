@@ -8,10 +8,32 @@ import {
   serverTimestamp,
   type Unsubscribe,
 } from "firebase/firestore";
-import { db } from "@/firebase/config";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { db, storage } from "@/firebase/config";
 import type { VideoCatalogDoc } from "@/types/videoCatalog";
 
 const COL = "video_catalog";
+
+const THUMB_MAX_BYTES = 2 * 1024 * 1024;
+
+function safeThumbFileName(raw: string): string {
+  const base = raw.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80);
+  return base || "thumb.jpg";
+}
+
+/** 마스터 전용 — Storage `video_catalog_thumbnails/{uid}/…` */
+export async function uploadVideoCatalogThumbnail(uid: string, file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("썸네일은 이미지 파일만 업로드할 수 있습니다.");
+  }
+  if (file.size > THUMB_MAX_BYTES) {
+    throw new Error("썸네일은 2MB 이하로 올려 주세요.");
+  }
+  const name = `${Date.now()}_${safeThumbFileName(file.name)}`;
+  const sref = ref(storage, `video_catalog_thumbnails/${uid}/${name}`);
+  await uploadBytes(sref, file, { contentType: file.type });
+  return getDownloadURL(sref);
+}
 
 export function subscribeVideoCatalog(
   onData: (rows: { id: string; data: VideoCatalogDoc }[]) => void,
@@ -32,15 +54,18 @@ export function subscribeVideoCatalog(
 export async function addVideoCatalogEntry(input: {
   title: string;
   watchUrl: string;
+  thumbnailUrl?: string;
   description?: string;
   createdBy: string;
 }): Promise<string> {
-  const ref = await addDoc(collection(db, COL), {
+  const thumb = input.thumbnailUrl?.trim();
+  const docRef = await addDoc(collection(db, COL), {
     title: input.title.trim(),
     watchUrl: input.watchUrl.trim(),
+    ...(thumb ? { thumbnailUrl: thumb } : {}),
     ...(input.description?.trim() ? { description: input.description.trim() } : {}),
     createdBy: input.createdBy,
     createdAt: serverTimestamp(),
   });
-  return ref.id;
+  return docRef.id;
 }
