@@ -10,7 +10,9 @@ const MM = 2.83465;
 const PAGE_W = 595.28;
 const PAGE_H = 841.89;
 
-/** 상하좌우 30mm — 인쇄용 문제지와 동일하게 맞춤 */
+/**
+ * 상하좌우 30mm (pdf-lib 좌표계). Puppeteer 미사용 — 레이아웃·분페이지는 본 파일에서 계산.
+ */
 const MARGIN_L = 30 * MM;
 const MARGIN_R = 30 * MM;
 const MARGIN_TOP = 30 * MM;
@@ -116,8 +118,9 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
 
   const contentWidth = PAGE_W - MARGIN_L - MARGIN_R;
 
-  const footerBand = 20;
-  const minY = MARGIN_BOT + footerBand + 12;
+  /** 바닥글·페이지번호 영역 위로 본문이 올라오지 않게 여유 */
+  const footerBand = 28;
+  const minY = MARGIN_BOT + footerBand + 14;
   const blue = rgb(0.145, 0.388, 0.922);
   const muted = rgb(0.42, 0.45, 0.48);
 
@@ -227,6 +230,15 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
     }
   };
 
+  /** 한 줄(또는 한 단위) 그리기 직전 — 페이지 끝에서 잘리지 않도록 */
+  const ensureLine = (lh: number): void => {
+    if (y - lh < minY) {
+      const n = openPage();
+      page = n.pg;
+      y = n.y;
+    }
+  };
+
   const drawHeading = (text: string): void => {
     ensureSpace(H2_PT + 14);
     page.drawText(text, {
@@ -242,8 +254,8 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
   const drawParagraph = (label: string, body: string): void => {
     const lh = BODY_LH;
     const lines = wrapLines(`${label}${body}`, fontReg, BODY_PT, contentWidth);
-    ensureSpace(lines.length * lh + 12);
     for (const ln of lines) {
+      ensureLine(lh + 4);
       page.drawText(ln || " ", {
         x: MARGIN_L,
         y: y - BODY_PT,
@@ -294,7 +306,13 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
       });
     };
 
-    const tcOpenPage = (): void => {
+    const tcGetY = (side: "L" | "R"): number => (side === "L" ? tc.yL : tc.yR);
+    const tcSetY = (side: "L" | "R", v: number): void => {
+      if (side === "L") tc.yL = v;
+      else tc.yR = v;
+    };
+
+    const tcNewPage = (): void => {
       drawVertOnPage(tc.pg, tc.topY);
       const n = openPage();
       tc.pg = n.pg;
@@ -303,44 +321,39 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
       tc.topY = n.y;
     };
 
-    const tcEnsure = (need: number): void => {
-      while (Math.max(tc.yL, tc.yR) - need < minY) {
-        tcOpenPage();
-      }
+    /** 2열: 줄 단위로만 페이지 넘김 — 블록 전체가 한 페이지보다 크면 여러 페이지에 이어서 그림 */
+    const tcEnsureLine = (side: "L" | "R", lh: number): void => {
+      if (tcGetY(side) - lh >= minY) return;
+      tcNewPage();
     };
 
-    const tcPick = (need: number): "L" | "R" => {
-      tcEnsure(need);
-      const canL = tc.yL - need >= minY;
-      const canR = tc.yR - need >= minY;
-      if (!canL) return "R";
-      if (!canR) return "L";
-      return tc.yL >= tc.yR ? "L" : "R";
-    };
+    const tcPickPreferBalanced = (): "L" | "R" => (tc.yL >= tc.yR ? "L" : "R");
 
     const tcDrawHeading = (text: string): void => {
-      const need = H2_PT + 14;
-      const side = tcPick(need);
+      const side = tcPickPreferBalanced();
       const xb = side === "L" ? xL : xR;
-      let yy = side === "L" ? tc.yL : tc.yR;
-      tc.pg.drawText(text, {
-        x: xb,
-        y: yy - H2_PT,
-        size: H2_PT,
-        font: fontBold,
-        color: blue,
-      });
-      yy -= H2_PT + 10;
-      if (side === "L") tc.yL = yy;
-      else tc.yR = yy;
+      const headLines = wrapLines(text, fontBold, H2_PT, colW);
+      for (const ln of headLines) {
+        tcEnsureLine(side, H2_PT + 8);
+        const yy = tcGetY(side);
+        tc.pg.drawText(ln, {
+          x: xb,
+          y: yy - H2_PT,
+          size: H2_PT,
+          font: fontBold,
+          color: blue,
+        });
+        tcSetY(side, yy - H2_PT - 6);
+      }
+      tcSetY(side, tcGetY(side) - 4);
     };
 
     const tcDrawMuted = (text: string): void => {
       const fs = BODY_PT * 0.88;
-      const need = BODY_LH + 4;
-      const side = tcPick(need);
+      const side = tcPickPreferBalanced();
       const xb = side === "L" ? xL : xR;
-      let yy = side === "L" ? tc.yL : tc.yR;
+      tcEnsureLine(side, BODY_LH + 4);
+      const yy = tcGetY(side);
       tc.pg.drawText(text, {
         x: xb,
         y: yy - fs,
@@ -348,18 +361,16 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
         font: fontReg,
         color: muted,
       });
-      yy -= BODY_LH;
-      if (side === "L") tc.yL = yy;
-      else tc.yR = yy;
+      tcSetY(side, yy - BODY_LH);
     };
 
     const tcDrawParagraph = (label: string, body: string): void => {
       const lines = wrapLines(`${label}${body}`, fontReg, BODY_PT, colW - 2);
-      const need = lines.length * BODY_LH + 10;
-      const side = tcPick(need);
+      const side = tcPickPreferBalanced();
       const xb = side === "L" ? xL : xR;
-      let yy = side === "L" ? tc.yL : tc.yR;
       for (const ln of lines) {
+        tcEnsureLine(side, BODY_LH + 4);
+        const yy = tcGetY(side);
         tc.pg.drawText(ln || " ", {
           x: xb,
           y: yy - BODY_PT,
@@ -367,11 +378,9 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
           font: fontReg,
           color: rgb(0.15, 0.18, 0.22),
         });
-        yy -= BODY_LH;
+        tcSetY(side, yy - BODY_LH);
       }
-      yy -= 6;
-      if (side === "L") tc.yL = yy;
-      else tc.yR = yy;
+      tcSetY(side, tcGetY(side) - 6);
     };
 
     const tcVocabBoxes = (lineFor: (idx: number) => string, mutedHint: string, heading: string): void => {
@@ -381,11 +390,11 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
         const line = lineFor(idx);
         const lines = wrapLines(line, fontReg, BODY_PT, colW - 4);
         const boxH = 28;
-        const need = lines.length * BODY_LH + boxH + 14;
-        const side = tcPick(need);
+        const side = tcPickPreferBalanced();
         const xb = side === "L" ? xL : xR;
-        let yy = side === "L" ? tc.yL : tc.yR;
         for (const ln of lines) {
+          tcEnsureLine(side, BODY_LH + 4);
+          const yy = tcGetY(side);
           tc.pg.drawText(ln, {
             x: xb,
             y: yy - BODY_PT,
@@ -393,9 +402,11 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
             font: fontReg,
             color: rgb(0.12, 0.14, 0.18),
           });
-          yy -= BODY_LH;
+          tcSetY(side, yy - BODY_LH);
         }
-        yy -= 4;
+        tcSetY(side, tcGetY(side) - 4);
+        tcEnsureLine(side, boxH + 10);
+        let yy = tcGetY(side);
         tc.pg.drawRectangle({
           x: xb,
           y: yy - boxH,
@@ -404,9 +415,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
           borderColor: rgb(0.82, 0.85, 0.88),
           borderWidth: 0.45,
         });
-        yy -= boxH + 8;
-        if (side === "L") tc.yL = yy;
-        else tc.yR = yy;
+        tcSetY(side, yy - boxH - 8);
       });
     };
 
@@ -427,11 +436,13 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
       const headLines = wrapLines(head, fontBold, BODY_PT, colW);
       const enc = wrapLines(s.english, fontReg, BODY_PT * 0.92, colW);
       const answerH = 64;
-      const need = headLines.length * BODY_LH * 1.1 + enc.length * BODY_LH + answerH + 20;
-      const side = tcPick(need);
+      const side = tcPickPreferBalanced();
       const xb = side === "L" ? xL : xR;
-      let yy = side === "L" ? tc.yL : tc.yR;
+      const lhHead = BODY_LH * 1.05;
+      const lhEnc = BODY_LH * 0.95;
       for (const ln of headLines) {
+        tcEnsureLine(side, lhHead + 4);
+        const yy = tcGetY(side);
         tc.pg.drawText(ln, {
           x: xb,
           y: yy - BODY_PT,
@@ -439,9 +450,11 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
           font: fontBold,
           color: rgb(0.12, 0.14, 0.18),
         });
-        yy -= BODY_LH * 1.05;
+        tcSetY(side, yy - lhHead);
       }
       for (const ln of enc) {
+        tcEnsureLine(side, lhEnc + 4);
+        const yy = tcGetY(side);
         tc.pg.drawText(ln, {
           x: xb,
           y: yy - BODY_PT * 0.92,
@@ -449,9 +462,11 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
           font: fontReg,
           color: rgb(0.25, 0.28, 0.32),
         });
-        yy -= BODY_LH * 0.95;
+        tcSetY(side, yy - lhEnc);
       }
-      yy -= 4;
+      tcSetY(side, tcGetY(side) - 4);
+      tcEnsureLine(side, answerH + 12);
+      let yy = tcGetY(side);
       tc.pg.drawRectangle({
         x: xb,
         y: yy - answerH,
@@ -460,9 +475,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
         borderColor: rgb(0.82, 0.85, 0.88),
         borderWidth: 0.5,
       });
-      yy -= answerH + 12;
-      if (side === "L") tc.yL = yy;
-      else tc.yR = yy;
+      tcSetY(side, yy - answerH - 12);
     });
 
     tcDrawHeading("D. 영작 (한국어 해석 → 영문 전체)");
@@ -471,11 +484,13 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
       const headLines = wrapLines(head, fontBold, BODY_PT, colW);
       const ko = wrapLines(s.koreanFull, fontReg, BODY_PT * 0.92, colW);
       const ah = 58;
-      const need = headLines.length * BODY_LH * 1.1 + ko.length * BODY_LH + ah + 20;
-      const side = tcPick(need);
+      const side = tcPickPreferBalanced();
       const xb = side === "L" ? xL : xR;
-      let yy = side === "L" ? tc.yL : tc.yR;
+      const lhHead = BODY_LH * 1.05;
+      const lhKo = BODY_LH * 0.95;
       for (const ln of headLines) {
+        tcEnsureLine(side, lhHead + 4);
+        const yy = tcGetY(side);
         tc.pg.drawText(ln, {
           x: xb,
           y: yy - BODY_PT,
@@ -483,9 +498,11 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
           font: fontBold,
           color: rgb(0.12, 0.14, 0.18),
         });
-        yy -= BODY_LH * 1.05;
+        tcSetY(side, yy - lhHead);
       }
       for (const ln of ko) {
+        tcEnsureLine(side, lhKo + 4);
+        const yy = tcGetY(side);
         tc.pg.drawText(ln, {
           x: xb,
           y: yy - BODY_PT * 0.92,
@@ -493,9 +510,11 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
           font: fontReg,
           color: rgb(0.18, 0.2, 0.24),
         });
-        yy -= BODY_LH * 0.95;
+        tcSetY(side, yy - lhKo);
       }
-      yy -= 4;
+      tcSetY(side, tcGetY(side) - 4);
+      tcEnsureLine(side, ah + 12);
+      const yy = tcGetY(side);
       tc.pg.drawRectangle({
         x: xb,
         y: yy - ah,
@@ -504,9 +523,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
         borderColor: rgb(0.82, 0.85, 0.88),
         borderWidth: 0.5,
       });
-      yy -= ah + 12;
-      if (side === "L") tc.yL = yy;
-      else tc.yR = yy;
+      tcSetY(side, yy - ah - 12);
     });
 
     tcDrawHeading("교사용 · 모범 정답");
@@ -535,7 +552,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
       const line = `${idx + 1}. ${v.word}`;
       const lines = wrapLines(line, fontReg, BODY_PT, contentWidth - 4);
       for (const ln of lines) {
-        ensureSpace(BODY_LH + 6);
+        ensureLine(BODY_LH + 6);
         page.drawText(ln, {
           x: MARGIN_L,
           y: y - BODY_PT,
@@ -545,7 +562,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
         });
         y -= BODY_LH;
       }
-      ensureSpace(36);
+      ensureLine(36);
       page.drawRectangle({
         x: MARGIN_L,
         y: y - 28,
@@ -570,7 +587,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
       const line = `${idx + 1}. ${v.meaning}`;
       const lines = wrapLines(line, fontReg, BODY_PT, contentWidth - 4);
       for (const ln of lines) {
-        ensureSpace(BODY_LH + 6);
+        ensureLine(BODY_LH + 6);
         page.drawText(ln, {
           x: MARGIN_L,
           y: y - BODY_PT,
@@ -580,7 +597,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
         });
         y -= BODY_LH;
       }
-      ensureSpace(36);
+      ensureLine(36);
       page.drawRectangle({
         x: MARGIN_L,
         y: y - 28,
@@ -594,7 +611,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
 
     drawHeading("C. 직독직해 (영문 → 한국어 해석 전체)");
     sentences.forEach((s, idx) => {
-      ensureSpace(BODY_LH * 3);
+      ensureLine(BODY_LH * 3);
       page.drawText(`${idx + 1}. 아래 영문을 한국어로 옮겨 쓰세요.`, {
         x: MARGIN_L,
         y: y - BODY_PT,
@@ -605,7 +622,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
       y -= BODY_LH * 1.2;
       const enc = wrapLines(s.english, fontReg, BODY_PT * 0.92, contentWidth);
       for (const ln of enc) {
-        ensureSpace(BODY_LH);
+        ensureLine(BODY_LH);
         page.drawText(ln, {
           x: MARGIN_L,
           y: y - BODY_PT * 0.92,
@@ -616,7 +633,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
         y -= BODY_LH * 0.95;
       }
       const answerH = 64;
-      ensureSpace(answerH + 8);
+      ensureLine(answerH + 8);
       page.drawRectangle({
         x: MARGIN_L,
         y: y - answerH,
@@ -630,7 +647,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
 
     drawHeading("D. 영작 (한국어 해석 → 영문 전체)");
     sentences.forEach((s, idx) => {
-      ensureSpace(BODY_LH * 4);
+      ensureLine(BODY_LH * 4);
       page.drawText(`${idx + 1}. 아래 한국어를 영어 문장으로 옮겨 쓰세요.`, {
         x: MARGIN_L,
         y: y - BODY_PT,
@@ -641,7 +658,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
       y -= BODY_LH * 1.2;
       const ko = wrapLines(s.koreanFull, fontReg, BODY_PT * 0.92, contentWidth);
       for (const ln of ko) {
-        ensureSpace(BODY_LH);
+        ensureLine(BODY_LH);
         page.drawText(ln, {
           x: MARGIN_L,
           y: y - BODY_PT * 0.92,
@@ -652,7 +669,7 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
         y -= BODY_LH * 0.95;
       }
       const ah = 58;
-      ensureSpace(ah + 8);
+      ensureLine(ah + 8);
       page.drawRectangle({
         x: MARGIN_L,
         y: y - ah,

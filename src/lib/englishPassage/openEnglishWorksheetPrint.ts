@@ -70,10 +70,10 @@ export function openEnglishWorksheetPrint(payload: EnglishWorksheetPrintPayload)
 
   const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${esc(payload.title)}</title>
 <style>
-  /* 인쇄 미리보기에서도 @page 가 무시되는 경우가 있어 body 패딩으로 동일 여백 확보 */
+  /* @page 여백 = 모든 인쇄 페이지 상하좌우 30mm (브라우저가「여백: 없음」이면 사용자 설정이 우선될 수 있음) */
   @page {
     size: A4;
-    margin: 0;
+    margin: 30mm;
   }
   html {
     margin: 0;
@@ -84,7 +84,7 @@ export function openEnglishWorksheetPrint(payload: EnglishWorksheetPrintPayload)
   body {
     box-sizing: border-box;
     margin: 0;
-    padding: 30mm;
+    padding: 0;
     min-height: 100vh;
     font-family: system-ui, "Malgun Gothic", sans-serif;
     color: #111;
@@ -93,7 +93,7 @@ export function openEnglishWorksheetPrint(payload: EnglishWorksheetPrintPayload)
   }
   @media print {
     body {
-      padding: 30mm;
+      padding: 0;
       min-height: auto;
     }
   }
@@ -101,11 +101,11 @@ export function openEnglishWorksheetPrint(payload: EnglishWorksheetPrintPayload)
   .brand { font-size: 9pt; font-weight: 700; letter-spacing: 0.04em; color: #64748b; margin: 0 0 6px; }
   .meta { font-size: 9.5pt; color: #555; margin-bottom: 14px; border-bottom: 2px solid #2563eb; padding-bottom: 8px; }
   h2 { font-size: 11.5pt; color: #2563eb; margin: 16px 0 8px; }
-  .passage { white-space: pre-wrap; background: #f8fafc; padding: 10px; border: 1px solid #e2e8f0; margin-bottom: 12px; font-size: 10pt; }
+  .passage { white-space: pre-wrap; background: #f8fafc; padding: 10px; border: 1px solid #e2e8f0; margin-bottom: 12px; font-size: 10pt; page-break-inside: avoid; }
   .major-rule { border: none; border-top: 2px solid #1e293b; margin: 14px 0 16px; }
   .two-columns { column-count: 2; column-gap: 14px; column-rule: 1.5px solid #64748b; }
   .two-columns h2 { margin-top: 0; }
-  .q { margin-bottom: 10px; }
+  .q { margin-bottom: 10px; page-break-inside: avoid; }
   .n { font-weight: 700; color: #2563eb; }
   .line { display: inline-block; min-width: 180px; border-bottom: 1px solid #334155; }
   .block { margin-bottom: 14px; page-break-inside: avoid; }
