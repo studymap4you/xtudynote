@@ -381,10 +381,16 @@ service cloud.firestore {
         && isClickCountIncrementOnly()
       );
 
-      /** 삭제: 마스터는 전체 — 그 외 활성 계정은 본인 authorId 문서만 */
+      /**
+       * 삭제: 마스터 전체 — 작성자 본인 — 또는 강의실 연동 문서의 담당 선생님(강의실 소유자)
+       */
       allow delete: if isActiveSuperAdmin() || (
         isSignedInActiveAccount()
         && resource.data.authorId == request.auth.uid
+      ) || (
+        isActiveTeacher()
+        && contentHasClassroomId()
+        && ownsClassroom(resource.data.classroomId)
       );
     }
 
@@ -588,6 +594,14 @@ service cloud.firestore {
       allow delete: if isActiveSuperAdmin() || (
         isSignedInActiveAccount()
         && resource.data.authorId == request.auth.uid
+      ) || (
+        isActiveTeacher()
+        && exists(/databases/$(database)/documents/contents/$(resource.data.contentId))
+        && 'classroomId' in get(/databases/$(database)/documents/contents/$(resource.data.contentId)).data
+        && get(/databases/$(database)/documents/contents/$(resource.data.contentId)).data.classroomId is string
+        && ownsClassroom(
+          get(/databases/$(database)/documents/contents/$(resource.data.contentId)).data.classroomId
+        )
       );
     }
 

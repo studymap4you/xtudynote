@@ -27,7 +27,8 @@ export function ThemeMaterialPickPage() {
         </div>
 
         <p className="material-register__notice">
-          강의실과 연결하지 않고 제출합니다. 마스터 검수 후 선택한 테마로 라이브러리에 반영됩니다.
+          홈의「새자료 등록」과 동일한 통합 신청 경로입니다. 강의실 전용 업로드에는 테마가 없으며, 여기서 선택한 테마로
+          마스터 검수 후 라이브러리에 반영됩니다.
         </p>
 
         <section className="theme-material-pick__section" aria-labelledby="theme-pick-h">

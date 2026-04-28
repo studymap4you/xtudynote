@@ -233,9 +233,13 @@ export function MaterialRegisterPage() {
   }, [thumbnailFile]);
 
   useLayoutEffect(() => {
-    if (!themeFromQuery) return;
+    if (!themeFromQuery || classroomIdFromQuery) return;
     setThemes((prev) => (prev.includes(themeFromQuery) ? prev : [...prev, themeFromQuery]));
-  }, [themeFromQuery]);
+  }, [themeFromQuery, classroomIdFromQuery]);
+
+  useEffect(() => {
+    if (classroomIdFromQuery) setThemes([]);
+  }, [classroomIdFromQuery]);
 
   useEffect(() => {
     if (isClassroomTeacherFlow && materialType === "paid") {
@@ -265,7 +269,7 @@ export function MaterialRegisterPage() {
       window.alert("제목·과목·학년·상세 설명은 필수입니다.");
       return;
     }
-    if (themes.length === 0) {
+    if (!classroomIdFromQuery && themes.length === 0) {
       window.alert("테마를 하나 이상 선택해 주세요. (라이브러리 분류에 사용됩니다.)");
       return;
     }
@@ -317,6 +321,8 @@ export function MaterialRegisterPage() {
         return;
       }
     }
+
+    const themesForSubmit = classroomIdFromQuery ? [] : themes;
 
     setSaving(true);
     setUploadPct(0);
@@ -401,7 +407,7 @@ export function MaterialRegisterPage() {
           subject: subject.trim(),
           audienceGrade: audienceGrade.trim(),
           descriptionHtml: description.trim(),
-          themes,
+          themes: themesForSubmit,
           homeworkInstruction: materialType === "homework" ? homeworkInstruction.trim() : null,
           learningMaterialFilePaths,
           referenceMaterialFilePaths,
@@ -450,7 +456,7 @@ export function MaterialRegisterPage() {
         homeworkInstruction: materialType === "homework" ? homeworkInstruction.trim() : null,
         learningMaterialFilePaths,
         referenceMaterialFilePaths,
-        themes,
+        themes: themesForSubmit,
         ...(thumbnailPendingPath ? { thumbnailPendingPath } : {}),
         ...(previewPendingPath && previewUrl ? { previewPendingPath, previewUrl } : {}),
         status: "pending",
@@ -594,10 +600,10 @@ export function MaterialRegisterPage() {
               </Link>
             </div>
             <div className="material-register__theme-gate" role="status">
-              <h2 className="material-register__theme-gate-title">테마별 자료 등록</h2>
+              <h2 className="material-register__theme-gate-title">테마·라이브러리 자료 등록</h2>
               <p className="material-register__theme-gate-lead">
-                강의실과 연결하지 않고, <strong>라이브러리 테마</strong>(수능·어학 등)를 먼저 고른 뒤 통합 신청
-                양식으로 제출합니다. 마스터 검수 후 해당 테마로 공개됩니다.
+                홈 화면 <strong>「새자료 등록」</strong>으로 들어온 뒤, 아래에서 테마를 고르거나 내 강의실이 아닌 통합
+                신청으로 제출합니다. 테마 분류는 이 경로에서만 설정합니다.
               </p>
               <Link to="/material/register/theme" className="btn btn--primary btn--stack">
                 <span className="ui-en">Pick a theme</span>
@@ -616,13 +622,19 @@ export function MaterialRegisterPage() {
                     접수되었습니다. 감사합니다.
                   </p>
                 )}
-                {themeFromQuery ? (
+                {themeFromQuery && !classroomIdFromQuery ? (
                   <p className="material-register__theme-banner">
                     테마별 등록:{" "}
                     <strong>{LEARNING_THEME_OPTIONS.find((o) => o.id === themeFromQuery)?.titleKo}</strong>
                     {isTeacherApproved && !classroomIdFromQuery
                       ? " — 강의실 연동 없이 제출되며, 검수 후 라이브러리에 반영됩니다."
                       : " — 선택한 테마는 분류에 반드시 포함됩니다. 필요하면 아래에서 테마를 추가할 수 있습니다."}
+                  </p>
+                ) : null}
+                {classroomIdFromQuery ? (
+                  <p className="material-register__classroom-only-hint">
+                    강의실 자료 등록입니다. 라이브러리 <strong>테마 분류</strong>는 홈의「새자료 등록」경로에서만
+                    설정할 수 있습니다.
                   </p>
                 ) : null}
                 <form
@@ -663,7 +675,9 @@ export function MaterialRegisterPage() {
                   </div>
 
                   <div className="mat-premium-card">
-                    <h2 className="mat-premium-card__title">자료 유형 · 테마</h2>
+                    <h2 className="mat-premium-card__title">
+                      {classroomIdFromQuery ? "자료 유형" : "자료 유형 · 테마"}
+                    </h2>
                     <fieldset className="material-register-form__fieldset">
                       <legend className="material-register-form__legend">
                         <span className="reg-form__label-en">Material type</span>
@@ -710,13 +724,15 @@ export function MaterialRegisterPage() {
                         </label>
                       </div>
                     ) : null}
-                    <LearningThemeChecklist
-                      value={themes}
-                      onChange={setThemes}
-                      disabled={saving}
-                      idPrefix="mat"
-                      lockedIds={themeFromQuery ? [themeFromQuery] : undefined}
-                    />
+                    {!classroomIdFromQuery ? (
+                      <LearningThemeChecklist
+                        value={themes}
+                        onChange={setThemes}
+                        disabled={saving}
+                        idPrefix="mat"
+                        lockedIds={themeFromQuery ? [themeFromQuery] : undefined}
+                      />
+                    ) : null}
                   </div>
 
                   {showPrice && (
@@ -1000,7 +1016,7 @@ export function MaterialRegisterPage() {
               subject={subject}
               audienceGrade={audienceGrade}
               materialType={materialType}
-              themes={themes}
+              themes={classroomIdFromQuery ? [] : themes}
               desiredPrice={materialType === "paid" ? desiredPrice.trim() || null : null}
               thumbnailUrl={thumbObjectUrl}
               descriptionHtml={description}

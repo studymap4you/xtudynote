@@ -730,8 +730,8 @@ function Inner() {
                 강의 자료 업로드
               </h2>
               <p className="classroom-hub__hint">
-                학습·참고 자료 파일을 올리고 관리자 검수를 거쳐 라이브러리에 반영합니다. 아래 버튼으로 신청 폼으로
-                이동합니다.
+                이 강의실 <strong>담당 선생님만</strong> 자료를 등록할 수 있습니다. 라이브러리 테마 분류는 홈「새자료
+                등록」경로에서만 설정합니다. 교육용으로 즉시 공개하거나 검수 신청 중 선택할 수 있습니다.
               </p>
               <div className="classroom-hub__cta-row">
                 <Link to={q("/material/register")} className="btn btn--primary btn--stack">

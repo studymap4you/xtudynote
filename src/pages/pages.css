@@ -7637,6 +7637,21 @@ button.top-nav__auth-link--logout:hover {
   color: #0369a1;
 }
 
+.material-register__classroom-only-hint {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+  background: rgba(248, 250, 252, 0.95);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.material-register__classroom-only-hint strong {
+  color: #1e293b;
+}
+
 /* 테마 선택 전용 페이지 */
 .theme-material-pick {
   padding-bottom: 2.5rem;
