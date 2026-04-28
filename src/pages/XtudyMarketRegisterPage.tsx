@@ -212,7 +212,7 @@ export function XtudyMarketRegisterPage() {
 
                 <div className="classroom-hub__card">
                   <h3 className="classroom-hub__card-title">상품 상세 설명</h3>
-                  <label className="reg-form__field material-register-form__field-rich">
+                  <div className="reg-form__field material-register-form__field-rich">
                     <span className="reg-form__label-line">
                       <span className="reg-form__label-en">Description</span>
                       <span className="reg-form__label-ko">본문</span>
@@ -224,7 +224,7 @@ export function XtudyMarketRegisterPage() {
                       userId={uid}
                       placeholder="스펙, 구성, 배송·환불 안내 등"
                     />
-                  </label>
+                  </div>
                 </div>
 
                 <div className="classroom-hub__card classroom-hub__card--actions">
