@@ -8,13 +8,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { listClassroomsByTeacher, type ClassroomRow } from "@/lib/classroom/listTeacherClassrooms";
 import { db, storage } from "@/firebase/config";
 import { createWorksheetAssignment } from "@/lib/worksheet/assignmentApi";
-import { buildDefaultWorksheetItems, buildWorksheetItemsFromAnalysis } from "@/lib/worksheet/buildWorksheetItems";
+import { buildDefaultWorksheetItems } from "@/lib/worksheet/buildWorksheetItems";
 import { extractWorksheetPassageFromUpload } from "@/lib/worksheet/extractWorksheetPassageFromUpload";
-import { normalizeAnalysisReport } from "@/lib/signalLogic/normalizeAnalysisReport";
 import { minimalAnalysisForAssignment } from "@/lib/worksheet/minimalAnalysis";
 import { buildRosterCandidates, listWorksheetRoster } from "@/lib/worksheet/teacherRosterApi";
 import { deployWorksheetOutreach, lookupStudentByEmail } from "@/lib/worksheet/worksheetOutreachCalls";
-import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
 import type { WorksheetLocalAttachment } from "@/types/worksheetAssignment";
 import { DistributionRecipientsPanel, type RecipientDraft } from "@/pages/assignments/DistributionRecipientsPanel";
 import { useToast } from "@/contexts/ToastContext";
@@ -67,7 +65,6 @@ function mapDeployCallError(err: unknown): string {
 }
 
 type DeployTrack = "internal" | "external";
-type ContentSource = "ai" | "local";
 
 export function TeacherAssignmentNewPage() {
   const navigate = useNavigate();
@@ -81,16 +78,10 @@ export function TeacherAssignmentNewPage() {
   const [deployTrack, setDeployTrack] = useState<DeployTrack>("internal");
   const [title, setTitle] = useState("학습지 과제");
   const [passage, setPassage] = useState("");
-  const [analysis, setAnalysis] = useState<SignalLogicAnalysisReportJson | null>(null);
-  /** Signal Logic에서 불러온 원본 — 삭제하지 않고 AI 첨부 시 복원용 */
-  const [signalBundle, setSignalBundle] = useState<{
-    passage: string;
-    analysis: SignalLogicAnalysisReportJson;
-  } | null>(null);
-
-  const [contentSource, setContentSource] = useState<ContentSource | null>(null);
   const [localAttachment, setLocalAttachment] = useState<WorksheetLocalAttachment | null>(null);
-  const [attachmentStatus, setAttachmentStatus] = useState<string>("과제물을 준비하려면 아래 버튼 중 하나를 선택하세요.");
+  const [attachmentStatus, setAttachmentStatus] = useState<string>(
+    "PDF 또는 Word(DOCX) 파일을 첨부해 지문을 불러오세요. 필요하면 지문란을 수정할 수 있습니다.",
+  );
 
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [recipientRows, setRecipientRows] = useState<RecipientDraft[]>([]);
@@ -189,40 +180,32 @@ export function TeacherAssignmentNewPage() {
 
   useEffect(() => {
     if (!signalReportId || !uid) {
-      setLoadNote(signalReportId ? null : "Signal Logic 저장 리포트 없이도 지문만으로 배포할 수 있습니다.");
+      setLoadNote(signalReportId ? null : "저장된 Signal Logic 리포트 링크 없이도 파일만으로 배포할 수 있습니다.");
       return;
     }
     let cancelled = false;
     (async () => {
-      setLoadNote("분석 리포트 불러오는 중…");
+      setLoadNote("저장 리포트에서 지문 불러오는 중…");
       try {
         const snap = await getDoc(doc(db, "users", uid, "signal_logic_reports", signalReportId));
         if (cancelled) return;
         if (!snap.exists()) {
-          setLoadNote("해당 분석 리포트를 찾을 수 없습니다. 지문을 직접 입력하거나 로컬 파일을 첨부하세요.");
+          setLoadNote("해당 리포트를 찾을 수 없습니다. 로컬 파일을 첨부해 주세요.");
           return;
         }
         const d = snap.data();
         const p = typeof d.passage === "string" ? d.passage : "";
-        const a = d.analysis as SignalLogicAnalysisReportJson | undefined;
+        const a = d.analysis as { topicThesis?: string; schemaVersion?: number } | undefined;
         setPassage(p);
-        if (a && a.schemaVersion === 1) {
-          const norm = normalizeAnalysisReport(a);
-          setAnalysis(norm);
-          setSignalBundle({ passage: p, analysis: norm });
-          setTitle(a.topicThesis.slice(0, 72) + (a.topicThesis.length > 72 ? "…" : ""));
-          setContentSource("ai");
-          setLocalAttachment(null);
-          setAttachmentStatus(
-            "AI 분석 학습지가 연결되었습니다. (Firestore의 시그널 로그 리포트는 그대로 두고, 과제에만 참조가 붙습니다.)",
-          );
-        } else {
-          setAnalysis(null);
-          setSignalBundle(null);
-          setContentSource(null);
-          setAttachmentStatus("리포트에 분석 JSON이 없습니다. 로컬 파일 첨부 또는 지문 직접 입력을 이용하세요.");
+        setLocalAttachment(null);
+        if (a?.schemaVersion === 1 && typeof a.topicThesis === "string" && a.topicThesis.trim()) {
+          const t = a.topicThesis.trim();
+          setTitle(t.slice(0, 72) + (t.length > 72 ? "…" : ""));
         }
-        setLoadNote("분석 리포트를 불러왔습니다.");
+        setAttachmentStatus(
+          "리포트에 있던 지문을 위에 채워 두었습니다. 배포하려면 아래에서 같은 내용의 PDF/Word 파일을 반드시 첨부해 주세요.",
+        );
+        setLoadNote("리포트에서 지문을 불러왔습니다.");
       } catch (e) {
         setLoadNote(e instanceof Error ? e.message : String(e));
       }
@@ -235,26 +218,6 @@ export function TeacherAssignmentNewPage() {
   const toggleStudent = (id: string) => {
     setSelectedStudentIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
-
-  const attachAi = useCallback(() => {
-    if (signalBundle) {
-      setPassage(signalBundle.passage);
-      setAnalysis(signalBundle.analysis);
-      setContentSource("ai");
-      setLocalAttachment(null);
-      setAttachmentStatus(
-        "Signal Logic 분석 결과를 학습지에 다시 연결했습니다. (원본 리포트 문서는 삭제하지 않습니다.)",
-      );
-    } else {
-      if (analysis) {
-        setContentSource("ai");
-        setLocalAttachment(null);
-        setAttachmentStatus("현재 편집 중인 분석·지문을 AI 학습지로 사용합니다.");
-      } else {
-        setAttachmentStatus("저장된 Signal Logic 리포트가 없습니다. URL에 signalReportId가 있는지 확인하세요.");
-      }
-    }
-  }, [signalBundle, analysis]);
 
   const onPickLocalFile = useCallback(async () => {
     localFileRef.current?.click();
@@ -274,9 +237,7 @@ export function TeacherAssignmentNewPage() {
         const sref = ref(storage, storagePath);
         await uploadBytes(sref, file);
         setPassage(text);
-        setAnalysis(minimalAnalysisForAssignment(title));
         setLocalAttachment({ storagePath, originalName: file.name });
-        setContentSource("local");
         setAttachmentStatus(`로컬 파일 연결: ${file.name} — 추출한 본문이 지문란에 들어갔습니다. 필요하면 수정하세요.`);
       } catch (err) {
         setMsg(err instanceof Error ? err.message : String(err));
@@ -296,8 +257,8 @@ export function TeacherAssignmentNewPage() {
       setMsg(null);
 
       try {
-        if (!contentSource) {
-          setMsg("과제물 준비에서「AI 분석 학습지 첨부」또는「로컬 파일 직접 첨부」를 먼저 선택해 주세요.");
+        if (!localAttachment) {
+          setMsg("로컬 파일(PDF 또는 Word)을 먼저 첨부해 주세요.");
           return;
         }
         const p = passage.trim();
@@ -310,8 +271,8 @@ export function TeacherAssignmentNewPage() {
           setMsg("배포 일시가 올바르지 않습니다.");
           return;
         }
-        const an = analysis ?? minimalAnalysisForAssignment(title);
-        const items = analysis ? buildWorksheetItemsFromAnalysis(analysis) : buildDefaultWorksheetItems();
+        const an = minimalAnalysisForAssignment(title.trim() || "학습지");
+        const items = buildDefaultWorksheetItems();
 
         if (deployTrack === "internal") {
           const targets = [...new Set(selectedStudentIds.map((s) => s.trim()).filter((s) => s.length >= 8))];
@@ -327,8 +288,8 @@ export function TeacherAssignmentNewPage() {
             distributedAt: dist,
             targetStudentIds: targets,
             worksheetItems: items,
-            contentSource,
-            localAttachment: localAttachment ?? undefined,
+            contentSource: "local",
+            localAttachment,
           });
           showToast("ok", DEPLOY_OK_TOAST);
           window.setTimeout(() => navigate(`/teacher/assignments/${id}`), 900);
@@ -350,8 +311,8 @@ export function TeacherAssignmentNewPage() {
               phone: r.phone,
               email: r.email,
             })),
-            contentSource,
-            localAttachment: localAttachment ?? undefined,
+            contentSource: "local",
+            localAttachment,
           });
           const attempted = result.outreachEmailAttempted ?? 0;
           const sent = result.outreachEmailCount ?? 0;
@@ -383,11 +344,9 @@ export function TeacherAssignmentNewPage() {
     },
     [
       uid,
-      contentSource,
       passage,
       distributedLocal,
       title,
-      analysis,
       localAttachment,
       deployTrack,
       selectedStudentIds,
@@ -513,11 +472,19 @@ export function TeacherAssignmentNewPage() {
         <section className={styles.attachSection} aria-label="과제물 준비">
           <h2 className={styles.attachSectionTitle}>과제물 준비</h2>
           <div className={styles.attachRow}>
-            <input ref={localFileRef} type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden onChange={(e) => void onLocalFileChange(e)} />
-            <button type="button" className={`${styles.attachBtn} ${styles.attachBtnPrimary}`} disabled={busy} onClick={attachAi}>
-              AI 분석 학습지 첨부
-            </button>
-            <button type="button" className={styles.attachBtn} disabled={busy} onClick={() => void onPickLocalFile()}>
+            <input
+              ref={localFileRef}
+              type="file"
+              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              hidden
+              onChange={(e) => void onLocalFileChange(e)}
+            />
+            <button
+              type="button"
+              className={`${styles.attachBtn} ${styles.attachBtnPrimary}`}
+              disabled={busy}
+              onClick={() => void onPickLocalFile()}
+            >
               로컬 파일 직접 첨부
             </button>
           </div>
