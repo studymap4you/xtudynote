@@ -437,12 +437,23 @@
   border-color: rgba(15, 23, 42, 0.12);
 }
 .app-shell--landing
-  a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn):not(.mp-btn) {
+  a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn):not(.mp-btn):not(
+    .intro-landing-tile
+  ) {
   color: var(--premium-accent);
 }
 .app-shell--landing
-  a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn):not(.mp-btn):hover {
+  a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn):not(.mp-btn):not(
+    .intro-landing-tile
+  ):hover {
   color: var(--premium-accent-hover);
+}
+.app-shell--landing a.intro-landing-tile,
+.app-shell--landing a.intro-landing-tile:visited {
+  color: inherit;
+}
+.app-shell--landing a.intro-landing-tile:hover {
+  color: inherit;
 }
 .app-shell--landing .btn.btn--ghost .ui-en {
   color: #0f172a;
@@ -939,6 +950,9 @@ button.intro-landing-tile {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.35);
   color: #ffffff;
+}
+.intro-landing-tile--classroom-enter .intro-landing-tile__title {
+  color: #fef9c3;
 }
 .intro-landing-tile--classroom-enter:hover {
   filter: brightness(1.05);
