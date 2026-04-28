@@ -18,6 +18,7 @@ import { TeacherHomeworkPage } from "@/pages/teacher/TeacherHomeworkPage";
 import { HomeworkFeedbackPage } from "@/pages/teacher/HomeworkFeedbackPage";
 import { TeacherStatsPage } from "@/pages/teacher/TeacherStatsPage";
 import { MaterialRegisterPage } from "@/pages/MaterialRegisterPage";
+import { ThemeMaterialPickPage } from "@/pages/ThemeMaterialPickPage";
 import { VideoLectureRegisterPage } from "@/pages/VideoLectureRegisterPage";
 import { VideoCatalogPage } from "@/pages/VideoCatalogPage";
 import { VideoCatalogRegisterPage } from "@/pages/VideoCatalogRegisterPage";
@@ -179,6 +180,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <MaterialRegisterPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/material/register/theme"
+        element={
+          <ProtectedRoute>
+            <ThemeMaterialPickPage />
           </ProtectedRoute>
         }
       />

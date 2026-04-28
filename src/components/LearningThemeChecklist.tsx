@@ -4,14 +4,23 @@ type Props = {
   value: LearningThemeId[];
   onChange: (next: LearningThemeId[]) => void;
   disabled?: boolean;
+  /** 이 테마들은 항상 선택된 채로 유지되며 해제할 수 없습니다 (테마별 등록 진입 시). */
+  lockedIds?: LearningThemeId[];
   idPrefix?: string;
 };
 
-export function LearningThemeChecklist({ value, onChange, disabled, idPrefix = "theme" }: Props) {
+export function LearningThemeChecklist({
+  value,
+  onChange,
+  disabled,
+  lockedIds = [],
+  idPrefix = "theme",
+}: Props) {
   const set = new Set(value);
+  const locked = new Set(lockedIds);
 
   function toggle(id: LearningThemeId) {
-    if (disabled) return;
+    if (disabled || locked.has(id)) return;
     if (set.has(id)) {
       onChange(value.filter((x) => x !== id));
     } else {
@@ -32,7 +41,7 @@ export function LearningThemeChecklist({ value, onChange, disabled, idPrefix = "
               type="checkbox"
               id={`${idPrefix}-${opt.id}`}
               checked={set.has(opt.id)}
-              disabled={disabled}
+              disabled={disabled || locked.has(opt.id)}
               onChange={() => toggle(opt.id)}
             />
             <span className="learning-theme-checklist__text">

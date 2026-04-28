@@ -7552,6 +7552,154 @@ button.top-nav__auth-link--logout:hover {
   color: #1d4ed8;
 }
 
+.material-register__gate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17.5rem), 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+  margin: 1.25rem 0 1.5rem;
+  max-width: 56rem;
+}
+
+.material-register__gate-grid .material-register__classroom-gate {
+  max-width: none;
+  margin: 0;
+}
+
+.material-register__theme-gate {
+  margin: 0;
+  padding: 1.35rem 1.35rem 1.45rem;
+  border-radius: 16px;
+  border: 1px solid rgba(124, 58, 237, 0.22);
+  background: linear-gradient(160deg, #faf5ff 0%, #ffffff 50%, #eef2ff 100%);
+  box-shadow: 0 10px 36px -22px rgba(91, 33, 182, 0.2);
+}
+
+.material-register__theme-gate-title {
+  margin: 0 0 0.65rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.material-register__theme-gate-lead {
+  margin: 0 0 1.1rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.material-register__theme-gate-lead strong {
+  color: #6d28d9;
+}
+
+.material-register__theme-banner {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(124, 58, 237, 0.28);
+  background: rgba(245, 243, 255, 0.85);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #4338ca;
+}
+
+.material-register__theme-banner strong {
+  color: #5b21b6;
+}
+
+/* 테마 선택 전용 페이지 */
+.theme-material-pick {
+  padding-bottom: 2.5rem;
+}
+
+.theme-material-pick__nav {
+  margin-bottom: 0.75rem;
+}
+
+.theme-material-pick__back {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.theme-material-pick__back:hover {
+  text-decoration: underline;
+}
+
+.theme-material-pick__section {
+  margin-top: 1.5rem;
+  max-width: 56rem;
+}
+
+.theme-material-pick__section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.theme-material-pick__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem;
+}
+
+.theme-material-pick__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  height: 100%;
+  padding: 1.15rem 1.1rem 1.2rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(165deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.theme-material-pick__card:hover {
+  border-color: rgba(124, 58, 237, 0.45);
+  box-shadow: 0 12px 32px rgba(91, 33, 182, 0.12);
+  transform: translateY(-2px);
+}
+
+.theme-material-pick__card-en {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+
+.theme-material-pick__card-ko {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #0f172a;
+}
+
+.theme-material-pick__card-cta {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
 .student-vault__list {
   list-style: none;
   padding: 0;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
@@ -14,7 +14,7 @@ import { uploadBytesResumableWithProgress } from "@/lib/storageUploadProgress";
 import { LearningThemeChecklist } from "@/components/LearningThemeChecklist";
 import { extractImageSrcsFromHtml, isEmptyRichText } from "@/lib/richTextUtils";
 import type { ContentType } from "@/types/content";
-import type { LearningThemeId } from "@/types/learningTheme";
+import { LEARNING_THEME_OPTIONS, type LearningThemeId } from "@/types/learningTheme";
 import type { UserProfile } from "@/types/user";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import { getClassroomIfTeacher } from "@/lib/classroom";
@@ -160,7 +160,11 @@ export function MaterialRegisterPage() {
     useAuth();
   const [searchParams] = useSearchParams();
   const classroomIdFromQuery = searchParams.get("classroomId")?.trim() ?? "";
-  const teacherMustPickClassroom = isTeacherApproved && !classroomIdFromQuery;
+  const themeFromQuery = useMemo((): LearningThemeId | null => {
+    const raw = searchParams.get("theme")?.trim() ?? "";
+    return LEARNING_THEME_OPTIONS.some((o) => o.id === raw) ? (raw as LearningThemeId) : null;
+  }, [searchParams]);
+  const teacherMustPickClassroom = isTeacherApproved && !classroomIdFromQuery && !themeFromQuery;
 
   const canSubmit =
     !!profile &&
@@ -223,6 +227,11 @@ export function MaterialRegisterPage() {
     return () => URL.revokeObjectURL(u);
   }, [thumbnailFile]);
 
+  useLayoutEffect(() => {
+    if (!themeFromQuery) return;
+    setThemes((prev) => (prev.includes(themeFromQuery) ? prev : [...prev, themeFromQuery]));
+  }, [themeFromQuery]);
+
   const showPrice = materialType === "paid";
   const showHomeworkNotes = materialType === "homework";
 
@@ -273,14 +282,18 @@ export function MaterialRegisterPage() {
 
     let classroomId: string | null = searchParams.get("classroomId")?.trim() || null;
     if (isTeacherApproved) {
-      if (!classroomId) {
-        window.alert("개설한 강의실에 들어간 뒤, 해당 강의실에서 자료 등록을 진행해 주세요.");
+      if (!classroomId && !themeFromQuery) {
+        window.alert(
+          "개설한 강의실에서 자료를 등록하거나, 자료 등록 화면의「테마별 자료 등록」에서 테마를 선택해 주세요.",
+        );
         return;
       }
-      const ok = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
-      if (!ok) {
-        window.alert("강의실을 찾을 수 없거나 이 강의실에 자료를 연결할 권한이 없습니다.");
-        return;
+      if (classroomId) {
+        const ok = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
+        if (!ok) {
+          window.alert("강의실을 찾을 수 없거나 이 강의실에 자료를 연결할 권한이 없습니다.");
+          return;
+        }
       }
     } else if (classroomId) {
       const ok = await getClassroomIfTeacher(classroomId, firebaseUser.uid);
@@ -503,16 +516,29 @@ export function MaterialRegisterPage() {
         )}
 
         {teacherMustPickClassroom && firebaseUser && (
-          <div className="material-register__classroom-gate" role="status">
-            <h2 className="material-register__classroom-gate-title">강의실에서 자료를 등록해 주세요</h2>
-            <p className="material-register__classroom-gate-lead">
-              승인된 교육자는 <strong>내 강의실</strong>에 들어간 뒤, 각 강의실의「자료」탭에서만 신청할 수
-              있습니다. 강의실마다 별도로 등록됩니다.
-            </p>
-            <Link to="/classroom" className="btn btn--primary btn--stack">
-              <span className="ui-en">My classrooms</span>
-              <span className="ui-ko">내 강의실로 이동</span>
-            </Link>
+          <div className="material-register__gate-grid">
+            <div className="material-register__classroom-gate" role="status">
+              <h2 className="material-register__classroom-gate-title">강의실에서 자료를 등록해 주세요</h2>
+              <p className="material-register__classroom-gate-lead">
+                승인된 교육자는 <strong>내 강의실</strong>에 들어간 뒤, 각 강의실의「학습 자료」탭에서 신청할 수
+                있습니다. 강의실마다 별도로 연결·등록됩니다.
+              </p>
+              <Link to="/classroom" className="btn btn--primary btn--stack">
+                <span className="ui-en">My classrooms</span>
+                <span className="ui-ko">내 강의실로 이동</span>
+              </Link>
+            </div>
+            <div className="material-register__theme-gate" role="status">
+              <h2 className="material-register__theme-gate-title">테마별 자료 등록</h2>
+              <p className="material-register__theme-gate-lead">
+                강의실과 연결하지 않고, <strong>라이브러리 테마</strong>(수능·어학 등)를 먼저 고른 뒤 통합 신청
+                양식으로 제출합니다. 마스터 검수 후 해당 테마로 공개됩니다.
+              </p>
+              <Link to="/material/register/theme" className="btn btn--primary btn--stack">
+                <span className="ui-en">Pick a theme</span>
+                <span className="ui-ko">테마 선택하고 등록하기</span>
+              </Link>
+            </div>
           </div>
         )}
 
@@ -525,6 +551,15 @@ export function MaterialRegisterPage() {
                     접수되었습니다. 감사합니다.
                   </p>
                 )}
+                {themeFromQuery ? (
+                  <p className="material-register__theme-banner">
+                    테마별 등록:{" "}
+                    <strong>{LEARNING_THEME_OPTIONS.find((o) => o.id === themeFromQuery)?.titleKo}</strong>
+                    {isTeacherApproved && !classroomIdFromQuery
+                      ? " — 강의실 연동 없이 제출되며, 검수 후 라이브러리에 반영됩니다."
+                      : " — 선택한 테마는 분류에 반드시 포함됩니다. 필요하면 아래에서 테마를 추가할 수 있습니다."}
+                  </p>
+                ) : null}
                 <form
                   id="material-register-form"
                   onSubmit={(e) => void handleSubmit(e)}
@@ -590,7 +625,13 @@ export function MaterialRegisterPage() {
                         ))}
                       </div>
                     </fieldset>
-                    <LearningThemeChecklist value={themes} onChange={setThemes} disabled={saving} idPrefix="mat" />
+                    <LearningThemeChecklist
+                      value={themes}
+                      onChange={setThemes}
+                      disabled={saving}
+                      idPrefix="mat"
+                      lockedIds={themeFromQuery ? [themeFromQuery] : undefined}
+                    />
                   </div>
 
                   {showPrice && (
