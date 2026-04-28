@@ -559,9 +559,6 @@ function IntroLandingPanel() {
       >
         <span className="intro-worksheet-cta__eyebrow">Worksheet PDF</span>
         <span className="intro-worksheet-cta__title ui-ko">학습지 PDF 자동 생성</span>
-        <span className="intro-worksheet-cta__sub ui-ko">
-          {firebaseUser ? "입력 페이지로 이동" : "로그인 후 이용"}
-        </span>
       </Link>
 
       <Link
@@ -573,9 +570,6 @@ function IntroLandingPanel() {
       >
         <span className="intro-passage-lab-cta__eyebrow">English passage lab</span>
         <span className="intro-worksheet-cta__title ui-ko">영어 지문 자동 변환 학습</span>
-        <span className="intro-worksheet-cta__sub ui-ko">
-          {firebaseUser ? "지문 분석·학습지·PDF로 이동" : "로그인 후 이용"}
-        </span>
       </Link>
 
       <nav className="intro-shortcuts intro-shortcuts--panel" aria-label="주요 메뉴 바로가기">
@@ -625,23 +619,21 @@ export function Intro() {
             </p>
           </div>
           <IntroHeroShare />
-          <div className="intro-hero__classroom">
-            <p className="intro-hero__share-label">내 강의실</p>
+          <div className="intro-hero__classroom intro-hero__classroom--premium">
+            <p className="intro-hero__classroom-heading">내 강의실</p>
             <div className="intro-hero__classroom-row">
               <Link
                 to="/classroom"
                 className="intro-hero__classroom-btn intro-hero__classroom-btn--enter"
               >
-                <span className="intro-hero__classroom-btn-en">My classroom</span>
-                <span className="intro-hero__classroom-btn-ko">내 강의실</span>
+                내 강의실
               </Link>
               {isTeacherApproved ? (
                 <Link
                   to="/classroom/new"
                   className="intro-hero__classroom-btn intro-hero__classroom-btn--create"
                 >
-                  <span className="intro-hero__classroom-btn-en">Create</span>
-                  <span className="intro-hero__classroom-btn-ko">강의실 개설</span>
+                  강의실 개설
                 </Link>
               ) : null}
             </div>
