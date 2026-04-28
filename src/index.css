@@ -193,7 +193,10 @@ a.intro-login-card__row--gate:hover,
 a.intro-login-card__row--gate:focus-visible,
 a.intro-worksheet-cta,
 a.intro-worksheet-cta:hover,
-a.intro-worksheet-cta:focus-visible {
+a.intro-worksheet-cta:focus-visible,
+a.intro-passage-lab-cta,
+a.intro-passage-lab-cta:hover,
+a.intro-passage-lab-cta:focus-visible {
   text-decoration: none;
 }
 

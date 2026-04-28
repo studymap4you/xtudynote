@@ -556,6 +556,20 @@ function IntroLandingPanel() {
         </span>
       </Link>
 
+      <Link
+        to={firebaseUser ? "/english-passage-lab" : "/login"}
+        state={
+          firebaseUser ? undefined : { from: { pathname: "/english-passage-lab" } }
+        }
+        className="intro-worksheet-cta intro-passage-lab-cta"
+      >
+        <span className="intro-passage-lab-cta__eyebrow">English passage lab</span>
+        <span className="intro-worksheet-cta__title ui-ko">영어 지문 자동 변환 학습</span>
+        <span className="intro-worksheet-cta__sub ui-ko">
+          {firebaseUser ? "지문 분석·학습지·PDF로 이동" : "로그인 후 이용"}
+        </span>
+      </Link>
+
       <nav className="intro-shortcuts intro-shortcuts--panel" aria-label="주요 메뉴 바로가기">
         <ul className="intro-shortcuts__list">
           {SHORTCUTS.map((s) => {

@@ -229,13 +229,14 @@ export default function App() {
         }
       />
       <Route
-        path="/teacher/english-passage-lab"
+        path="/english-passage-lab"
         element={
-          <TeacherRoute>
+          <ProtectedRoute>
             <EnglishPassageLabPage />
-          </TeacherRoute>
+          </ProtectedRoute>
         }
       />
+      <Route path="/teacher/english-passage-lab" element={<Navigate to="/english-passage-lab" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
