@@ -311,16 +311,24 @@ export function StudentWorksheetPage() {
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className="btn btn--ghost btn--stack" disabled={pdfBusy} onClick={downloadPdf}>
+          <button type="button" className={`${styles.actionBtn} ${styles.actionBtnPdf}`} disabled={pdfBusy} onClick={downloadPdf}>
             <span className="ui-ko">{pdfBusy ? "PDF 생성 중…" : "과제 PDF 다운로드"}</span>
-            <span className="ui-en" style={{ fontSize: "0.75rem" }}>
-              Print-friendly (no answer key)
-            </span>
+            <span className={`ui-en ${styles.actionBtnSub}`}>Print-friendly (no answer key)</span>
           </button>
-          <button type="button" className="btn btn--ghost btn--stack" disabled={busy || submittedLocked || !canEdit} onClick={() => void saveDraft()}>
+          <button
+            type="button"
+            className={`${styles.actionBtn} ${styles.actionBtnSave}`}
+            disabled={busy || submittedLocked || !canEdit}
+            onClick={() => void saveDraft()}
+          >
             <span className="ui-ko">임시 저장</span>
           </button>
-          <button type="button" className="btn btn--primary btn--stack" disabled={busy || submittedLocked || !canEdit} onClick={() => void submit()}>
+          <button
+            type="button"
+            className={`${styles.actionBtn} ${styles.actionBtnSubmit}`}
+            disabled={busy || submittedLocked || !canEdit}
+            onClick={() => void submit()}
+          >
             <span className="ui-ko">과제 제출</span>
           </button>
         </div>

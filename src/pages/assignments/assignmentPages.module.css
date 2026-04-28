@@ -67,6 +67,64 @@
   margin-top: 1.25rem;
 }
 
+/* 학습지 과제(학생) 하단 액션 — 고대비 (네이비 / 녹색 / 빨강) */
+.actionBtn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 10px;
+  padding: 0.5rem 1.1rem;
+  min-height: 52px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+  transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.actionBtn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.22);
+}
+
+.actionBtn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.actionBtnSub {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.actionBtnPdf {
+  background: linear-gradient(165deg, #1e40af 0%, #172554 100%);
+}
+
+.actionBtnSave {
+  background: linear-gradient(165deg, #059669 0%, #065f46 100%);
+}
+
+.actionBtnSubmit {
+  background: linear-gradient(165deg, #dc2626 0%, #991b1b 100%);
+}
+
 .err {
   color: #b91c1c;
   font-size: 0.9rem;
