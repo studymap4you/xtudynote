@@ -6,6 +6,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { getAssignment, getStudentWork, saveStudentWorkSubmission } from "@/lib/worksheet/assignmentApi";
+import { fetchWorksheetAttachmentDownloadUrl } from "@/lib/worksheet/worksheetOutreachCalls";
 import { compressHandwritingAnswers } from "@/lib/worksheet/compressInkImage";
 import type { WorksheetAssignmentDoc, WorksheetItem } from "@/types/worksheetAssignment";
 import styles from "@/pages/assignments/assignmentPages.module.css";
@@ -62,6 +63,7 @@ export function StudentWorksheetPage() {
   const [busy, setBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [attachBusy, setAttachBusy] = useState(false);
 
   useEffect(() => {
     if (!assignmentId) return;
@@ -153,6 +155,27 @@ export function StudentWorksheetPage() {
     printWorksheet();
   }, [printWorksheet]);
 
+  const downloadTeacherAttachment = useCallback(async () => {
+    if (!assignmentId) return;
+    setAttachBusy(true);
+    setMsg(null);
+    try {
+      const { url, originalName } = await fetchWorksheetAttachmentDownloadUrl(assignmentId);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = originalName;
+      a.rel = "noopener";
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAttachBusy(false);
+    }
+  }, [assignmentId]);
+
   if (!assignmentId) {
     return (
       <DashboardShell light>
@@ -209,6 +232,18 @@ export function StudentWorksheetPage() {
           {assignment.title}
         </h1>
         <p className={styles.meta}>배포 {formatDistributed(assignment.distributedAt)}</p>
+        {assignment.localAttachment ? (
+          <p style={{ marginTop: "0.5rem" }}>
+            <button
+              type="button"
+              className="btn btn--ghost btn--stack"
+              disabled={attachBusy}
+              onClick={() => void downloadTeacherAttachment()}
+            >
+              {attachBusy ? "링크 준비 중…" : `선생님 첨부 파일 받기 (${assignment.localAttachment.originalName})`}
+            </button>
+          </p>
+        ) : null}
         {allowed && !isStudent ? (
           <p className={styles.err} role="note">
             이 과제는 학생 계정에서만 임시 저장·제출할 수 있습니다. (미리보기)
@@ -224,7 +259,13 @@ export function StudentWorksheetPage() {
           </header>
           <h2 className={styles.captureTitle}>학습지</h2>
           <p className={styles.captureSub}>학생용 — 정답·모범답은 포함되지 않습니다.</p>
-          <div className={`${styles.passage} ${styles.captureSection}`}>{assignment.passage}</div>
+          <div className={`${styles.passage} ${styles.captureSection}`}>
+            {assignment.passage?.trim()
+              ? assignment.passage
+              : assignment.localAttachment
+                ? "※ 지문 텍스트가 없습니다. 위의「선생님 첨부 파일 받기」에서 본문 파일을 내려받아 풀어 주세요."
+                : "(지문 없음)"}
+          </div>
 
           {itemsStudentView.map((item) => (
             <div key={item.id} className={`${styles.item} ${styles.captureItem}`}>

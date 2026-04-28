@@ -885,8 +885,17 @@ service cloud.firestore {
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 200
         && request.resource.data.passage is string
-        && request.resource.data.passage.size() > 0
         && request.resource.data.passage.size() <= 120000
+        && (
+          request.resource.data.passage.size() > 0
+          || (
+            'localAttachment' in request.resource.data
+            && request.resource.data.localAttachment is map
+            && request.resource.data.localAttachment.keys().hasAll(['storagePath', 'originalName'])
+            && request.resource.data.localAttachment.storagePath is string
+            && request.resource.data.localAttachment.storagePath.size() > 0
+          )
+        )
         && request.resource.data.analysis is map
         && request.resource.data.distributedAt != null
         && request.resource.data.targetStudentIds is list

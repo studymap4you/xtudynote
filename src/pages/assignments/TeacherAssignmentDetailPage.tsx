@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
+import { getDownloadURL, ref } from "firebase/storage";
 import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
+import { storage } from "@/firebase/config";
 import {
   getAssignment,
   listDistributionRecipients,
@@ -50,6 +52,22 @@ export function TeacherAssignmentDetailPage() {
   const [submissionEvents, setSubmissionEvents] = useState<{ id: string; data: WorksheetSubmissionEventDoc }[]>([]);
   const [distributionRows, setDistributionRows] = useState<{ id: string; data: DistributionRecipientDoc }[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [attachBusy, setAttachBusy] = useState(false);
+  const [attachErr, setAttachErr] = useState<string | null>(null);
+
+  const openLocalAttachment = useCallback(async () => {
+    if (!assignment?.localAttachment?.storagePath) return;
+    setAttachBusy(true);
+    setAttachErr(null);
+    try {
+      const url = await getDownloadURL(ref(storage, assignment.localAttachment.storagePath));
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setAttachErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAttachBusy(false);
+    }
+  }, [assignment?.localAttachment?.storagePath]);
 
   const canView = useMemo(
     () => Boolean(assignment && uid && (assignment.teacherId === uid || isSuperAdmin)),
@@ -154,6 +172,19 @@ export function TeacherAssignmentDetailPage() {
             ? ` · 이메일 안내 발송 ${assignment.outreachEmailSent}건`
             : null}
         </p>
+        {assignment.localAttachment ? (
+          <p style={{ marginTop: "0.65rem" }}>
+            <button
+              type="button"
+              className="btn btn--ghost btn--stack"
+              disabled={attachBusy}
+              onClick={() => void openLocalAttachment()}
+            >
+              {attachBusy ? "열리는 중…" : `첨부 파일 열기 (${assignment.localAttachment.originalName})`}
+            </button>
+            {attachErr ? <span className={styles.err} style={{ display: "block", marginTop: "0.35rem" }}>{attachErr}</span> : null}
+          </p>
+        ) : null}
 
         {distributionRows.length > 0 ? (
           <>

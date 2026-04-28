@@ -9,7 +9,6 @@ import { listClassroomsByTeacher, type ClassroomRow } from "@/lib/classroom/list
 import { db, storage } from "@/firebase/config";
 import { createWorksheetAssignment } from "@/lib/worksheet/assignmentApi";
 import { buildDefaultWorksheetItems } from "@/lib/worksheet/buildWorksheetItems";
-import { extractWorksheetPassageFromUpload } from "@/lib/worksheet/extractWorksheetPassageFromUpload";
 import { minimalAnalysisForAssignment } from "@/lib/worksheet/minimalAnalysis";
 import { buildRosterCandidates, listWorksheetRoster } from "@/lib/worksheet/teacherRosterApi";
 import { deployWorksheetOutreach, lookupStudentByEmail } from "@/lib/worksheet/worksheetOutreachCalls";
@@ -80,7 +79,7 @@ export function TeacherAssignmentNewPage() {
   const [passage, setPassage] = useState("");
   const [localAttachment, setLocalAttachment] = useState<WorksheetLocalAttachment | null>(null);
   const [attachmentStatus, setAttachmentStatus] = useState<string>(
-    "PDF 또는 Word(DOCX) 파일을 첨부해 지문을 불러오세요. 필요하면 지문란을 수정할 수 있습니다.",
+    "배포할 파일을 첨부하세요. 형식에 제한은 없습니다. 지문란은 필요할 때만 직접 입력·붙여넣기 하면 됩니다.",
   );
 
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -203,7 +202,7 @@ export function TeacherAssignmentNewPage() {
           setTitle(t.slice(0, 72) + (t.length > 72 ? "…" : ""));
         }
         setAttachmentStatus(
-          "리포트에 있던 지문을 위에 채워 두었습니다. 배포하려면 아래에서 같은 내용의 PDF/Word 파일을 반드시 첨부해 주세요.",
+          "리포트에 있던 지문을 위에 채워 두었습니다. 배포하려면 학습지 파일을 첨부하세요. 지문란은 비워도 됩니다.",
         );
         setLoadNote("리포트에서 지문을 불러왔습니다.");
       } catch (e) {
@@ -231,21 +230,19 @@ export function TeacherAssignmentNewPage() {
       setBusy(true);
       setMsg(null);
       try {
-        const text = await extractWorksheetPassageFromUpload(file);
         const safe = file.name.replace(/[^\w.-]/g, "_").slice(0, 120);
         const storagePath = `worksheet_uploads/${uid}/${Date.now()}_${safe}`;
         const sref = ref(storage, storagePath);
         await uploadBytes(sref, file);
-        setPassage(text);
         setLocalAttachment({ storagePath, originalName: file.name });
-        setAttachmentStatus(`로컬 파일 연결: ${file.name} — 추출한 본문이 지문란에 들어갔습니다. 필요하면 수정하세요.`);
+        setAttachmentStatus(`첨부됨: ${file.name} — 학생·수신자는 배포 후 첨부 파일을 받을 수 있습니다. 지문란은 선택 사항입니다.`);
       } catch (err) {
         setMsg(err instanceof Error ? err.message : String(err));
       } finally {
         setBusy(false);
       }
     },
-    [uid, title],
+    [uid],
   );
 
   const onSubmit = useCallback(
@@ -258,14 +255,10 @@ export function TeacherAssignmentNewPage() {
 
       try {
         if (!localAttachment) {
-          setMsg("로컬 파일(PDF 또는 Word)을 먼저 첨부해 주세요.");
+          setMsg("배포할 파일을 먼저 첨부해 주세요.");
           return;
         }
         const p = passage.trim();
-        if (!p) {
-          setMsg("지문이 비어 있습니다.");
-          return;
-        }
         const dist = new Date(distributedLocal);
         if (Number.isNaN(dist.getTime())) {
           setMsg("배포 일시가 올바르지 않습니다.");
@@ -283,7 +276,7 @@ export function TeacherAssignmentNewPage() {
           const id = await createWorksheetAssignment({
             teacherId: uid,
             title: title.trim() || "학습지",
-            passage: p,
+            passage: p || "",
             analysis: an,
             distributedAt: dist,
             targetStudentIds: targets,
@@ -301,7 +294,7 @@ export function TeacherAssignmentNewPage() {
           }
           const result = await deployWorksheetOutreach({
             title: title.trim() || "학습지",
-            passage: p,
+            passage: p || "",
             analysis: an,
             distributedAtMs: dist.getTime(),
             worksheetItems: items,
@@ -472,13 +465,7 @@ export function TeacherAssignmentNewPage() {
         <section className={styles.attachSection} aria-label="과제물 준비">
           <h2 className={styles.attachSectionTitle}>과제물 준비</h2>
           <div className={styles.attachRow}>
-            <input
-              ref={localFileRef}
-              type="file"
-              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              hidden
-              onChange={(e) => void onLocalFileChange(e)}
-            />
+            <input ref={localFileRef} type="file" hidden onChange={(e) => void onLocalFileChange(e)} />
             <button
               type="button"
               className={`${styles.attachBtn} ${styles.attachBtnPrimary}`}
@@ -500,7 +487,7 @@ export function TeacherAssignmentNewPage() {
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
             <label className={styles.itemLabel} htmlFor="as-passage">
-              지문
+              지문 <span style={{ fontWeight: 400, color: "#64748b" }}>(선택 — 비워 두면 첨부 파일만 배포됩니다)</span>
             </label>
             <textarea
               id="as-passage"

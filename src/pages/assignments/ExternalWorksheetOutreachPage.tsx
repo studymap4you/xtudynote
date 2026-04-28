@@ -89,7 +89,27 @@ export function ExternalWorksheetOutreachPage() {
                 </span>
                 <span className={styles.captureBrandSub}>엑스터디 유니버스 · 외부 수신용 (정답 미포함)</span>
               </header>
-              <div className={`${styles.passage} ${styles.captureSection}`}>{payload.passage}</div>
+              <div className={`${styles.passage} ${styles.captureSection}`}>
+                {payload.passage?.trim()
+                  ? payload.passage
+                  : payload.attachmentDownloadUrl
+                    ? "※ 지문 텍스트가 없습니다. 아래「첨부 파일 받기」에서 학습지 원본을 내려받아 주세요."
+                    : "(지문 없음)"}
+              </div>
+              {payload.attachmentDownloadUrl ? (
+                <p style={{ margin: "0.75rem 0" }}>
+                  <a
+                    className="btn btn--ghost btn--stack"
+                    href={payload.attachmentDownloadUrl}
+                    download={payload.attachmentOriginalName || undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    첨부 파일 받기
+                    {payload.attachmentOriginalName ? ` (${payload.attachmentOriginalName})` : ""}
+                  </a>
+                </p>
+              ) : null}
 
               {items.map((item) => (
                 <div key={item.id} className={`${styles.item} ${styles.captureItem}`}>

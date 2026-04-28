@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { getStorage } from "firebase-admin/storage";
 import { FieldValue, Timestamp, getFirestore, type DocumentData } from "firebase-admin/firestore";
 import { HttpsError, onCall, onRequest, type Request } from "firebase-functions/v2/https";
 import { defineString } from "firebase-functions/params";
@@ -73,6 +74,32 @@ function assertTeacherOrSuper(profile: DocumentData | undefined): void {
   if (role !== "teacher" && role !== "super_admin") {
     throw new HttpsError("permission-denied", "선생님 또는 관리자만 배포할 수 있습니다.");
   }
+}
+
+function isActiveSuperAdminProfile(profile: DocumentData | undefined): boolean {
+  return profile?.accountStatus === "active" && profile?.role === "super_admin";
+}
+
+type LocalAttachmentIn = { storagePath: string; originalName: string };
+
+function parseLocalAttachmentPayload(raw: unknown): LocalAttachmentIn | undefined {
+  const la = raw as { storagePath?: unknown; originalName?: unknown } | undefined;
+  if (!la || typeof la !== "object") return undefined;
+  const sp = typeof la.storagePath === "string" ? la.storagePath.trim().slice(0, 500) : "";
+  const on = typeof la.originalName === "string" ? la.originalName.trim().slice(0, 240) : "";
+  if (!sp || !on) return undefined;
+  return { storagePath: sp, originalName: on };
+}
+
+async function signedDownloadUrlForWorksheetFile(storagePath: string, originalName: string): Promise<string> {
+  const bucket = getStorage().bucket();
+  const [url] = await bucket.file(storagePath).getSignedUrl({
+    version: "v4",
+    action: "read",
+    expires: Date.now() + 60 * 60 * 1000,
+    responseDisposition: `attachment; filename="${encodeURIComponent(originalName)}"`,
+  });
+  return url;
 }
 
 function normalizeEmail(e: string): string {
@@ -458,12 +485,66 @@ export const getExternalWorksheetByToken = onCall(
       ? dist.toDate().toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" })
       : "—";
 
+    const la = parseLocalAttachmentPayload(a.localAttachment);
+    let attachmentDownloadUrl: string | null = null;
+    let attachmentOriginalName: string | null = null;
+    if (la) {
+      try {
+        attachmentDownloadUrl = await signedDownloadUrlForWorksheetFile(la.storagePath, la.originalName);
+        attachmentOriginalName = la.originalName;
+      } catch (e) {
+        console.error("[getExternalWorksheetByToken] signed URL 실패:", e);
+      }
+    }
+
     return {
       title: String(a.title ?? "학습지"),
       passage: String(a.passage ?? ""),
       worksheetItems: stripAnswerKeys(items),
       distributedAtLabel,
+      ...(attachmentDownloadUrl
+        ? { attachmentDownloadUrl, attachmentOriginalName: attachmentOriginalName ?? la!.originalName }
+        : {}),
     };
+  },
+);
+
+export const getWorksheetAttachmentDownloadUrl = onCall(
+  { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+    }
+    const assignmentId = String(request.data?.assignmentId ?? "").trim();
+    if (!assignmentId || assignmentId.length > 120) {
+      throw new HttpsError("invalid-argument", "과제 ID가 필요합니다.");
+    }
+    const snap = await db.doc(`assignments/${assignmentId}`).get();
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "과제를 찾을 수 없습니다.");
+    }
+    const data = snap.data()!;
+    const teacherId = String(data.teacherId ?? "");
+    const targets = (data.targetStudentIds ?? []) as string[];
+    const uid = request.auth.uid;
+    const prof = (await db.doc(`users/${uid}`).get()).data();
+    const allowed =
+      teacherId === uid || targets.includes(uid) || isActiveSuperAdminProfile(prof);
+    if (!allowed) {
+      throw new HttpsError("permission-denied", "이 첨부를 받을 권한이 없습니다.");
+    }
+    const la = parseLocalAttachmentPayload(data.localAttachment);
+    if (!la) {
+      throw new HttpsError("failed-precondition", "이 과제에는 첨부 파일이 없습니다.");
+    }
+    try {
+      const url = await signedDownloadUrlForWorksheetFile(la.storagePath, la.originalName);
+      return { url, originalName: la.originalName };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[getWorksheetAttachmentDownloadUrl]", e);
+      throw new HttpsError("internal", `다운로드 링크를 만들 수 없습니다: ${msg.slice(0, 200)}`);
+    }
   },
 );
 
@@ -487,9 +568,13 @@ export const deployWorksheetOutreach = onCall(
   const worksheetItems = request.data?.worksheetItems as WorksheetItemIn[] | undefined;
   const selectedStudentUids = (request.data?.selectedStudentUids as string[] | undefined) ?? [];
   const recipientsRaw = (request.data?.recipients as { displayName?: string; phone?: string; email?: string }[] | undefined) ?? [];
+  const localAttachmentEarly = parseLocalAttachmentPayload(request.data?.localAttachment);
 
   if (!title) throw new HttpsError("invalid-argument", "제목이 필요합니다.");
-  if (!passage || passage.length > 120_000) throw new HttpsError("invalid-argument", "지문이 비어 있거나 너무 깁니다.");
+  if (passage.length > 120_000) throw new HttpsError("invalid-argument", "지문이 너무 깁니다.");
+  if (!passage && !localAttachmentEarly) {
+    throw new HttpsError("invalid-argument", "지문이 비어 있으면 첨부 파일이 필요합니다.");
+  }
   if (!analysis || typeof analysis !== "object") throw new HttpsError("invalid-argument", "분석 데이터가 필요합니다.");
   if (!Number.isFinite(distributedAtMs)) throw new HttpsError("invalid-argument", "배포 일시가 올바르지 않습니다.");
   if (!worksheetItems?.length || worksheetItems.length > 60) {
@@ -575,19 +660,13 @@ export const deployWorksheetOutreach = onCall(
 
   const csRaw = request.data?.contentSource;
   const contentSource = csRaw === "ai" || csRaw === "local" ? csRaw : null;
-  const laRaw = request.data?.localAttachment as { storagePath?: unknown; originalName?: unknown } | undefined;
-  let localAttachment: { storagePath: string; originalName: string } | undefined;
-  if (laRaw && typeof laRaw.storagePath === "string" && typeof laRaw.originalName === "string") {
-    const sp = laRaw.storagePath.trim().slice(0, 500);
-    const on = laRaw.originalName.trim().slice(0, 240);
-    if (sp && on) localAttachment = { storagePath: sp, originalName: on };
-  }
+  const localAttachment = localAttachmentEarly;
 
   let analysisForFirestore: Record<string, unknown>;
   try {
     analysisForFirestore = JSON.parse(JSON.stringify(analysis)) as Record<string, unknown>;
   } catch {
-    throw new HttpsError("invalid-argument", "분석 데이터에 저장할 수 없는 값이 포함되어 있습니다. AI 학습지 첨부를 다시 시도해 주세요.");
+    throw new HttpsError("invalid-argument", "분석 데이터에 저장할 수 없는 값이 포함되어 있습니다.");
   }
 
   const assignRef = await db.collection("assignments").add({
