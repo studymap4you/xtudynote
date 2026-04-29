@@ -10016,18 +10016,35 @@ button.top-nav__auth-link--logout:hover {
   right: var(--space-2);
   width: 36px;
   height: 36px;
-  border: 1px solid var(--premium-border);
+  padding: 0;
+  border: 1px solid rgba(15, 23, 42, 0.14);
   border-radius: var(--radius-ui);
-  background: rgba(7, 15, 28, 0.75);
-  color: var(--premium-ink-muted);
+  background: #f1f5f9;
+  color: #0f172a;
   font-size: 1.35rem;
   line-height: 1;
   cursor: pointer;
-  box-shadow: var(--premium-shadow-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
-.crm-modal__close:hover {
-  background: rgba(94, 184, 236, 0.12);
-  color: var(--premium-ink);
+.crm-modal__close::before {
+  content: "\00d7";
+  display: block;
+  font-size: 1.45rem;
+  font-weight: 500;
+  line-height: 1;
+  color: #0f172a;
+}
+.crm-modal__close:hover:not(:disabled) {
+  background: #e2e8f0;
+  border-color: rgba(15, 23, 42, 0.2);
+  color: #0f172a;
+}
+.crm-modal__close:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .crm-modal__title {
   margin: 0 0 var(--space-1);
@@ -10065,6 +10082,16 @@ button.top-nav__auth-link--logout:hover {
   gap: var(--space-2);
   margin-top: var(--space-2);
   flex-wrap: wrap;
+}
+.crm-modal__actions .btn.btn--ghost {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.14);
+}
+.crm-modal__actions .btn.btn--ghost:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.22);
 }
 
 /* Educator dashboard: CRM 블록 라이트 테마 (기존 .crm-* 다크 스타일 보정) */
@@ -10244,11 +10271,23 @@ button.top-nav__auth-link--logout:hover {
 }
 .app-shell--light .educator-crm .crm-modal__close {
   background: #f1f5f9;
-  color: #64748b;
-  border-color: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.14);
 }
-.app-shell--light .educator-crm .crm-modal__close:hover {
+.app-shell--light .educator-crm .crm-modal__close::before {
+  color: #0f172a;
+}
+.app-shell--light .educator-crm .crm-modal__close:hover:not(:disabled) {
   background: #e2e8f0;
+  color: #0f172a;
+}
+.app-shell--light .educator-crm .crm-modal__actions .btn.btn--ghost {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+.app-shell--light .educator-crm .crm-modal__actions .btn.btn--ghost:hover:not(:disabled) {
+  background: #f1f5f9;
   color: #0f172a;
 }
 .app-shell--light .educator-crm .crm-modal__sms {

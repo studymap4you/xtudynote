@@ -647,9 +647,7 @@ export function StudentManagementSection() {
               className="crm-modal__close"
               aria-label="Close"
               onClick={() => !dispatching && setSendOpen(false)}
-            >
-              ×
-            </button>
+            />
             <h3 id="crm-send-title" className="crm-modal__title">
               <span className="crm-modal__title-en">Homework notification</span>
               <span className="crm-modal__title-ko">과제 알림</span>
