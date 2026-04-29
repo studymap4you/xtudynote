@@ -32,7 +32,15 @@ export type EnglishPassagePdfSentence = {
   koreanFull: string;
 };
 
+export type EnglishPassagePdfNewsletterSection = {
+  heading: string;
+  body: string;
+};
+
+export type EnglishPassagePdfDocumentType = "english_worksheet" | "newsletter";
+
 export type EnglishPassagePdfInput = {
+  documentType?: EnglishPassagePdfDocumentType;
   title: string;
   teacherName: string;
   passage: string;
@@ -40,6 +48,8 @@ export type EnglishPassagePdfInput = {
   examDate?: string;
   vocabulary: { word: string; meaning: string }[];
   sentences: EnglishPassagePdfSentence[];
+  /** documentType === "newsletter" 일 때 사용 */
+  newsletterSections?: EnglishPassagePdfNewsletterSection[];
 };
 
 function strip(s: unknown): string {
@@ -87,10 +97,18 @@ function safeFilenamePart(s: string): string {
 export function buildEnglishPassagePdfFilename(input: EnglishPassagePdfInput): string {
   const datePart = safeFilenamePart(input.examDate || new Date().toISOString().slice(0, 10));
   const titlePart = safeFilenamePart(input.title || "지문학습");
+  if (input.documentType === "newsletter") {
+    return `${datePart}_newsletter_${titlePart}.pdf`;
+  }
   return `${datePart}_${titlePart}.pdf`;
 }
 
 export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput): Promise<Uint8Array> {
+  const docType = input.documentType ?? "english_worksheet";
+  if (docType === "newsletter") {
+    return buildNewsletterPdfBytes(input);
+  }
+
   const title = strip(input.title) || "영어 지문 학습";
   const teacherName = strip(input.teacherName) || "선생님";
   const passage = strip(input.passage);
@@ -692,5 +710,195 @@ export async function buildEnglishPassagePdfBytes(input: EnglishPassagePdfInput)
   }
 
   drawFootersAll();
+  return pdfDoc.save();
+}
+
+/** 뉴스레터 — 화이트 톤·세련된 헤더/본문 (웹 미리보기와 동일 톤 지향) */
+async function buildNewsletterPdfBytes(input: EnglishPassagePdfInput): Promise<Uint8Array> {
+  const title = strip(input.title) || "Learning Newsletter";
+  const teacherName = strip(input.teacherName) || "Editor";
+  const examDate = strip(input.examDate);
+  const sections = (input.newsletterSections ?? []).filter((s) => strip(s.heading) && strip(s.body));
+
+  const fp = fontPaths();
+  if (!existsSync(fp.regular) || !existsSync(fp.bold)) {
+    throw new Error("Pretendard font files missing under functions/assets/fonts/");
+  }
+
+  const pdfDoc = await PDFDocument.create();
+  const fontReg = await pdfDoc.embedFont(readFileSync(fp.regular));
+  const fontBold = await pdfDoc.embedFont(readFileSync(fp.bold));
+
+  let logoImg: PDFImage | null = null;
+  const lp = logoPath();
+  if (existsSync(lp)) {
+    try {
+      logoImg = await pdfDoc.embedPng(readFileSync(lp));
+    } catch {
+      logoImg = null;
+    }
+  }
+
+  const contentWidth = PAGE_W - MARGIN_L - MARGIN_R;
+  const footerBand = 28;
+  const minY = MARGIN_BOT + footerBand + 14;
+  const ink = rgb(0.14, 0.17, 0.22);
+  const muted = rgb(0.45, 0.48, 0.53);
+  const accent = rgb(0.16, 0.4, 0.72);
+  const subtleRule = rgb(0.88, 0.9, 0.93);
+  const bandTint = rgb(0.96, 0.97, 0.99);
+
+  const pages: PDFPage[] = [];
+  const issueLabel = examDate || new Date().toLocaleDateString("ko-KR", { dateStyle: "medium" });
+  const BODY_PT_N = 10;
+  const BODY_LH_N = BODY_PT_N * 1.48;
+  const H2_PT_N = 12;
+
+  const drawNewsletterHeader = (pg: PDFPage): number => {
+    const bandTop = PAGE_H - MARGIN_TOP;
+    const bandH = 52;
+    pg.drawRectangle({
+      x: 0,
+      y: bandTop - bandH,
+      width: PAGE_W,
+      height: bandH,
+      color: bandTint,
+    });
+
+    let yLogo = bandTop - 8;
+    if (logoImg) {
+      const logoMaxH = 22;
+      const logoMaxW = 88;
+      const iw = logoImg.width;
+      const ih = logoImg.height;
+      const scale = Math.min(logoMaxW / iw, logoMaxH / ih);
+      const dw = iw * scale;
+      const dh = ih * scale;
+      pg.drawImage(logoImg, { x: MARGIN_L, y: yLogo - dh, width: dw, height: dh });
+    }
+
+    const brand = `Xtudy-Universe · Learning Newsletter`;
+    pg.drawText(brand, {
+      x: MARGIN_L,
+      y: bandTop - bandH + 14,
+      size: 7.5,
+      font: fontReg,
+      color: muted,
+    });
+
+    const tag = `담당 ${teacherName}  |  ${issueLabel}`;
+    const tw = fontReg.widthOfTextAtSize(tag, 7.5);
+    pg.drawText(tag, {
+      x: PAGE_W - MARGIN_R - tw,
+      y: bandTop - bandH + 14,
+      size: 7.5,
+      font: fontReg,
+      color: muted,
+    });
+
+    const titleY = bandTop - bandH - 8;
+    pg.drawText(title, {
+      x: MARGIN_L,
+      y: titleY - TITLE_PT,
+      size: TITLE_PT,
+      font: fontBold,
+      color: ink,
+    });
+
+    pg.drawRectangle({
+      x: MARGIN_L,
+      y: titleY - TITLE_PT - 16,
+      width: contentWidth,
+      height: 0.5,
+      color: subtleRule,
+    });
+
+    return titleY - TITLE_PT - 28;
+  };
+
+  const drawFooters = (): void => {
+    const fs = FOOTER_SMALL;
+    const yBase = MARGIN_BOT + 6;
+    pages.forEach((pg, i) => {
+      const idx = i + 1;
+      const left = `${teacherName}`;
+      const center = `${idx} / ${pages.length}`;
+      const right = `Xtudy-Universe`;
+
+      pg.drawText(left, { x: MARGIN_L, y: yBase, size: fs, font: fontReg, color: muted });
+      const cw = fontReg.widthOfTextAtSize(center, fs);
+      pg.drawText(center, {
+        x: (PAGE_W - cw) / 2,
+        y: yBase,
+        size: fs,
+        font: fontReg,
+        color: muted,
+      });
+      const rw = fontReg.widthOfTextAtSize(right, fs);
+      pg.drawText(right, {
+        x: PAGE_W - MARGIN_R - rw,
+        y: yBase,
+        size: fs,
+        font: fontReg,
+        color: muted,
+      });
+    });
+  };
+
+  let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+  pages.push(page);
+  let y = drawNewsletterHeader(page);
+
+  const ensureLine = (lh: number): void => {
+    if (y - lh < minY) {
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      pages.push(page);
+      y = PAGE_H - MARGIN_TOP;
+      y -= 28;
+    }
+  };
+
+  for (const block of sections) {
+    const head = strip(block.heading);
+    const body = strip(block.body).replace(/\*\*/g, "");
+
+    const headLines = wrapLines(head, fontBold, H2_PT_N, contentWidth);
+    for (const ln of headLines) {
+      ensureLine(BODY_LH_N + 4);
+      page.drawText(ln, {
+        x: MARGIN_L,
+        y: y - H2_PT_N,
+        size: H2_PT_N,
+        font: fontBold,
+        color: accent,
+      });
+      y -= H2_PT_N + 8;
+    }
+
+    const bodyLines = wrapLines(body, fontReg, BODY_PT_N, contentWidth);
+    for (const ln of bodyLines) {
+      ensureLine(BODY_LH_N + 2);
+      page.drawText(ln || " ", {
+        x: MARGIN_L,
+        y: y - BODY_PT_N,
+        size: BODY_PT_N,
+        font: fontReg,
+        color: ink,
+      });
+      y -= BODY_LH_N;
+    }
+    y -= 16;
+    ensureLine(4);
+    page.drawRectangle({
+      x: MARGIN_L,
+      y: y,
+      width: contentWidth,
+      height: 0.4,
+      color: subtleRule,
+    });
+    y -= 20;
+  }
+
+  drawFooters();
   return pdfDoc.save();
 }

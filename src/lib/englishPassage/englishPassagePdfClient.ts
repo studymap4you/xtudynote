@@ -23,24 +23,41 @@ function parseFilenameFromDisposition(header: string | null): string | null {
 }
 
 export type EnglishPassagePdfPayload = {
+  documentType?: "english_worksheet" | "newsletter";
   title: string;
   teacherName: string;
-  passage: string;
-  layout: "1col" | "2col";
+  /** 워크시트 전용 통째 지문 / 뉴스레터는 빈 문자열 가능 */
+  passage?: string;
+  layout?: "1col" | "2col";
   examDate?: string;
-  vocabulary: { word: string; meaning: string }[];
-  sentences: Array<{
+  vocabulary?: { word: string; meaning: string }[];
+  sentences?: Array<{
     english: string;
     koreanFull: string;
   }>;
+  newsletterSections?: Array<{ heading: string; body: string }>;
 };
 
 export async function downloadEnglishPassagePdf(payload: EnglishPassagePdfPayload): Promise<void> {
   const endpoint = englishPassagePdfEndpoint();
+  const docType = payload.documentType ?? "english_worksheet";
+  const body: Record<string, unknown> = {
+    documentType: docType,
+    title: payload.title,
+    teacherName: payload.teacherName,
+    passage: payload.passage ?? "",
+    layout: payload.layout ?? "1col",
+    examDate: payload.examDate ?? "",
+    vocabulary: payload.vocabulary ?? [],
+    sentences: payload.sentences ?? [],
+  };
+  if (docType === "newsletter" && payload.newsletterSections?.length) {
+    body.newsletterSections = payload.newsletterSections;
+  }
   const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const t = await res.text();
@@ -61,4 +78,24 @@ export async function downloadEnglishPassagePdf(payload: EnglishPassagePdfPayloa
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/** 뉴스레터 PDF — generateEnglishPassagePdf Cloud Function (documentType: newsletter) */
+export async function downloadNewsletterPdf(args: {
+  title: string;
+  teacherName: string;
+  examDate?: string;
+  newsletterSections: Array<{ heading: string; body: string }>;
+}): Promise<void> {
+  return downloadEnglishPassagePdf({
+    documentType: "newsletter",
+    title: args.title,
+    teacherName: args.teacherName,
+    passage: "",
+    layout: "1col",
+    examDate: args.examDate,
+    vocabulary: [],
+    sentences: [],
+    newsletterSections: args.newsletterSections,
+  });
 }

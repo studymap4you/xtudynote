@@ -215,11 +215,26 @@ function parseExamPaperPdfBody(raw: Record<string, unknown>): ExamPaperPdfInput 
 }
 
 function parseEnglishPassagePdfBody(raw: Record<string, unknown>): EnglishPassagePdfInput {
+  const documentType: EnglishPassagePdfInput["documentType"] =
+    raw.documentType === "newsletter" ? "newsletter" : "english_worksheet";
   const title = String(raw.title ?? "").trim();
   const teacherName = String(raw.teacherName ?? "").trim();
   const passage = String(raw.passage ?? "").trim();
   const layout = raw.layout === "2col" ? "2col" : "1col";
   const examDate = String(raw.examDate ?? "").trim();
+
+  const newsletterSections: NonNullable<EnglishPassagePdfInput["newsletterSections"]> = [];
+  const nRaw = raw.newsletterSections;
+  if (Array.isArray(nRaw)) {
+    for (const row of nRaw) {
+      if (!row || typeof row !== "object") continue;
+      const o = row as Record<string, unknown>;
+      const heading = String(o.heading ?? o.title ?? "").trim();
+      const body = String(o.body ?? "").trim();
+      if (!heading || !body) continue;
+      newsletterSections.push({ heading, body });
+    }
+  }
 
   const vocabulary: EnglishPassagePdfInput["vocabulary"] = [];
   const vRaw = raw.vocabulary;
@@ -248,6 +263,7 @@ function parseEnglishPassagePdfBody(raw: Record<string, unknown>): EnglishPassag
   }
 
   return {
+    documentType,
     title,
     teacherName,
     passage,
@@ -255,6 +271,7 @@ function parseEnglishPassagePdfBody(raw: Record<string, unknown>): EnglishPassag
     examDate,
     vocabulary,
     sentences,
+    newsletterSections: newsletterSections.length > 0 ? newsletterSections : undefined,
   };
 }
 
@@ -402,10 +419,16 @@ export const generateEnglishPassagePdf = onRequest(
       const raw = readRequestJson(req);
       const payload = parseEnglishPassagePdfBody(raw);
       if (!payload.title || !payload.teacherName) {
-        res.status(400).send("제목과 선생님 성함은 필수입니다.");
+        res.status(400).send("제목과 담당자 성함은 필수입니다.");
         return;
       }
-      if (!payload.vocabulary.length && !payload.sentences.length) {
+      const isNewsletter = payload.documentType === "newsletter";
+      if (isNewsletter) {
+        if (!payload.newsletterSections?.length) {
+          res.status(400).send("뉴스레터 본문 섹션이 없습니다.");
+          return;
+        }
+      } else if (!payload.vocabulary.length && !payload.sentences.length) {
         res.status(400).send("어휘 또는 문장 데이터가 없습니다.");
         return;
       }

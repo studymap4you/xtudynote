@@ -1,0 +1,248 @@
+.root {
+  flex: 1;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 2.5rem;
+  box-sizing: border-box;
+}
+
+.head {
+  margin-bottom: 1.25rem;
+}
+.head h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+.headLead {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 1.15rem 1.2rem 1.35rem;
+  box-shadow: 0 14px 40px -28px rgba(15, 23, 42, 0.18);
+}
+
+.panelTitle {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+.field label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.35rem;
+}
+.field input[type="text"],
+.field input[type="file"],
+.field select,
+.field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  padding: 0.55rem 0.7rem;
+  background: #f8fafc;
+  color: #0f172a;
+}
+.field textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  background: #fff;
+}
+
+.thumb {
+  margin-top: 0.5rem;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  max-height: 200px;
+  background: #f1f5f9;
+}
+.thumb img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  object-fit: contain;
+  object-position: top center;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.btnPrimary {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.55rem 1.05rem;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px -4px rgba(37, 99, 235, 0.55);
+}
+.btnPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnGhost {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.55rem 1.05rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: #fff;
+  color: #334155;
+}
+.btnGhost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.86rem;
+}
+
+.meta {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.preview {
+  min-height: 420px;
+  max-height: min(78vh, 900px);
+  overflow: auto;
+  padding: 1.25rem 1.35rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+}
+
+.previewEmpty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.previewTitle {
+  margin: 0 0 1rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.section {
+  margin-bottom: 1.35rem;
+}
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.section h2 {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #1e40af;
+  letter-spacing: -0.02em;
+}
+
+.mainBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.body {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: #334155;
+  white-space: pre-wrap;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+}
+.back:hover {
+  text-decoration: underline;
+}

@@ -45,6 +45,7 @@ import { ExamBuilderPage } from "@/pages/exam/ExamBuilderPage";
 import { ClassroomTodayExamPage } from "@/pages/exam/ClassroomTodayExamPage";
 import { ExamTakePage } from "@/pages/exam/ExamTakePage";
 import { EnglishPassageLabPage } from "@/pages/english-passage/EnglishPassageLabPage";
+import { NewsletterBuilderPage } from "@/pages/NewsletterBuilder";
 
 export default function App() {
   return (
@@ -105,6 +106,14 @@ export default function App() {
           <ProtectedRoute>
             <DashboardPage />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/newsletter-builder"
+        element={
+          <SuperAdminRoute>
+            <NewsletterBuilderPage />
+          </SuperAdminRoute>
         }
       />
       <Route

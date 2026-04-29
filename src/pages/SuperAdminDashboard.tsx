@@ -91,6 +91,10 @@ export function SuperAdminDashboard() {
               <span className="ui-en">Storefront & home videos</span>
               <span className="ui-ko">디지털·엑스터디마켓 · 홈 동영상 등록·삭제</span>
             </Link>
+            <Link to="/dashboard/newsletter-builder" className="btn btn--stack super-admin-actions__newsletter">
+              <span className="ui-en">Newsletter builder (Vision)</span>
+              <span className="ui-ko">뉴스레터 빌더 · 이미지→Binary Logic 섹션 PDF</span>
+            </Link>
           </div>
         </section>
 
