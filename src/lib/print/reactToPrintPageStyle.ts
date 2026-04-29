@@ -35,3 +35,39 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
     }
   }
 `;
+
+/**
+ * 뉴스레터 빌더 — 서버 PDF 대신 브라우저 인쇄(PDF 저장)용
+ */
+export const NEWSLETTER_PRINT_PAGE_STYLE = `
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  @media print {
+    html,
+    body {
+      height: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+      color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      -webkit-print-color-adjust: exact !important;
+    }
+    body {
+      padding: 22mm 24mm !important;
+      font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+    }
+    .newsletter-print-root section {
+      break-inside: avoid;
+    }
+    .newsletter-print-root h2 {
+      break-after: avoid;
+    }
+    .newsletter-print-root img {
+      max-width: 100% !important;
+      page-break-inside: avoid;
+    }
+  }
+`;

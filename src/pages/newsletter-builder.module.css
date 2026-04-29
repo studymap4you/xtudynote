@@ -309,6 +309,16 @@
   color: #64748b;
 }
 
+/* react-to-print — 레이아웃용으로만 화면 밖에 둠 */
+.printSink {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 210mm;
+  max-width: 794px;
+  background: #fff;
+}
+
 .back {
   display: inline-block;
   margin-bottom: 0.75rem;

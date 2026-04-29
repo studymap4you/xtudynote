@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useReactToPrint } from "react-to-print";
 import { DashboardShell } from "@/components/DashboardShell";
 import { NewsletterEditModal } from "@/components/newsletter/NewsletterEditModal";
-import { downloadNewsletterPdf } from "@/lib/englishPassage/englishPassagePdfClient";
+import { NewsletterPrintView } from "@/components/newsletter/NewsletterPrintView";
+import { NEWSLETTER_PRINT_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { requestNewsletterFromImage } from "@/lib/newsletter/requestNewsletterFromImage";
 import type { NewsletterAiResult, NewsletterPurpose } from "@/types/newsletter";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +25,7 @@ export function NewsletterBuilderPage() {
   const { profile } = useAuth();
   const uid = useId();
   const fileInputId = `${uid}-newsletter-image`;
+  const printRef = useRef<HTMLDivElement>(null);
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -90,38 +93,31 @@ export function NewsletterBuilderPage() {
     }
   }, [imageFile, purpose, keywords, titleOverride]);
 
-  const runPdf = useCallback(async () => {
-    if (!published || !finalizedForPdf) return;
-    setPdfBusy(true);
-    setError(null);
-    try {
-      await downloadNewsletterPdf({
-        title: published.titleKo,
-        teacherName,
-        examDate: new Date().toISOString().slice(0, 10),
-        newsletterSections: published.sections.map((s) => {
-          const row: {
-            heading: string;
-            body: string;
-            imageDataUrl?: string;
-            imageWidthPercent?: number;
-          } = {
-            heading: s.headingKo,
-            body: displayBody(s.bodyKo),
-          };
-          if (s.imageDataUrl) {
-            row.imageDataUrl = s.imageDataUrl;
-            row.imageWidthPercent = s.imageWidthPercent ?? 100;
-          }
-          return row;
-        }),
-      });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "PDF 다운로드에 실패했습니다.");
-    } finally {
+  const printNewsletter = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: () => {
+      const raw = published?.titleKo?.slice(0, 72) ?? "newsletter";
+      const safe = raw.replace(/[/\\?%*:|"<>]/g, "_").trim() || "newsletter";
+      return `Xtudy-Universe_Newsletter_${safe}`;
+    },
+    pageStyle: NEWSLETTER_PRINT_PAGE_STYLE,
+    onBeforePrint: async () => {
+      setPdfBusy(true);
+    },
+    onAfterPrint: () => {
       setPdfBusy(false);
-    }
-  }, [published, finalizedForPdf, teacherName]);
+    },
+    onPrintError: (_loc, err) => {
+      setError(err.message);
+      setPdfBusy(false);
+    },
+  });
+
+  const runPrint = useCallback(() => {
+    if (!published || !finalizedForPdf) return;
+    setError(null);
+    printNewsletter();
+  }, [published, finalizedForPdf, printNewsletter]);
 
   return (
     <DashboardShell light>
@@ -134,12 +130,12 @@ export function NewsletterBuilderPage() {
           <p className={styles.headLead}>
             <span className="ui-en">
               Upload image → Vision AI summarizes passage & teacher notes → fixed template with Binary Logic (Signal
-              Logic) as the main section → preview & PDF.
+              Logic) as the main section → preview, then print / Save as PDF in the browser.
             </span>
             <span className="ui-ko" style={{ display: "block", marginTop: "0.35rem" }}>
               이미지 업로드 후 GPT-4o Vision이 지문·필기를 읽고,{" "}
               <strong>학습법 분석(Binary Logic / 시그널 로직)</strong>을 메인 섹션에 넣은 뉴스레터 초안을 만듭니다.
-              오른쪽 미리보기와 동일한 화이트 톤으로 PDF를 내려받을 수 있습니다.
+              확정 후 브라우저 <strong>인쇄</strong> 대화상자에서 <strong>PDF로 저장</strong>할 수 있습니다(서버 PDF 대신).
             </span>
           </p>
         </header>
@@ -202,15 +198,15 @@ export function NewsletterBuilderPage() {
                 type="button"
                 className={styles.btnGhost}
                 disabled={pdfBusy || !published || !finalizedForPdf}
-                onClick={runPdf}
+                onClick={runPrint}
                 title={!published ? undefined : !finalizedForPdf ? "미리보기에서 「수정」 후 「수정완료」를 누른 뒤 사용할 수 있습니다." : undefined}
               >
-                {pdfBusy ? "PDF 준비 중…" : "PDF 다운로드"}
+                {pdfBusy ? "인쇄 준비 중…" : "인쇄 / PDF 저장"}
               </button>
             </div>
             {published && !finalizedForPdf ? (
               <p className={styles.pdfHint}>
-                내용 확인·편집 후 미리보기 아래 「수정」을 열고, 끝나면 「수정완료」로 확정하면 PDF를 받을 수 있습니다.
+                내용 확인·편집 후 미리보기 아래 「수정」을 열고, 「수정완료」로 확정한 뒤 「인쇄 / PDF 저장」으로 브라우저에서 PDF로 저장하세요.
               </p>
             ) : null}
 
@@ -262,7 +258,7 @@ export function NewsletterBuilderPage() {
                 <button type="button" className={styles.btnSilver} onClick={() => setEditOpen(true)}>
                   수정
                 </button>
-                {finalizedForPdf ? <span className={styles.finalizedTag}>수정 확정됨 — PDF 다운로드 가능</span> : null}
+                {finalizedForPdf ? <span className={styles.finalizedTag}>수정 확정됨 — 인쇄로 PDF 저장 가능</span> : null}
               </div>
             ) : null}
           </section>
@@ -281,6 +277,16 @@ export function NewsletterBuilderPage() {
           }}
         />
       ) : null}
+
+      <div ref={printRef} className={styles.printSink} aria-hidden>
+        {published && finalizedForPdf ? (
+          <NewsletterPrintView
+            data={published}
+            teacherName={teacherName}
+            issueLabel={new Date().toLocaleDateString("ko-KR", { dateStyle: "medium" })}
+          />
+        ) : null}
+      </div>
     </DashboardShell>
   );
 }
