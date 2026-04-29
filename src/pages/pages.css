@@ -4547,6 +4547,76 @@ button.top-nav__auth-link--logout:hover {
     linear-gradient(168deg, #bae6fd 0%, #7dd3fc 22%, #38bdf8 52%, #0ea5e9 82%, #0284c7 100%);
 }
 
+.app-shell--register .auth-card {
+  background: linear-gradient(155deg, #0284c7 0%, #0369a1 42%, #0c4a6e 100%);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 20px 50px -14px rgba(8, 47, 73, 0.55);
+}
+.app-shell--register .auth-card h1 .ui-en,
+.app-shell--register .auth-card h1 .ui-ko {
+  color: #f8fafc;
+}
+.app-shell--register .auth-card__hint .ui-ko {
+  color: rgba(241, 245, 249, 0.9);
+}
+.app-shell--register .auth-card__hint-en {
+  font-size: 0.95rem;
+  color: rgba(226, 232, 240, 0.92);
+}
+.app-shell--register .auth-card__links a {
+  color: rgba(255, 255, 255, 0.9);
+}
+.app-shell--register .auth-card__links a:hover {
+  color: #ffffff;
+}
+.app-shell--register .auth-card__links .ui-ko {
+  color: rgba(226, 232, 240, 0.85);
+}
+.app-shell--register .auth-field label .ui-en,
+.app-shell--register .auth-field label .ui-ko {
+  color: rgba(248, 250, 252, 0.95);
+}
+.app-shell--register .auth-field input {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #0f172a;
+}
+.app-shell--register .auth-error {
+  color: #fecaca;
+}
+.app-shell--register .landing__choice {
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  color: #0f172a;
+  background: linear-gradient(165deg, #f8fafc 0%, #e2e8f0 28%, #cbd5e1 62%, #94a3b8 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 10px 24px -10px rgba(15, 23, 42, 0.35);
+}
+.app-shell--register .landing__choice:hover {
+  text-decoration: none;
+  border-color: rgba(51, 65, 85, 0.55);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 14px 32px -12px rgba(15, 23, 42, 0.42);
+}
+.app-shell--register .landing__choice--teacher,
+.app-shell--register .landing__choice--student {
+  background: linear-gradient(165deg, #f1f5f9 0%, #e2e8f0 35%, #cbd5e1 70%, #94a3b8 100%);
+}
+.app-shell--register .landing__choice--teacher:hover,
+.app-shell--register .landing__choice--student:hover {
+  border-color: rgba(51, 65, 85, 0.5);
+}
+.app-shell--register .landing__choice-sub .ui-en {
+  color: #1e293b;
+  font-weight: 700;
+}
+.app-shell--register .landing__choice-sub .ui-ko {
+  color: #334155;
+}
+
 .auth-page {
   flex: 1;
   display: flex;

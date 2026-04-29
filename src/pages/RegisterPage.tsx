@@ -40,7 +40,7 @@ export function RegisterPage() {
               <span className="ui-ko">회원가입</span>
             </h1>
             <p className="auth-card__hint">
-              <span className="ui-en" style={{ fontSize: "0.95rem", color: "var(--text-muted)" }}>
+              <span className="ui-en auth-card__hint-en">
                 Choose how you’ll use Xtudy-Universe.
               </span>
               <span className="ui-ko">서비스 이용 방식에 맞는 역할을 선택해 주세요.</span>
@@ -92,7 +92,7 @@ export function RegisterPage() {
   const hint =
     choice === "teacher" ? (
       <>
-        <span className="ui-en" style={{ fontSize: "0.95rem", color: "var(--text-muted)" }}>
+        <span className="ui-en auth-card__hint-en">
           Join as an educator. Content tools stay locked until your credentials are verified.
         </span>
         <span className="ui-ko">
@@ -101,7 +101,7 @@ export function RegisterPage() {
       </>
     ) : (
       <>
-        <span className="ui-en" style={{ fontSize: "0.95rem", color: "var(--text-muted)" }}>
+        <span className="ui-en auth-card__hint-en">
           Join as a learner — access feedback, logs, and shared materials.
         </span>
         <span className="ui-ko">
