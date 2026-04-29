@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from "node:fs";
+import { Buffer } from "node:buffer";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PDFDocument, type PDFPage, type PDFFont, rgb, type PDFImage } from "pdf-lib";
@@ -35,6 +36,10 @@ export type EnglishPassagePdfSentence = {
 export type EnglishPassagePdfNewsletterSection = {
   heading: string;
   body: string;
+  /** data:image/png;base64,... 또는 data:image/jpeg;base64,... */
+  imageDataUrl?: string;
+  /** 콘텐츠 영역 너비 대비 % (20–100) */
+  imageWidthPercent?: number;
 };
 
 export type EnglishPassagePdfDocumentType = "english_worksheet" | "newsletter";
@@ -92,6 +97,33 @@ function wrapLines(text: string, font: PDFFont, fontSize: number, maxWidth: numb
 function safeFilenamePart(s: string): string {
   const t = s.replace(/[/\\?%*:|"<>\x00-\x1f]/g, "_").trim();
   return t.length > 0 ? t.slice(0, 120) : "영어학습";
+}
+
+async function embedImageFromDataUrl(
+  pdfDoc: PDFDocument,
+  dataUrl: string,
+): Promise<{ image: PDFImage; srcW: number; srcH: number } | null> {
+  const m = /^data:(image\/(?:png|jpeg|jpg));base64,([\s\S]+)$/i.exec(dataUrl.trim());
+  if (!m) return null;
+  const b64 = m[2].replace(/\s/g, "");
+  let buf: Buffer;
+  try {
+    buf = Buffer.from(b64, "base64");
+  } catch {
+    return null;
+  }
+  if (buf.length < 32 || buf.length > 2_800_000) return null;
+  try {
+    const mime = m[1].toLowerCase();
+    if (mime === "image/png") {
+      const image = await pdfDoc.embedPng(buf);
+      return { image, srcW: image.width, srcH: image.height };
+    }
+    const image = await pdfDoc.embedJpg(buf);
+    return { image, srcW: image.width, srcH: image.height };
+  } catch {
+    return null;
+  }
 }
 
 export function buildEnglishPassagePdfFilename(input: EnglishPassagePdfInput): string {
@@ -873,6 +905,29 @@ async function buildNewsletterPdfBytes(input: EnglishPassagePdfInput): Promise<U
         color: accent,
       });
       y -= H2_PT_N + 8;
+    }
+
+    const imgUrl = strip(block.imageDataUrl);
+    if (imgUrl) {
+      const embedded = await embedImageFromDataUrl(pdfDoc, imgUrl);
+      if (embedded) {
+        const pctRaw = block.imageWidthPercent;
+        const pct =
+          typeof pctRaw === "number" && Number.isFinite(pctRaw)
+            ? Math.min(100, Math.max(20, pctRaw))
+            : 100;
+        const drawW = (contentWidth * pct) / 100;
+        const scale = drawW / embedded.srcW;
+        const drawH = embedded.srcH * scale;
+        ensureLine(drawH + 10);
+        page.drawImage(embedded.image, {
+          x: MARGIN_L,
+          y: y - drawH,
+          width: drawW,
+          height: drawH,
+        });
+        y -= drawH + 12;
+      }
     }
 
     const bodyLines = wrapLines(body, fontReg, BODY_PT_N, contentWidth);

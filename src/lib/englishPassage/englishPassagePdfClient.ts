@@ -35,7 +35,12 @@ export type EnglishPassagePdfPayload = {
     english: string;
     koreanFull: string;
   }>;
-  newsletterSections?: Array<{ heading: string; body: string }>;
+  newsletterSections?: Array<{
+    heading: string;
+    body: string;
+    imageDataUrl?: string;
+    imageWidthPercent?: number;
+  }>;
 };
 
 export async function downloadEnglishPassagePdf(payload: EnglishPassagePdfPayload): Promise<void> {
@@ -85,7 +90,12 @@ export async function downloadNewsletterPdf(args: {
   title: string;
   teacherName: string;
   examDate?: string;
-  newsletterSections: Array<{ heading: string; body: string }>;
+  newsletterSections: Array<{
+    heading: string;
+    body: string;
+    imageDataUrl?: string;
+    imageWidthPercent?: number;
+  }>;
 }): Promise<void> {
   return downloadEnglishPassagePdf({
     documentType: "newsletter",

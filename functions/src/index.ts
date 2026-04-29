@@ -232,7 +232,21 @@ function parseEnglishPassagePdfBody(raw: Record<string, unknown>): EnglishPassag
       const heading = String(o.heading ?? o.title ?? "").trim();
       const body = String(o.body ?? "").trim();
       if (!heading || !body) continue;
-      newsletterSections.push({ heading, body });
+      const imageDataUrlRaw = String(o.imageDataUrl ?? "").trim();
+      const imageDataUrl =
+        /^data:image\/(png|jpeg|jpg);base64,/i.test(imageDataUrlRaw) && imageDataUrlRaw.length < 3_500_000
+          ? imageDataUrlRaw
+          : undefined;
+      let imageWidthPercent: number | undefined;
+      const iwp = o.imageWidthPercent;
+      if (typeof iwp === "number" && Number.isFinite(iwp)) {
+        imageWidthPercent = Math.min(100, Math.max(20, Math.round(iwp)));
+      }
+      newsletterSections.push({
+        heading,
+        body,
+        ...(imageDataUrl ? { imageDataUrl, imageWidthPercent } : {}),
+      });
     }
   }
 
