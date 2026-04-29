@@ -3,8 +3,8 @@ import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
-function tabClassName({ isActive }: { isActive: boolean }): string {
-  return `admin-nav-tabs__link${isActive ? " admin-nav-tabs__link--active" : ""}`;
+function adminPillClass({ isActive }: { isActive: boolean }): string {
+  return `nav-pill${isActive ? " nav-pill--active" : ""}`;
 }
 
 /**
@@ -19,38 +19,38 @@ export function AdminTopNav() {
           <BrandLockup />
         </Link>
         <nav className="admin-nav-tabs" aria-label="관리자 메뉴">
-          <NavLink to="/admin/pending-materials" className={tabClassName}>
-            <span className="admin-nav-tabs__title">자료 검수 대기</span>
-            <span className="admin-nav-tabs__en">Pending reviews</span>
+          <NavLink to="/admin/pending-materials" className={adminPillClass}>
+            <span className="nav-pill__title">자료 검수 대기</span>
+            <span className="nav-pill__sub">Pending reviews</span>
           </NavLink>
-          <NavLink to="/admin/contents" className={tabClassName}>
-            <span className="admin-nav-tabs__title">콘텐츠 DB 관리</span>
-            <span className="admin-nav-tabs__en">Content database</span>
+          <NavLink to="/admin/contents" className={adminPillClass}>
+            <span className="nav-pill__title">콘텐츠 DB 관리</span>
+            <span className="nav-pill__sub">Content database</span>
           </NavLink>
-          <NavLink to="/admin/landing-hero" className={tabClassName}>
-            <span className="admin-nav-tabs__title">홈 배경</span>
-            <span className="admin-nav-tabs__en">Home background</span>
+          <NavLink to="/admin/landing-hero" className={adminPillClass}>
+            <span className="nav-pill__title">홈 배경</span>
+            <span className="nav-pill__sub">Home background</span>
           </NavLink>
-          <NavLink to="/admin/knowledge-curation" className={tabClassName}>
-            <span className="admin-nav-tabs__title">지식 큐레이션</span>
-            <span className="admin-nav-tabs__en">Knowledge curation</span>
+          <NavLink to="/admin/knowledge-curation" className={adminPillClass}>
+            <span className="nav-pill__title">지식 큐레이션</span>
+            <span className="nav-pill__sub">Knowledge curation</span>
           </NavLink>
-          <NavLink to="/admin" className={tabClassName} end>
-            <span className="admin-nav-tabs__title">회원 관리</span>
-            <span className="admin-nav-tabs__en">Members</span>
+          <NavLink to="/admin" className={adminPillClass} end>
+            <span className="nav-pill__title">회원 관리</span>
+            <span className="nav-pill__sub">Members</span>
           </NavLink>
         </nav>
         <div className="admin-top-nav__actions">
-          <Link to="/dashboard" className="btn btn--ghost btn--stack">
-            <span className="ui-en">Dashboard</span>
-            <span className="ui-ko">대시보드</span>
+          <Link to="/dashboard" className="nav-pill nav-pill--tail">
+            <span className="nav-pill__title">대시보드</span>
+            <span className="nav-pill__sub">Dashboard</span>
           </Link>
           <span className="top-nav__email admin-top-nav__email" title={firebaseUser?.email ?? ""}>
             {firebaseUser?.email}
           </span>
-          <button type="button" className="btn btn--ghost btn--stack" onClick={() => void logOut()}>
-            <span className="ui-en">Log out</span>
-            <span className="ui-ko">로그아웃</span>
+          <button type="button" className="nav-pill nav-pill--tail nav-pill--button" onClick={() => void logOut()}>
+            <span className="nav-pill__title">로그아웃</span>
+            <span className="nav-pill__sub">Log out</span>
           </button>
         </div>
       </div>

@@ -3817,6 +3817,144 @@ button.top-nav__auth-link--logout:hover {
   justify-content: center;
   gap: 0.35rem 0.45rem;
 }
+
+/* 공통 네비 필 — 한글(주)·영문(부); 활성 시 #2D333B 계열 (랜딩 .top-nav--landing 미사용) */
+.top-nav--split .nav-pill,
+.admin-top-nav .nav-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.46rem 0.95rem 0.5rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.nav-pill--button {
+  appearance: none;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.nav-pill__title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: rgba(248, 250, 252, 0.95);
+}
+
+.nav-pill__sub {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.88);
+  line-height: 1.1;
+}
+
+.nav-pill__title--with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.nav-pill__icon {
+  flex-shrink: 0;
+  opacity: 0.92;
+}
+
+.top-nav--split .nav-pill:hover,
+.admin-top-nav .nav-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(148, 163, 184, 0.12);
+}
+
+.top-nav--split .nav-pill--active:not(.nav-pill--cta),
+.admin-top-nav .nav-pill--active:not(.nav-pill--cta) {
+  background: #2d333b;
+  border-color: rgba(148, 163, 184, 0.14);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__title,
+.admin-top-nav .nav-pill--active:not(.nav-pill--cta) .nav-pill__title {
+  color: #f8fafc;
+}
+
+.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__sub,
+.admin-top-nav .nav-pill--active:not(.nav-pill--cta) .nav-pill__sub {
+  color: rgba(186, 230, 253, 0.88);
+}
+
+.nav-pill--tail {
+  padding: 0.38rem 0.82rem 0.42rem;
+}
+
+.nav-pill--tail .nav-pill__title {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.nav-pill--tail .nav-pill__sub {
+  font-size: 0.52rem;
+}
+
+.nav-pill--tail:not(.nav-pill--active) {
+  border-color: rgba(248, 250, 252, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.admin-top-nav .nav-pill--tail:not(.nav-pill--active) {
+  border-color: rgba(248, 250, 252, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-pill--tail:not(.nav-pill--active):hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(94, 184, 236, 0.28);
+}
+
+.nav-pill--cta {
+  border: 1px solid rgba(0, 122, 255, 0.42);
+  background: linear-gradient(180deg, #0a84ff 0%, #007aff 100%);
+  box-shadow: 0 2px 12px rgba(0, 122, 255, 0.32);
+}
+
+.nav-pill--cta:hover {
+  border-color: rgba(0, 122, 255, 0.55);
+  background: linear-gradient(180deg, #1a8fff 0%, #0066db 100%);
+}
+
+.nav-pill--cta .nav-pill__title,
+.nav-pill--cta .nav-pill__sub {
+  color: #ffffff;
+}
+
+.nav-pill--cta .nav-pill__sub {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.nav-pill--cta.nav-pill--active {
+  background: #2d333b;
+  border-color: rgba(148, 163, 184, 0.16);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+.nav-pill--cta.nav-pill--active .nav-pill__sub {
+  color: rgba(186, 230, 253, 0.88);
+}
+
 .top-nav__nav-warm {
   border-color: rgba(255, 149, 0, 0.38) !important;
   background: rgba(255, 149, 0, 0.1) !important;
@@ -3840,7 +3978,13 @@ button.top-nav__auth-link--logout:hover {
     padding-left: 0.25rem;
     padding-right: 0.25rem;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .top-nav--split .top-nav__center::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
   .top-nav--split .top-nav__tail {
     order: 2;
@@ -4025,99 +4169,38 @@ button.top-nav__auth-link--logout:hover {
   width: 0;
   height: 0;
 }
-.admin-nav-tabs__link {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.08rem;
-  min-height: 2.35rem;
-  padding: 0.42rem 0.95rem 0.5rem;
-  border-radius: 10px 10px 6px 6px;
-  border: 1px solid transparent;
-  background: transparent;
-  text-decoration: none;
-  position: relative;
-  flex-shrink: 0;
-  transition:
-    background 0.18s ease,
-    color 0.18s ease;
-}
-.admin-nav-tabs__link::after {
-  content: "";
-  position: absolute;
-  left: 18%;
-  right: 18%;
-  bottom: 2px;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, transparent, rgba(94, 184, 236, 0.95), transparent);
-  opacity: 0;
-  transform: scaleX(0.35);
-  transition:
-    opacity 0.2s ease,
-    transform 0.22s ease;
-}
-.admin-nav-tabs__link:hover {
-  background: rgba(255, 255, 255, 0.045);
-}
-.admin-nav-tabs__link--active {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(148, 163, 184, 0.08);
-}
-.admin-nav-tabs__link--active::after {
-  opacity: 1;
-  transform: scaleX(1);
-}
-.admin-nav-tabs__title {
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: rgba(203, 213, 225, 0.88);
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-}
-.admin-nav-tabs__en {
-  font-size: 0.58rem;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.82);
-}
-.admin-nav-tabs__link--active .admin-nav-tabs__title {
-  color: #f1f5f9;
-  font-weight: 700;
-}
-.admin-nav-tabs__link--active .admin-nav-tabs__en {
-  color: rgba(186, 230, 253, 0.88);
-}
-
 /* 라이트 셸 위 관리자 탭 (지식 큐레이션 등) */
 .app-shell--light .admin-top-nav {
   background: rgba(255, 255, 255, 0.88);
   border-bottom-color: rgba(15, 23, 42, 0.08);
   box-shadow: none;
 }
-.app-shell--light .admin-nav-tabs__link:hover {
-  background: rgba(15, 23, 42, 0.04);
+
+.app-shell--light .admin-top-nav .nav-pill:not(.nav-pill--active):not(.nav-pill--tail) {
+  background: transparent;
 }
-.app-shell--light .admin-nav-tabs__link--active {
-  background: rgba(37, 99, 235, 0.08);
-  border-color: rgba(37, 99, 235, 0.12);
+
+.app-shell--light .admin-top-nav .nav-pill:not(.nav-pill--active) .nav-pill__title {
+  color: #475569;
 }
-.app-shell--light .admin-nav-tabs__title {
-  color: #64748b;
-}
-.app-shell--light .admin-nav-tabs__en {
+
+.app-shell--light .admin-top-nav .nav-pill:not(.nav-pill--active) .nav-pill__sub {
   color: #94a3b8;
 }
-.app-shell--light .admin-nav-tabs__link--active .admin-nav-tabs__title {
-  color: #0f172a;
+
+.app-shell--light .admin-top-nav .nav-pill:not(.nav-pill--active):not(.nav-pill--tail):hover {
+  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.08);
 }
-.app-shell--light .admin-nav-tabs__link--active .admin-nav-tabs__en {
-  color: #2563eb;
+
+.app-shell--light .admin-top-nav .nav-pill--tail:not(.nav-pill--active) {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.12);
 }
-.app-shell--light .admin-nav-tabs__link--active::after {
-  background: linear-gradient(90deg, transparent, #2563eb, transparent);
+
+.app-shell--light .admin-top-nav .nav-pill--tail:not(.nav-pill--active):hover {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.22);
 }
 
 .app-shell--light .admin-top-nav .admin-top-nav__email {

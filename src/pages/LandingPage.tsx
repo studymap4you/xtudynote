@@ -37,7 +37,7 @@ export function LandingPage() {
           <BrandLockup />
         </Link>
         <div className="top-nav__actions top-nav__actions--landing-tier">
-          <TopNavMainLinks />
+          <TopNavMainLinks variant="landing" />
           {firebaseUser ? (
             <>
               <Link to="/dashboard" className="top-nav__auth-link top-nav__auth-link--dashboard">

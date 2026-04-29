@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,15 +25,19 @@ export function PublicShell({
         </nav>
         <div className="top-nav__tail">
           {firebaseUser ? (
-            <Link to="/dashboard" className="btn btn--primary btn--stack">
-              <span className="ui-en">Dashboard</span>
-              <span className="ui-ko">대시보드</span>
-            </Link>
+            <NavLink
+              to="/dashboard"
+              className={({ isActive }) => `nav-pill nav-pill--cta${isActive ? " nav-pill--active" : ""}`}
+              end
+            >
+              <span className="nav-pill__title">대시보드</span>
+              <span className="nav-pill__sub">Dashboard</span>
+            </NavLink>
           ) : (
-            <Link to="/login" className="btn btn--primary btn--stack">
-              <span className="ui-en">Log in</span>
-              <span className="ui-ko">로그인</span>
-            </Link>
+            <NavLink to="/login" className="nav-pill nav-pill--cta">
+              <span className="nav-pill__title">로그인</span>
+              <span className="nav-pill__sub">Log in</span>
+            </NavLink>
           )}
         </div>
       </header>

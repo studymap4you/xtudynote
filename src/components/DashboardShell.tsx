@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,17 +34,21 @@ export function DashboardShell({
         </nav>
         <div className="top-nav__tail">
           {showDashboardLink ? (
-            <Link to="/dashboard" className="btn btn--ghost btn--stack">
-              <span className="ui-en">Dashboard</span>
-              <span className="ui-ko">대시보드</span>
-            </Link>
+            <NavLink
+              to="/dashboard"
+              className={({ isActive }) => `nav-pill nav-pill--tail${isActive ? " nav-pill--active" : ""}`}
+              end
+            >
+              <span className="nav-pill__title">대시보드</span>
+              <span className="nav-pill__sub">Dashboard</span>
+            </NavLink>
           ) : null}
           <span className="top-nav__email" title={firebaseUser?.email ?? ""}>
             {firebaseUser?.email}
           </span>
-          <button type="button" className="btn btn--ghost btn--stack" onClick={() => logOut()}>
-            <span className="ui-en">Log out</span>
-            <span className="ui-ko">로그아웃</span>
+          <button type="button" className="nav-pill nav-pill--tail nav-pill--button" onClick={() => void logOut()}>
+            <span className="nav-pill__title">로그아웃</span>
+            <span className="nav-pill__sub">Log out</span>
           </button>
         </div>
       </header>
