@@ -27,7 +27,7 @@ export function RegisterPage() {
 
   if (!choice) {
     return (
-      <div className="app-shell">
+      <div className="app-shell app-shell--register">
         <header className="top-nav">
           <Link to="/" className="top-nav__brand">
             <BrandLockup />
@@ -127,7 +127,7 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell app-shell--register">
       <header className="top-nav">
         <Link to="/" className="top-nav__brand">
           <BrandLockup />

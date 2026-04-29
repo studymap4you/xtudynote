@@ -4537,6 +4537,16 @@ button.top-nav__auth-link--logout:hover {
   box-sizing: border-box;
 }
 
+/* 회원가입 — 페이지 바탕 하늘색 */
+.app-shell--register {
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -15%, rgba(255, 255, 255, 0.45), transparent 52%),
+    linear-gradient(168deg, #bae6fd 0%, #7dd3fc 22%, #38bdf8 52%, #0ea5e9 82%, #0284c7 100%);
+}
+
 .auth-page {
   flex: 1;
   display: flex;
