@@ -6,7 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { db } from "@/firebase/config";
 import { generateAiExamQuestions } from "@/lib/aiExam/generateAiExamQuestions";
-import { downloadExamPaperPdf } from "@/lib/exam/examPaperPdfClient";
+import { downloadExamPaperDocx } from "@/lib/exam/downloadExamPaperDocx";
+import { openExamPaperPrint } from "@/lib/exam/openExamPaperPrint";
 import type { AiExamQuestion } from "@/types/aiExam";
 import type { ClassroomDocument } from "@/types/classroom";
 import styles from "@/pages/exam/examPages.module.css";
@@ -109,7 +110,7 @@ export function ExamBuilderPage() {
   const [pdfExamDate, setPdfExamDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
-  const [pdfBusy, setPdfBusy] = useState(false);
+  const [wordBusy, setWordBusy] = useState(false);
 
   const teacherName = profile?.displayName?.trim() || firebaseUser?.email?.trim() || "선생님";
 
@@ -284,46 +285,63 @@ export function ExamBuilderPage() {
     selectedClassroomId,
   ]);
 
-  const downloadPdf = useCallback(async () => {
+  const examPaperPayload = useMemo(
+    () => ({
+      title: title.trim() || "시험",
+      subject: subject.trim(),
+      teacherName,
+      passage: passage.trim(),
+      layout: pdfLayout,
+      studentName: pdfStudentName.trim(),
+      studentNo: pdfStudentNo.trim(),
+      examDate: pdfExamDate.trim(),
+      questions: assembled.map((q) =>
+        q.type === "mcq"
+          ? { type: "mcq" as const, prompt: q.prompt, options: q.options ?? [] }
+          : { type: "short" as const, prompt: q.prompt },
+      ),
+    }),
+    [
+      assembled,
+      passage,
+      pdfExamDate,
+      pdfLayout,
+      pdfStudentName,
+      pdfStudentNo,
+      subject,
+      teacherName,
+      title,
+    ],
+  );
+
+  const openPrint = useCallback(() => {
     if (!assembled.length) {
       showToast("warn", "먼저 문제를 생성·저장해 주세요.");
       return;
     }
-    setPdfBusy(true);
     try {
-      await downloadExamPaperPdf({
-        title: title.trim() || "시험",
-        subject: subject.trim(),
-        teacherName,
-        passage: passage.trim(),
-        layout: pdfLayout,
-        studentName: pdfStudentName.trim(),
-        studentNo: pdfStudentNo.trim(),
-        examDate: pdfExamDate.trim(),
-        questions: assembled.map((q) =>
-          q.type === "mcq"
-            ? { type: "mcq", prompt: q.prompt, options: q.options ?? [] }
-            : { type: "short", prompt: q.prompt },
-        ),
-      });
-      showToast("ok", "PDF를 내려받았습니다.");
+      openExamPaperPrint(examPaperPayload);
+      showToast("ok", "인쇄 창을 열었습니다. 「PDF로 저장」을 선택할 수 있습니다.");
     } catch (e) {
-      showToast("err", e instanceof Error ? e.message : "PDF 생성에 실패했습니다.");
-    } finally {
-      setPdfBusy(false);
+      showToast("err", e instanceof Error ? e.message : "인쇄 창을 열지 못했습니다.");
     }
-  }, [
-    assembled,
-    title,
-    subject,
-    teacherName,
-    passage,
-    pdfLayout,
-    pdfStudentName,
-    pdfStudentNo,
-    pdfExamDate,
-    showToast,
-  ]);
+  }, [assembled.length, examPaperPayload, showToast]);
+
+  const exportWord = useCallback(async () => {
+    if (!assembled.length) {
+      showToast("warn", "먼저 문제를 생성·저장해 주세요.");
+      return;
+    }
+    setWordBusy(true);
+    try {
+      await downloadExamPaperDocx(examPaperPayload);
+      showToast("ok", "Word(.docx) 파일이 저장되었습니다. Google 문서에서 열어 수정할 수 있습니다.");
+    } catch (e) {
+      showToast("err", e instanceof Error ? e.message : "Word 파일을 만들지 못했습니다.");
+    } finally {
+      setWordBusy(false);
+    }
+  }, [assembled.length, examPaperPayload, showToast]);
 
   return (
     <DashboardShell light>
@@ -599,9 +617,10 @@ export function ExamBuilderPage() {
         )}
 
         <section className={styles.card} style={{ marginTop: "1.25rem" }}>
-          <h2 className={styles.cardTitle}>3. PDF 시험지</h2>
+          <h2 className={styles.cardTitle}>3. 시험지 인쇄 · Word 내보내기</h2>
           <p className={styles.hint}>
-            로고·학생 정보 표가 포함된 표준 양식입니다. 문제 생성 후 저장했다면 바로 출력할 수 있습니다.
+            서버 PDF 대신 브라우저 인쇄로 A4 시험지를 저장(PDF)하거나, 동일 내용을 Word(.docx)로 내려받을 수
+            있습니다. 학생 이름·학번·시행일은 아래에서 맞춤 입력하세요.
           </p>
           <div className={`${styles.pdfPanel} ${styles.row}`}>
             <label className={styles.label}>
@@ -634,7 +653,7 @@ export function ExamBuilderPage() {
             </label>
           </div>
           <label className={styles.label} style={{ marginTop: "0.55rem" }}>
-            시행일 (PDF 상단)
+            시행일 (시험지 상단)
             <input
               className={styles.input}
               type="date"
@@ -646,10 +665,18 @@ export function ExamBuilderPage() {
             <button
               type="button"
               className={`${styles.btn} ${styles.btnPrimary}`}
-              disabled={pdfBusy || !assembled.length}
-              onClick={() => void downloadPdf()}
+              disabled={!assembled.length || wordBusy}
+              onClick={openPrint}
             >
-              {pdfBusy ? "PDF 준비 중…" : "PDF 다운로드"}
+              인쇄 / PDF 저장
+            </button>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnGhost}`}
+              disabled={!assembled.length || wordBusy}
+              onClick={() => void exportWord()}
+            >
+              {wordBusy ? "Word 생성 중…" : "Word(.docx) 내보내기"}
             </button>
           </div>
         </section>
