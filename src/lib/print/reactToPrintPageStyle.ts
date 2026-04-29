@@ -38,8 +38,16 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
 
 /**
  * 뉴스레터 빌더 — 서버 PDF 대신 브라우저 인쇄(PDF 저장)용
+ * 부모 앱 `body`의 다크 배경(var(--bg-deep))이 스타일시트 복사로 iframe에 그대로 들어오므로
+ * html/body를 밝게 강제하지 않으면 인쇄 미리보기가 남색으로만 채워질 수 있음.
  */
 export const NEWSLETTER_PRINT_PAGE_STYLE = `
+  html,
+  body {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    box-sizing: border-box !important;
+  }
   @page {
     size: A4 portrait;
     margin: 0;
@@ -48,8 +56,11 @@ export const NEWSLETTER_PRINT_PAGE_STYLE = `
     html,
     body {
       height: auto !important;
+      min-height: 0 !important;
       margin: 0 !important;
       padding: 0 !important;
+      background: #f8fafc !important;
+      color: #0f172a !important;
       box-sizing: border-box !important;
       color-adjust: exact !important;
       print-color-adjust: exact !important;
@@ -58,6 +69,10 @@ export const NEWSLETTER_PRINT_PAGE_STYLE = `
     body {
       padding: 22mm 24mm !important;
       font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+    }
+    .newsletter-print-root {
+      background: transparent !important;
+      color: #0f172a !important;
     }
     .newsletter-print-root section {
       break-inside: avoid;

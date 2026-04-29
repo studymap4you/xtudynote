@@ -5,6 +5,13 @@
   margin: 0 auto;
   padding: 1.25rem 1.25rem 2.5rem;
   box-sizing: border-box;
+  /* 페이지 본문을 앱 다크 셸과 구분되는 밝은 존으로 */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(248, 250, 252, 0.97) 40%,
+    rgba(241, 245, 249, 0.98) 100%
+  );
 }
 
 .head {
@@ -38,11 +45,13 @@
 }
 
 .panel {
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  border: 1px solid rgba(226, 232, 240, 0.95);
   border-radius: 14px;
   padding: 1.15rem 1.2rem 1.35rem;
-  box-shadow: 0 14px 40px -28px rgba(15, 23, 42, 0.18);
+  box-shadow:
+    0 14px 48px -32px rgba(15, 23, 42, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.9) inset;
 }
 
 .panelTitle {
@@ -180,9 +189,12 @@
   max-height: min(78vh, 900px);
   overflow: auto;
   padding: 1.25rem 1.35rem;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(147, 197, 253, 0.09), transparent 55%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 38%, #f1f5f9 100%);
   border-radius: 12px;
-  border: 1px solid rgba(226, 232, 240, 0.95);
+  border: 1px solid rgba(203, 213, 225, 0.65);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .previewEmpty {
@@ -197,13 +209,18 @@
   font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: #0f172a;
+  color: #0c1222;
   padding-bottom: 0.75rem;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid rgba(226, 232, 240, 0.95);
 }
 
 .section {
-  margin-bottom: 1.35rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1.12rem;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px -4px rgba(15, 23, 42, 0.06);
 }
 .section:last-child {
   margin-bottom: 0;
@@ -240,7 +257,7 @@
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.65;
-  color: #334155;
+  color: #1e293b;
   white-space: pre-wrap;
 }
 
@@ -316,7 +333,7 @@
   top: 0;
   width: 210mm;
   max-width: 794px;
-  background: #fff;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .back {

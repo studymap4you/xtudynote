@@ -1,18 +1,22 @@
 .root {
   box-sizing: border-box;
   max-width: 100%;
-  background: #fff;
-  color: #0f172a;
+  background:
+    radial-gradient(ellipse 100% 70% at 50% 0%, rgba(191, 219, 254, 0.12), transparent 52%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
+  color: #0c1222;
   font-size: 10.5pt;
   line-height: 1.55;
+  padding: 2mm 0 0;
 }
 
 .headerBand {
-  background: linear-gradient(180deg, #f4f6f9 0%, #eef1f6 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f0f7ff 55%, #e8f0fa 100%);
   margin: 0 0 1rem;
   padding: 0.65rem 0.85rem;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  border: 1px solid rgba(203, 213, 225, 0.7);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .brand {
@@ -39,7 +43,7 @@
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.25;
-  color: #0f172a;
+  color: #0c1222;
 }
 
 .rule {
@@ -50,7 +54,11 @@
 }
 
 .section {
-  margin-bottom: 1.1rem;
+  margin-bottom: 1rem;
+  padding: 0.55rem 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 10px;
 }
 
 .h2 {
@@ -77,14 +85,14 @@
 .body {
   margin: 0;
   white-space: pre-wrap;
-  color: #334155;
+  color: #1e293b;
   font-size: 10pt;
 }
 
 .printFoot {
   margin: 1.25rem 0 0;
   padding-top: 0.65rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid rgba(226, 232, 240, 0.95);
   font-size: 8pt;
   color: #94a3b8;
   text-align: center;
