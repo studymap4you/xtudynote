@@ -7,6 +7,8 @@ export interface ClassroomDocument {
   title: string;
   /** 무료: 학생이 직접 멤버 등록. 유료: enrollment_requests 후 강사 승인 (미설정 시 무료로 간주) */
   pricingType?: ClassroomPricingType;
+  /** 유료(`pricingType === "paid"`)일 때 수강 가격(원, 정수). 학생 카탈로그·신청 팝업에 표시 */
+  tuitionFeeKrw?: number;
   /** 짧은 요약·한 줄 안내 (개설 시) */
   description: string;
   /** 강의 소개 본문 (관리 화면에서 편집, 비어 있으면 description 표시) */
@@ -29,6 +31,8 @@ export interface ClassroomEnrollmentRequestDocument {
   createdAt: unknown;
   reviewedAt?: unknown;
   displayName?: string;
+  /** 신청 시점에 강의실에 표시된 수강가(원) — 안내·분쟁 시 참고 */
+  tuitionFeeKrwAtRequest?: number;
 }
 
 /** 강의실 질의응답 (스레드: parentPostId 가 null 이면 질문, 아니면 답글) */

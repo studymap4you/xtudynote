@@ -8,8 +8,10 @@ import { RichHtmlView } from "@/components/RichHtmlView";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { db } from "@/firebase/config";
 import { mergeIntroductionWithKnowledgeMaterial, knowledgeMaterialAppendHtml } from "@/lib/classroomIntroMerge";
+import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
 import { getKnowledgeMaterial, listKnowledgeMaterials } from "@/lib/knowledgeCuration/knowledgeCurationApi";
 import type { KnowledgeMaterialDoc } from "@/types/knowledgeCuration";
+import type { ClassroomPricingType } from "@/types/classroom";
 import "@/pages/pages.css";
 
 function Inner() {
@@ -20,6 +22,8 @@ function Inner() {
   const [introduction, setIntroduction] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [pricingType, setPricingType] = useState<ClassroomPricingType>("free");
+  const [tuitionFeeInput, setTuitionFeeInput] = useState("");
 
   const [knowledgeMaterials, setKnowledgeMaterials] = useState<{ id: string; data: KnowledgeMaterialDoc }[]>([]);
   const [knowledgeMaterialId, setKnowledgeMaterialId] = useState<string>("");
@@ -84,6 +88,13 @@ function Inner() {
       setErr("강의실 이름을 입력해 주세요.");
       return;
     }
+    if (pricingType === "paid") {
+      const fee = parseTuitionKrwInput(tuitionFeeInput);
+      if (fee == null) {
+        setErr("유료로 개설할 때는 수강가격(원)을 1원 이상 99,999,999원 이하로 입력해 주세요.");
+        return;
+      }
+    }
     setSaving(true);
     setErr(null);
     try {
@@ -101,9 +112,12 @@ function Inner() {
         title: t,
         description: description.trim(),
         introduction: intro,
-        pricingType: "free",
+        pricingType,
         createdAt: serverTimestamp(),
       };
+      if (pricingType === "paid") {
+        payload.tuitionFeeKrw = parseTuitionKrwInput(tuitionFeeInput);
+      }
       if (isSuperAdmin && matId) {
         payload.knowledgeMaterialId = matId;
       }
@@ -199,6 +213,33 @@ function Inner() {
                       placeholder="예: 고2 통합수학 A반 · 2026 봄"
                     />
                   </label>
+                  <label className="auth-field">
+                    <span className="classroom-hub__field-label">강의 유형 · 수강 신청</span>
+                    <select
+                      className="add-passage__control"
+                      value={pricingType}
+                      onChange={(e) => setPricingType(e.target.value === "paid" ? "paid" : "free")}
+                    >
+                      <option value="free">무료 — 학생이 목록에서 바로 수강(멤버 등록)</option>
+                      <option value="paid">유료 — 수강신청요청 후 강사 승인 (연락처 접수)</option>
+                    </select>
+                  </label>
+                  {pricingType === "paid" ? (
+                    <label className="auth-field">
+                      <span className="classroom-hub__field-label">수강 가격 (원)</span>
+                      <span className="classroom-hub__field-hint">
+                        강의실 목록과 수강신청요청 팝업에 표시됩니다.
+                      </span>
+                      <input
+                        className="add-passage__control"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={tuitionFeeInput}
+                        onChange={(e) => setTuitionFeeInput(e.target.value)}
+                        placeholder="예: 150000"
+                      />
+                    </label>
+                  ) : null}
                   {isSuperAdmin && knowledgeMaterials.length > 0 ? (
                     <label className="auth-field">
                       <span className="classroom-hub__field-label">지식 큐레이션 학습자료 (선택)</span>

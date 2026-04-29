@@ -971,6 +971,21 @@ service cloud.firestore {
             request.resource.data.pricingType is string
             && request.resource.data.pricingType in ['free', 'paid']
           )
+        )
+        && (!('tuitionFeeKrw' in request.resource.data) || (
+          request.resource.data.tuitionFeeKrw is int
+          && request.resource.data.tuitionFeeKrw > 0
+          && request.resource.data.tuitionFeeKrw <= 99999999
+        ))
+        && (
+          !('pricingType' in request.resource.data)
+          || request.resource.data.pricingType != 'paid'
+          || (
+            'tuitionFeeKrw' in request.resource.data
+            && request.resource.data.tuitionFeeKrw is int
+            && request.resource.data.tuitionFeeKrw > 0
+            && request.resource.data.tuitionFeeKrw <= 99999999
+          )
         );
 
       allow update: if isActiveSuperAdmin()
@@ -1022,7 +1037,15 @@ service cloud.firestore {
           && request.resource.data.email.size() <= 200
           && request.resource.data.createdAt != null
           && request.resource.data.keys().hasAll(['studentId', 'phone', 'email', 'status', 'createdAt'])
-          && request.resource.data.keys().hasOnly(['studentId', 'phone', 'email', 'status', 'createdAt']);
+          && (
+            request.resource.data.keys().hasOnly(['studentId', 'phone', 'email', 'status', 'createdAt'])
+            || request.resource.data.keys().hasOnly(['studentId', 'phone', 'email', 'status', 'createdAt', 'tuitionFeeKrwAtRequest'])
+          )
+          && (!('tuitionFeeKrwAtRequest' in request.resource.data) || (
+            request.resource.data.tuitionFeeKrwAtRequest is int
+            && request.resource.data.tuitionFeeKrwAtRequest > 0
+            && request.resource.data.tuitionFeeKrwAtRequest <= 99999999
+          ));
 
         allow update: if isActiveSuperAdmin()
           || (

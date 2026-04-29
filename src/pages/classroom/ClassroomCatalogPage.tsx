@@ -24,11 +24,11 @@ import {
   ensureTeacherRosterForStudent,
   syncTeacherRosterForClassroomMemberDelta,
 } from "@/lib/worksheet/teacherRosterApi";
+import { formatTuitionKrwWon } from "@/lib/formatTuitionKrw";
 import type {
   ClassroomDocument,
   ClassroomEnrollmentRequestDocument,
   ClassroomEnrollmentRequestStatus,
-  ClassroomPricingType,
 } from "@/types/classroom";
 import "@/pages/pages.css";
 
@@ -260,6 +260,15 @@ export function ClassroomCatalogPage() {
       setActionErr("유효한 이메일을 입력해 주세요.");
       return;
     }
+    if (isPaidClassroom(modalRoom)) {
+      const fee = modalRoom.tuitionFeeKrw;
+      if (typeof fee !== "number" || !Number.isFinite(fee) || fee < 1) {
+        setActionErr(
+          "이 강의는 수강 가격이 아직 등록되지 않았습니다. 강사에게 문의한 뒤 다시 시도해 주세요.",
+        );
+        return;
+      }
+    }
     setModalSubmitting(true);
     setActionErr(null);
     try {
@@ -267,12 +276,20 @@ export function ClassroomCatalogPage() {
       if (prev?.status === "rejected") {
         await deleteDoc(doc(db, "classrooms", modalRoom.id, "enrollment_requests", uid));
       }
+      const listedFee =
+        isPaidClassroom(modalRoom) &&
+        typeof modalRoom.tuitionFeeKrw === "number" &&
+        Number.isFinite(modalRoom.tuitionFeeKrw) &&
+        modalRoom.tuitionFeeKrw > 0
+          ? Math.round(modalRoom.tuitionFeeKrw)
+          : undefined;
       const payload: ClassroomEnrollmentRequestDocument = {
         studentId: uid,
         phone: p,
         email: em,
         status: "pending",
         createdAt: serverTimestamp(),
+        ...(listedFee != null ? { tuitionFeeKrwAtRequest: listedFee } : {}),
       };
       await setDoc(doc(db, "classrooms", modalRoom.id, "enrollment_requests", uid), payload);
       setActionMsg(`「${modalRoom.title}」수강 신청이 접수되었습니다. 강사 승인을 기다려 주세요.`);
@@ -381,11 +398,15 @@ export function ClassroomCatalogPage() {
     );
   }
 
-  function pricingBadge(pt: ClassroomPricingType | undefined) {
-    const paid = pt === "paid";
+  function pricingBadge(r: Row) {
+    const paid = r.pricingType === "paid";
+    const fee =
+      paid && typeof r.tuitionFeeKrw === "number" && Number.isFinite(r.tuitionFeeKrw) && r.tuitionFeeKrw > 0
+        ? formatTuitionKrwWon(r.tuitionFeeKrw)
+        : null;
     return (
       <span className={`classroom-catalog__price-badge ${paid ? "classroom-catalog__price-badge--paid" : ""}`}>
-        {paid ? "유료" : "무료"}
+        {paid ? (fee ? `유료 · ${fee}` : "유료") : "무료"}
       </span>
     );
   }
@@ -429,7 +450,7 @@ export function ClassroomCatalogPage() {
                 <div>
                   <div className="classroom-catalog__card-title-row">
                     <h2 className="classroom-page__card-title">{r.title}</h2>
-                    {pricingBadge(r.pricingType)}
+                    {pricingBadge(r)}
                   </div>
                   <p className="classroom-page__card-desc">{r.description || "설명 없음"}</p>
                   <p className="classroom-page__card-meta">개설 {formatAt(r.createdAt)}</p>
@@ -477,6 +498,27 @@ export function ClassroomCatalogPage() {
               <p className="classroom-catalog__modal-class">
                 <strong>{modalRoom.title}</strong>
               </p>
+              {isPaidClassroom(modalRoom) ? (
+                <p className="classroom-catalog__modal-tuition" role="status">
+                  {typeof modalRoom.tuitionFeeKrw === "number" &&
+                  Number.isFinite(modalRoom.tuitionFeeKrw) &&
+                  modalRoom.tuitionFeeKrw > 0 ? (
+                    <>
+                      <span className="classroom-catalog__modal-tuition-label">수강 안내가격</span>
+                      <span className="classroom-catalog__modal-tuition-amount">
+                        {formatTuitionKrwWon(modalRoom.tuitionFeeKrw)}
+                      </span>
+                      <span className="classroom-catalog__modal-tuition-note ui-ko">
+                        (PG 결제 연동 전까지는 참고 금액이며, 실제 결제는 강사 안내에 따릅니다.)
+                      </span>
+                    </>
+                  ) : (
+                    <span className="classroom-catalog__modal-tuition-pending ui-ko">
+                      수강 가격이 아직 등록되지 않아 신청할 수 없습니다. 강사에게 문의해 주세요.
+                    </span>
+                  )}
+                </p>
+              ) : null}
               <div className="classroom-catalog__modal-fields">
                 <label className="auth-field">
                   <span>전화번호</span>
@@ -505,7 +547,18 @@ export function ClassroomCatalogPage() {
                 <button type="button" className="btn btn--ghost btn--stack" disabled={modalSubmitting} onClick={() => setModalRoom(null)}>
                   취소
                 </button>
-                <button type="button" className="btn btn--primary btn--stack" disabled={modalSubmitting} onClick={() => void submitPaidRequest()}>
+                <button
+                  type="button"
+                  className="btn btn--primary btn--stack"
+                  disabled={
+                    modalSubmitting ||
+                    (isPaidClassroom(modalRoom) &&
+                      (typeof modalRoom.tuitionFeeKrw !== "number" ||
+                        !Number.isFinite(modalRoom.tuitionFeeKrw) ||
+                        modalRoom.tuitionFeeKrw < 1))
+                  }
+                  onClick={() => void submitPaidRequest()}
+                >
                   {modalSubmitting ? "제출 중…" : "수강신청요청"}
                 </button>
               </div>

@@ -17,6 +17,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { RichHtmlView } from "@/components/RichHtmlView";
 import { db } from "@/firebase/config";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
+import { formatTuitionKrwWon } from "@/lib/formatTuitionKrw";
 import type { ClassroomDocument, ClassroomNoticeDocument } from "@/types/classroom";
 import type { ClassroomExamAssignmentDocument } from "@/types/classroomExamAssignment";
 import type { ContentDocument, ContentStatus, ContentType } from "@/types/content";
@@ -304,6 +305,14 @@ export function ClassroomDetailPage() {
                   <div className="classroom-room-hero__titles">
                     <p className="classroom-room-hero__eyebrow">Xtudy 강의실</p>
                     <h1 className="classroom-room-hero__title">{room.title}</h1>
+                    {room.pricingType === "paid" &&
+                    typeof room.tuitionFeeKrw === "number" &&
+                    Number.isFinite(room.tuitionFeeKrw) &&
+                    room.tuitionFeeKrw > 0 ? (
+                      <p className="classroom-room-hero__tuition ui-ko">
+                        수강 안내가격 <strong>{formatTuitionKrwWon(room.tuitionFeeKrw)}</strong>
+                      </p>
+                    ) : null}
                     {room.description?.trim() ? (
                       <p className="classroom-room-hero__lede">{room.description.trim()}</p>
                     ) : null}

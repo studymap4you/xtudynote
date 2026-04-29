@@ -16,6 +16,7 @@ import {
   updateDoc,
   where,
   writeBatch,
+  deleteField,
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherRoute } from "@/components/TeacherRoute";
@@ -26,6 +27,7 @@ import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
 import { db } from "@/firebase/config";
 import { deleteClassroomCascade } from "@/lib/classroom/deleteClassroomCascade";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
+import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
 import type {
   ClassroomDocument,
   ClassroomEnrollmentRequestDocument,
@@ -80,6 +82,7 @@ function Inner() {
   >({});
 
   const [pricingType, setPricingType] = useState<"free" | "paid">("free");
+  const [tuitionFeeInput, setTuitionFeeInput] = useState("");
   const [enrollmentRows, setEnrollmentRows] = useState<{ id: string; data: ClassroomEnrollmentRequestDocument }[]>([]);
   const [enrollmentLoading, setEnrollmentLoading] = useState(false);
   const [enrollmentActionErr, setEnrollmentActionErr] = useState<string | null>(null);
@@ -115,6 +118,10 @@ function Inner() {
           setDescription(d.description ?? "");
           setIntroduction(d.introduction ?? "");
           setPricingType(d.pricingType === "paid" ? "paid" : "free");
+          const fee = d.tuitionFeeKrw;
+          setTuitionFeeInput(
+            typeof fee === "number" && Number.isFinite(fee) && fee > 0 ? String(Math.round(fee)) : "",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -456,19 +463,40 @@ function Inner() {
     setSavingIntro(true);
     setIntroErr(null);
     setIntroSaveOk(null);
+    let tuitionFeeKrw: number | null = null;
+    if (pricingType === "paid") {
+      tuitionFeeKrw = parseTuitionKrwInput(tuitionFeeInput);
+      if (tuitionFeeKrw == null) {
+        setSavingIntro(false);
+        setIntroErr(
+          "유료 강의실은 수강가격(원)을 1원 이상 99,999,999원 이하로 입력해 주세요. 숫자만 입력하면 됩니다.",
+        );
+        return;
+      }
+    }
     try {
       await updateDoc(doc(db, "classrooms", id), {
         title: t,
         description: description.trim(),
         introduction: introduction.trim(),
         pricingType,
+        ...(pricingType === "paid" ? { tuitionFeeKrw } : { tuitionFeeKrw: deleteField() }),
       });
-      setRoom({
-        ...room,
-        title: t,
-        description: description.trim(),
-        introduction: introduction.trim(),
-        pricingType,
+      setRoom((prev) => {
+        if (!prev) return prev;
+        const next: ClassroomDocument & { id: string } = {
+          ...prev,
+          title: t,
+          description: description.trim(),
+          introduction: introduction.trim(),
+          pricingType,
+        };
+        if (pricingType === "paid" && tuitionFeeKrw != null) {
+          next.tuitionFeeKrw = tuitionFeeKrw;
+        } else {
+          delete next.tuitionFeeKrw;
+        }
+        return next;
       });
       setIntroSaveOk("저장했습니다. 입장 화면에도 곧바로 반영됩니다.");
     } catch (err) {
@@ -607,6 +635,23 @@ function Inner() {
                         <option value="paid">유료 — 수강 신청 후 연락처 접수 · 강사 승인 (PG 결제 전)</option>
                       </select>
                     </label>
+                    {pricingType === "paid" ? (
+                      <label className="auth-field">
+                        <span className="classroom-hub__field-label">수강 가격 (원)</span>
+                        <span className="classroom-hub__field-hint">
+                          학생의「전체 강의실」목록과 수강신청요청 팝업에 그대로 표시됩니다. PG 연동 전 안내용
+                          금액입니다.
+                        </span>
+                        <input
+                          className="add-passage__control"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={tuitionFeeInput}
+                          onChange={(e) => setTuitionFeeInput(e.target.value)}
+                          placeholder="예: 150000"
+                        />
+                      </label>
+                    ) : null}
                   </div>
                   <div className="classroom-hub__card classroom-hub__card--soft">
                     <h3 className="classroom-hub__card-title">강의 소개 본문</h3>
@@ -888,6 +933,18 @@ function Inner() {
                           </div>
                           <p className="classroom-hub__request-desc">
                             전화 {row.data.phone} · 이메일 {row.data.email}
+                            {typeof row.data.tuitionFeeKrwAtRequest === "number" &&
+                            Number.isFinite(row.data.tuitionFeeKrwAtRequest) &&
+                            row.data.tuitionFeeKrwAtRequest > 0 ? (
+                              <>
+                                <br />
+                                신청 시 안내 수강가:{" "}
+                                {new Intl.NumberFormat("ko-KR").format(
+                                  Math.round(row.data.tuitionFeeKrwAtRequest),
+                                )}
+                                원
+                              </>
+                            ) : null}
                           </p>
                           {st === "pending" ? (
                             <div className="classroom-hub__cta-row classroom-hub__cta-row--tight">

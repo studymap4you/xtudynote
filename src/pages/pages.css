@@ -1189,6 +1189,42 @@ button.intro-landing-tile {
   margin: 0.5rem 0 0.75rem;
   font-size: 0.95rem;
 }
+.classroom-catalog__modal-tuition {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--premium-ink, #e2e8f0);
+}
+.classroom-catalog__modal-tuition-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--premium-ink-muted, #94a3b8);
+  margin-bottom: 0.25rem;
+}
+.classroom-catalog__modal-tuition-amount {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fdba74;
+  letter-spacing: -0.02em;
+}
+.classroom-catalog__modal-tuition-note {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--premium-ink-muted, #94a3b8);
+}
+.classroom-catalog__modal-tuition-pending {
+  color: #fcd34d;
+  font-weight: 600;
+}
 .classroom-catalog__modal-fields {
   display: flex;
   flex-direction: column;
@@ -2462,6 +2498,17 @@ button.intro-landing-tile {
   letter-spacing: -0.03em;
   line-height: 1.2;
   color: var(--room-slate);
+}
+
+.classroom-room-hero__tuition {
+  margin: 0.45rem 0 0;
+  font-size: 0.92rem;
+  color: #c2410c;
+  font-weight: 600;
+}
+
+.classroom-room-hero__tuition strong {
+  font-weight: 800;
 }
 
 .classroom-room-hero__lede {
