@@ -10,6 +10,8 @@ type Props = {
   report: PassageDeepAnalysisReportJson;
   onExportPdf: () => void;
   pdfBusy: boolean;
+  onExportWord: () => void;
+  wordBusy: boolean;
   saveMessage: string | null;
 };
 
@@ -45,7 +47,7 @@ function PairLineRow({ item }: { item: PassageDeepBilingualBlock }) {
 }
 
 export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(function PassageDeepAnalysisPreview(
-  { passage, report, onExportPdf, pdfBusy, saveMessage },
+  { passage, report, onExportPdf, pdfBusy, onExportWord, wordBusy, saveMessage },
   ref,
 ) {
   return (
@@ -150,9 +152,24 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
       </p>
 
       <div className={`${styles.pdfRow} ${styles.noPrint}`}>
-        <button type="button" className={styles.pdfBtn} disabled={pdfBusy} onClick={onExportPdf}>
-          {pdfBusy ? "PDF 준비 중…" : "PDF로 저장 (인쇄)"}
-        </button>
+        <div className={styles.exportBtnRow}>
+          <button
+            type="button"
+            className={styles.pdfBtn}
+            disabled={pdfBusy || wordBusy}
+            onClick={onExportPdf}
+          >
+            {pdfBusy ? "PDF 준비 중…" : "PDF로 저장 (인쇄)"}
+          </button>
+          <button
+            type="button"
+            className={styles.wordBtn}
+            disabled={pdfBusy || wordBusy}
+            onClick={onExportWord}
+          >
+            {wordBusy ? "Word 만드는 중…" : "Word(.docx) 내보내기"}
+          </button>
+        </div>
         {saveMessage ? (
           <p
             className={`${styles.saveHint} ${

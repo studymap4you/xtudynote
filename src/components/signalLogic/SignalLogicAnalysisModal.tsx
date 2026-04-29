@@ -7,6 +7,7 @@ import { SignalLogicAnalysisPreview } from "@/components/signalLogic/SignalLogic
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { requestSignalLogicAnalysis } from "@/lib/signalLogic/requestSignalLogicAnalysis";
+import { downloadSignalLogicReportDocx } from "@/lib/signalLogic/downloadSignalLogicReportDocx";
 import { saveSignalLogicReport } from "@/lib/signalLogic/saveSignalLogicReport";
 import type { SignalLogicAnalysisReportJson } from "@/types/signalLogicAnalysisReport";
 import styles from "@/components/signalLogic/signalLogicAnalysisModal.module.css";
@@ -31,6 +32,7 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
   const [fileBusy, setFileBusy] = useState(false);
   const [runBusy, setRunBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [wordBusy, setWordBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   const [signalReportFirestoreId, setSignalReportFirestoreId] = useState<string | null>(null);
@@ -152,6 +154,19 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
     printAnalysis();
   }, [report, printAnalysis]);
 
+  const onExportWord = useCallback(async () => {
+    if (!report) return;
+    setWordBusy(true);
+    setError(null);
+    try {
+      await downloadSignalLogicReportDocx({ passage, report });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Word 저장에 실패했습니다.");
+    } finally {
+      setWordBusy(false);
+    }
+  }, [passage, report]);
+
   useEffect(() => {
     if (!open) return;
     function onKey(ev: KeyboardEvent) {
@@ -242,6 +257,8 @@ export function SignalLogicAnalysisModal({ open, onClose }: Props) {
                 report={report}
                 onExportPdf={onExportPdf}
                 pdfBusy={pdfBusy}
+                onExportWord={() => void onExportWord()}
+                wordBusy={wordBusy}
                 saveMessage={saveNote}
               />
             </div>

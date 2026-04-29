@@ -10,6 +10,8 @@ type Props = {
   report: SignalLogicAnalysisReportJson;
   onExportPdf: () => void;
   pdfBusy: boolean;
+  onExportWord: () => void;
+  wordBusy: boolean;
   saveMessage: string | null;
 };
 
@@ -44,7 +46,7 @@ function isRichSignal(s: SignalLogicCoreSignalWord): boolean {
 }
 
 export const SignalLogicAnalysisPreview = forwardRef<HTMLDivElement, Props>(function SignalLogicAnalysisPreview(
-  { passage, report, onExportPdf, pdfBusy, saveMessage },
+  { passage, report, onExportPdf, pdfBusy, onExportWord, wordBusy, saveMessage },
   ref,
 ) {
   const oneShot = report.oneShotSignalWord?.trim() || report.coreSignalWords[0]?.word || "";
@@ -237,9 +239,24 @@ export const SignalLogicAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
       </p>
 
       <div className={`${styles.pdfRow} ${styles.noPrint}`}>
-        <button type="button" className={styles.pdfBtn} disabled={pdfBusy} onClick={onExportPdf}>
-          {pdfBusy ? "PDF 준비 중…" : "PDF로 저장 (인쇄)"}
-        </button>
+        <div className={styles.exportBtnRow}>
+          <button
+            type="button"
+            className={styles.pdfBtn}
+            disabled={pdfBusy || wordBusy}
+            onClick={onExportPdf}
+          >
+            {pdfBusy ? "PDF 준비 중…" : "PDF로 저장 (인쇄)"}
+          </button>
+          <button
+            type="button"
+            className={styles.wordBtn}
+            disabled={pdfBusy || wordBusy}
+            onClick={onExportWord}
+          >
+            {wordBusy ? "Word 만드는 중…" : "Word(.docx) 내보내기"}
+          </button>
+        </div>
         {saveMessage ? (
           <p
             className={`${styles.saveHint} ${

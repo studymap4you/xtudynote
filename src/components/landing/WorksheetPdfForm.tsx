@@ -6,6 +6,7 @@ import {
   generateSubjectiveReviewQuestions,
   type WorksheetAiContext,
 } from "@/lib/worksheet/worksheetAiGeneration";
+import { downloadWorksheetFormDocx } from "@/lib/worksheet/downloadWorksheetFormDocx";
 import "@/pages/pages.css";
 
 type FormState = {
@@ -60,6 +61,7 @@ export function WorksheetPdfForm() {
   const navigate = useNavigate();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [busy, setBusy] = useState(false);
+  const [wordBusy, setWordBusy] = useState(false);
   const [busyAiQuestions, setBusyAiQuestions] = useState(false);
   const [busyAiSummary, setBusyAiSummary] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -150,6 +152,35 @@ export function WorksheetPdfForm() {
     }
   }, [endpoint, firebaseUser, form, navigate]);
 
+  const downloadWordDocx = useCallback(async () => {
+    setErr(null);
+    setMsg(null);
+    const unit = form.unit.trim();
+    const teacherName = form.teacherName.trim();
+    if (!unit || !teacherName) {
+      setErr("학습단원과 선생님 성함은 필수입니다.");
+      return;
+    }
+    setWordBusy(true);
+    try {
+      await downloadWorksheetFormDocx({
+        unit,
+        objectives: form.objectives.trim(),
+        studyDate: form.studyDate.trim(),
+        content: form.content.trim(),
+        exercises: form.exercises.trim(),
+        summary: form.summary.trim(),
+        teacherName,
+        exerciseAnswers: form.exerciseAnswers.trim() || undefined,
+      });
+      setMsg("Word(.docx) 파일이 저장되었습니다. Google 문서에서 열어 수정할 수 있습니다.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Word 파일을 만들지 못했습니다.");
+    } finally {
+      setWordBusy(false);
+    }
+  }, [form]);
+
   const runAiQuestions = useCallback(async () => {
     setErr(null);
     setMsg(null);
@@ -188,6 +219,7 @@ export function WorksheetPdfForm() {
   }, [aiContext]);
 
   const aiBusy = busyAiQuestions || busyAiSummary;
+  const exportBusy = busy || wordBusy;
 
   return (
     <section id="worksheet-pdf" className="worksheet-pdf" aria-labelledby="worksheet-pdf-title">
@@ -197,8 +229,8 @@ export function WorksheetPdfForm() {
           <span className="worksheet-pdf__title-ko">학습지 PDF 자동 생성</span>
         </h2>
         <p className="worksheet-pdf__lede ui-ko">
-          입력한 내용으로 A4 학습지 PDF를 만들어 바로 저장합니다. 서버에서 Pretendard 폰트가 임베드되며, 헤더·푸터
-          브랜딩이 포함됩니다.
+          입력한 내용으로 A4 학습지 PDF를 만들거나, 같은 내용을 Word(.docx)로 내려받아 Google 문서에서 편집할 수 있습니다.
+          서버 PDF는 Pretendard 폰트가 임베드됩니다.
         </p>
 
         <div className="worksheet-pdf__grid">
@@ -275,7 +307,7 @@ export function WorksheetPdfForm() {
                   <button
                     type="button"
                     className="btn btn--primary worksheet-pdf__ai-run"
-                    disabled={aiBusy || busy}
+                    disabled={aiBusy || exportBusy}
                     onClick={() => void runAiQuestions()}
                   >
                     {busyAiQuestions ? "생성 중…" : "AI로 확인문제 생성"}
@@ -322,7 +354,7 @@ export function WorksheetPdfForm() {
                 <button
                   type="button"
                   className="btn btn--primary worksheet-pdf__ai-run worksheet-pdf__ai-run--solo"
-                  disabled={aiBusy || busy}
+                  disabled={aiBusy || exportBusy}
                   onClick={() => void runAiSummary()}
                 >
                   {busyAiSummary ? "생성 중…" : "AI로 핵심요약 작성"}
@@ -368,10 +400,18 @@ export function WorksheetPdfForm() {
           <button
             type="button"
             className="btn btn--primary btn--stack worksheet-pdf__submit"
-            disabled={busy}
+            disabled={busy || wordBusy}
             onClick={() => void downloadPdf()}
           >
             {busy ? "생성 중…" : "PDF 생성 및 다운로드"}
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost btn--stack worksheet-pdf__submit"
+            disabled={wordBusy || busy}
+            onClick={() => void downloadWordDocx()}
+          >
+            {wordBusy ? "만드는 중…" : "Word(.docx) 내보내기"}
           </button>
         </div>
         <p className="worksheet-pdf__hint ui-ko">

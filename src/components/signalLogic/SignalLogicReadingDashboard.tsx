@@ -344,7 +344,7 @@ export function SignalLogicReadingDashboard() {
           <span className={styles.sectionHeadingKo}>Signal Logic · 지문 심층</span>
         </h2>
         <p className={styles.analysisActionsKo}>
-          시그널 로직은 이분법·원샷 시그널 중심 리포트를, 지문 심층 분석은 문장·의미 단위(/)와 직독·해석·어휘·문법 정리를 생성합니다. 둘 다 PDF(인쇄) 저장을 지원합니다.
+          시그널 로직은 이분법·원샷 시그널 중심 리포트를, 지문 심층 분석은 문장·의미 단위(/)와 직독·해석·어휘·문법 정리를 생성합니다. 둘 다 PDF(인쇄)와 Word(.docx) 내보내기를 지원합니다.
         </p>
         <div className={styles.ctaPair}>
           <button type="button" className={styles.ctaLarge} onClick={() => setAnalysisOpen(true)}>

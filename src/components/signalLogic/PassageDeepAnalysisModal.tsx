@@ -6,6 +6,7 @@ import { PassageDeepAnalysisPreview } from "@/components/signalLogic/PassageDeep
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import { requestPassageDeepAnalysis } from "@/lib/passageDeep/requestPassageDeepAnalysis";
 import { savePassageDeepReport } from "@/lib/passageDeep/savePassageDeepReport";
+import { downloadPassageDeepReportDocx } from "@/lib/passageDeep/downloadPassageDeepReportDocx";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import type { PassageDeepAnalysisReportJson } from "@/types/passageDeepAnalysisReport";
 import styles from "@/components/signalLogic/signalLogicAnalysisModal.module.css";
@@ -30,6 +31,7 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
   const [fileBusy, setFileBusy] = useState(false);
   const [runBusy, setRunBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [wordBusy, setWordBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -146,6 +148,19 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
     printReport();
   }, [report, printReport]);
 
+  const onExportWord = useCallback(async () => {
+    if (!report) return;
+    setWordBusy(true);
+    setError(null);
+    try {
+      await downloadPassageDeepReportDocx({ passage, report });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Word 저장에 실패했습니다.");
+    } finally {
+      setWordBusy(false);
+    }
+  }, [passage, report]);
+
   useEffect(() => {
     if (!open) return;
     function onKey(ev: KeyboardEvent) {
@@ -172,7 +187,7 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
               지문 <span className={styles.titleAccent}>심층 분석</span>
             </h2>
             <p className={styles.sub}>
-              문장 단위 · 의미 단위(/) · 직독직해·전문해석·어휘·문법 — PDF 인쇄 저장
+              문장 단위 · 의미 단위(/) · 직독직해·전문해석·어휘·문법 — PDF(인쇄) 및 Word(.docx) 내보내기
             </p>
           </div>
           <button type="button" className={styles.close} aria-label="닫기" onClick={onClose}>
@@ -236,6 +251,8 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
                 report={report}
                 onExportPdf={onExportPdf}
                 pdfBusy={pdfBusy}
+                onExportWord={() => void onExportWord()}
+                wordBusy={wordBusy}
                 saveMessage={saveNote}
               />
             </div>

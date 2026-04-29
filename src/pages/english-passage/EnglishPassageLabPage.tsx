@@ -7,6 +7,7 @@ import { gradeShortAnswer } from "@/lib/exam/gradeShortAnswer";
 import { analyzeEnglishPassage } from "@/lib/englishPassageLab/analyzeEnglishPassage";
 import { gradeKoreanTranslation } from "@/lib/englishPassageLab/gradeKoreanTranslation";
 import { openEnglishWorksheetPrint } from "@/lib/englishPassage/openEnglishWorksheetPrint";
+import { downloadEnglishPassageLabDocx } from "@/lib/englishPassageLab/downloadEnglishPassageLabDocx";
 import type { EnglishPassageAnalysis, EnglishVocabPair } from "@/types/englishPassageLab";
 import { EnglishVocabReviewModal } from "@/pages/english-passage/EnglishVocabReviewModal";
 import styles from "@/pages/english-passage/englishPassageLab.module.css";
@@ -41,6 +42,7 @@ export function EnglishPassageLabPage() {
 
   const [pdfLayout, setPdfLayout] = useState<"1col" | "2col">("1col");
   const [previewReady, setPreviewReady] = useState(false);
+  const [wordBusy, setWordBusy] = useState(false);
 
   const vocabularyForUse = finalVocabulary ?? [];
 
@@ -171,14 +173,48 @@ export function EnglishPassageLabPage() {
     vocabularyForUse,
   ]);
 
+  const handleExportWord = useCallback(async () => {
+    if (!vocabConfirmed || !analysis) return;
+    const layoutLabel =
+      pdfLayout === "2col" ? "2단 (원문·타이틀 1열, 문제·정답 2열)" : "1단";
+    setWordBusy(true);
+    try {
+      await downloadEnglishPassageLabDocx({
+        title: title.trim() || "영어 지문 학습",
+        teacherName,
+        examDate: examDate.trim(),
+        layoutLabel,
+        passage: passageText.trim(),
+        vocabulary: vocabularyForUse,
+        analysis,
+      });
+      showToast("ok", "Word(.docx) 파일이 저장되었습니다. Google 문서에서 열어 수정할 수 있습니다.");
+    } catch (e) {
+      showToast("err", e instanceof Error ? e.message : "Word 파일을 만들지 못했습니다.");
+    } finally {
+      setWordBusy(false);
+    }
+  }, [
+    analysis,
+    examDate,
+    passageText,
+    pdfLayout,
+    showToast,
+    teacherName,
+    title,
+    vocabConfirmed,
+    vocabularyForUse,
+  ]);
+
   return (
     <DashboardShell light>
       <div className={styles.wrap}>
         <h1 className={styles.heroTitle}>영어 지문 자동 변환 학습</h1>
         <p className={styles.heroLead}>
           단어 확정 후 문항 번호가 붙은 어휘·직독직해·영작을 풀고,{" "}
-          <strong>정답은 하단 정답 섹션</strong>에서 확인합니다. 출력은{" "}
-          <strong>미리보기 → 인쇄</strong> 순서입니다.
+          <strong>정답은 하단 정답 섹션</strong>에서 확인합니다. 인쇄(PDF)는{" "}
+          <strong>미리보기로 확인한 뒤</strong> 진행하고, <strong>Word(.docx)</strong>는 레이아웃만
+          선택하면 바로 저장해 Google 문서에서 편집할 수 있습니다.
         </p>
 
         <section className={styles.sectionCard}>
@@ -487,7 +523,7 @@ export function EnglishPassageLabPage() {
             문제지 미리보기 · 인쇄
           </h2>
           <p className={styles.hintMuted}>
-            ① 미리보기 생성 → ② 새 창 인쇄에서 「PDF로 저장」 선택
+            ① 미리보기 생성 → ② 새 창 인쇄에서 「PDF로 저장」 선택, 또는 같은 화면에서 Word(.docx)로 내려받기
           </p>
           <div className={styles.pdfRow132}>
             <label className={styles.label}>
@@ -515,10 +551,18 @@ export function EnglishPassageLabPage() {
               <button
                 type="button"
                 className={styles.btnGhost}
-                disabled={!vocabConfirmed || !analysis}
+                disabled={!vocabConfirmed || !analysis || wordBusy}
                 onClick={handlePrint}
               >
                 인쇄 / PDF 저장
+              </button>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                disabled={!vocabConfirmed || !analysis || wordBusy}
+                onClick={() => void handleExportWord()}
+              >
+                {wordBusy ? "Word 생성 중…" : "Word(.docx) 내보내기"}
               </button>
             </div>
           </div>
