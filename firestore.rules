@@ -32,6 +32,17 @@ service cloud.firestore {
         && userData(request.auth.uid).role == 'student'
         && userData(request.auth.uid).accountStatus == 'active';
     }
+    /**
+     * 클라이언트(AuthContext)와 동일: accountStatus 필드가 없으면 활성으로 간주, banned 만 차단.
+     */
+    function userEffectiveAccountNotBanned() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (
+          !('accountStatus' in userData(request.auth.uid))
+          || userData(request.auth.uid).accountStatus == 'active'
+        );
+    }
     function isApprovedLibraryContent() {
       return resource.data.status == 'approved'
         && (
@@ -1018,11 +1029,17 @@ service cloud.firestore {
             ? enrollmentClassroomData().memberStudentIds
             : [];
         }
+        /** 유료 수강신청 작성: 학생·강사 승인 대기·타 강의 수강 중인 승인 강사 (본인 개설 강의실 제외) */
+        function canSubmitEnrollmentRequest() {
+          return userEffectiveAccountNotBanned()
+            && userData(request.auth.uid).role in ['student', 'pending_teacher', 'teacher']
+            && request.auth.uid != enrollmentClassroomData().teacherId;
+        }
         allow read: if isActiveSuperAdmin()
           || (isSignedInActiveAccount() && resource.data.studentId == request.auth.uid)
           || (isActiveTeacher() && ownsClassroom(classroomId));
 
-        allow create: if isActiveStudent()
+        allow create: if canSubmitEnrollmentRequest()
           && exists(/databases/$(database)/documents/classrooms/$(classroomId))
           && requestId == request.auth.uid
           && enrollmentClassroomData().pricingType == 'paid'
@@ -1068,7 +1085,7 @@ service cloud.firestore {
         allow delete: if isActiveSuperAdmin()
           || (isActiveTeacher() && ownsClassroom(classroomId))
           || (
-            isActiveStudent()
+            canSubmitEnrollmentRequest()
             && resource.data.studentId == request.auth.uid
             && resource.data.status in ['pending', 'rejected']
           );
