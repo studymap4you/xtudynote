@@ -52,6 +52,8 @@ const app = firebaseApp;
 export const auth = getAuth(app);
 
 export const googleAuthProvider = new GoogleAuthProvider();
+/** 매 로그인마다 Google 계정 선택 UI를 띄움(다른 PC·공용 브라우저에서도 동일) */
+googleAuthProvider.setCustomParameters({ prompt: "select_account" });
 googleAuthProvider.addScope("profile");
 googleAuthProvider.addScope("email");
 
