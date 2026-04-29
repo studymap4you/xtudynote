@@ -3826,6 +3826,8 @@ button.top-nav__auth-link--logout:hover {
   justify-content: center;
   gap: 0.1rem;
   padding: 0.46rem 0.95rem 0.5rem;
+  min-height: 2.68rem;
+  box-sizing: border-box;
   border-radius: 12px;
   border: 1px solid transparent;
   background: transparent;
@@ -3842,6 +3844,7 @@ button.top-nav__auth-link--logout:hover {
   appearance: none;
   margin: 0;
   font: inherit;
+  line-height: 1.15;
   cursor: pointer;
 }
 
@@ -3894,19 +3897,6 @@ button.top-nav__auth-link--logout:hover {
 .top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__sub,
 .admin-top-nav .nav-pill--active:not(.nav-pill--cta) .nav-pill__sub {
   color: rgba(186, 230, 253, 0.88);
-}
-
-.nav-pill--tail {
-  padding: 0.38rem 0.82rem 0.42rem;
-}
-
-.nav-pill--tail .nav-pill__title {
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.nav-pill--tail .nav-pill__sub {
-  font-size: 0.52rem;
 }
 
 .nav-pill--tail:not(.nav-pill--active) {
