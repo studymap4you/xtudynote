@@ -5,6 +5,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { NewsletterEditModal } from "@/components/newsletter/NewsletterEditModal";
 import { NewsletterPrintView } from "@/components/newsletter/NewsletterPrintView";
 import { NEWSLETTER_PRINT_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
+import { downloadNewsletterDocx } from "@/lib/newsletter/downloadNewsletterDocx";
 import { requestNewsletterFromImage } from "@/lib/newsletter/requestNewsletterFromImage";
 import type { NewsletterAiResult, NewsletterPurpose } from "@/types/newsletter";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +39,7 @@ export function NewsletterBuilderPage() {
   const [modelLabel, setModelLabel] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [exportBusy, setExportBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const teacherName =
@@ -119,6 +121,23 @@ export function NewsletterBuilderPage() {
     printNewsletter();
   }, [published, finalizedForPdf, printNewsletter]);
 
+  const runExportDocx = useCallback(async () => {
+    if (!published || !finalizedForPdf) return;
+    setExportBusy(true);
+    setError(null);
+    try {
+      await downloadNewsletterDocx({
+        data: published,
+        teacherName,
+        issueLabel: new Date().toLocaleDateString("ko-KR", { dateStyle: "medium" }),
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Word 파일 저장에 실패했습니다.");
+    } finally {
+      setExportBusy(false);
+    }
+  }, [published, finalizedForPdf, teacherName]);
+
   return (
     <DashboardShell light>
       <div className={styles.root}>
@@ -129,13 +148,13 @@ export function NewsletterBuilderPage() {
           <h1>Newsletter Builder</h1>
           <p className={styles.headLead}>
             <span className="ui-en">
-              Upload image → Vision AI summarizes passage & teacher notes → fixed template with Binary Logic (Signal
-              Logic) as the main section → preview, then print / Save as PDF in the browser.
+              Upload image → Vision AI → preview → finalize edits → export Word (.docx) for Google Docs, or print to PDF.
             </span>
             <span className="ui-ko" style={{ display: "block", marginTop: "0.35rem" }}>
               이미지 업로드 후 GPT-4o Vision이 지문·필기를 읽고,{" "}
               <strong>학습법 분석(Binary Logic / 시그널 로직)</strong>을 메인 섹션에 넣은 뉴스레터 초안을 만듭니다.
-              확정 후 브라우저 <strong>인쇄</strong> 대화상자에서 <strong>PDF로 저장</strong>할 수 있습니다(서버 PDF 대신).
+              확정 후 <strong>Word(.docx) 내보내기</strong>로 구글 독스 등에서 열어 수정하거나, 브라우저{" "}
+              <strong>인쇄</strong>에서 <strong>PDF로 저장</strong>할 수 있습니다.
             </span>
           </p>
         </header>
@@ -197,6 +216,15 @@ export function NewsletterBuilderPage() {
               <button
                 type="button"
                 className={styles.btnGhost}
+                disabled={exportBusy || !published || !finalizedForPdf}
+                onClick={() => void runExportDocx()}
+                title={!published ? undefined : !finalizedForPdf ? "미리보기에서 「수정」 후 「수정완료」를 누른 뒤 사용할 수 있습니다." : undefined}
+              >
+                {exportBusy ? "Word 만드는 중…" : "Word(.docx) 내보내기"}
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
                 disabled={pdfBusy || !published || !finalizedForPdf}
                 onClick={runPrint}
                 title={!published ? undefined : !finalizedForPdf ? "미리보기에서 「수정」 후 「수정완료」를 누른 뒤 사용할 수 있습니다." : undefined}
@@ -206,7 +234,7 @@ export function NewsletterBuilderPage() {
             </div>
             {published && !finalizedForPdf ? (
               <p className={styles.pdfHint}>
-                내용 확인·편집 후 미리보기 아래 「수정」을 열고, 「수정완료」로 확정한 뒤 「인쇄 / PDF 저장」으로 브라우저에서 PDF로 저장하세요.
+                내용 확인·편집 후 미리보기 아래 「수정」을 열고 「수정완료」로 확정한 뒤, Word 파일로 내보내거나 인쇄로 PDF를 저장하세요.
               </p>
             ) : null}
 
@@ -258,7 +286,9 @@ export function NewsletterBuilderPage() {
                 <button type="button" className={styles.btnSilver} onClick={() => setEditOpen(true)}>
                   수정
                 </button>
-                {finalizedForPdf ? <span className={styles.finalizedTag}>수정 확정됨 — 인쇄로 PDF 저장 가능</span> : null}
+                {finalizedForPdf ? (
+                  <span className={styles.finalizedTag}>수정 확정됨 — Word 내보내기·인쇄(PDF) 가능</span>
+                ) : null}
               </div>
             ) : null}
           </section>
