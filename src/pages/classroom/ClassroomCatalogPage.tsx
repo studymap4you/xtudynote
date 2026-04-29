@@ -79,6 +79,11 @@ export function ClassroomCatalogPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [modalSubmitting, setModalSubmitting] = useState(false);
+  /** 유료 수강신청요청 제출 직후 안내(과목명과 함께 팝업으로만 표시) */
+  const [enrollmentResultModal, setEnrollmentResultModal] = useState<
+    | null
+    | { variant: "success" | "error"; courseTitle: string; message: string }
+  >(null);
   const [myEnrollmentMapReady, setMyEnrollmentMapReady] = useState(!isStudent);
 
   const uid = firebaseUser?.uid;
@@ -149,6 +154,7 @@ export function ClassroomCatalogPage() {
   const openPaidModal = useCallback(
     (r: Row) => {
       scrollToEnrollSection();
+      setEnrollmentResultModal(null);
       setPhone("");
       setEmail(firebaseUser?.email ?? "");
       setModalRoom(r);
@@ -271,6 +277,8 @@ export function ClassroomCatalogPage() {
         return;
       }
     }
+    const courseTitle = modalRoom.title;
+    const classroomId = modalRoom.id;
     setModalSubmitting(true);
     setActionErr(null);
     try {
@@ -279,15 +287,26 @@ export function ClassroomCatalogPage() {
       if (existing.exists()) {
         const cur = existing.data() as ClassroomEnrollmentRequestDocument;
         if (cur.status === "pending") {
-          setActionMsg(`「${modalRoom.title}」수강 신청이 이미 접수되어 있습니다. 강사 승인을 기다려 주세요.`);
+          setMyEnrollmentByClassroom((prev) => ({
+            ...prev,
+            [classroomId]: { status: "pending", id: uid },
+          }));
           setModalRoom(null);
+          setEnrollmentResultModal({
+            variant: "success",
+            courseTitle,
+            message:
+              "이미 접수된 신청입니다. 강사 승인을 기다려 주세요. 해당 강의실 카드의 버튼이「승인 대기중」으로 바뀌는지 확인해 주세요.",
+          });
           return;
         }
         if (cur.status === "approved") {
-          setActionMsg(
-            `「${modalRoom.title}」은(는) 이미 승인된 상태입니다. 내 강의실에서 입장해 주세요.`,
-          );
           setModalRoom(null);
+          setEnrollmentResultModal({
+            variant: "success",
+            courseTitle,
+            message: "이미 승인된 강의입니다. 내 강의실에서 입장해 주세요.",
+          });
           return;
         }
         if (cur.status === "rejected") {
@@ -319,16 +338,26 @@ export function ClassroomCatalogPage() {
         ...(listedFee != null ? { tuitionFeeKrwAtRequest: listedFee } : {}),
       };
       await setDoc(ref, payload);
-      setActionMsg(`「${modalRoom.title}」수강 신청이 접수되었습니다. 강사 승인을 기다려 주세요.`);
+      setMyEnrollmentByClassroom((prev) => ({
+        ...prev,
+        [classroomId]: { status: "pending", id: uid },
+      }));
       setModalRoom(null);
+      setEnrollmentResultModal({
+        variant: "success",
+        courseTitle,
+        message:
+          "수강 신청이 접수되었습니다. 강사 승인 후 이용할 수 있습니다. 아래 목록에서 해당 강의실 버튼이「승인 대기중」으로 표시됩니다.",
+      });
     } catch (e) {
-      if (e instanceof FirebaseError && e.code === "permission-denied") {
-        setActionErr(
-          "저장이 거절되었습니다. 이미 접수한 적이 있다면 페이지를 새로고침한 뒤「수강 대기중」으로 보이는지 확인해 주세요. 문제가 계속되면「학생」계정·Firestore 규칙 배포를 확인해 주세요.",
-        );
-      } else {
-        setActionErr(e instanceof Error ? e.message : "신청에 실패했습니다.");
-      }
+      const msg =
+        e instanceof FirebaseError && e.code === "permission-denied"
+          ? "저장이 거절되었습니다. 이미 접수한 적이 있다면 새로고침 후 해당 강의실에「승인 대기중」이 표시되는지 확인해 주세요. 문제가 계속되면「학생」계정·Firestore 규칙 배포를 관리자에게 문의해 주세요."
+          : e instanceof Error
+            ? e.message
+            : "신청에 실패했습니다.";
+      setModalRoom(null);
+      setEnrollmentResultModal({ variant: "error", courseTitle, message: msg });
     } finally {
       setModalSubmitting(false);
     }
@@ -381,8 +410,12 @@ export function ClassroomCatalogPage() {
     if (paid && en?.status === "pending") {
       return (
         <div className="classroom-catalog__enroll-stack">
-          <button type="button" className="btn btn--ghost btn--stack" disabled>
-            <span className="ui-ko">수강 대기중</span>
+          <button
+            type="button"
+            className="btn btn--ghost btn--stack classroom-catalog__btn-pending"
+            disabled
+          >
+            <span className="ui-ko">승인 대기중</span>
             <span className="ui-en">Pending approval</span>
           </button>
           <button
@@ -504,6 +537,56 @@ export function ClassroomCatalogPage() {
             ))}
           </ul>
         )}
+
+        {enrollmentResultModal ? (
+          <div
+            className="crm-modal-root classroom-catalog__result-modal-root"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="enroll-result-title"
+          >
+            <div
+              className="crm-modal-backdrop"
+              onClick={() => setEnrollmentResultModal(null)}
+              aria-hidden
+            />
+            <div
+              className={`crm-modal crm-modal--send classroom-catalog__result-modal ${
+                enrollmentResultModal.variant === "error"
+                  ? "classroom-catalog__result-modal--error"
+                  : ""
+              }`}
+            >
+              <button
+                type="button"
+                className="crm-modal__close"
+                aria-label="닫기"
+                onClick={() => setEnrollmentResultModal(null)}
+              />
+              <h3 id="enroll-result-title" className="crm-modal__title">
+                <span className="crm-modal__title-ko">
+                  {enrollmentResultModal.variant === "success" ? "신청 안내" : "처리 불가"}
+                </span>
+                <span className="crm-modal__title-en">
+                  {enrollmentResultModal.variant === "success" ? "Request status" : "Request failed"}
+                </span>
+              </h3>
+              <p className="classroom-catalog__result-course">
+                <strong>{enrollmentResultModal.courseTitle}</strong>
+              </p>
+              <p className="classroom-catalog__result-msg">{enrollmentResultModal.message}</p>
+              <div className="crm-modal__actions">
+                <button
+                  type="button"
+                  className="btn btn--primary btn--stack"
+                  onClick={() => setEnrollmentResultModal(null)}
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {modalRoom ? (
           <div className="crm-modal-root" role="dialog" aria-modal="true" aria-labelledby="enroll-paid-title">

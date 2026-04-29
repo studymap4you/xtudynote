@@ -1185,6 +1185,31 @@ button.intro-landing-tile {
   color: #065f46;
   font-size: 0.88rem;
 }
+.classroom-catalog__btn-pending {
+  opacity: 0.92;
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.06);
+  color: var(--light-text-muted, #374151);
+  font-weight: 600;
+}
+.classroom-catalog__result-course {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 1rem;
+  color: var(--premium-ink, #e2e8f0);
+}
+.classroom-catalog__result-msg {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--premium-ink-muted, #cbd5e1);
+  white-space: pre-wrap;
+}
+.classroom-catalog__result-modal--error .classroom-catalog__result-course {
+  color: #fecaca;
+}
+.classroom-catalog__result-modal--error .classroom-catalog__result-msg {
+  color: #fca5a5;
+}
 .classroom-catalog__modal-class {
   margin: 0.5rem 0 0.75rem;
   font-size: 0.95rem;
@@ -10011,6 +10036,10 @@ button.top-nav__auth-link--logout:hover {
   align-items: center;
   justify-content: center;
   padding: var(--space-2);
+}
+/* 전체 강의실: 신청 폼(100) 위에 결과 안내 */
+.crm-modal-root.classroom-catalog__result-modal-root {
+  z-index: 110;
 }
 .crm-modal-backdrop {
   position: absolute;
