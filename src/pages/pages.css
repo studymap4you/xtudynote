@@ -348,101 +348,85 @@
   border-color: rgba(29, 78, 216, 0.18);
   color: var(--premium-ink);
 }
-/* 랜딩 상단 메뉴: 세로 여유 · 필 네비 */
-.app-shell--landing .top-nav.top-nav--landing .top-nav__actions--landing-tier {
+/* 랜딩 split 네비: 앱과 동일 pill + 밝은 글래스 바용 색 보정 */
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .top-nav__center,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .top-nav__tail {
   align-items: center;
-  gap: 0.65rem 1rem;
 }
-.app-shell--landing .top-nav.top-nav--landing .top-nav__main-cluster {
-  align-items: center;
-  gap: 0.45rem 0.55rem;
-}
-.app-shell--landing .top-nav.top-nav--landing .top-nav__main-cluster .btn.btn--ghost.btn--stack {
-  padding: 0.55rem 1rem 0.52rem;
-  min-height: 2.65rem;
-  justify-content: center;
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill {
   border-radius: 10px;
   border: none;
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta) .nav-pill__title {
+  color: #0f172a;
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta) .nav-pill__sub {
+  color: #64748b;
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill__icon {
+  color: #0f172a;
+  stroke: #0f172a;
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__icon {
+  color: #f8fafc;
+  stroke: #f8fafc;
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta):not(.nav-pill--active):not(.nav-pill--tail):not(.nav-pill--landing-warm) {
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.95) inset,
     0 2px 6px rgba(15, 23, 42, 0.05);
-  transition:
-    box-shadow 0.18s ease,
-    background 0.18s ease,
-    transform 0.15s ease;
 }
-.app-shell--landing .top-nav.top-nav--landing .top-nav__main-cluster .btn.btn--ghost.btn--stack:hover {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta):not(.nav-pill--active):not(.nav-pill--tail):not(.nav-pill--landing-warm):hover {
   background: #ffffff;
-  border: none;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 1) inset,
     0 4px 14px -4px rgba(37, 99, 235, 0.22);
-  transform: translateY(-1px);
 }
-.app-shell--landing .top-nav.top-nav--landing .top-nav__main-cluster .btn.btn--ghost.btn--stack .ui-en {
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.app-shell--landing .top-nav.top-nav--landing .top-nav__main-cluster .btn.btn--ghost.btn--stack .ui-ko {
-  font-size: 0.68rem;
-  font-weight: 500;
-  opacity: 0.92;
-}
-.app-shell--landing .top-nav.top-nav--landing .top-nav__nav-warm {
-  border: none !important;
-  background: linear-gradient(180deg, rgba(255, 247, 237, 0.95) 0%, rgba(254, 243, 199, 0.45) 100%) !important;
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--landing-warm:not(.nav-pill--active) {
+  background: linear-gradient(180deg, rgba(255, 247, 237, 0.95) 0%, rgba(254, 243, 199, 0.45) 100%);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 2px 8px rgba(234, 88, 12, 0.08) !important;
+    0 2px 8px rgba(234, 88, 12, 0.08);
 }
-.app-shell--landing .top-nav.top-nav--landing .top-nav__nav-warm:hover {
-  border: none !important;
-  background: linear-gradient(180deg, #fffbeb 0%, rgba(254, 243, 199, 0.65) 100%) !important;
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--landing-warm:not(.nav-pill--active):hover {
+  background: linear-gradient(180deg, #fffbeb 0%, rgba(254, 243, 199, 0.65) 100%);
 }
-.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link {
-  padding: 0.52rem 1.05rem;
-  font-size: 0.83rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  border-radius: 10px;
-  transition:
-    box-shadow 0.18s ease,
-    transform 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease;
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) {
+  background: #2d333b;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
 }
-.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--register,
-.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--dashboard {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__title {
+  color: #f8fafc;
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__sub {
+  color: rgba(186, 230, 253, 0.88);
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active) {
+  background: #ffffff;
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
 }
-.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--register:hover,
-.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--dashboard:hover {
-  transform: translateY(-1px);
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active):hover {
+  background: #ffffff;
   box-shadow: 0 6px 10px -2px rgb(0 0 0 / 0.06);
 }
-.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--login,
-.app-shell--landing .top-nav.top-nav--landing button.top-nav__auth-link--logout {
-  border: none;
-  background: #ffffff;
-  color: #475569;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
-}
-.app-shell--landing .top-nav.top-nav--landing .top-nav__auth-link--login:hover,
-.app-shell--landing .top-nav.top-nav--landing button.top-nav__auth-link--logout:hover {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active) .nav-pill__title {
   color: #0f172a;
-  background: #ffffff;
-  border: none;
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active) .nav-pill__sub {
+  color: #64748b;
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta.nav-pill--active .nav-pill__title {
+  color: #f8fafc;
 }
 .app-shell--landing
-  a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn):not(.mp-btn):not(
+  a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.nav-pill):not(.intro-login-card__btn):not(.mp-btn):not(
     .intro-landing-tile
   ) {
   color: var(--premium-accent);
 }
 .app-shell--landing
-  a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.intro-login-card__btn):not(.mp-btn):not(
+  a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.nav-pill):not(.intro-login-card__btn):not(.mp-btn):not(
     .intro-landing-tile
   ):hover {
   color: var(--premium-accent-hover);

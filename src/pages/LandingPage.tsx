@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,7 +28,7 @@ export function LandingPage() {
   return (
     <div className="app-shell app-shell--landing">
       <LandingPageBackground />
-      <header className="top-nav top-nav--landing">
+      <header className="top-nav top-nav--landing top-nav--split">
         <Link
           to="/"
           className="top-nav__brand top-nav__brand--landing"
@@ -36,32 +36,39 @@ export function LandingPage() {
         >
           <BrandLockup />
         </Link>
-        <div className="top-nav__actions top-nav__actions--landing-tier">
-          <TopNavMainLinks variant="landing" />
+        <nav className="top-nav__center" aria-label="주요 메뉴">
+          <TopNavMainLinks warmCoursesHighlight homeworkKo="과제함" />
+        </nav>
+        <div className="top-nav__tail">
           {firebaseUser ? (
             <>
-              <Link to="/dashboard" className="top-nav__auth-link top-nav__auth-link--dashboard">
-                대시보드
-              </Link>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) => `nav-pill nav-pill--cta${isActive ? " nav-pill--active" : ""}`}
+                end
+              >
+                <span className="nav-pill__title">대시보드</span>
+                <span className="nav-pill__sub">Dashboard</span>
+              </NavLink>
               <button
                 type="button"
-                className="top-nav__auth-link top-nav__auth-link--logout"
+                className="nav-pill nav-pill--tail nav-pill--button"
                 onClick={() => void logOut()}
               >
-                로그아웃
+                <span className="nav-pill__title">로그아웃</span>
+                <span className="nav-pill__sub">Log out</span>
               </button>
             </>
           ) : (
             <>
-              <Link
-                to="/register"
-                className="top-nav__auth-link top-nav__auth-link--register"
-              >
-                회원가입
-              </Link>
-              <Link to="/login" className="top-nav__auth-link top-nav__auth-link--login">
-                로그인
-              </Link>
+              <NavLink to="/register" className="nav-pill nav-pill--cta">
+                <span className="nav-pill__title">회원가입</span>
+                <span className="nav-pill__sub">Register</span>
+              </NavLink>
+              <NavLink to="/login" className="nav-pill nav-pill--tail">
+                <span className="nav-pill__title">로그인</span>
+                <span className="nav-pill__sub">Log in</span>
+              </NavLink>
             </>
           )}
         </div>
