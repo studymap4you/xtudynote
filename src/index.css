@@ -255,3 +255,54 @@ input[type="email"] {
   display: flex;
   flex-direction: column;
 }
+
+/**
+ * 전역: 파일 입력의 "파일 선택" 버튼 (표준 위젯 스타일 통일)
+ * — ::file-selector-button / WebKit ::-webkit-file-upload-button
+ */
+input[type="file"]::file-selector-button,
+input[type="file"]::-webkit-file-upload-button {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 0.48rem 1rem;
+  margin-right: 0.7rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  cursor: pointer;
+  color: #1e293b;
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 42%, #cbd5e1 100%);
+  box-shadow:
+    0 2px 5px rgba(15, 23, 42, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.88) inset;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+input[type="file"]::file-selector-button:hover,
+input[type="file"]::-webkit-file-upload-button:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 38%, #94a3b8 100%);
+  box-shadow:
+    0 4px 10px rgba(15, 23, 42, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.95) inset;
+}
+
+input[type="file"]::file-selector-button:active,
+input[type="file"]::-webkit-file-upload-button:active {
+  background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 55%, #94a3b8 100%);
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.2) inset,
+    0 1px 0 rgba(255, 255, 255, 0.45) inset;
+  transform: translateY(1px);
+}
+
+input[type="file"]:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.45);
+  outline-offset: 2px;
+}
