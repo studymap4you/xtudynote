@@ -4010,13 +4010,20 @@ button.top-nav__auth-link--logout:hover {
   flex: 1 1 200px;
   flex-wrap: nowrap;
   overflow-x: auto;
-  padding-bottom: 0.15rem;
+  padding-bottom: 0.35rem;
   margin: 0 -0.25rem;
   padding-left: 0.25rem;
   padding-right: 0.25rem;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  /* 가로 스크롤은 유지, 스크롤바 UI는 탭 글씨와 겹치지 않도록 숨김 (휠·트랙패드·드래그·터치 스크롤 가능) */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+}
+.admin-nav-tabs::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 .admin-nav-tabs__link {
   display: flex;
