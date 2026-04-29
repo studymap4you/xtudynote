@@ -7,6 +7,7 @@ import {
   collectionGroup,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -273,9 +274,34 @@ export function ClassroomCatalogPage() {
     setModalSubmitting(true);
     setActionErr(null);
     try {
-      const prev = myEnrollmentByClassroom[modalRoom.id];
-      if (prev?.status === "rejected") {
-        await deleteDoc(doc(db, "classrooms", modalRoom.id, "enrollment_requests", uid));
+      const ref = doc(db, "classrooms", modalRoom.id, "enrollment_requests", uid);
+      const existing = await getDoc(ref);
+      if (existing.exists()) {
+        const cur = existing.data() as ClassroomEnrollmentRequestDocument;
+        if (cur.status === "pending") {
+          setActionMsg(`「${modalRoom.title}」수강 신청이 이미 접수되어 있습니다. 강사 승인을 기다려 주세요.`);
+          setModalRoom(null);
+          return;
+        }
+        if (cur.status === "approved") {
+          setActionMsg(
+            `「${modalRoom.title}」은(는) 이미 승인된 상태입니다. 내 강의실에서 입장해 주세요.`,
+          );
+          setModalRoom(null);
+          return;
+        }
+        if (cur.status === "rejected") {
+          await deleteDoc(ref);
+        }
+      } else {
+        const prev = myEnrollmentByClassroom[modalRoom.id];
+        if (prev?.status === "rejected") {
+          try {
+            await deleteDoc(ref);
+          } catch {
+            /* 문서가 이미 없을 수 있음 */
+          }
+        }
       }
       const listedFee =
         isPaidClassroom(modalRoom) &&
@@ -292,13 +318,13 @@ export function ClassroomCatalogPage() {
         createdAt: serverTimestamp(),
         ...(listedFee != null ? { tuitionFeeKrwAtRequest: listedFee } : {}),
       };
-      await setDoc(doc(db, "classrooms", modalRoom.id, "enrollment_requests", uid), payload);
+      await setDoc(ref, payload);
       setActionMsg(`「${modalRoom.title}」수강 신청이 접수되었습니다. 강사 승인을 기다려 주세요.`);
       setModalRoom(null);
     } catch (e) {
       if (e instanceof FirebaseError && e.code === "permission-denied") {
         setActionErr(
-          "접수 권한이 없습니다.「학생」계정으로 로그인했는지 확인해 주세요. 동일 증상이 반복되면 관리자에게 문의해 주세요.",
+          "저장이 거절되었습니다. 이미 접수한 적이 있다면 페이지를 새로고침한 뒤「수강 대기중」으로 보이는지 확인해 주세요. 문제가 계속되면「학생」계정·Firestore 규칙 배포를 확인해 주세요.",
         );
       } else {
         setActionErr(e instanceof Error ? e.message : "신청에 실패했습니다.");
