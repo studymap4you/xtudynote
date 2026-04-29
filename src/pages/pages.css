@@ -416,8 +416,29 @@
 .app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active) .nav-pill__sub {
   color: #64748b;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta.nav-pill--active .nav-pill__title {
-  color: #f8fafc;
+/* 랜딩 우측 CTA(대시보드·회원가입): 짙은 하늘색 · 흰색 글자 */
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta {
+  border: none;
+  background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 52%, #0369a1 100%);
+  box-shadow: 0 2px 12px rgba(3, 105, 161, 0.38);
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta:hover {
+  border: none;
+  background: linear-gradient(180deg, #0284c7 0%, #0369a1 100%);
+  box-shadow: 0 3px 14px rgba(3, 105, 161, 0.45);
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta .nav-pill__title,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta .nav-pill__sub {
+  color: #ffffff;
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta.nav-pill--active {
+  background: #0369a1;
+  border: none;
+  box-shadow: 0 2px 10px rgba(3, 105, 161, 0.42);
+}
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta.nav-pill--active .nav-pill__title,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta.nav-pill--active .nav-pill__sub {
+  color: #ffffff;
 }
 .app-shell--landing
   a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.nav-pill):not(.intro-login-card__btn):not(.mp-btn):not(
