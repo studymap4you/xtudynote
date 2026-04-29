@@ -17,6 +17,7 @@ import {
   type DocumentReference,
   type Timestamp,
 } from "firebase/firestore";
+import { FirebaseError } from "firebase/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
 import { db } from "@/firebase/config";
@@ -295,7 +296,13 @@ export function ClassroomCatalogPage() {
       setActionMsg(`「${modalRoom.title}」수강 신청이 접수되었습니다. 강사 승인을 기다려 주세요.`);
       setModalRoom(null);
     } catch (e) {
-      setActionErr(e instanceof Error ? e.message : "신청에 실패했습니다.");
+      if (e instanceof FirebaseError && e.code === "permission-denied") {
+        setActionErr(
+          "접수 권한이 없습니다.「학생」계정으로 로그인했는지 확인해 주세요. 동일 증상이 반복되면 관리자에게 문의해 주세요.",
+        );
+      } else {
+        setActionErr(e instanceof Error ? e.message : "신청에 실패했습니다.");
+      }
     } finally {
       setModalSubmitting(false);
     }
