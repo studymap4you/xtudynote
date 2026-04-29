@@ -4113,6 +4113,18 @@ button.top-nav__auth-link--logout:hover {
   background: linear-gradient(90deg, transparent, #2563eb, transparent);
 }
 
+.app-shell--light .admin-top-nav .admin-top-nav__email {
+  color: #475569;
+  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.app-shell--admin:not(.app-shell--light) .admin-top-nav .admin-top-nav__email {
+  color: rgba(226, 232, 240, 0.92);
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 /* 슈퍼 관리자 전용 페이지 셸: 은은한 메시 · 글래스 본문 카드 */
 .app-shell--admin {
   min-height: 100%;

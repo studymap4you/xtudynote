@@ -1,5 +1,6 @@
 import { Link, NavLink } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
+import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
 
 function tabClassName({ isActive }: { isActive: boolean }): string {
@@ -10,6 +11,7 @@ function tabClassName({ isActive }: { isActive: boolean }): string {
  * 슈퍼 관리자 전용 상단 바: 대시보드 복귀 + 콘텐츠 DB / 회원 관리 전환
  */
 export function AdminTopNav() {
+  const { firebaseUser, logOut } = useAuth();
   return (
     <header className="top-nav admin-top-nav">
       <div className="admin-top-nav__bar">
@@ -43,6 +45,13 @@ export function AdminTopNav() {
             <span className="ui-en">Dashboard</span>
             <span className="ui-ko">대시보드</span>
           </Link>
+          <span className="top-nav__email admin-top-nav__email" title={firebaseUser?.email ?? ""}>
+            {firebaseUser?.email}
+          </span>
+          <button type="button" className="btn btn--ghost btn--stack" onClick={() => void logOut()}>
+            <span className="ui-en">Log out</span>
+            <span className="ui-ko">로그아웃</span>
+          </button>
         </div>
       </div>
     </header>

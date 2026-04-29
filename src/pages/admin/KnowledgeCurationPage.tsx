@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminTopNav } from "@/components/AdminTopNav";
-import { DashboardShell } from "@/components/DashboardShell";
 import { generateKnowledgeMaterialMarkdown } from "@/lib/knowledgeCuration/generateKnowledgeMaterial";
 import {
   appendCurationItems,
@@ -328,7 +327,7 @@ function Inner() {
   };
 
   return (
-    <DashboardShell light adminChrome>
+    <div className="app-shell app-shell--admin app-shell--light">
       <AdminTopNav />
       <main className={`admin-layout classroom-page admin-layout--light ${styles.page}`}>
         <nav className="classroom-page__breadcrumb">
@@ -645,7 +644,7 @@ function Inner() {
           </div>
         </div>
       </main>
-    </DashboardShell>
+    </div>
   );
 }
 
