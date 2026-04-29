@@ -5,8 +5,8 @@ import { db, storage } from "@/firebase/config";
 import { SITE_CONFIG_COLLECTION, SITE_CONFIG_HOME_DOC } from "@/lib/siteConfig";
 import type { SiteConfigHomeDocument } from "@/lib/siteConfig";
 
-/** `public/images/bg-universe.jpg` — 홈 기본 배경 */
-export const LANDING_DEFAULT_BG_IMAGE = "/images/bg-universe.jpg";
+/** `public/images/dg-universe.jpg` — 홈 기본 배경 */
+export const LANDING_DEFAULT_BG_IMAGE = "/images/dg-universe.jpg";
 
 /**
  * 홈(`LandingPage` 등) 전역 배경 — `site_config/home` 경로가 있으면 해당 미디어를 쓰고,
