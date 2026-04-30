@@ -26,19 +26,22 @@ export function TopNavMainLinks({
   const { pathname } = useLocation();
   const showCoursesNav =
     !firebaseUser || isStudent || (!isTeacherApproved && !isPendingTeacher && !isSuperAdmin);
+  const showSignalLogicNav = !isStudent;
 
   const classroomActive =
     pathname.startsWith("/classroom") && !pathname.startsWith("/classrooms");
 
   return (
     <div className="top-nav__main-cluster">
-      <NavLink to="/logic-dashboard" className={({ isActive }) => pillClass(isActive)} end>
-        <span className="nav-pill__title nav-pill__title--with-icon">
-          <LayoutDashboard size={15} strokeWidth={2} aria-hidden className="nav-pill__icon" />
-          시그널 로직
-        </span>
-        <span className="nav-pill__sub">Signal Logic</span>
-      </NavLink>
+      {showSignalLogicNav ? (
+        <NavLink to="/logic-dashboard" className={({ isActive }) => pillClass(isActive)} end>
+          <span className="nav-pill__title nav-pill__title--with-icon">
+            <LayoutDashboard size={15} strokeWidth={2} aria-hidden className="nav-pill__icon" />
+            시그널 로직
+          </span>
+          <span className="nav-pill__sub">Signal Logic</span>
+        </NavLink>
+      ) : null}
 
       {showCoursesNav ? (
         <NavLink
