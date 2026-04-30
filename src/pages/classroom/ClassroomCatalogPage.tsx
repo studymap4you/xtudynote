@@ -373,20 +373,16 @@ export function ClassroomCatalogPage() {
           });
           return;
         }
-        if (cur.status === "approved") {
-          if (isMember(modalRoom, uid)) {
-            setModalRoom(null);
-            setEnrollmentResultModal({
-              variant: "success",
-              courseTitle,
-              message: "이미 승인된 강의입니다. 내 강의실에서 입장해 주세요.",
-            });
-            return;
-          }
-          await deleteDoc(ref);
-        } else if (cur.status === "rejected") {
-          await deleteDoc(ref);
+        if (cur.status === "approved" && isMember(modalRoom, uid)) {
+          setModalRoom(null);
+          setEnrollmentResultModal({
+            variant: "success",
+            courseTitle,
+            message: "이미 승인된 강의입니다. 내 강의실에서 입장해 주세요.",
+          });
+          return;
         }
+        /** rejected 이거나 approved 인데 멤버가 아님: 서버 규칙상 setDoc(전체 교체) = 허용된 update 로 재접수 */
       } else {
         const prev = myEnrollmentByClassroom[modalRoom.id];
         if (prev?.status === "rejected") {

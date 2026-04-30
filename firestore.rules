@@ -1040,6 +1040,28 @@ service cloud.firestore {
           return !('role' in u)
             || u.role in ['student', 'pending_teacher', 'teacher', 'super_admin'];
         }
+        /** 신규 접수(create)·재신청(update) 시 본인 pending 페이로드 공통 검사 */
+        function enrollmentRequestPendingFieldsOk() {
+          return request.resource.data.studentId == request.auth.uid
+            && request.resource.data.status == 'pending'
+            && request.resource.data.phone is string
+            && request.resource.data.phone.size() >= 5
+            && request.resource.data.phone.size() <= 40
+            && request.resource.data.email is string
+            && request.resource.data.email.size() >= 3
+            && request.resource.data.email.size() <= 200
+            && 'createdAt' in request.resource.data
+            && request.resource.data.keys().hasAll(['studentId', 'phone', 'email', 'status', 'createdAt'])
+            && (
+              request.resource.data.keys().hasOnly(['studentId', 'phone', 'email', 'status', 'createdAt'])
+              || request.resource.data.keys().hasOnly(['studentId', 'phone', 'email', 'status', 'createdAt', 'tuitionFeeKrwAtRequest'])
+            )
+            && (!('tuitionFeeKrwAtRequest' in request.resource.data) || (
+              request.resource.data.tuitionFeeKrwAtRequest is number
+              && request.resource.data.tuitionFeeKrwAtRequest > 0
+              && request.resource.data.tuitionFeeKrwAtRequest <= 99999999
+            ));
+        }
         /** 읽기: 신청 작성(create)과 동일하게 accountStatus 미설정 계정도 허용 — isSignedInActiveAccount 는 필드 누락 시 거부됨 */
         allow read: if isActiveSuperAdmin()
           || (
@@ -1054,26 +1076,7 @@ service cloud.firestore {
           && requestId == request.auth.uid
           && enrollmentClassroomData().pricingType == 'paid'
           && !(request.auth.uid in enrollmentClassroomMemberIds())
-          && request.resource.data.studentId == request.auth.uid
-          && request.resource.data.status == 'pending'
-          && request.resource.data.phone is string
-          && request.resource.data.phone.size() >= 5
-          && request.resource.data.phone.size() <= 40
-          && request.resource.data.email is string
-          && request.resource.data.email.size() >= 3
-          && request.resource.data.email.size() <= 200
-          /** serverTimestamp() 는 커밋 전 규칙 평가에서 null 로 보일 수 있음 — 키 존재만 검사 */
-          && 'createdAt' in request.resource.data
-          && request.resource.data.keys().hasAll(['studentId', 'phone', 'email', 'status', 'createdAt'])
-          && (
-            request.resource.data.keys().hasOnly(['studentId', 'phone', 'email', 'status', 'createdAt'])
-            || request.resource.data.keys().hasOnly(['studentId', 'phone', 'email', 'status', 'createdAt', 'tuitionFeeKrwAtRequest'])
-          )
-          && (!('tuitionFeeKrwAtRequest' in request.resource.data) || (
-            request.resource.data.tuitionFeeKrwAtRequest is number
-            && request.resource.data.tuitionFeeKrwAtRequest > 0
-            && request.resource.data.tuitionFeeKrwAtRequest <= 99999999
-          ));
+          && enrollmentRequestPendingFieldsOk();
 
         allow update: if isActiveSuperAdmin()
           || (
@@ -1090,6 +1093,16 @@ service cloud.firestore {
               !('reviewedAt' in request.resource.data)
               || request.resource.data.reviewedAt != null
             )
+          )
+          /** 반려·승인 후 탈퇴 등으로 남은 문서: delete 없이 pending 으로 덮어 재신청 (setDoc 전체 교체 = update) */
+          || (
+            canSubmitEnrollmentRequest()
+            && requestId == request.auth.uid
+            && resource.data.studentId == request.auth.uid
+            && resource.data.status in ['rejected', 'approved']
+            && !(request.auth.uid in enrollmentClassroomMemberIds())
+            && enrollmentClassroomData().pricingType == 'paid'
+            && enrollmentRequestPendingFieldsOk()
           );
 
         allow delete: if isActiveSuperAdmin()
