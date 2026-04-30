@@ -6201,6 +6201,19 @@ button.top-nav__auth-link--logout:hover {
   flex: 1;
 }
 
+.storefront-admin__row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.storefront-admin__edit {
+  color: #1d4ed8 !important;
+  border-color: rgba(29, 78, 216, 0.35) !important;
+}
+
 .storefront-admin__title {
   font-size: 0.95rem;
   color: #0f172a;

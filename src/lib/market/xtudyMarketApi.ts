@@ -9,6 +9,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  updateDoc,
   type Unsubscribe,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
@@ -75,6 +76,23 @@ export async function addXtudyMarketProduct(input: {
     createdAt: serverTimestamp(),
   });
   return docRef.id;
+}
+
+export async function updateXtudyMarketProduct(
+  id: string,
+  input: {
+    title: string;
+    detailHtml: string;
+    imageUrl: string;
+    purchaseUrl: string;
+  },
+): Promise<void> {
+  await updateDoc(doc(db, COL, id), {
+    title: input.title.trim(),
+    detailHtml: input.detailHtml.trim(),
+    imageUrl: input.imageUrl.trim(),
+    purchaseUrl: input.purchaseUrl.trim(),
+  });
 }
 
 export async function deleteXtudyMarketProduct(id: string): Promise<void> {

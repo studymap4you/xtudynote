@@ -1,12 +1,17 @@
-import { useCallback, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { DashboardShell } from "@/components/DashboardShell";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { isEmptyRichText } from "@/lib/richTextUtils";
 import { MarketRegisterImagePreview } from "@/components/market/MarketRegisterImagePreview";
-import { addXtudyMarketProduct, uploadXtudyMarketImage } from "@/lib/market/xtudyMarketApi";
+import {
+  addXtudyMarketProduct,
+  getXtudyMarketProduct,
+  updateXtudyMarketProduct,
+  uploadXtudyMarketImage,
+} from "@/lib/market/xtudyMarketApi";
 import "@/pages/pages.css";
 
 function isHttpUrl(s: string): boolean {
@@ -19,6 +24,8 @@ function isHttpUrl(s: string): boolean {
 }
 
 export function XtudyMarketRegisterPage() {
+  const { productId } = useParams<{ productId: string }>();
+  const isEdit = Boolean(productId);
   const { firebaseUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -31,6 +38,46 @@ export function XtudyMarketRegisterPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [formMsg, setFormMsg] = useState<string | null>(null);
+  const [loadBusy, setLoadBusy] = useState(isEdit);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!productId || !firebaseUser) {
+      setLoadBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadBusy(true);
+    setLoadErr(null);
+    void (async () => {
+      try {
+        const row = await getXtudyMarketProduct(productId);
+        if (cancelled) return;
+        if (!row) {
+          setLoadErr("상품을 찾을 수 없습니다.");
+          setLoadBusy(false);
+          return;
+        }
+        if (row.data.createdBy !== firebaseUser.uid) {
+          setLoadErr("이 상품을 수정할 권한이 없습니다.");
+          setLoadBusy(false);
+          return;
+        }
+        setTitle(row.data.title ?? "");
+        setDetailHtml(row.data.detailHtml ?? "");
+        setPurchaseUrl(row.data.purchaseUrl ?? "");
+        setImageUrlInput(row.data.imageUrl ?? "");
+        setImageFile(null);
+      } catch (e) {
+        if (!cancelled) setLoadErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setLoadBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, firebaseUser]);
 
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -71,19 +118,29 @@ export function XtudyMarketRegisterPage() {
       setBusy(true);
       setFormMsg(null);
       try {
-        const newId = await addXtudyMarketProduct({
-          title: t,
-          detailHtml,
-          imageUrl,
-          purchaseUrl: pu,
-          createdBy: uid,
-        });
-        const share = `${window.location.origin}/xtudy-market/p/${newId}`;
-        try {
-          await navigator.clipboard.writeText(share);
-          showToast("ok", "등록되었습니다. 공유 링크를 클립보드에 복사했습니다.");
-        } catch {
-          showToast("ok", "등록되었습니다. 상세 페이지에서 링크를 복사할 수 있습니다.");
+        if (isEdit && productId) {
+          await updateXtudyMarketProduct(productId, {
+            title: t,
+            detailHtml,
+            imageUrl,
+            purchaseUrl: pu,
+          });
+          showToast("ok", "엑스터디마켓 상품이 수정되었습니다.");
+        } else {
+          const newId = await addXtudyMarketProduct({
+            title: t,
+            detailHtml,
+            imageUrl,
+            purchaseUrl: pu,
+            createdBy: uid,
+          });
+          const share = `${window.location.origin}/xtudy-market/p/${newId}`;
+          try {
+            await navigator.clipboard.writeText(share);
+            showToast("ok", "등록되었습니다. 공유 링크를 클립보드에 복사했습니다.");
+          } catch {
+            showToast("ok", "등록되었습니다. 상세 페이지에서 링크를 복사할 수 있습니다.");
+          }
         }
         navigate("/admin/storefront?tab=xtudy", { replace: true });
       } catch (err) {
@@ -92,7 +149,7 @@ export function XtudyMarketRegisterPage() {
         setBusy(false);
       }
     },
-    [uid, title, detailHtml, purchaseUrl, imageFile, imageUrlInput, showToast, navigate],
+    [uid, productId, isEdit, title, detailHtml, purchaseUrl, imageFile, imageUrlInput, showToast, navigate],
   );
 
   return (
@@ -104,10 +161,10 @@ export function XtudyMarketRegisterPage() {
               ← 스토어 관리
             </Link>
             <div className="admin-layout__title-row">
-              <h1>엑스터디마켓 상품 등록</h1>
+              <h1>{isEdit ? "엑스터디마켓 상품 수정" : "엑스터디마켓 상품 등록"}</h1>
               <span className="ui-ko material-register__subtitle-bi">
                 <span className="reg-form__label-en" style={{ display: "block", fontWeight: 700 }}>
-                  Xtudy market listing
+                  {isEdit ? "Edit Xtudy market listing" : "Xtudy market listing"}
                 </span>
                 <span className="reg-form__label-ko" style={{ display: "block", marginTop: "0.25rem" }}>
                   대표 이미지·상세 설명을 등록합니다. 저장 후 만들어지는 <strong>상세 페이지 URL</strong>을 공유 링크로 쓸 수
@@ -124,7 +181,15 @@ export function XtudyMarketRegisterPage() {
 
           {!firebaseUser ? <p className="auth-error">로그인이 필요합니다.</p> : null}
 
-          {firebaseUser ? (
+          {loadBusy ? (
+            <div className="route-loading route-loading--light" style={{ marginTop: "1.5rem" }}>
+              <div className="route-loading__spinner" />
+              <p className="ui-ko">불러오는 중…</p>
+            </div>
+          ) : null}
+          {loadErr ? <p className="auth-error">{loadErr}</p> : null}
+
+          {firebaseUser && !loadBusy && !loadErr ? (
             <div className="classroom-hub__panel classroom-hub__panel--manage video-register-page__panel">
               <form
                 className="video-register-page__form material-register-form__grid"
@@ -229,8 +294,10 @@ export function XtudyMarketRegisterPage() {
 
                 <div className="classroom-hub__card classroom-hub__card--actions">
                   <button type="submit" className="btn btn--primary btn--stack video-register-page__submit" disabled={busy}>
-                    <span className="ui-en">{busy ? "Saving…" : "Save & open detail"}</span>
-                    <span className="ui-ko">{busy ? "저장 중…" : "등록하고 상세 페이지로 이동"}</span>
+                    <span className="ui-en">{busy ? "Saving…" : isEdit ? "Save changes" : "Save & open detail"}</span>
+                    <span className="ui-ko">
+                      {busy ? "저장 중…" : isEdit ? "수정 저장" : "등록하고 상세 페이지로 이동"}
+                    </span>
                   </button>
                   <Link to="/admin/storefront?tab=xtudy" className="btn btn--ghost btn--stack" style={{ marginTop: "0.65rem" }}>
                     취소

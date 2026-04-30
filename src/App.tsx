@@ -99,7 +99,23 @@ export default function App() {
         }
       />
       <Route
+        path="/admin/storefront/digital-market/:productId/edit"
+        element={
+          <SuperAdminRoute>
+            <DigitalMarketRegisterPage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
         path="/admin/storefront/xtudy-market/new"
+        element={
+          <SuperAdminRoute>
+            <XtudyMarketRegisterPage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/storefront/xtudy-market/:productId/edit"
         element={
           <SuperAdminRoute>
             <XtudyMarketRegisterPage />

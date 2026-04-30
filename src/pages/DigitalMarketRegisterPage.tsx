@@ -1,12 +1,17 @@
-import { useCallback, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { DashboardShell } from "@/components/DashboardShell";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { isEmptyRichText } from "@/lib/richTextUtils";
 import { MarketRegisterImagePreview } from "@/components/market/MarketRegisterImagePreview";
-import { addDigitalMarketProduct, uploadDigitalMarketImage } from "@/lib/market/digitalMarketApi";
+import {
+  addDigitalMarketProduct,
+  getDigitalMarketProduct,
+  updateDigitalMarketProduct,
+  uploadDigitalMarketImage,
+} from "@/lib/market/digitalMarketApi";
 import type { DigitalMarketProductDoc } from "@/types/digitalMarketProduct";
 import "@/pages/pages.css";
 
@@ -20,6 +25,8 @@ function isHttpUrl(s: string): boolean {
 }
 
 export function DigitalMarketRegisterPage() {
+  const { productId } = useParams<{ productId: string }>();
+  const isEdit = Boolean(productId);
   const { firebaseUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -35,6 +42,48 @@ export function DigitalMarketRegisterPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [formMsg, setFormMsg] = useState<string | null>(null);
+  const [loadBusy, setLoadBusy] = useState(isEdit);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!productId || !firebaseUser) {
+      setLoadBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadBusy(true);
+    setLoadErr(null);
+    void (async () => {
+      try {
+        const row = await getDigitalMarketProduct(productId);
+        if (cancelled) return;
+        if (!row) {
+          setLoadErr("상품을 찾을 수 없습니다.");
+          setLoadBusy(false);
+          return;
+        }
+        if (row.data.createdBy !== firebaseUser.uid) {
+          setLoadErr("이 상품을 수정할 권한이 없습니다.");
+          setLoadBusy(false);
+          return;
+        }
+        setTitle(row.data.title ?? "");
+        setSummary(row.data.summary ?? "");
+        setDescriptionHtml(row.data.descriptionHtml ?? "");
+        setPurchaseUrl(row.data.purchaseUrl ?? "");
+        setFulfillmentType(row.data.fulfillmentType === "email" ? "email" : "download");
+        setImageUrlInput(row.data.imageUrl ?? "");
+        setImageFile(null);
+      } catch (e) {
+        if (!cancelled) setLoadErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setLoadBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, firebaseUser]);
 
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -75,16 +124,28 @@ export function DigitalMarketRegisterPage() {
       setBusy(true);
       setFormMsg(null);
       try {
-        await addDigitalMarketProduct({
-          title: t,
-          summary: summary.trim(),
-          descriptionHtml,
-          imageUrl,
-          purchaseUrl: pu,
-          fulfillmentType,
-          createdBy: uid,
-        });
-        showToast("ok", "디지털마켓 상품이 등록되었습니다.");
+        if (isEdit && productId) {
+          await updateDigitalMarketProduct(productId, {
+            title: t,
+            summary: summary.trim(),
+            descriptionHtml,
+            imageUrl,
+            purchaseUrl: pu,
+            fulfillmentType,
+          });
+          showToast("ok", "디지털마켓 상품이 수정되었습니다.");
+        } else {
+          await addDigitalMarketProduct({
+            title: t,
+            summary: summary.trim(),
+            descriptionHtml,
+            imageUrl,
+            purchaseUrl: pu,
+            fulfillmentType,
+            createdBy: uid,
+          });
+          showToast("ok", "디지털마켓 상품이 등록되었습니다.");
+        }
         navigate("/admin/storefront?tab=digital", { replace: true });
       } catch (err) {
         setFormMsg(err instanceof Error ? err.message : String(err));
@@ -92,7 +153,20 @@ export function DigitalMarketRegisterPage() {
         setBusy(false);
       }
     },
-    [uid, title, summary, descriptionHtml, purchaseUrl, fulfillmentType, imageFile, imageUrlInput, showToast, navigate],
+    [
+      uid,
+      productId,
+      isEdit,
+      title,
+      summary,
+      descriptionHtml,
+      purchaseUrl,
+      fulfillmentType,
+      imageFile,
+      imageUrlInput,
+      showToast,
+      navigate,
+    ],
   );
 
   return (
@@ -104,10 +178,10 @@ export function DigitalMarketRegisterPage() {
               ← 스토어 관리
             </Link>
             <div className="admin-layout__title-row">
-              <h1>디지털마켓 상품 등록</h1>
+              <h1>{isEdit ? "디지털마켓 상품 수정" : "디지털마켓 상품 등록"}</h1>
               <span className="ui-ko material-register__subtitle-bi">
                 <span className="reg-form__label-en" style={{ display: "block", fontWeight: 700 }}>
-                  Digital market listing
+                  {isEdit ? "Edit digital market listing" : "Digital market listing"}
                 </span>
                 <span className="reg-form__label-ko" style={{ display: "block", marginTop: "0.25rem" }}>
                   카드·이미지·본문이 연결될 <strong>구매·신청 URL</strong>을 지정합니다. 다운로드형과 이메일 배송형을 구분해
@@ -124,7 +198,15 @@ export function DigitalMarketRegisterPage() {
 
           {!firebaseUser ? <p className="auth-error">로그인이 필요합니다.</p> : null}
 
-          {firebaseUser ? (
+          {loadBusy ? (
+            <div className="route-loading route-loading--light" style={{ marginTop: "1.5rem" }}>
+              <div className="route-loading__spinner" />
+              <p className="ui-ko">불러오는 중…</p>
+            </div>
+          ) : null}
+          {loadErr ? <p className="auth-error">{loadErr}</p> : null}
+
+          {firebaseUser && !loadBusy && !loadErr ? (
             <div className="classroom-hub__panel classroom-hub__panel--manage video-register-page__panel">
               <form
                 className="video-register-page__form material-register-form__grid"
@@ -264,8 +346,8 @@ export function DigitalMarketRegisterPage() {
 
                 <div className="classroom-hub__card classroom-hub__card--actions">
                   <button type="submit" className="btn btn--primary btn--stack video-register-page__submit" disabled={busy}>
-                    <span className="ui-en">{busy ? "Saving…" : "Publish"}</span>
-                    <span className="ui-ko">{busy ? "저장 중…" : "등록"}</span>
+                    <span className="ui-en">{busy ? "Saving…" : isEdit ? "Save changes" : "Publish"}</span>
+                    <span className="ui-ko">{busy ? "저장 중…" : isEdit ? "수정 저장" : "등록"}</span>
                   </button>
                   <Link to="/admin/storefront?tab=digital" className="btn btn--ghost btn--stack" style={{ marginTop: "0.65rem" }}>
                     취소

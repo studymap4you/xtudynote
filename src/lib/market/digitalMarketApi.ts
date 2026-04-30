@@ -3,11 +3,13 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  updateDoc,
   type Unsubscribe,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
@@ -70,6 +72,35 @@ export async function addDigitalMarketProduct(input: {
     createdAt: serverTimestamp(),
   });
   return docRef.id;
+}
+
+export async function getDigitalMarketProduct(
+  id: string,
+): Promise<{ id: string; data: DigitalMarketProductDoc } | null> {
+  const snap = await getDoc(doc(db, COL, id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, data: snap.data() as DigitalMarketProductDoc };
+}
+
+export async function updateDigitalMarketProduct(
+  id: string,
+  input: {
+    title: string;
+    summary: string;
+    descriptionHtml: string;
+    imageUrl: string;
+    purchaseUrl: string;
+    fulfillmentType: DigitalMarketProductDoc["fulfillmentType"];
+  },
+): Promise<void> {
+  await updateDoc(doc(db, COL, id), {
+    title: input.title.trim(),
+    summary: input.summary.trim(),
+    descriptionHtml: input.descriptionHtml.trim(),
+    imageUrl: input.imageUrl.trim(),
+    purchaseUrl: input.purchaseUrl.trim(),
+    fulfillmentType: input.fulfillmentType,
+  });
 }
 
 export async function deleteDigitalMarketProduct(id: string): Promise<void> {

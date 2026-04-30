@@ -176,14 +176,22 @@ export function StorefrontManagePage() {
                         구매·신청 링크
                       </a>
                     </div>
-                    <button
-                      type="button"
-                      className="btn btn--ghost storefront-admin__danger"
-                      disabled={deletingId === id}
-                      onClick={() => void onDeleteDigital(id, data.title)}
-                    >
-                      {deletingId === id ? "삭제 중…" : "삭제"}
-                    </button>
+                    <div className="storefront-admin__row-actions">
+                      <Link
+                        to={`/admin/storefront/digital-market/${id}/edit`}
+                        className="btn btn--ghost btn--stack storefront-admin__edit"
+                      >
+                        수정
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn btn--ghost storefront-admin__danger"
+                        disabled={deletingId === id}
+                        onClick={() => void onDeleteDigital(id, data.title)}
+                      >
+                        {deletingId === id ? "삭제 중…" : "삭제"}
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -216,14 +224,22 @@ export function StorefrontManagePage() {
                         상세 페이지 미리보기
                       </Link>
                     </div>
-                    <button
-                      type="button"
-                      className="btn btn--ghost storefront-admin__danger"
-                      disabled={deletingId === id}
-                      onClick={() => void onDeleteXtudy(id, data.title)}
-                    >
-                      {deletingId === id ? "삭제 중…" : "삭제"}
-                    </button>
+                    <div className="storefront-admin__row-actions">
+                      <Link
+                        to={`/admin/storefront/xtudy-market/${id}/edit`}
+                        className="btn btn--ghost btn--stack storefront-admin__edit"
+                      >
+                        수정
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn btn--ghost storefront-admin__danger"
+                        disabled={deletingId === id}
+                        onClick={() => void onDeleteXtudy(id, data.title)}
+                      >
+                        {deletingId === id ? "삭제 중…" : "삭제"}
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
