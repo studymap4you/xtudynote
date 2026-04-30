@@ -166,7 +166,11 @@ export function ClassroomCatalogPage() {
       batch.set(enRef, payload);
       batch.update(cRef, { memberStudentIds: arrayUnion(uid) });
       await batch.commit();
-      await ensureTeacherRosterForStudent(room.teacherId, uid);
+      try {
+        await ensureTeacherRosterForStudent(room.teacherId, uid, { classroomId: room.id });
+      } catch {
+        /* 강의실 멤버 등록은 완료됨. 주소록(worksheet_roster)만 실패한 경우 — 규칙 미배포 등 */
+      }
       setEnrollModal({ room, step: "success", phone: phoneDigits });
       setActionMsg(null);
     } catch (e) {

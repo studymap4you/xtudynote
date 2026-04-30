@@ -36,17 +36,25 @@ export async function listWorksheetGroups(teacherUid: string): Promise<{ id: str
 
 export async function upsertWorksheetRosterEntry(
   teacherUid: string,
-  input: { studentUid: string; displayName?: string; emailLower?: string },
+  input: {
+    studentUid: string;
+    displayName?: string;
+    emailLower?: string;
+    /** 카탈로그 수강 직후 학생이 쓸 때 — Firestore 규칙이 멤버십 검증에 사용 */
+    classroomId?: string;
+  },
 ): Promise<void> {
   const uid = input.studentUid.trim();
   if (uid.length < 8) throw new Error("학생 UID가 너무 짧습니다.");
   const ref = doc(db, "users", teacherUid, "worksheet_roster", uid);
   const email = input.emailLower?.trim().toLowerCase() ?? "";
   const displayName = input.displayName?.trim() ?? "";
+  const cid = input.classroomId?.trim() ?? "";
   await setDoc(
     ref,
     {
       studentUid: uid,
+      ...(cid ? { classroomId: cid } : {}),
       ...(displayName ? { displayName } : {}),
       ...(email ? { emailLower: email } : {}),
       createdAt: serverTimestamp(),
@@ -95,14 +103,18 @@ export async function syncTeacherRosterForClassroomMemberDelta(
   );
 }
 
-/** 학생 한 명 추가 시 — 카탈로그 수강(멤버 등록) 직후 단순 업서트 */
+/** 학생 한 명 추가 시 — 카탈로그 수강(멤버 등록) 직후 단순 업서트. classroomId 를 주면 학생 클라이언트에서도 규칙 통과 가능 */
 export async function ensureTeacherRosterForStudent(
   teacherUid: string,
   studentUid: string,
+  opts?: { classroomId?: string },
 ): Promise<void> {
   const u = studentUid.trim();
   if (u.length < 8) return;
-  await upsertWorksheetRosterEntry(teacherUid, { studentUid: u });
+  await upsertWorksheetRosterEntry(teacherUid, {
+    studentUid: u,
+    ...(opts?.classroomId ? { classroomId: opts.classroomId } : {}),
+  });
 }
 
 export async function addWorksheetGroup(teacherUid: string, name: string, studentUids: string[]): Promise<string> {

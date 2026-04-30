@@ -4,6 +4,8 @@ export type WorksheetRosterEntryDoc = {
   displayName?: string;
   /** 비교용 소문자 이메일 */
   emailLower?: string;
+  /** 카탈로그 수강 시 학생이 기록 — 멤버 검증용 */
+  classroomId?: string;
   createdAt: unknown;
 };
 

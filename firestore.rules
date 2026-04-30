@@ -135,6 +135,14 @@ service cloud.firestore {
       return !('role' in u)
         || u.role in ['student', 'pending_teacher', 'teacher', 'super_admin'];
     }
+    /** 학생이 카탈로그 수강 후 담당 교사 주소록에 본인 행을 넣을 때 — 강의실 멤버 검증 */
+    function rosterStudentIsMemberOfTeacherClassroom(classroomId, teacherUserId) {
+      return exists(/databases/$(database)/documents/classrooms/$(classroomId))
+        && get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId == teacherUserId
+        && 'memberStudentIds' in get(/databases/$(database)/documents/classrooms/$(classroomId)).data
+        && get(/databases/$(database)/documents/classrooms/$(classroomId)).data.memberStudentIds is list
+        && request.auth.uid in get(/databases/$(database)/documents/classrooms/$(classroomId)).data.memberStudentIds;
+    }
     /** 무료·유료 강의실에 수강자가 본인 UID만 arrayUnion 하는 업데이트 */
     function studentSelfEnrollFreeClassroom() {
       return userEffectiveAccountNotBanned()
@@ -300,7 +308,7 @@ service cloud.firestore {
           && userData(userId).accountStatus != 'banned'
           && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin');
 
-        allow create: if signedIn()
+        allow create: if (signedIn()
           && request.auth.uid == userId
           && userData(userId).accountStatus != 'banned'
           && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin')
@@ -313,9 +321,31 @@ service cloud.firestore {
           && (!('displayName' in request.resource.data)
             || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 120))
           && (!('emailLower' in request.resource.data)
-            || (request.resource.data.emailLower is string && request.resource.data.emailLower.size() <= 200));
+            || (request.resource.data.emailLower is string && request.resource.data.emailLower.size() <= 200))
+        )
+          /** 학생: 카탈로그 수강 직후 본인 UID 행 + 강의실 ID로 멤버십 검증 */
+          || (
+            userEffectiveAccountNotBanned()
+            && classroomCatalogSelfEnrollRoleOk()
+            && entryId == request.auth.uid
+            && userId != request.auth.uid
+            && request.resource.data.studentUid is string
+            && request.resource.data.studentUid == entryId
+            && request.resource.data.studentUid.size() >= 8
+            && request.resource.data.studentUid.size() <= 128
+            && request.resource.data.classroomId is string
+            && request.resource.data.classroomId.size() > 0
+            && request.resource.data.classroomId.size() <= 128
+            && rosterStudentIsMemberOfTeacherClassroom(request.resource.data.classroomId, userId)
+            && request.resource.data.keys().hasAll(['studentUid', 'createdAt', 'classroomId'])
+            && (!('displayName' in request.resource.data)
+              || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 120))
+            && (!('emailLower' in request.resource.data)
+              || (request.resource.data.emailLower is string && request.resource.data.emailLower.size() <= 200))
+            && request.resource.data.createdAt != null
+          );
 
-        allow update: if signedIn()
+        allow update: if (signedIn()
           && request.auth.uid == userId
           && userData(userId).accountStatus != 'banned'
           && (userData(userId).role == 'teacher' || userData(userId).role == 'super_admin')
@@ -325,7 +355,25 @@ service cloud.firestore {
           && (!('displayName' in request.resource.data)
             || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 120))
           && (!('emailLower' in request.resource.data)
-            || (request.resource.data.emailLower is string && request.resource.data.emailLower.size() <= 200));
+            || (request.resource.data.emailLower is string && request.resource.data.emailLower.size() <= 200))
+        )
+          || (
+            userEffectiveAccountNotBanned()
+            && classroomCatalogSelfEnrollRoleOk()
+            && entryId == request.auth.uid
+            && userId != request.auth.uid
+            && resource.data.studentUid == entryId
+            && request.resource.data.studentUid == entryId
+            && request.resource.data.classroomId is string
+            && request.resource.data.classroomId.size() > 0
+            && request.resource.data.classroomId.size() <= 128
+            && rosterStudentIsMemberOfTeacherClassroom(request.resource.data.classroomId, userId)
+            && request.resource.data.keys().hasAll(['studentUid', 'createdAt', 'classroomId'])
+            && (!('displayName' in request.resource.data)
+              || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 120))
+            && (!('emailLower' in request.resource.data)
+              || (request.resource.data.emailLower is string && request.resource.data.emailLower.size() <= 200))
+          );
 
         allow delete: if signedIn()
           && request.auth.uid == userId
