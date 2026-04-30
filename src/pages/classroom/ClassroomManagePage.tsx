@@ -393,10 +393,7 @@ function Inner() {
     setEnrollmentBusyId(studentId);
     setEnrollmentActionErr(null);
     try {
-      await updateDoc(doc(db, "classrooms", id, "enrollment_requests", studentId), {
-        status: "rejected",
-        reviewedAt: serverTimestamp(),
-      });
+      await deleteDoc(doc(db, "classrooms", id, "enrollment_requests", studentId));
     } catch (e) {
       setEnrollmentActionErr(e instanceof Error ? e.message : "처리에 실패했습니다.");
     } finally {
@@ -917,8 +914,9 @@ function Inner() {
               </h2>
               <p className="classroom-hub__hint">
                 학생이 <strong>수강신청요청</strong>으로 남긴 연락처입니다. <strong>승인</strong> 시 멤버 UID에 자동
-                반영되며, <strong>반려</strong> 시 학생이 다시 신청할 수 있습니다. 무료 강의는 전체 강의실에서 학생이
-                직접 수강합니다.
+                반영됩니다. <strong>반려</strong> 시 해당 학생의 신청 문서를 <strong>삭제</strong>하여 처음 신청한 것과
+                같은 상태로 돌아가게 하며, 학생이 동일 강의실에 다시 신청할 수 있습니다. 무료 강의는 전체 강의실에서
+                학생이 직접 수강합니다.
               </p>
               {enrollmentActionErr ? <p className="auth-error">{enrollmentActionErr}</p> : null}
               <div className="classroom-hub__card">
@@ -973,7 +971,18 @@ function Inner() {
                                 disabled={enrollmentBusyId === row.id}
                                 onClick={() => void rejectEnrollment(row.id)}
                               >
-                                반려
+                                {enrollmentBusyId === row.id ? "처리 중…" : "반려 · 신청 삭제"}
+                              </button>
+                            </div>
+                          ) : st === "rejected" ? (
+                            <div className="classroom-hub__cta-row classroom-hub__cta-row--tight">
+                              <button
+                                type="button"
+                                className="btn btn--ghost btn--stack"
+                                disabled={enrollmentBusyId === row.id}
+                                onClick={() => void rejectEnrollment(row.id)}
+                              >
+                                {enrollmentBusyId === row.id ? "처리 중…" : "신청 기록 삭제"}
                               </button>
                             </div>
                           ) : null}

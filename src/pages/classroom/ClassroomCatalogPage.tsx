@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
   type Timestamp,
 } from "firebase/firestore";
 import { FirebaseError } from "firebase/app";
@@ -272,16 +273,17 @@ export function ClassroomCatalogPage() {
     setActionErr(null);
     setActionMsg(null);
     try {
-      await updateDoc(doc(db, "classrooms", r.id), {
-        memberStudentIds: arrayRemove(uid),
-      });
+      const batch = writeBatch(db);
+      batch.update(doc(db, "classrooms", r.id), { memberStudentIds: arrayRemove(uid) });
+      batch.delete(doc(db, "classrooms", r.id, "enrollment_requests", uid));
+      await batch.commit();
       await syncTeacherRosterForClassroomMemberDelta(r.teacherId, { added: [], removed: [uid] });
-      try {
-        await deleteDoc(doc(db, "classrooms", r.id, "enrollment_requests", uid));
-      } catch {
-        /* 유료 신청 문서가 없거나 이미 삭제됨 */
-      }
-      setActionMsg(`「${r.title}」수강을 취소했습니다.`);
+      setMyEnrollmentByClassroom((prev) => {
+        const next = { ...prev };
+        delete next[r.id];
+        return next;
+      });
+      setActionMsg(`「${r.title}」수강을 취소했습니다. 유료 신청 기록도 함께 삭제되어 다시 신청할 수 있습니다.`);
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : "수강 취소에 실패했습니다.");
     } finally {
@@ -291,13 +293,32 @@ export function ClassroomCatalogPage() {
 
   async function cancelPendingEnrollment(r: Row) {
     if (!uid || busyClassId) return;
-    if (!window.confirm(`「${r.title}」유료 수강 신청을 취소할까요?`)) return;
+    if (
+      !window.confirm(
+        `「${r.title}」유료 수강 신청을 취소할까요? 신청 기록이 삭제되며 처음과 같이 다시 신청할 수 있습니다.`,
+      )
+    )
+      return;
     setBusyClassId(r.id);
     setActionErr(null);
     setActionMsg(null);
+    const ref = doc(db, "classrooms", r.id, "enrollment_requests", uid);
     try {
-      await deleteDoc(doc(db, "classrooms", r.id, "enrollment_requests", uid));
-      setActionMsg(`「${r.title}」수강 신청을 취소했습니다.`);
+      let snap;
+      try {
+        snap = await getDocFromServer(ref);
+      } catch {
+        snap = await getDoc(ref);
+      }
+      if (snap.exists()) {
+        await deleteDoc(ref);
+      }
+      setMyEnrollmentByClassroom((prev) => {
+        const next = { ...prev };
+        delete next[r.id];
+        return next;
+      });
+      setActionMsg(`「${r.title}」유료 수강 신청을 취소했습니다. 신청 기록이 삭제되었습니다.`);
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : "취소에 실패했습니다.");
     } finally {
@@ -382,16 +403,8 @@ export function ClassroomCatalogPage() {
           });
           return;
         }
-        /** rejected 이거나 approved 인데 멤버가 아님: 서버 규칙상 setDoc(전체 교체) = 허용된 update 로 재접수 */
-      } else {
-        const prev = myEnrollmentByClassroom[modalRoom.id];
-        if (prev?.status === "rejected") {
-          try {
-            await deleteDoc(ref);
-          } catch {
-            /* 문서가 이미 없을 수 있음 */
-          }
-        }
+        /** 재신청: 기존 기록(반려·승인 후 탈퇴 등) 완전 삭제 후 신규 create 와 동일하게 접수 */
+        await deleteDoc(ref);
       }
       const listedFee =
         isPaidClassroom(modalRoom) &&
