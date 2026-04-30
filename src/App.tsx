@@ -30,7 +30,12 @@ import { DigitalMarketRegisterPage } from "@/pages/DigitalMarketRegisterPage";
 import { XtudyMarketPage } from "@/pages/XtudyMarketPage";
 import { XtudyMarketProductPage } from "@/pages/XtudyMarketProductPage";
 import { XtudyMarketRegisterPage } from "@/pages/XtudyMarketRegisterPage";
-import { ContentDbManageRoute, ProtectedRoute, SuperAdminRoute } from "@/components/ProtectedRoute";
+import {
+  ContentDbManageRoute,
+  LogicDashboardGate,
+  ProtectedRoute,
+  SuperAdminRoute,
+} from "@/components/ProtectedRoute";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { ClassroomListPage } from "@/pages/classroom/ClassroomListPage";
 import { ClassroomCatalogPage } from "@/pages/classroom/ClassroomCatalogPage";
@@ -56,7 +61,14 @@ export default function App() {
       <Route path="/library" element={<LibraryPage />} />
       <Route path="/content/:id" element={<ContentDetailPage />} />
       <Route path="/homework" element={<HomeworkSearchPage />} />
-      <Route path="/logic-dashboard" element={<LogicDashboardPage />} />
+      <Route
+        path="/logic-dashboard"
+        element={
+          <LogicDashboardGate>
+            <LogicDashboardPage />
+          </LogicDashboardGate>
+        }
+      />
       <Route path="/videos" element={<VideoCatalogPage />} />
       <Route path="/digital-market" element={<DigitalMarketPage />} />
       <Route path="/xtudy-market" element={<XtudyMarketPage />} />

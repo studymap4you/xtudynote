@@ -26,7 +26,8 @@ export function TopNavMainLinks({
   const { pathname } = useLocation();
   const showCoursesNav =
     !firebaseUser || isStudent || (!isTeacherApproved && !isPendingTeacher && !isSuperAdmin);
-  const showSignalLogicNav = !isStudent;
+  /** 시그널 로직 — 상단 네비는 마스터만 (그 외 회원은 대시보드·홈 플로우) */
+  const showSignalLogicNav = Boolean(firebaseUser && isSuperAdmin);
 
   const classroomActive =
     pathname.startsWith("/classroom") && !pathname.startsWith("/classrooms");

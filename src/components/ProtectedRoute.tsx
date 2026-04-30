@@ -63,6 +63,36 @@ export function ContentDbManageRoute({ children }: { children: React.ReactNode }
   return <>{children}</>;
 }
 
+/**
+ * `/logic-dashboard` — 비회원은 공개, 로그인 회원은 마스터만 (그 외는 대시보드로).
+ */
+export function LogicDashboardGate({ children }: { children: React.ReactNode }) {
+  const { isSuperAdmin, loading, firebaseUser, profile } = useAuth();
+
+  if (loading || (firebaseUser && !profile)) {
+    return (
+      <div className="route-loading" aria-busy="true">
+        <div className="route-loading__spinner" />
+        <p>
+          <span className="ui-en">Connecting…</span>
+          <span className="ui-ko" style={{ display: "block", marginTop: "0.25rem" }}>
+            연결 중…
+          </span>
+        </p>
+      </div>
+    );
+  }
+  if (firebaseUser && profile) {
+    if (profile.accountStatus === "banned") {
+      return <Navigate to="/" replace />;
+    }
+    if (!isSuperAdmin) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+  return <>{children}</>;
+}
+
 export function SuperAdminRoute({ children }: { children: React.ReactNode }) {
   const { isSuperAdmin, loading, firebaseUser, profile } = useAuth();
 
