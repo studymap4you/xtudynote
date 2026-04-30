@@ -1483,6 +1483,232 @@ button.intro-landing-tile {
   justify-content: flex-end;
 }
 
+.classroom-section-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9600;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(4vh, 1rem) 1rem 1rem;
+  box-sizing: border-box;
+}
+
+.classroom-section-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.classroom-section-modal__panel {
+  position: relative;
+  width: min(52rem, 100%);
+  max-height: min(88vh, 48rem);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--light-border, #e5e7eb);
+  background: #fff;
+  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.22);
+}
+
+.classroom-section-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0.65rem 1.1rem;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.classroom-section-modal__head-text {
+  min-width: 0;
+}
+
+.classroom-section-modal__title {
+  margin: 0;
+  font-size: 1.12rem;
+  color: var(--light-text, #111827);
+}
+
+.classroom-section-modal__sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.84rem;
+  color: var(--light-text-muted, #6b7280);
+  line-height: 1.45;
+}
+
+.classroom-section-modal__close-x {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: none;
+  border-radius: var(--radius-ui, 8px);
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.classroom-section-modal__close-x:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.classroom-section-modal__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.1rem;
+}
+
+.classroom-section-modal__foot {
+  flex-shrink: 0;
+  padding: 0.75rem 1.1rem 1rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.classroom-curriculum {
+  margin: 0;
+  padding: 0.75rem 0 1.25rem;
+}
+
+.classroom-curriculum__intro {
+  margin-bottom: 0.85rem;
+}
+
+.classroom-curriculum__heading {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.classroom-curriculum__lede {
+  margin: 0.35rem 0 0;
+  font-size: 0.86rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.classroom-curriculum__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.classroom-curriculum__item {
+  margin: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-ui, 10px);
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.classroom-curriculum__order {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #e0f2fe, #dbeafe);
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+}
+
+.classroom-curriculum__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.classroom-curriculum__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.classroom-curriculum__badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.classroom-curriculum__badge--video {
+  background: rgba(249, 115, 22, 0.14);
+  color: #c2410c;
+}
+
+.classroom-curriculum__badge--exam {
+  background: rgba(139, 92, 246, 0.14);
+  color: #6d28d9;
+}
+
+.classroom-curriculum__section-label {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.classroom-curriculum__title {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.classroom-curriculum__detail {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.classroom-curriculum__action {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.classroom-curriculum__action .btn {
+  white-space: nowrap;
+}
+
+.classroom-curriculum__empty {
+  margin: 0;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.88rem;
+  color: #94a3b8;
+  border-radius: var(--radius-ui, 10px);
+  border: 1px dashed #cbd5e1;
+  background: #fafafa;
+}
+
 .classroom-notices-inline {
   margin: 0 0 var(--space-2);
   padding: var(--space-2);
