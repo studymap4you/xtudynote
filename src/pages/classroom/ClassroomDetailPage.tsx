@@ -1,23 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
+  arrayRemove,
+  arrayUnion,
   collection,
   doc,
   getDoc,
   onSnapshot,
   orderBy,
   query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { ClassroomNoticePopup } from "@/components/classroom/ClassroomNoticePopup";
 import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
+import { ClassroomLessonCurriculumStudent } from "@/components/classroom/ClassroomLessonCurriculumStudent";
 import { ClassroomSectionModal } from "@/components/classroom/ClassroomSectionModal";
 import { DashboardShell } from "@/components/DashboardShell";
 import { RichHtmlView } from "@/components/RichHtmlView";
 import { db } from "@/firebase/config";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import type { ClassroomDocument, ClassroomNoticeDocument } from "@/types/classroom";
+import type { ClassroomLessonDocument } from "@/types/classroomLesson";
 import type { ClassroomExamAssignmentDocument } from "@/types/classroomExamAssignment";
 import type { ContentDocument, ContentStatus, ContentType } from "@/types/content";
 import "@/pages/pages.css";
@@ -95,6 +102,9 @@ export function ClassroomDetailPage() {
     { id: string; data: ClassroomExamAssignmentDocument }[]
   >([]);
   const [examAssignmentsErr, setExamAssignmentsErr] = useState<string | null>(null);
+  const [lessonRows, setLessonRows] = useState<{ id: string; data: ClassroomLessonDocument }[]>([]);
+  const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
+  const [togglingLessonId, setTogglingLessonId] = useState<string | null>(null);
 
   const isOwner = useMemo(
     () => !!(room && firebaseUser && room.teacherId === firebaseUser.uid),
@@ -218,6 +228,45 @@ export function ClassroomDetailPage() {
     return () => unsub();
   }, [id, roomLoading, canAccessRoom, firebaseUser]);
 
+  useEffect(() => {
+    if (!id || roomLoading || !canAccessRoom) {
+      setLessonRows([]);
+      return;
+    }
+    const lq = query(collection(db, "classrooms", id, "lessons"), orderBy("orderIndex", "asc"));
+    const unsub = onSnapshot(
+      lq,
+      (snap) => {
+        const list: { id: string; data: ClassroomLessonDocument }[] = [];
+        snap.forEach((d) => list.push({ id: d.id, data: d.data() as ClassroomLessonDocument }));
+        setLessonRows(list);
+      },
+      () => setLessonRows([]),
+    );
+    return () => unsub();
+  }, [id, roomLoading, canAccessRoom]);
+
+  useEffect(() => {
+    if (!id || !firebaseUser || roomLoading || !canAccessRoom) {
+      setCompletedLessonIds([]);
+      return;
+    }
+    const pref = doc(db, "classrooms", id, "student_lesson_progress", firebaseUser.uid);
+    const unsub = onSnapshot(
+      pref,
+      (snap) => {
+        if (!snap.exists()) {
+          setCompletedLessonIds([]);
+          return;
+        }
+        const raw = snap.data().completedLessonIds;
+        setCompletedLessonIds(Array.isArray(raw) ? raw.map(String) : []);
+      },
+      () => setCompletedLessonIds([]),
+    );
+    return () => unsub();
+  }, [id, firebaseUser, roomLoading, canAccessRoom]);
+
   const visibleContents = useMemo(() => {
     const showAll = isOwner && isTeacherApproved;
     return contents.filter((c) => {
@@ -309,6 +358,32 @@ export function ClassroomDetailPage() {
         </div>
       </li>
     );
+  }
+
+  async function handleLessonCompleteToggle(lessonId: string, completed: boolean) {
+    if (!id || !firebaseUser) return;
+    const pref = doc(db, "classrooms", id, "student_lesson_progress", firebaseUser.uid);
+    setTogglingLessonId(lessonId);
+    try {
+      if (completed) {
+        await setDoc(
+          pref,
+          { completedLessonIds: arrayUnion(lessonId), updatedAt: serverTimestamp() },
+          { merge: true },
+        );
+      } else {
+        const snap = await getDoc(pref);
+        if (!snap.exists()) return;
+        await updateDoc(pref, {
+          completedLessonIds: arrayRemove(lessonId),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    } catch {
+      /* optimistic UI rolls back via snapshot */
+    } finally {
+      setTogglingLessonId(null);
+    }
   }
 
   const loading = roomLoading;
@@ -558,11 +633,27 @@ export function ClassroomDetailPage() {
                     강의 목차
                   </h2>
                   <p className="classroom-curriculum__lede">
-                    이 강의실에 올라온 학습 자료·영상·학습문제가 등록 순서대로 표시됩니다. 단원(섹션)을 입력해 둔 자료는
-                    단원명이 함께 보입니다.
+                    {lessonRows.length > 0 ? (
+                      <>
+                        선생님이 구성한 <strong>레슨·단원 순서</strong>가 실시간으로 표시됩니다. 제목을 눌러 내용을 펼치고,
+                        학습을 마친 레슨은 왼쪽 체크로 표시할 수 있습니다.
+                      </>
+                    ) : (
+                      <>
+                        관리 화면에서 레슨을 아직 만들지 않은 경우, 등록된 학습 자료·영상·학습문제가 시간 순으로 함께
+                        표시됩니다.
+                      </>
+                    )}
                   </p>
                 </div>
-                {curriculumRows.length === 0 ? (
+                {lessonRows.length > 0 ? (
+                  <ClassroomLessonCurriculumStudent
+                    lessons={lessonRows}
+                    completedLessonIds={new Set(completedLessonIds)}
+                    togglingLessonId={togglingLessonId}
+                    onToggleComplete={(lid, done) => void handleLessonCompleteToggle(lid, done)}
+                  />
+                ) : curriculumRows.length === 0 ? (
                   <p className="classroom-curriculum__empty">아직 등록된 강의 항목이 없습니다.</p>
                 ) : (
                   <ul className="classroom-curriculum__list">

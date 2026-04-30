@@ -23,11 +23,13 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { RichHtmlView } from "@/components/RichHtmlView";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
+import { ClassroomSectionModal } from "@/components/classroom/ClassroomSectionModal";
 import { db } from "@/firebase/config";
 import { deleteClassroomCascade } from "@/lib/classroom/deleteClassroomCascade";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
 import type { ClassroomDocument, ClassroomMemberEnrollmentDocument, ClassroomNoticeDocument } from "@/types/classroom";
+import type { ClassroomLessonDocument } from "@/types/classroomLesson";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
@@ -53,7 +55,7 @@ function Inner() {
   const [room, setRoom] = useState<(ClassroomDocument & { id: string }) | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<TabId>("intro");
+  const [openModal, setOpenModal] = useState<TabId | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -89,6 +91,15 @@ function Inner() {
   const [noticeErr, setNoticeErr] = useState<string | null>(null);
   const [deleteClassroomBusy, setDeleteClassroomBusy] = useState(false);
   const [deleteClassroomErr, setDeleteClassroomErr] = useState<string | null>(null);
+
+  const [lessonRows, setLessonRows] = useState<{ id: string; data: ClassroomLessonDocument }[]>([]);
+  const [lessonErr, setLessonErr] = useState<string | null>(null);
+  const [lessonBusy, setLessonBusy] = useState(false);
+  const [newUnit, setNewUnit] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newSummary, setNewSummary] = useState("");
+  const [newVideoUrl, setNewVideoUrl] = useState("");
+  const [newContentId, setNewContentId] = useState("");
 
   useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -131,7 +142,7 @@ function Inner() {
   }, [room]);
 
   useEffect(() => {
-    if (!firebaseUser?.uid || tab !== "members") return;
+    if (!firebaseUser?.uid || openModal !== "members") return;
     let cancelled = false;
     void listWorksheetRoster(firebaseUser.uid).then((rows) => {
       if (cancelled) return;
@@ -147,10 +158,10 @@ function Inner() {
     return () => {
       cancelled = true;
     };
-  }, [firebaseUser?.uid, tab, room?.memberStudentIds]);
+  }, [firebaseUser?.uid, openModal, room?.memberStudentIds]);
 
   useEffect(() => {
-    if (!id || tab !== "members" || !room) {
+    if (!id || openModal !== "members" || !room) {
       setMemberEnrollmentById({});
       return;
     }
@@ -167,7 +178,29 @@ function Inner() {
       () => setMemberEnrollmentById({}),
     );
     return () => unsub();
-  }, [id, tab, room]);
+  }, [id, openModal, room]);
+
+  useEffect(() => {
+    if (!id || !room) {
+      setLessonRows([]);
+      return;
+    }
+    setLessonErr(null);
+    const lq = query(collection(db, "classrooms", id, "lessons"), orderBy("orderIndex", "asc"));
+    const unsub = onSnapshot(
+      lq,
+      (snap) => {
+        const list: { id: string; data: ClassroomLessonDocument }[] = [];
+        snap.forEach((d) => list.push({ id: d.id, data: d.data() as ClassroomLessonDocument }));
+        setLessonRows(list);
+      },
+      (e) => {
+        setLessonRows([]);
+        setLessonErr(e.message || "레슨 목록을 불러오지 못했습니다.");
+      },
+    );
+    return () => unsub();
+  }, [id, room]);
 
   useEffect(() => {
     if (!id || !room) return;
@@ -468,6 +501,89 @@ function Inner() {
     }
   }
 
+  async function addClassroomLesson(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !room) return;
+    const t = newTitle.trim();
+    if (!t) {
+      setLessonErr("레슨 제목을 입력해 주세요.");
+      return;
+    }
+    setLessonBusy(true);
+    setLessonErr(null);
+    try {
+      const nextOrder =
+        lessonRows.length === 0 ? 0 : Math.max(...lessonRows.map((r) => r.data.orderIndex), 0) + 1;
+      const payload: Record<string, unknown> = {
+        orderIndex: nextOrder,
+        title: t.slice(0, 400),
+        videoUrl: newVideoUrl.trim() ? newVideoUrl.trim().slice(0, 2048) : null,
+        contentId: newContentId.trim() ? newContentId.trim().slice(0, 128) : null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      const u = newUnit.trim();
+      if (u) payload.unitTitle = u.slice(0, 200);
+      const s = newSummary.trim();
+      if (s) payload.summary = s.slice(0, 4000);
+      await addDoc(collection(db, "classrooms", id, "lessons"), payload);
+      setNewTitle("");
+      setNewUnit("");
+      setNewSummary("");
+      setNewVideoUrl("");
+      setNewContentId("");
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "레슨을 추가하지 못했습니다.");
+    } finally {
+      setLessonBusy(false);
+    }
+  }
+
+  async function removeClassroomLesson(lessonId: string) {
+    if (!id) return;
+    const ok = typeof window !== "undefined" ? window.confirm("이 레슨을 삭제할까요?") : false;
+    if (!ok) return;
+    setLessonBusy(true);
+    setLessonErr(null);
+    try {
+      await deleteDoc(doc(db, "classrooms", id, "lessons", lessonId));
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+    } finally {
+      setLessonBusy(false);
+    }
+  }
+
+  async function moveClassroomLesson(lessonId: string, delta: -1 | 1) {
+    if (!id) return;
+    const sorted = [...lessonRows].sort(
+      (a, b) => a.data.orderIndex - b.data.orderIndex || a.id.localeCompare(b.id),
+    );
+    const idx = sorted.findIndex((x) => x.id === lessonId);
+    const j = idx + delta;
+    if (idx < 0 || j < 0 || j >= sorted.length) return;
+    const a = sorted[idx];
+    const b = sorted[j];
+    setLessonBusy(true);
+    setLessonErr(null);
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, "classrooms", id, "lessons", a.id), {
+        orderIndex: b.data.orderIndex,
+        updatedAt: serverTimestamp(),
+      });
+      batch.update(doc(db, "classrooms", id, "lessons", b.id), {
+        orderIndex: a.data.orderIndex,
+        updatedAt: serverTimestamp(),
+      });
+      await batch.commit();
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "순서를 바꾸지 못했습니다.");
+    } finally {
+      setLessonBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <DashboardShell light>
@@ -536,9 +652,9 @@ function Inner() {
                 key={t.id}
                 type="button"
                 role="tab"
-                aria-selected={tab === t.id}
-                className={`classroom-hub__tab ${tab === t.id ? "classroom-hub__tab--active" : ""}`}
-                onClick={() => setTab(t.id)}
+                aria-selected={openModal === t.id}
+                className={`classroom-hub__tab ${openModal === t.id ? "classroom-hub__tab--active" : ""}`}
+                onClick={() => setOpenModal((cur) => (cur === t.id ? null : t.id))}
               >
                 <span className="classroom-hub__tab-label">{t.label}</span>
                 <span className="classroom-hub__tab-sub">{t.sub}</span>
@@ -546,8 +662,26 @@ function Inner() {
             ))}
           </div>
 
-          <div className="classroom-hub__panel classroom-hub__panel--manage">
-            {tab === "intro" && (
+          {openModal && (
+            <ClassroomSectionModal
+              open
+              title={tabs.find((x) => x.id === openModal)?.label ?? ""}
+              subtitle={
+                openModal === "intro"
+                  ? "이름·요약·상세 소개"
+                  : openModal === "notices"
+                    ? "입장 시 팝업·목록"
+                    : openModal === "materials"
+                      ? "파일 업로드·신청 현황"
+                      : openModal === "video"
+                        ? "영상 URL 등록·신청 현황"
+                        : openModal === "qa"
+                          ? "게시판"
+                          : "학생 UID 목록"
+              }
+              onClose={() => setOpenModal(null)}
+            >
+            {openModal === "intro" && (
               <section className="classroom-hub__section" aria-labelledby="hub-intro-h">
                 <h2 id="hub-intro-h" className="classroom-hub__section-title">
                   강의 소개 편집
@@ -679,7 +813,7 @@ function Inner() {
               </section>
             )}
 
-          {tab === "notices" && id && (
+          {openModal === "notices" && id && (
             <section className="classroom-hub__section" aria-labelledby="hub-notices-h">
               <h2 id="hub-notices-h" className="classroom-hub__section-title">
                 공지사항 관리
@@ -743,7 +877,7 @@ function Inner() {
             </section>
           )}
 
-          {tab === "materials" && (
+          {openModal === "materials" && (
             <section className="classroom-hub__section" aria-labelledby="hub-mat-h">
               <h2 id="hub-mat-h" className="classroom-hub__section-title">
                 강의 자료 업로드
@@ -796,7 +930,7 @@ function Inner() {
             </section>
           )}
 
-          {tab === "video" && (
+          {openModal === "video" && (
             <section className="classroom-hub__section" aria-labelledby="hub-vid-h">
               <h2 id="hub-vid-h" className="classroom-hub__section-title">
                 강의 영상 등록
@@ -847,7 +981,7 @@ function Inner() {
             </section>
           )}
 
-          {tab === "qa" && id && (
+          {openModal === "qa" && id && (
             <section className="classroom-hub__section" aria-labelledby="hub-qa-h">
               <h2 id="hub-qa-h" className="classroom-hub__section-title">
                 질의응답 게시판
@@ -859,7 +993,7 @@ function Inner() {
             </section>
           )}
 
-          {tab === "members" && id && (
+          {openModal === "members" && id && (
             <section className="classroom-hub__section" aria-labelledby="hub-mem-h">
               <h2 id="hub-mem-h" className="classroom-hub__section-title">
                 학습지 배포용 멤버 UID
@@ -1000,7 +1134,137 @@ function Inner() {
               </div>
             </section>
           )}
-        </div>
+            </ClassroomSectionModal>
+          )}
+
+          <section className="classroom-hub__card classroom-manage-lessons" aria-labelledby="manage-lessons-h">
+            <h2 id="manage-lessons-h" className="classroom-manage-lessons__title">
+              강의 레슨·목차 구성
+            </h2>
+            <p className="classroom-manage-lessons__lede">
+              여기서 추가한 레슨은 <strong>학생 입장 화면</strong> 강의 목차에 실시간으로 표시됩니다. 단원명·요약·영상
+              URL·라이브러리 콘텐츠 ID를 연결할 수 있습니다. 순서는 위아래 버튼으로 바꿀 수 있습니다.
+            </p>
+            {lessonErr ? <p className="auth-error">{lessonErr}</p> : null}
+            <form className="classroom-hub__form classroom-manage-lessons__form-grid" onSubmit={(e) => void addClassroomLesson(e)}>
+              <label className="auth-field">
+                <span className="classroom-hub__field-label">단원 (선택)</span>
+                <input
+                  className="add-passage__control"
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value)}
+                  placeholder="예: 1단원 독해"
+                  disabled={lessonBusy}
+                  maxLength={200}
+                />
+              </label>
+              <label className="auth-field">
+                <span className="classroom-hub__field-label">레슨 제목</span>
+                <input
+                  className="add-passage__control"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="예: 2024년 9월 모의고사 지문 분석"
+                  disabled={lessonBusy}
+                  required
+                  maxLength={400}
+                />
+              </label>
+              <label className="auth-field" style={{ gridColumn: "1 / -1" }}>
+                <span className="classroom-hub__field-label">요약·안내 (선택, 학생 아코디언에 표시)</span>
+                <textarea
+                  className="classroom-hub__intro-textarea"
+                  rows={3}
+                  value={newSummary}
+                  onChange={(e) => setNewSummary(e.target.value)}
+                  disabled={lessonBusy}
+                  maxLength={4000}
+                />
+              </label>
+              <label className="auth-field">
+                <span className="classroom-hub__field-label">영상 URL (선택)</span>
+                <input
+                  className="add-passage__control"
+                  value={newVideoUrl}
+                  onChange={(e) => setNewVideoUrl(e.target.value)}
+                  placeholder="https://…"
+                  inputMode="url"
+                  disabled={lessonBusy}
+                  maxLength={2048}
+                />
+              </label>
+              <label className="auth-field">
+                <span className="classroom-hub__field-label">콘텐츠 ID (선택)</span>
+                <input
+                  className="add-passage__control"
+                  value={newContentId}
+                  onChange={(e) => setNewContentId(e.target.value)}
+                  placeholder="contents 문서 ID"
+                  disabled={lessonBusy}
+                  maxLength={128}
+                  spellCheck={false}
+                />
+              </label>
+              <div className="add-passage__actions classroom-hub__form-actions" style={{ gridColumn: "1 / -1" }}>
+                <button type="submit" className="btn btn--primary btn--stack" disabled={lessonBusy}>
+                  {lessonBusy ? "처리 중…" : "레슨 추가"}
+                </button>
+              </div>
+            </form>
+            {lessonRows.length === 0 ? (
+              <p className="classroom-hub__hint">등록된 레슨이 없습니다. 위 폼에서 첫 레슨을 추가해 보세요.</p>
+            ) : (
+              <ul className="classroom-manage-lessons__lesson-list">
+                {lessonRows.map((row, idx) => (
+                  <li key={row.id} className="classroom-manage-lessons__lesson">
+                    <div className="classroom-manage-lessons__lesson-head">
+                      <div>
+                        <p className="classroom-manage-lessons__lesson-meta">
+                          순서 {idx + 1}
+                          {row.data.unitTitle?.trim() ? ` · ${row.data.unitTitle.trim()}` : ""}
+                        </p>
+                        <h3 className="classroom-manage-lessons__lesson-title">{row.data.title}</h3>
+                      </div>
+                      <div className="classroom-manage-lessons__lesson-actions">
+                        <button
+                          type="button"
+                          className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                          disabled={lessonBusy || idx === 0}
+                          onClick={() => void moveClassroomLesson(row.id, -1)}
+                        >
+                          위로
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                          disabled={lessonBusy || idx >= lessonRows.length - 1}
+                          onClick={() => void moveClassroomLesson(row.id, 1)}
+                        >
+                          아래로
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                          disabled={lessonBusy}
+                          onClick={() => void removeClassroomLesson(row.id)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                    {row.data.summary?.trim() ? (
+                      <p className="classroom-hub__hint" style={{ margin: "0.5rem 0 0", whiteSpace: "pre-wrap" }}>
+                        {row.data.summary.trim().length > 200
+                          ? `${row.data.summary.trim().slice(0, 200)}…`
+                          : row.data.summary.trim()}
+                      </p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
         </div>
       </main>
     </DashboardShell>

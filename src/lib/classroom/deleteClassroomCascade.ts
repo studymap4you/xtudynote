@@ -43,5 +43,7 @@ export async function deleteClassroomCascade(db: Firestore, classroomId: string)
   await deleteAllInCollection(db, [...base, "enrollment_requests"]);
   await deleteAllInCollection(db, [...base, "qa_posts"]);
   await deleteAllInCollection(db, [...base, "notices"]);
+  await deleteAllInCollection(db, [...base, "lessons"]);
+  await deleteAllInCollection(db, [...base, "student_lesson_progress"]);
   await deleteDoc(doc(db, "classrooms", classroomId));
 }

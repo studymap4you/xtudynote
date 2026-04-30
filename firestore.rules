@@ -1234,6 +1234,143 @@ service cloud.firestore {
 
         allow update: if false;
       }
+
+      /**
+       * 강의 레슨·단원 목차 — 교사 편집, 멤버·학생 읽기 (실시간 바인딩)
+       */
+      match /lessons/{lessonId} {
+        function lessonClassroomData() {
+          return get(/databases/$(database)/documents/classrooms/$(classroomId)).data;
+        }
+        function lessonReaderHasAccess() {
+          return isSignedInActiveAccount()
+            && exists(/databases/$(database)/documents/classrooms/$(classroomId))
+            && (
+              lessonClassroomData().teacherId == request.auth.uid
+              || (
+                'memberStudentIds' in lessonClassroomData()
+                && lessonClassroomData().memberStudentIds is list
+                && request.auth.uid in lessonClassroomData().memberStudentIds
+              )
+            );
+        }
+        allow read: if isActiveSuperAdmin() || lessonReaderHasAccess();
+
+        allow create: if isActiveTeacher()
+          && ownsClassroom(classroomId)
+          && request.resource.data.orderIndex is int
+          && request.resource.data.orderIndex >= 0
+          && request.resource.data.orderIndex <= 9999
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 400
+          && request.resource.data.keys().hasAll(['orderIndex', 'title', 'createdAt', 'updatedAt'])
+          && (!('unitTitle' in request.resource.data)
+            || (
+              request.resource.data.unitTitle is string
+              && request.resource.data.unitTitle.size() <= 200
+            ))
+          && (!('summary' in request.resource.data)
+            || (
+              request.resource.data.summary is string
+              && request.resource.data.summary.size() <= 4000
+            ))
+          && (!('videoUrl' in request.resource.data)
+            || request.resource.data.videoUrl == null
+            || (
+              request.resource.data.videoUrl is string
+              && request.resource.data.videoUrl.size() > 8
+              && request.resource.data.videoUrl.size() <= 2048
+              && request.resource.data.videoUrl.matches('https?://.*')
+            ))
+          && (!('contentId' in request.resource.data)
+            || request.resource.data.contentId == null
+            || (
+              request.resource.data.contentId is string
+              && request.resource.data.contentId.size() > 0
+              && request.resource.data.contentId.size() <= 128
+            ));
+
+        allow update: if isActiveTeacher()
+          && ownsClassroom(classroomId)
+          && request.resource.data.orderIndex is int
+          && request.resource.data.orderIndex >= 0
+          && request.resource.data.orderIndex <= 9999
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 400
+          && request.resource.data.keys().hasAll(['orderIndex', 'title', 'createdAt', 'updatedAt'])
+          && (!('unitTitle' in request.resource.data)
+            || (
+              request.resource.data.unitTitle is string
+              && request.resource.data.unitTitle.size() <= 200
+            ))
+          && (!('summary' in request.resource.data)
+            || (
+              request.resource.data.summary is string
+              && request.resource.data.summary.size() <= 4000
+            ))
+          && (!('videoUrl' in request.resource.data)
+            || request.resource.data.videoUrl == null
+            || (
+              request.resource.data.videoUrl is string
+              && request.resource.data.videoUrl.size() > 8
+              && request.resource.data.videoUrl.size() <= 2048
+              && request.resource.data.videoUrl.matches('https?://.*')
+            ))
+          && (!('contentId' in request.resource.data)
+            || request.resource.data.contentId == null
+            || (
+              request.resource.data.contentId is string
+              && request.resource.data.contentId.size() > 0
+              && request.resource.data.contentId.size() <= 128
+            ));
+
+        allow delete: if isActiveTeacher() && ownsClassroom(classroomId);
+      }
+
+      /** 학습자 레슨 완료 표시 — 본인 문서만 쓰기, 교사·본인 읽기 */
+      match /student_lesson_progress/{studentUid} {
+        function progressClassroom() {
+          return get(/databases/$(database)/documents/classrooms/$(classroomId)).data;
+        }
+        function progressStudentMayWrite() {
+          return userEffectiveAccountNotBanned()
+            && request.auth.uid == studentUid
+            && exists(/databases/$(database)/documents/classrooms/$(classroomId))
+            && (
+              progressClassroom().teacherId == studentUid
+              || (
+                'memberStudentIds' in progressClassroom()
+                && progressClassroom().memberStudentIds is list
+                && studentUid in progressClassroom().memberStudentIds
+              )
+            );
+        }
+        function progressReader() {
+          return isSignedInActiveAccount()
+            && exists(/databases/$(database)/documents/classrooms/$(classroomId))
+            && (
+              progressClassroom().teacherId == request.auth.uid
+              || (
+                'memberStudentIds' in progressClassroom()
+                && progressClassroom().memberStudentIds is list
+                && request.auth.uid in progressClassroom().memberStudentIds
+              )
+            );
+        }
+        allow read: if isActiveSuperAdmin()
+          || (request.auth.uid == studentUid && progressReader())
+          || (isActiveTeacher() && ownsClassroom(classroomId));
+
+        allow create, update: if progressStudentMayWrite()
+          && request.resource.data.keys().hasOnly(['completedLessonIds', 'updatedAt'])
+          && request.resource.data.completedLessonIds is list
+          && request.resource.data.completedLessonIds.size() <= 400
+          && request.resource.data.updatedAt != null;
+
+        allow delete: if false;
+      }
     }
 
     // ——— assignments (Signal Logic 학습지 배포) ———
