@@ -4,7 +4,6 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
-  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
@@ -14,8 +13,6 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
-  where,
-  type DocumentReference,
   type Timestamp,
 } from "firebase/firestore";
 import { FirebaseError } from "firebase/app";
@@ -56,25 +53,23 @@ function isMember(r: Row, uid: string | undefined): boolean {
   return (r.memberStudentIds ?? []).includes(uid);
 }
 
-function enrollmentClassroomIdFromRef(ref: DocumentReference): string {
-  const classroomRef = ref.parent.parent;
-  return classroomRef?.id ?? "";
-}
-
-function enrollmentRequestCreatedMs(data: ClassroomEnrollmentRequestDocument): number {
-  const c = data.createdAt;
-  if (c && typeof c === "object" && "toMillis" in c && typeof (c as Timestamp).toMillis === "function") {
-    try {
-      return (c as Timestamp).toMillis();
-    } catch {
-      return 0;
-    }
-  }
-  return 0;
+/** Firestore 유료 수강신청 규칙(canSubmit)과 동일: 타인 강의실에 신청 UI·상태 동기화 대상 */
+function canEnrollInOthersClassrooms(
+  isStudent: boolean,
+  isPendingTeacher: boolean,
+  isTeacherApproved: boolean,
+): boolean {
+  return isStudent || isPendingTeacher || isTeacherApproved;
 }
 
 export function ClassroomCatalogPage() {
-  const { firebaseUser, canManageMaterials, isStudent } = useAuth();
+  const {
+    firebaseUser,
+    canManageMaterials,
+    isStudent,
+    isPendingTeacher,
+    isTeacherApproved,
+  } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,9 +91,20 @@ export function ClassroomCatalogPage() {
     | null
     | { variant: "success" | "error"; courseTitle: string; message: string }
   >(null);
-  const [myEnrollmentMapReady, setMyEnrollmentMapReady] = useState(!isStudent);
+  const mayEnrollCatalog = canEnrollInOthersClassrooms(isStudent, isPendingTeacher, isTeacherApproved);
+  const [myEnrollmentMapReady, setMyEnrollmentMapReady] = useState(!mayEnrollCatalog);
 
   const uid = firebaseUser?.uid;
+
+  /** 유료·비멤버 강의실 id 목록이 바뀔 때만 enrollment 리스너를 갈아끼움 (rows 참조 변경 무시) */
+  const enrollmentWatchKey = useMemo(() => {
+    if (!uid || !mayEnrollCatalog) return "";
+    return rows
+      .filter((r) => r.teacherId !== uid && isPaidClassroom(r) && !isMember(r, uid))
+      .map((r) => r.id)
+      .sort()
+      .join(",");
+  }, [rows, uid, mayEnrollCatalog]);
 
   useEffect(() => {
     if (!uid) {
@@ -125,36 +131,80 @@ export function ClassroomCatalogPage() {
     return () => unsub();
   }, [uid]);
 
+  /** collectionGroup 대신 문서 단위 구독 + 초기 getDoc(딥링크·첫 표시 레이스 완화) */
   useEffect(() => {
-    if (!uid || !isStudent) {
+    if (!uid || !mayEnrollCatalog) {
       setMyEnrollmentByClassroom({});
       setMyEnrollmentMapReady(true);
-      return;
+      return undefined;
     }
+
+    if (!enrollmentWatchKey) {
+      setMyEnrollmentByClassroom({});
+      setMyEnrollmentMapReady(true);
+      return undefined;
+    }
+
+    const classroomIds = enrollmentWatchKey.split(",").filter(Boolean);
     setMyEnrollmentMapReady(false);
-    /** orderBy 제거: 복합 인덱스·createdAt 누락 문서에서 쿼리 실패 방지 — 최신 건은 클라이언트에서 정렬 */
-    const q = query(collectionGroup(db, "enrollment_requests"), where("studentId", "==", uid));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const sorted = snap.docs
-          .map((d) => ({ ref: d.ref, id: d.id, data: d.data() as ClassroomEnrollmentRequestDocument }))
-          .sort((a, b) => enrollmentRequestCreatedMs(b.data) - enrollmentRequestCreatedMs(a.data));
-        const map: Record<string, { status: ClassroomEnrollmentRequestStatus; id: string }> = {};
-        for (const { ref, id, data } of sorted) {
-          const cid = enrollmentClassroomIdFromRef(ref);
-          if (!cid || map[cid]) continue;
-          map[cid] = { status: data.status, id };
-        }
-        setMyEnrollmentByClassroom(map);
-        setMyEnrollmentMapReady(true);
-      },
-      () => {
-        setMyEnrollmentMapReady(true);
-      },
-    );
-    return () => unsub();
-  }, [uid, isStudent]);
+
+    let cancelled = false;
+
+    (async () => {
+      const bootstrap: Record<string, { status: ClassroomEnrollmentRequestStatus; id: string }> = {};
+      await Promise.all(
+        classroomIds.map(async (classroomId) => {
+          try {
+            const ref = doc(db, "classrooms", classroomId, "enrollment_requests", uid);
+            const snap = await getDoc(ref);
+            if (!snap.exists()) return;
+            const data = snap.data() as ClassroomEnrollmentRequestDocument;
+            bootstrap[classroomId] = { status: data.status, id: snap.id };
+          } catch {
+            /* 네트워크·권한 */
+          }
+        }),
+      );
+      if (cancelled) return;
+      setMyEnrollmentByClassroom((prev) => {
+        const next = { ...prev };
+        for (const id of classroomIds) delete next[id];
+        return { ...next, ...bootstrap };
+      });
+      setMyEnrollmentMapReady(true);
+    })();
+
+    const unsubs = classroomIds.map((classroomId) => {
+      const ref = doc(db, "classrooms", classroomId, "enrollment_requests", uid);
+      return onSnapshot(
+        ref,
+        (snap) => {
+          setMyEnrollmentByClassroom((prev) => {
+            const next = { ...prev };
+            if (!snap.exists()) {
+              delete next[classroomId];
+            } else {
+              const data = snap.data() as ClassroomEnrollmentRequestDocument;
+              next[classroomId] = { status: data.status, id: snap.id };
+            }
+            return next;
+          });
+        },
+        () => {
+          setMyEnrollmentByClassroom((prev) => {
+            const next = { ...prev };
+            delete next[classroomId];
+            return next;
+          });
+        },
+      );
+    });
+
+    return () => {
+      cancelled = true;
+      unsubs.forEach((u) => u());
+    };
+  }, [uid, mayEnrollCatalog, enrollmentWatchKey]);
 
   const scrollToEnrollSection = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -176,7 +226,7 @@ export function ClassroomCatalogPage() {
 
   useEffect(() => {
     const enrollId = searchParams.get("enroll");
-    if (!enrollId || !rows.length || !isStudent || !uid || !myEnrollmentMapReady) return;
+    if (!enrollId || !rows.length || !mayEnrollCatalog || !uid || !myEnrollmentMapReady) return;
     const r = rows.find((x) => x.id === enrollId);
     setSearchParams(
       (prev) => {
@@ -199,7 +249,7 @@ export function ClassroomCatalogPage() {
   }, [
     searchParams,
     rows,
-    isStudent,
+    mayEnrollCatalog,
     uid,
     firebaseUser?.email,
     scrollToEnrollSection,
@@ -504,7 +554,7 @@ export function ClassroomCatalogPage() {
           표시됩니다.
         </p>
 
-        {isStudent ? enrollmentSection : null}
+        {mayEnrollCatalog ? enrollmentSection : null}
 
         {actionMsg ? (
           <p className="classroom-catalog__feedback classroom-catalog__feedback--ok" role="status">
@@ -533,7 +583,7 @@ export function ClassroomCatalogPage() {
                   <p className="classroom-page__card-meta">개설 {formatAt(r.createdAt)}</p>
                 </div>
                 <div className="classroom-page__card-actions classroom-catalog__card-actions">
-                  {isStudent ? renderStudentActions(r) : null}
+                  {mayEnrollCatalog ? renderStudentActions(r) : null}
                   <Link to={`/classroom/${r.id}`} className="btn btn--ghost btn--stack">
                     <span className="ui-ko">상세 보기</span>
                     <span className="ui-en">Details</span>

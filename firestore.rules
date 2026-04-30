@@ -1045,6 +1045,7 @@ service cloud.firestore {
 
         allow create: if canSubmitEnrollmentRequest()
           && exists(/databases/$(database)/documents/classrooms/$(classroomId))
+          && !exists(/databases/$(database)/documents/classrooms/$(classroomId)/enrollment_requests/$(requestId))
           && requestId == request.auth.uid
           && enrollmentClassroomData().pricingType == 'paid'
           && !(request.auth.uid in enrollmentClassroomMemberIds())
