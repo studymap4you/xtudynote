@@ -350,94 +350,118 @@
 }
 /* 랜딩 split 네비: 앱과 동일 pill + 밝은 글래스 바용 색 보정 */
 .app-shell--landing .top-nav.top-nav--landing.top-nav--split .top-nav__center,
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .top-nav__tail {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .top-nav__tail,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .top-nav__tail {
   align-items: center;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill {
   border-radius: 10px;
   border: none;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta) .nav-pill__title {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta) .nav-pill__title,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill:not(.nav-pill--cta) .nav-pill__title {
   color: #0f172a;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta) .nav-pill__sub {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta) .nav-pill__sub,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill:not(.nav-pill--cta) .nav-pill__sub {
   color: #64748b;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill__icon {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill__icon,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill__icon {
   color: #0f172a;
   stroke: #0f172a;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__icon {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__icon,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--active:not(.nav-pill--cta) .nav-pill__icon {
   color: #f8fafc;
   stroke: #f8fafc;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta):not(.nav-pill--active):not(.nav-pill--tail):not(.nav-pill--landing-warm) {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta):not(.nav-pill--active):not(.nav-pill--tail):not(.nav-pill--landing-warm),
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill:not(.nav-pill--cta):not(.nav-pill--active):not(.nav-pill--tail):not(.nav-pill--landing-warm) {
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.95) inset,
     0 2px 6px rgba(15, 23, 42, 0.05);
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta):not(.nav-pill--active):not(.nav-pill--tail):not(.nav-pill--landing-warm):hover {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill:not(.nav-pill--cta):not(.nav-pill--active):not(.nav-pill--tail):not(.nav-pill--landing-warm):hover,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill:not(.nav-pill--cta):not(.nav-pill--active):not(.nav-pill--tail):not(.nav-pill--landing-warm):hover {
   background: #ffffff;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 1) inset,
     0 4px 14px -4px rgba(37, 99, 235, 0.22);
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--landing-warm:not(.nav-pill--active) {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--landing-warm:not(.nav-pill--active),
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--landing-warm:not(.nav-pill--active) {
   background: linear-gradient(180deg, rgba(255, 247, 237, 0.95) 0%, rgba(254, 243, 199, 0.45) 100%);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 2px 8px rgba(234, 88, 12, 0.08);
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--landing-warm:not(.nav-pill--active):hover {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--landing-warm:not(.nav-pill--active):hover,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--landing-warm:not(.nav-pill--active):hover {
   background: linear-gradient(180deg, #fffbeb 0%, rgba(254, 243, 199, 0.65) 100%);
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta),
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--active:not(.nav-pill--cta) {
   background: #2d333b;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__title {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__title,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--active:not(.nav-pill--cta) .nav-pill__title {
   color: #f8fafc;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__sub {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--active:not(.nav-pill--cta) .nav-pill__sub,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--active:not(.nav-pill--cta) .nav-pill__sub {
   color: rgba(186, 230, 253, 0.88);
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active) {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active),
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--tail:not(.nav-pill--active) {
   background: #ffffff;
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active):hover {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active):hover,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--tail:not(.nav-pill--active):hover {
   background: #ffffff;
   box-shadow: 0 6px 10px -2px rgb(0 0 0 / 0.06);
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active) .nav-pill__title {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active) .nav-pill__title,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--tail:not(.nav-pill--active) .nav-pill__title {
   color: #0f172a;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active) .nav-pill__sub {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--tail:not(.nav-pill--active) .nav-pill__sub,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--tail:not(.nav-pill--active) .nav-pill__sub {
   color: #64748b;
 }
 /* 랜딩 우측 CTA(대시보드·회원가입): 짙은 하늘색 · 흰색 글자 */
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--cta {
   border: none;
   background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 52%, #0369a1 100%);
   box-shadow: 0 2px 12px rgba(3, 105, 161, 0.38);
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta:hover {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta:hover,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--cta:hover {
   border: none;
   background: linear-gradient(180deg, #0284c7 0%, #0369a1 100%);
   box-shadow: 0 3px 14px rgba(3, 105, 161, 0.45);
 }
 .app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta .nav-pill__title,
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta .nav-pill__sub {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta .nav-pill__sub,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--cta .nav-pill__title,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--cta .nav-pill__sub {
   color: #ffffff;
 }
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta.nav-pill--active {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta.nav-pill--active,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--cta.nav-pill--active {
   background: #0369a1;
   border: none;
   box-shadow: 0 2px 10px rgba(3, 105, 161, 0.42);
 }
 .app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta.nav-pill--active .nav-pill__title,
-.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta.nav-pill--active .nav-pill__sub {
+.app-shell--landing .top-nav.top-nav--landing.top-nav--split .nav-pill--cta.nav-pill--active .nav-pill__sub,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--cta.nav-pill--active .nav-pill__title,
+.app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--cta.nav-pill--active .nav-pill__sub {
   color: #ffffff;
 }
 .app-shell--landing
@@ -3978,6 +4002,23 @@ button.top-nav__auth-link--logout:hover {
 .top-nav--split .top-nav__brand {
   justify-self: start;
 }
+.top-nav.top-nav--landing.top-nav--landing-compact {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+.top-nav.top-nav--landing.top-nav--landing-compact .top-nav__brand {
+  justify-self: start;
+}
+.top-nav.top-nav--landing.top-nav--landing-compact .top-nav__tail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  justify-self: end;
+}
 .top-nav__center {
   display: flex;
   flex-wrap: wrap;
@@ -4181,6 +4222,15 @@ button.top-nav__auth-link--logout:hover {
   }
   .top-nav--split .top-nav__brand {
     order: 1;
+  }
+
+  .top-nav.top-nav--landing.top-nav--landing-compact {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+  .top-nav.top-nav--landing.top-nav--landing-compact .top-nav__tail {
+    justify-self: stretch;
+    justify-content: flex-end;
   }
 }
 .top-nav__brand {

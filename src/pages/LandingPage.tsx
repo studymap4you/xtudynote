@@ -1,6 +1,5 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
-import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Intro } from "@/components/Intro";
 import { CategoryGridSection } from "@/components/landing/MarketplaceSections";
@@ -24,11 +23,14 @@ const FEATURES = [
 
 export function LandingPage() {
   const { firebaseUser, logOut } = useAuth();
+  const { pathname } = useLocation();
+  const classroomActive =
+    pathname.startsWith("/classroom") && !pathname.startsWith("/classrooms");
 
   return (
     <div className="app-shell app-shell--landing">
       <LandingPageBackground />
-      <header className="top-nav top-nav--landing top-nav--split">
+      <header className="top-nav top-nav--landing top-nav--landing-compact">
         <Link
           to="/"
           className="top-nav__brand top-nav__brand--landing"
@@ -36,10 +38,11 @@ export function LandingPage() {
         >
           <BrandLockup />
         </Link>
-        <nav className="top-nav__center" aria-label="주요 메뉴">
-          <TopNavMainLinks warmCoursesHighlight homeworkKo="과제함" />
-        </nav>
-        <div className="top-nav__tail">
+        <div className="top-nav__tail" role="navigation" aria-label="주요 메뉴">
+          <NavLink to="/classroom" className={() => `nav-pill${classroomActive ? " nav-pill--active" : ""}`}>
+            <span className="nav-pill__title">내 강의실</span>
+            <span className="nav-pill__sub">My classroom</span>
+          </NavLink>
           {firebaseUser ? (
             <>
               <NavLink
@@ -60,16 +63,10 @@ export function LandingPage() {
               </button>
             </>
           ) : (
-            <>
-              <NavLink to="/register" className="nav-pill nav-pill--cta">
-                <span className="nav-pill__title">회원가입</span>
-                <span className="nav-pill__sub">Register</span>
-              </NavLink>
-              <NavLink to="/login" className="nav-pill nav-pill--tail">
-                <span className="nav-pill__title">로그인</span>
-                <span className="nav-pill__sub">Log in</span>
-              </NavLink>
-            </>
+            <NavLink to="/login" className="nav-pill nav-pill--cta">
+              <span className="nav-pill__title">로그인</span>
+              <span className="nav-pill__sub">Log in</span>
+            </NavLink>
           )}
         </div>
       </header>
