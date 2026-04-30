@@ -276,6 +276,11 @@ export function ClassroomCatalogPage() {
         memberStudentIds: arrayRemove(uid),
       });
       await syncTeacherRosterForClassroomMemberDelta(r.teacherId, { added: [], removed: [uid] });
+      try {
+        await deleteDoc(doc(db, "classrooms", r.id, "enrollment_requests", uid));
+      } catch {
+        /* 유료 신청 문서가 없거나 이미 삭제됨 */
+      }
       setActionMsg(`「${r.title}」수강을 취소했습니다.`);
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : "수강 취소에 실패했습니다.");
@@ -369,15 +374,17 @@ export function ClassroomCatalogPage() {
           return;
         }
         if (cur.status === "approved") {
-          setModalRoom(null);
-          setEnrollmentResultModal({
-            variant: "success",
-            courseTitle,
-            message: "이미 승인된 강의입니다. 내 강의실에서 입장해 주세요.",
-          });
-          return;
-        }
-        if (cur.status === "rejected") {
+          if (isMember(modalRoom, uid)) {
+            setModalRoom(null);
+            setEnrollmentResultModal({
+              variant: "success",
+              courseTitle,
+              message: "이미 승인된 강의입니다. 내 강의실에서 입장해 주세요.",
+            });
+            return;
+          }
+          await deleteDoc(ref);
+        } else if (cur.status === "rejected") {
           await deleteDoc(ref);
         }
       } else {
@@ -439,13 +446,16 @@ export function ClassroomCatalogPage() {
               return;
             }
             if (cur.status === "approved") {
-              setModalRoom(null);
-              setEnrollmentResultModal({
-                variant: "success",
-                courseTitle,
-                message: "이미 승인된 강의입니다. 내 강의실에서 입장해 주세요.",
-              });
-              return;
+              const row = rows.find((x) => x.id === classroomId);
+              if (row && isMember(row, uid)) {
+                setModalRoom(null);
+                setEnrollmentResultModal({
+                  variant: "success",
+                  courseTitle,
+                  message: "이미 승인된 강의입니다. 내 강의실에서 입장해 주세요.",
+                });
+                return;
+              }
             }
           }
         } catch {

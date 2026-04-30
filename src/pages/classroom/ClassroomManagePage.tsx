@@ -52,6 +52,19 @@ function tsLabel(t: unknown): string {
   return "";
 }
 
+/** orderBy(createdAt) 는 createdAt 없는 문서를 결과에서 빼 목록이 비어 보일 수 있음 → 전체 조회 후 정렬 */
+function enrollmentRequestSortMs(d: ClassroomEnrollmentRequestDocument): number {
+  const t = d.createdAt;
+  if (t && typeof t === "object" && "toMillis" in t && typeof (t as { toMillis: () => number }).toMillis === "function") {
+    try {
+      return (t as { toMillis: () => number }).toMillis();
+    } catch {
+      return 0;
+    }
+  }
+  return 0;
+}
+
 function Inner() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -180,15 +193,13 @@ function Inner() {
     if (!id || tab !== "enrollment" || !room) return;
     setEnrollmentLoading(true);
     setEnrollmentActionErr(null);
-    const q = query(
-      collection(db, "classrooms", id, "enrollment_requests"),
-      orderBy("createdAt", "desc"),
-    );
+    const q = query(collection(db, "classrooms", id, "enrollment_requests"));
     const unsub = onSnapshot(
       q,
       (snap) => {
         const rows: { id: string; data: ClassroomEnrollmentRequestDocument }[] = [];
         snap.forEach((d) => rows.push({ id: d.id, data: d.data() as ClassroomEnrollmentRequestDocument }));
+        rows.sort((a, b) => enrollmentRequestSortMs(b.data) - enrollmentRequestSortMs(a.data));
         setEnrollmentRows(rows);
         setEnrollmentLoading(false);
       },

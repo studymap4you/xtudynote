@@ -1098,6 +1098,13 @@ service cloud.firestore {
             canSubmitEnrollmentRequest()
             && resource.data.studentId == request.auth.uid
             && resource.data.status in ['pending', 'rejected']
+          )
+          /** 승인 후 수강 취소(멤버 제외) 시 문서가 남으면 재신청이 막힘 — 멤버가 아닐 때 본인이 정리 가능 */
+          || (
+            canSubmitEnrollmentRequest()
+            && resource.data.studentId == request.auth.uid
+            && resource.data.status == 'approved'
+            && !(request.auth.uid in enrollmentClassroomMemberIds())
           );
       }
 
