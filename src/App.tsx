@@ -20,6 +20,7 @@ import { HomeworkStudentPage } from "@/pages/HomeworkStudentPage";
 import { TeacherHomeworkPage } from "@/pages/teacher/TeacherHomeworkPage";
 import { HomeworkFeedbackPage } from "@/pages/teacher/HomeworkFeedbackPage";
 import { TeacherStatsPage } from "@/pages/teacher/TeacherStatsPage";
+import { TeacherMyStudentsPage } from "@/pages/teacher/TeacherMyStudentsPage";
 import { MaterialRegisterPage } from "@/pages/MaterialRegisterPage";
 import { ThemeMaterialPickPage } from "@/pages/ThemeMaterialPickPage";
 import { VideoLectureRegisterPage } from "@/pages/VideoLectureRegisterPage";
@@ -250,6 +251,7 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/teacher/my-students" element={<TeacherMyStudentsPage />} />
       <Route
         path="/material/register"
         element={

@@ -121,6 +121,24 @@ export function ApprovedTeacherDashboard() {
                 <span className="educator-quick-links__ko">시그널로직</span>
               </Link>
             </li>
+            <li>
+              <Link to="/worksheet/create" className="educator-quick-links__a">
+                <span className="educator-quick-links__en">Worksheet generator</span>
+                <span className="educator-quick-links__ko">학습지 자동생성</span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/material/register" className="educator-quick-links__a">
+                <span className="educator-quick-links__en">New material</span>
+                <span className="educator-quick-links__ko">새자료 등록</span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/teacher/my-students" className="educator-quick-links__a">
+                <span className="educator-quick-links__en">My students</span>
+                <span className="educator-quick-links__ko">나의 수강생</span>
+              </Link>
+            </li>
           </ul>
         </section>
 

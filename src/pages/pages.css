@@ -11499,3 +11499,61 @@ button.top-nav__auth-link--logout:hover {
   font-size: 0.88rem;
   color: var(--text-muted, #64748b);
 }
+
+/* ——— 교육자 · 나의 수강생 ——— */
+.teacher-my-students__lede {
+  max-width: 52rem;
+}
+.teacher-my-students__toolbar {
+  margin-top: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.teacher-my-students__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.teacher-my-students__table-wrap {
+  margin-top: 1rem;
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(240, 253, 250, 0.45);
+}
+.teacher-my-students__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.teacher-my-students__table th,
+.teacher-my-students__table td {
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+  vertical-align: top;
+}
+.teacher-my-students__table thead th {
+  background: rgba(209, 250, 229, 0.55);
+  color: #065f46;
+  font-weight: 600;
+}
+.teacher-my-students__th-check {
+  width: 2.5rem;
+}
+.teacher-my-students__check-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.teacher-my-students__mono {
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+.teacher-my-students__classes {
+  min-width: 8rem;
+  line-height: 1.4;
+}
