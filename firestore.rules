@@ -1094,12 +1094,12 @@ service cloud.firestore {
               || request.resource.data.reviewedAt != null
             )
           )
-          /** 반려·승인 후 탈퇴 등으로 남은 문서: delete 없이 pending 으로 덮어 재신청 (setDoc 전체 교체 = update) */
+          /** 반려·승인 후 탈퇴·대기(pending) 문서 덮어쓰기: delete 없이 pending 페이로드로 재접수·연락처 정정 (setDoc 전체 교체 = update) */
           || (
             canSubmitEnrollmentRequest()
             && requestId == request.auth.uid
             && resource.data.studentId == request.auth.uid
-            && resource.data.status in ['rejected', 'approved']
+            && resource.data.status in ['rejected', 'approved', 'pending']
             && !(request.auth.uid in enrollmentClassroomMemberIds())
             && enrollmentClassroomData().pricingType == 'paid'
             && enrollmentRequestPendingFieldsOk()
