@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { StudentManagementSection } from "@/components/teacher/StudentManagementSection";
+import { TeacherNewEnrollmentNotice } from "@/components/teacher/TeacherNewEnrollmentNotice";
 import { db } from "@/firebase/config";
 import "@/pages/pages.css";
 
@@ -42,6 +43,7 @@ export function ApprovedTeacherDashboard() {
 
   return (
     <main className="dashboard dashboard--educator">
+      {firebaseUser ? <TeacherNewEnrollmentNotice teacherUid={firebaseUser.uid} /> : null}
       <header className="educator-hero">
         <p className="educator-hero__eyebrow">Verified educator</p>
         <div className="educator-hero__titles">

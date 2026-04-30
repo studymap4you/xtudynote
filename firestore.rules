@@ -150,9 +150,10 @@ service cloud.firestore {
         && !(request.auth.uid in classroomOldMemberIds())
         && request.resource.data.teacherId == resource.data.teacherId;
     }
-    /** 본인 UID만 memberStudentIds에서 제거 (수강 취소) */
+    /** 본인 UID만 memberStudentIds에서 제거 (수강 취소) — self-enroll 과 동일한 계정 전제 */
     function studentSelfLeaveClassroomMembers() {
-      return isSignedInActiveAccount()
+      return userEffectiveAccountNotBanned()
+        && classroomCatalogSelfEnrollRoleOk()
         && request.auth.uid != resource.data.teacherId
         && request.resource.data.teacherId == resource.data.teacherId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberStudentIds'])
@@ -973,7 +974,8 @@ service cloud.firestore {
           && 'memberStudentIds' in resource.data
           && request.auth.uid in resource.data.memberStudentIds
         )
-        || isSignedInActiveAccount();
+        /** 카탈로그 등: users 문서가 있고 차단만 아니면 목록 조회 허용 (accountStatus 누락 계정 포함) */
+        || userEffectiveAccountNotBanned();
 
       /** 승인 선생님 또는 슈퍼관리자(앱의 TeacherRoute·자료 관리와 동일) */
       allow create: if (isActiveTeacher() || isActiveSuperAdmin())
@@ -1022,6 +1024,82 @@ service cloud.firestore {
           && resource.data.teacherId == request.auth.uid
           && classroomMemberCount() == 0
         );
+
+      /** 카탈로그 수강 시 연락처·메타 (문서 ID = 학생 UID, 멤버 추가와 배치로 함께 기록) */
+      match /member_enrollments/{enrollmentStudentId} {
+        function memClassroomData() {
+          return get(/databases/$(database)/documents/classrooms/$(classroomId)).data;
+        }
+        function memClassroomMemberIds() {
+          return (
+            'memberStudentIds' in memClassroomData()
+            && memClassroomData().memberStudentIds is list
+          )
+            ? memClassroomData().memberStudentIds
+            : [];
+        }
+        allow read: if isActiveSuperAdmin()
+          || (
+            isActiveTeacher()
+            && memClassroomData().teacherId == request.auth.uid
+          )
+          || (
+            userEffectiveAccountNotBanned()
+            && request.auth.uid == enrollmentStudentId
+          );
+
+        allow create: if userEffectiveAccountNotBanned()
+          && classroomCatalogSelfEnrollRoleOk()
+          && enrollmentStudentId == request.auth.uid
+          && exists(/databases/$(database)/documents/classrooms/$(classroomId))
+          && request.auth.uid != memClassroomData().teacherId
+          && (!('pricingType' in memClassroomData()) || memClassroomData().pricingType in ['free', 'paid'])
+          && !(request.auth.uid in memClassroomMemberIds())
+          && !exists(/databases/$(database)/documents/classrooms/$(classroomId)/member_enrollments/$(enrollmentStudentId))
+          && request.resource.data.studentId == enrollmentStudentId
+          && request.resource.data.classroomId == classroomId
+          && request.resource.data.teacherId == memClassroomData().teacherId
+          && request.resource.data.keys().hasAll([
+            'studentId',
+            'email',
+            'phone',
+            'classroomId',
+            'teacherId',
+            'classroomTitle',
+            'enrolledAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'studentId',
+            'email',
+            'phone',
+            'classroomId',
+            'teacherId',
+            'classroomTitle',
+            'enrolledAt'
+          ])
+          && request.resource.data.email is string
+          && request.resource.data.email.size() >= 3
+          && request.resource.data.email.size() <= 200
+          && request.resource.data.phone is string
+          && request.resource.data.phone.size() >= 5
+          && request.resource.data.phone.size() <= 40
+          && request.resource.data.classroomTitle is string
+          && request.resource.data.classroomTitle.size() > 0
+          && request.resource.data.classroomTitle.size() <= 200
+          && request.resource.data.enrolledAt != null;
+
+        allow update: if false;
+
+        allow delete: if isActiveSuperAdmin()
+          || (
+            isActiveTeacher()
+            && memClassroomData().teacherId == request.auth.uid
+          )
+          || (
+            userEffectiveAccountNotBanned()
+            && request.auth.uid == enrollmentStudentId
+          );
+      }
 
       /** 질의응답 (강의실 단위 스레드) */
       match /qa_posts/{postId} {

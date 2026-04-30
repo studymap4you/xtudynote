@@ -20,6 +20,17 @@ export interface ClassroomDocument {
   createdAt: unknown;
 }
 
+/** 카탈로그 수강 시 저장 — classrooms/{classroomId}/member_enrollments/{studentId} */
+export interface ClassroomMemberEnrollmentDocument {
+  studentId: string;
+  email: string;
+  phone: string;
+  classroomId: string;
+  teacherId: string;
+  classroomTitle: string;
+  enrolledAt: unknown;
+}
+
 /** 강의실 질의응답 (스레드: parentPostId 가 null 이면 질문, 아니면 답글) */
 export interface ClassroomQaPostDocument {
   authorId: string;

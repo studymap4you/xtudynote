@@ -2022,6 +2022,128 @@ button.intro-landing-tile {
   padding: 1rem 1.05rem 1.15rem;
 }
 
+.classroom-hub__card--flush-top {
+  padding-top: 1rem;
+}
+
+.classroom-hub__roster-scroll {
+  overflow-x: auto;
+  margin-top: 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.classroom-hub__roster-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  background: #fff;
+}
+
+.classroom-hub__roster-table th,
+.classroom-hub__roster-table td {
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+  vertical-align: top;
+  color: #334155;
+}
+
+.classroom-hub__roster-table th {
+  font-weight: 700;
+  background: rgba(248, 250, 252, 0.95);
+  font-size: 0.8rem;
+}
+
+.classroom-hub__roster-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.classroom-hub__roster-uid {
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+/* 전체 강의실 — 수강 진행/완료 모달 */
+.classroom-catalog__enroll-modal-root {
+  z-index: 120;
+}
+
+.classroom-catalog__enroll-progress {
+  padding: 0.5rem 0 0.25rem;
+  text-align: center;
+}
+
+.classroom-catalog__enroll-progress-loading {
+  min-height: 3.5rem;
+  justify-content: center;
+}
+
+.classroom-catalog__enroll-progress-msg {
+  margin: 0.75rem 0 0.2rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.classroom-catalog__enroll-progress-msg-en {
+  margin: 0;
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
+.classroom-catalog__enroll-success-msg {
+  margin: 0.65rem 0 0;
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+
+/* 교사 대시보드 — 신규 수강생 알림 */
+.teacher-enrollment-notice-root {
+  z-index: 130;
+}
+
+.teacher-enrollment-notice__list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  max-height: min(52vh, 320px);
+  overflow-y: auto;
+  text-align: left;
+}
+
+.teacher-enrollment-notice__item {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+  font-size: 0.86rem;
+}
+
+.teacher-enrollment-notice__item:last-child {
+  border-bottom: none;
+}
+
+.teacher-enrollment-notice__course {
+  margin-bottom: 0.2rem;
+}
+
+.teacher-enrollment-notice__meta {
+  color: rgba(226, 232, 240, 0.92);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.teacher-enrollment-notice__dot {
+  margin: 0 0.35rem;
+  opacity: 0.65;
+}
+
+.teacher-enrollment-notice__more {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  opacity: 0.88;
+}
+
 .classroom-hub__card--danger {
   margin-top: 1.35rem;
   border-color: rgba(248, 113, 113, 0.42);

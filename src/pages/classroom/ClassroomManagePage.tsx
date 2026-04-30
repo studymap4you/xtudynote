@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
   deleteField,
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,7 +27,7 @@ import { db } from "@/firebase/config";
 import { deleteClassroomCascade } from "@/lib/classroom/deleteClassroomCascade";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
-import type { ClassroomDocument, ClassroomNoticeDocument } from "@/types/classroom";
+import type { ClassroomDocument, ClassroomMemberEnrollmentDocument, ClassroomNoticeDocument } from "@/types/classroom";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
@@ -76,6 +77,10 @@ function Inner() {
 
   const [pricingType, setPricingType] = useState<"free" | "paid">("free");
   const [tuitionFeeInput, setTuitionFeeInput] = useState("");
+
+  const [memberEnrollmentById, setMemberEnrollmentById] = useState<
+    Record<string, ClassroomMemberEnrollmentDocument>
+  >({});
 
   const [noticeRows, setNoticeRows] = useState<{ id: string; data: ClassroomNoticeDocument }[]>([]);
   const [noticesLoading, setNoticesLoading] = useState(true);
@@ -143,6 +148,26 @@ function Inner() {
       cancelled = true;
     };
   }, [firebaseUser?.uid, tab, room?.memberStudentIds]);
+
+  useEffect(() => {
+    if (!id || tab !== "members" || !room) {
+      setMemberEnrollmentById({});
+      return;
+    }
+    const col = collection(db, "classrooms", id, "member_enrollments");
+    const unsub = onSnapshot(
+      col,
+      (snap) => {
+        const m: Record<string, ClassroomMemberEnrollmentDocument> = {};
+        snap.forEach((docSnap) => {
+          m[docSnap.id] = docSnap.data() as ClassroomMemberEnrollmentDocument;
+        });
+        setMemberEnrollmentById(m);
+      },
+      () => setMemberEnrollmentById({}),
+    );
+    return () => unsub();
+  }, [id, tab, room]);
 
   useEffect(() => {
     if (!id || !room) return;
@@ -233,7 +258,13 @@ function Inner() {
     setSavingMembers(true);
     setMembersErr(null);
     try {
-      await updateDoc(doc(db, "classrooms", id), { memberStudentIds: uniq });
+      const batch = writeBatch(db);
+      const cRef = doc(db, "classrooms", id);
+      batch.update(cRef, { memberStudentIds: uniq });
+      for (const rid of removed) {
+        batch.delete(doc(db, "classrooms", id, "member_enrollments", rid));
+      }
+      await batch.commit();
       setRoom({ ...room, memberStudentIds: uniq });
       await syncTeacherRosterForClassroomMemberDelta(firebaseUser.uid, { added, removed });
     } catch (err) {
@@ -293,7 +324,11 @@ function Inner() {
     setSavingMembers(true);
     setMembersErr(null);
     try {
-      await updateDoc(doc(db, "classrooms", id), { memberStudentIds: next });
+      const batch = writeBatch(db);
+      const cRef = doc(db, "classrooms", id);
+      batch.update(cRef, { memberStudentIds: next });
+      batch.delete(doc(db, "classrooms", id, "member_enrollments", uid));
+      await batch.commit();
       setRoom({ ...room, memberStudentIds: next });
       await syncTeacherRosterForClassroomMemberDelta(firebaseUser.uid, { added: [], removed: [uid] });
       await listWorksheetRoster(firebaseUser.uid).then((rows) => {
@@ -835,6 +870,43 @@ function Inner() {
                 선택됩니다. (최대 120명)
               </p>
               {membersErr ? <p className="auth-error">{membersErr}</p> : null}
+              {(room.memberStudentIds ?? []).length > 0 ? (
+                <div className="classroom-hub__card classroom-hub__card--flush-top">
+                  <h3 className="classroom-hub__card-title">수강생 명단 (연락처)</h3>
+                  <p className="classroom-hub__hint">
+                    전체 강의실에서 수강 신청으로 등록되면 이메일·전화가 채워집니다. UID만 직접 추가한 멤버는 연락처 칸이 비어
+                    있을 수 있습니다.
+                  </p>
+                  <div className="classroom-hub__roster-scroll">
+                    <table className="classroom-hub__roster-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">학생 UID</th>
+                          <th scope="col">이메일</th>
+                          <th scope="col">전화번호</th>
+                          <th scope="col">수강 등록</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(room.memberStudentIds ?? []).map((uidRaw) => {
+                          const suid = String(uidRaw).trim();
+                          const en = memberEnrollmentById[suid];
+                          return (
+                            <tr key={suid}>
+                              <td>
+                                <code className="classroom-hub__roster-uid">{suid}</code>
+                              </td>
+                              <td>{en?.email ?? "—"}</td>
+                              <td>{en?.phone ?? "—"}</td>
+                              <td>{en ? tsLabel(en.enrolledAt) : "—"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
               <div className="classroom-hub__card">
                 <h3 className="classroom-hub__card-title">멤버 추가</h3>
                 <form className="classroom-hub__form" onSubmit={(e) => void addSingleMember(e)}>
