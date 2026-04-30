@@ -1035,8 +1035,12 @@ service cloud.firestore {
             && userData(request.auth.uid).role in ['student', 'pending_teacher', 'teacher']
             && request.auth.uid != enrollmentClassroomData().teacherId;
         }
+        /** 읽기: 신청 작성(create)과 동일하게 accountStatus 미설정 계정도 허용 — isSignedInActiveAccount 는 필드 누락 시 거부됨 */
         allow read: if isActiveSuperAdmin()
-          || (isSignedInActiveAccount() && resource.data.studentId == request.auth.uid)
+          || (
+            userEffectiveAccountNotBanned()
+            && resource.data.studentId == request.auth.uid
+          )
           || (isActiveTeacher() && ownsClassroom(classroomId));
 
         allow create: if canSubmitEnrollmentRequest()

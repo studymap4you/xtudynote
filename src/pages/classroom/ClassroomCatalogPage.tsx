@@ -61,6 +61,18 @@ function enrollmentClassroomIdFromRef(ref: DocumentReference): string {
   return classroomRef?.id ?? "";
 }
 
+function enrollmentRequestCreatedMs(data: ClassroomEnrollmentRequestDocument): number {
+  const c = data.createdAt;
+  if (c && typeof c === "object" && "toMillis" in c && typeof (c as Timestamp).toMillis === "function") {
+    try {
+      return (c as Timestamp).toMillis();
+    } catch {
+      return 0;
+    }
+  }
+  return 0;
+}
+
 export function ClassroomCatalogPage() {
   const { firebaseUser, canManageMaterials, isStudent } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -120,21 +132,20 @@ export function ClassroomCatalogPage() {
       return;
     }
     setMyEnrollmentMapReady(false);
-    const q = query(
-      collectionGroup(db, "enrollment_requests"),
-      where("studentId", "==", uid),
-      orderBy("createdAt", "desc"),
-    );
+    /** orderBy 제거: 복합 인덱스·createdAt 누락 문서에서 쿼리 실패 방지 — 최신 건은 클라이언트에서 정렬 */
+    const q = query(collectionGroup(db, "enrollment_requests"), where("studentId", "==", uid));
     const unsub = onSnapshot(
       q,
       (snap) => {
+        const sorted = snap.docs
+          .map((d) => ({ ref: d.ref, id: d.id, data: d.data() as ClassroomEnrollmentRequestDocument }))
+          .sort((a, b) => enrollmentRequestCreatedMs(b.data) - enrollmentRequestCreatedMs(a.data));
         const map: Record<string, { status: ClassroomEnrollmentRequestStatus; id: string }> = {};
-        snap.forEach((d) => {
-          const cid = enrollmentClassroomIdFromRef(d.ref);
-          if (!cid || map[cid]) return;
-          const data = d.data() as ClassroomEnrollmentRequestDocument;
-          map[cid] = { status: data.status, id: d.id };
-        });
+        for (const { ref, id, data } of sorted) {
+          const cid = enrollmentClassroomIdFromRef(ref);
+          if (!cid || map[cid]) continue;
+          map[cid] = { status: data.status, id };
+        }
         setMyEnrollmentByClassroom(map);
         setMyEnrollmentMapReady(true);
       },
