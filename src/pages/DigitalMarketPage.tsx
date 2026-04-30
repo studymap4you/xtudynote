@@ -123,7 +123,7 @@ export function DigitalMarketPage() {
                           <span className="ui-en">Details</span>
                         </button>
                         <a
-                          className={`${styles.videoCardCta} ${extra.marketCardPurchaseLink}`}
+                          className={`btn btn--primary btn--stack ${extra.marketCardPurchaseBtn}`}
                           href={data.purchaseUrl}
                           target="_blank"
                           rel="noopener noreferrer"

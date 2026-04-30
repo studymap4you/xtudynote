@@ -63,15 +63,19 @@
   width: fit-content;
 }
 
-.marketCardPurchaseLink {
-  display: block;
-  margin-top: 0 !important;
-  padding-top: 0 !important;
-  text-decoration: none;
+/* 외부 구매 URL — 카드 하단 전폭 버튼 (앵커에 .btn 과 함께 사용) */
+.marketCardPurchaseBtn {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none !important;
+  font-size: 0.82rem !important;
+  padding: 0.5rem 0.75rem !important;
+  box-sizing: border-box;
 }
 
-.marketCardPurchaseLink:hover {
-  text-decoration: underline;
+.marketCardPurchaseBtn:hover {
+  text-decoration: none !important;
 }
 
 .detailArticle {

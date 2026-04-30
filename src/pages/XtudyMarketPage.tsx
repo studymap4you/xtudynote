@@ -108,17 +108,17 @@ export function XtudyMarketPage() {
                           <span className="ui-ko">상세설명</span>
                           <span className="ui-en">Details</span>
                         </button>
-                        <Link to={`/xtudy-market/p/${id}`} className={extra.marketCardPageLink}>
-                          상품 페이지
-                        </Link>
                         <a
-                          className={`${styles.videoCardCta} ${extra.marketCardPurchaseLink}`}
+                          className={`btn btn--primary btn--stack ${extra.marketCardPurchaseBtn}`}
                           href={data.purchaseUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
                           구매·신청 페이지로 이동
                         </a>
+                        <Link to={`/xtudy-market/p/${id}`} className={extra.marketCardPageLink}>
+                          상품 페이지
+                        </Link>
                       </div>
                     </div>
                   </div>
