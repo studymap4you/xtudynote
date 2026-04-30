@@ -129,11 +129,10 @@ service cloud.firestore {
         ? resource.data.memberStudentIds.size()
         : 0;
     }
-    /** 전체 강의실에서 타인 강의실 멤버 추가(self-enroll)에 허용되는 역할 */
-    function classroomCatalogSelfEnrollRoleOk() {
+    /** 카탈로그에서 타 강의실에 본인을 멤버로 추가(self-enroll) — 학생 계정만 */
+    function classroomCatalogEnrollStudentOnly() {
       let u = userData(request.auth.uid);
-      return !('role' in u)
-        || u.role in ['student', 'pending_teacher', 'teacher', 'super_admin'];
+      return 'role' in u && u.role == 'student';
     }
     /** 학생이 카탈로그 수강 후 담당 교사 주소록에 본인 행을 넣을 때 — 강의실 멤버 검증 */
     function rosterStudentIsMemberOfTeacherClassroom(classroomId, teacherUserId) {
@@ -146,7 +145,7 @@ service cloud.firestore {
     /** 무료·유료 강의실에 수강자가 본인 UID만 arrayUnion 하는 업데이트 */
     function studentSelfEnrollFreeClassroom() {
       return userEffectiveAccountNotBanned()
-        && classroomCatalogSelfEnrollRoleOk()
+        && classroomCatalogEnrollStudentOnly()
         && request.auth.uid != resource.data.teacherId
         && (!('pricingType' in resource.data) || resource.data.pricingType in ['free', 'paid'])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberStudentIds'])
@@ -161,7 +160,6 @@ service cloud.firestore {
     /** 본인 UID만 memberStudentIds에서 제거 (수강 취소) — self-enroll 과 동일한 계정 전제 */
     function studentSelfLeaveClassroomMembers() {
       return userEffectiveAccountNotBanned()
-        && classroomCatalogSelfEnrollRoleOk()
         && request.auth.uid != resource.data.teacherId
         && request.resource.data.teacherId == resource.data.teacherId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberStudentIds'])
@@ -326,7 +324,7 @@ service cloud.firestore {
           /** 학생: 카탈로그 수강 직후 본인 UID 행 + 강의실 ID로 멤버십 검증 */
           || (
             userEffectiveAccountNotBanned()
-            && classroomCatalogSelfEnrollRoleOk()
+            && classroomCatalogEnrollStudentOnly()
             && entryId == request.auth.uid
             && userId != request.auth.uid
             && request.resource.data.studentUid is string
@@ -359,7 +357,7 @@ service cloud.firestore {
         )
           || (
             userEffectiveAccountNotBanned()
-            && classroomCatalogSelfEnrollRoleOk()
+            && classroomCatalogEnrollStudentOnly()
             && entryId == request.auth.uid
             && userId != request.auth.uid
             && resource.data.studentUid == entryId
@@ -1097,7 +1095,7 @@ service cloud.firestore {
           );
 
         allow create: if userEffectiveAccountNotBanned()
-          && classroomCatalogSelfEnrollRoleOk()
+          && classroomCatalogEnrollStudentOnly()
           && enrollmentStudentId == request.auth.uid
           && exists(/databases/$(database)/documents/classrooms/$(classroomId))
           && request.auth.uid != memClassroomData().teacherId

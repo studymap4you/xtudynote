@@ -38,7 +38,7 @@ function emptyIdSet(): Set<string> {
 }
 
 export function ClassroomListPage({ embedInAdminShell = false }: { embedInAdminShell?: boolean }) {
-  const { firebaseUser, isTeacherApproved, isSuperAdmin } = useAuth();
+  const { firebaseUser, isTeacherApproved, isSuperAdmin, isStudent } = useAuth();
   const [rowsOwn, setRowsOwn] = useState<Row[]>([]);
   const [rowsMem, setRowsMem] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -233,7 +233,9 @@ export function ClassroomListPage({ embedInAdminShell = false }: { embedInAdminS
           <p className="classroom-page__lede">
             수강이 승인된 강의실에서만 자료와 과제를 이용할 수 있습니다.{" "}
             <strong>유료</strong> 자료는 상세 페이지의 안내에 따라 결제·구매 절차를 진행해 주세요.{" "}
-            <Link to="/classrooms">전체 강의실 보기 (강의 신청)</Link>
+            <Link to="/classrooms">
+              {isStudent ? "전체 강의실 보기 (강의 신청)" : "전체 강의실 보기 (카탈로그)"}
+            </Link>
           </p>
         ) : (
           <p className="classroom-page__lede">

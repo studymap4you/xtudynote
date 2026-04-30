@@ -60,16 +60,9 @@ function paidTuitionOk(r: Row): boolean {
   return typeof fee === "number" && Number.isFinite(fee) && fee >= 1;
 }
 
-function canEnrollInOthersClassrooms(
-  isStudent: boolean,
-  isPendingTeacher: boolean,
-  isTeacherApproved: boolean,
-): boolean {
-  return isStudent || isPendingTeacher || isTeacherApproved;
-}
-
 export function ClassroomCatalogPage() {
-  const { firebaseUser, profile, canManageMaterials, isStudent, isPendingTeacher, isTeacherApproved } = useAuth();
+  const { firebaseUser, profile, canManageMaterials, isStudent, isPendingTeacher, isTeacherApproved, isSuperAdmin } =
+    useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -78,7 +71,8 @@ export function ClassroomCatalogPage() {
   const [busyClassId, setBusyClassId] = useState<string | null>(null);
   const [enrollModal, setEnrollModal] = useState<EnrollModalState>(null);
 
-  const mayEnrollCatalog = canEnrollInOthersClassrooms(isStudent, isPendingTeacher, isTeacherApproved);
+  const showCatalogLearnerNotice =
+    !!firebaseUser?.uid && !isStudent && (isTeacherApproved || isPendingTeacher || isSuperAdmin);
 
   const uid = firebaseUser?.uid;
   const emailPrefill = (firebaseUser?.email ?? profile?.email ?? "").trim();
@@ -148,7 +142,7 @@ export function ClassroomCatalogPage() {
   }
 
   async function commitEnroll(room: Row, phoneDigits: string) {
-    if (!uid) return;
+    if (!uid || !isStudent) return;
     setEnrollModal((m) => (m && m.room.id === room.id ? { ...m, step: "progress" } : m));
     try {
       const enRef = doc(db, "classrooms", room.id, "member_enrollments", uid);
@@ -183,6 +177,14 @@ export function ClassroomCatalogPage() {
 
   function startEnrollFromModal() {
     if (!enrollModal || enrollModal.step !== "contact") return;
+    if (!isStudent) {
+      setEnrollModal({
+        ...enrollModal,
+        step: "error",
+        errorMessage: "수강 신청은 학생 계정으로 로그인한 경우에만 가능합니다.",
+      });
+      return;
+    }
     const r = enrollModal.room;
     const p = enrollModal.phone.replace(/\s/g, "");
     if (!emailPrefill || emailPrefill.length < 3 || !emailPrefill.includes("@")) {
@@ -241,6 +243,8 @@ export function ClassroomCatalogPage() {
       );
     }
 
+    if (!isStudent) return null;
+
     return (
       <button
         type="button"
@@ -292,7 +296,15 @@ export function ClassroomCatalogPage() {
           표시됩니다.
         </p>
 
-        {mayEnrollCatalog ? enrollmentSection : null}
+        {showCatalogLearnerNotice ? (
+          <p className="classroom-page__lede" style={{ background: "var(--light-surface-2, #f3f4f6)", padding: "0.75rem 1rem", borderRadius: 8 }}>
+            <strong className="ui-ko">수강 신청</strong>은 학생 회원 계정에서만 할 수 있습니다. 선생님 계정으로 다른 강의를
+            듣고 싶다면 로그아웃한 뒤 학생 계정으로 다시 로그인해 주세요. (Firebase 로그인은 이메일당 하나의 계정이므로
+            학생용으로는 다른 이메일이 필요합니다.)
+          </p>
+        ) : null}
+
+        {isStudent ? enrollmentSection : null}
 
         {actionMsg ? (
           <p className="classroom-catalog__feedback classroom-catalog__feedback--ok" role="status">
@@ -321,7 +333,7 @@ export function ClassroomCatalogPage() {
                   <p className="classroom-page__card-meta">개설 {formatAt(r.createdAt)}</p>
                 </div>
                 <div className="classroom-page__card-actions classroom-catalog__card-actions">
-                  {mayEnrollCatalog ? renderStudentActions(r) : null}
+                  {renderStudentActions(r)}
                   <Link to={`/classroom/${r.id}`} className="btn btn--ghost btn--stack">
                     <span className="ui-ko">상세 보기</span>
                     <span className="ui-en">Details</span>

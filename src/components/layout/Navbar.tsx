@@ -22,8 +22,10 @@ export function TopNavMainLinks({
   homeworkKo = "과제함",
   warmCoursesHighlight = false,
 }: TopNavMainLinksProps) {
-  const { firebaseUser, isSuperAdmin, isTeacherApproved } = useAuth();
+  const { firebaseUser, isSuperAdmin, isTeacherApproved, isPendingTeacher, isStudent } = useAuth();
   const { pathname } = useLocation();
+  const showCoursesNav =
+    !firebaseUser || isStudent || (!isTeacherApproved && !isPendingTeacher && !isSuperAdmin);
 
   const classroomActive =
     pathname.startsWith("/classroom") && !pathname.startsWith("/classrooms");
@@ -38,13 +40,15 @@ export function TopNavMainLinks({
         <span className="nav-pill__sub">Signal Logic</span>
       </NavLink>
 
-      <NavLink
-        to="/classrooms"
-        className={({ isActive }) => classCourses(isActive, warmCoursesHighlight)}
-      >
-        <span className="nav-pill__title">강의 신청</span>
-        <span className="nav-pill__sub">Courses</span>
-      </NavLink>
+      {showCoursesNav ? (
+        <NavLink
+          to="/classrooms"
+          className={({ isActive }) => classCourses(isActive, warmCoursesHighlight)}
+        >
+          <span className="nav-pill__title">강의 신청</span>
+          <span className="nav-pill__sub">Courses</span>
+        </NavLink>
+      ) : null}
 
       <NavLink to="/classroom" className={() => pillClass(classroomActive)}>
         <span className="nav-pill__title">내 강의실</span>
