@@ -1149,6 +1149,29 @@ service cloud.firestore {
           );
       }
 
+      /**
+       * 레거시 수강 신청 서브컬렉션 — 규칙 누락 시 getDocs/삭제가 전부 permission-denied 로 실패함.
+       * 강의실 영소 삭제(cascade)에서 비우기 전용으로 교사·슈퍼관리자 접근 허용.
+       */
+      match /enrollment_requests/{requestDocId} {
+        function enrollmentReqClassroom() {
+          return get(/databases/$(database)/documents/classrooms/$(classroomId)).data;
+        }
+        allow read: if isActiveSuperAdmin()
+          || (
+            isActiveTeacher()
+            && enrollmentReqClassroom().teacherId == request.auth.uid
+          );
+
+        allow create, update: if false;
+
+        allow delete: if isActiveSuperAdmin()
+          || (
+            isActiveTeacher()
+            && enrollmentReqClassroom().teacherId == request.auth.uid
+          );
+      }
+
       /** 질의응답 (강의실 단위 스레드) */
       match /qa_posts/{postId} {
         allow read: if isSignedInActiveAccount();
