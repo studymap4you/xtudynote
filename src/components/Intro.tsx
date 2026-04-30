@@ -9,16 +9,26 @@ import {
   BRAND_SHARE_TITLE,
 } from "@/lib/brand";
 
-const SHORTCUTS = [
-  { to: "/library", label: "라이브러리", tone: "a" as const },
-  { to: "/homework", label: "과제 검색", tone: "b" as const },
-  { to: "/classroom", label: "내 강의실", tone: "c" as const },
-  { to: "/digital-market", label: "디지털마켓", tone: "d" as const },
-  { to: "/material/register", label: "새자료 등록", tone: "e" as const },
-  { to: "/videos", label: "동영상 강의", tone: "f" as const },
-  { to: "/xtudy-market", label: "엑스터디마켓", tone: "g" as const },
-  { to: "/logic-dashboard", label: "시그널로직", tone: "h" as const },
-] as const;
+type ShortcutTone = "a" | "d" | "e" | "f" | "g" | "h" | "i" | "j";
+
+type ShortcutDef = {
+  to: string;
+  label: string;
+  tone: ShortcutTone;
+  /** 비로그인 시 로그인 후 원래 경로로 이동 */
+  gateAuth?: boolean;
+};
+
+const SHORTCUTS: ShortcutDef[] = [
+  { to: "/library", label: "라이브러리", tone: "a" },
+  { to: "/worksheet/create", label: "학습지 자동생성", tone: "i", gateAuth: true },
+  { to: "/english-passage-lab", label: "영어지문변환학습", tone: "j", gateAuth: true },
+  { to: "/digital-market", label: "디지털마켓", tone: "d" },
+  { to: "/material/register", label: "새자료 등록", tone: "e" },
+  { to: "/videos", label: "동영상 강의", tone: "f" },
+  { to: "/xtudy-market", label: "엑스터디마켓", tone: "g" },
+  { to: "/logic-dashboard", label: "시그널로직", tone: "h" },
+];
 
 const SHARE_TITLE = BRAND_SHARE_TITLE;
 
@@ -423,29 +433,38 @@ function IconShortcutLibrary() {
   );
 }
 
-/** 과제 검색 — 돋보기 */
-function IconShortcutSearch() {
+/** 학습지 자동생성 — 문서·줄 */
+function IconShortcutWorksheet() {
   return (
     <svg {...shortcutIconProps}>
-      <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.5" />
-      <path d="m20 20-3.2-3.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M14 2v6h6M8 13h8M8 17h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
 
-/** 유료 자료관 — 쇼핑백 */
-function IconShortcutPaid() {
+/** 영어 지문 변환 — 텍스트·변환 */
+function IconShortcutEnglishPassage() {
   return (
     <svg {...shortcutIconProps}>
       <path
-        d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4"
+        d="M4 7h10M4 12h16M4 17h12"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M17 4l4 4-4 4M21 8H14"
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M3 6h18" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M16 10 a4 4 0 0 1 -8 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
@@ -522,14 +541,10 @@ function IconShortcutSignal() {
   );
 }
 
-function ShortcutOrbIcon({ tone }: { tone: (typeof SHORTCUTS)[number]["tone"] }) {
+function ShortcutOrbIcon({ tone }: { tone: ShortcutTone }) {
   switch (tone) {
     case "a":
       return <IconShortcutLibrary />;
-    case "b":
-      return <IconShortcutSearch />;
-    case "c":
-      return <IconShortcutPaid />;
     case "d":
       return <IconShortcutDigital />;
     case "e":
@@ -540,6 +555,10 @@ function ShortcutOrbIcon({ tone }: { tone: (typeof SHORTCUTS)[number]["tone"] })
       return <IconShortcutStorefront />;
     case "h":
       return <IconShortcutSignal />;
+    case "i":
+      return <IconShortcutWorksheet />;
+    case "j":
+      return <IconShortcutEnglishPassage />;
     default:
       return null;
   }
@@ -595,40 +614,25 @@ function IntroLandingPanel() {
         </div>
       ) : null}
 
-      <Link
-        to={firebaseUser ? "/worksheet/create" : "/login"}
-        state={
-          firebaseUser ? undefined : { from: { pathname: "/worksheet/create" } }
-        }
-        className="intro-worksheet-cta"
-      >
-        <span className="intro-worksheet-cta__eyebrow">Worksheet PDF</span>
-        <span className="intro-worksheet-cta__title ui-ko">학습지 PDF 자동 생성</span>
-      </Link>
-
-      <Link
-        to={firebaseUser ? "/english-passage-lab" : "/login"}
-        state={
-          firebaseUser ? undefined : { from: { pathname: "/english-passage-lab" } }
-        }
-        className="intro-worksheet-cta intro-passage-lab-cta"
-      >
-        <span className="intro-passage-lab-cta__eyebrow">English passage lab</span>
-        <span className="intro-worksheet-cta__title ui-ko">영어 지문 자동 변환 학습</span>
-      </Link>
-
       <nav className="intro-shortcuts intro-shortcuts--panel" aria-label="주요 메뉴 바로가기">
         <ul className="intro-shortcuts__list">
-          {SHORTCUTS.map((s) => (
-            <li key={s.to}>
-              <Link to={s.to} className={`intro-shortcut intro-shortcut--${s.tone}`}>
-                <span className="intro-shortcut__orb" aria-hidden>
-                  <ShortcutOrbIcon tone={s.tone} />
-                </span>
-                <span className="intro-shortcut__label">{s.label}</span>
-              </Link>
-            </li>
-          ))}
+          {SHORTCUTS.map((s) => {
+            const needGate = s.gateAuth && !firebaseUser;
+            return (
+              <li key={s.to}>
+                <Link
+                  to={needGate ? "/login" : s.to}
+                  state={needGate ? { from: { pathname: s.to } } : undefined}
+                  className={`intro-shortcut intro-shortcut--${s.tone}`}
+                >
+                  <span className="intro-shortcut__orb" aria-hidden>
+                    <ShortcutOrbIcon tone={s.tone} />
+                  </span>
+                  <span className="intro-shortcut__label">{s.label}</span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </nav>
     </>
