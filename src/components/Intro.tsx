@@ -17,15 +17,13 @@ type ShortcutDef = {
   tone: ShortcutTone;
   /** 비로그인 시 로그인 후 원래 경로로 이동 */
   gateAuth?: boolean;
-  /** 로그인한 비마스터에게 랜딩 타일 숨김 — 해당 기능은 마스터 전용 경로 */
-  hideWhenSignedNonMaster?: boolean;
 };
 
 const SHORTCUTS: ShortcutDef[] = [
   { to: "/library", label: "라이브러리", tone: "a" },
   { to: "/worksheet/create", label: "학습지 자동생성", tone: "i", gateAuth: true },
   { to: "/english-passage-lab", label: "영어지문변환학습", tone: "j", gateAuth: true },
-  { to: "/logic-dashboard", label: "시그널로직", tone: "h", hideWhenSignedNonMaster: true },
+  { to: "/logic-dashboard", label: "시그널로직", tone: "h", gateAuth: true },
   { to: "/material/register", label: "새자료 등록", tone: "e" },
   { to: "/videos", label: "동영상 강의", tone: "f" },
   { to: "/xtudy-market", label: "엑스터디마켓", tone: "g" },
@@ -567,12 +565,7 @@ function ShortcutOrbIcon({ tone }: { tone: ShortcutTone }) {
 }
 
 function IntroLandingPanel() {
-  const { firebaseUser, isSuperAdmin } = useAuth();
-  const shortcuts = useMemo(
-    () =>
-      SHORTCUTS.filter((s) => !s.hideWhenSignedNonMaster || !firebaseUser || isSuperAdmin),
-    [firebaseUser, isSuperAdmin],
-  );
+  const { firebaseUser } = useAuth();
 
   const stack = (
     <>
@@ -623,7 +616,7 @@ function IntroLandingPanel() {
 
       <nav className="intro-shortcuts intro-shortcuts--panel" aria-label="주요 메뉴 바로가기">
         <ul className="intro-shortcuts__list">
-          {shortcuts.map((s) => {
+          {SHORTCUTS.map((s) => {
             const needGate = s.gateAuth && !firebaseUser;
             return (
               <li key={s.to}>
