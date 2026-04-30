@@ -1217,7 +1217,8 @@ service cloud.firestore {
           && request.resource.data.body.size() <= 8000
           && request.resource.data.keys().hasAll(['body', 'createdAt']);
 
-        allow delete: if isActiveTeacher() && ownsClassroom(classroomId);
+        allow delete: if isActiveSuperAdmin()
+          || (isActiveTeacher() && ownsClassroom(classroomId));
 
         allow update: if false;
       }
