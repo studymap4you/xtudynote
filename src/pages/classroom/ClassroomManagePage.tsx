@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   addDoc,
-  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -15,7 +14,6 @@ import {
   serverTimestamp,
   updateDoc,
   where,
-  writeBatch,
   deleteField,
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,41 +26,23 @@ import { db } from "@/firebase/config";
 import { deleteClassroomCascade } from "@/lib/classroom/deleteClassroomCascade";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
-import type {
-  ClassroomDocument,
-  ClassroomEnrollmentRequestDocument,
-  ClassroomNoticeDocument,
-} from "@/types/classroom";
+import type { ClassroomDocument, ClassroomNoticeDocument } from "@/types/classroom";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
 import {
-  ensureTeacherRosterForStudent,
   listWorksheetRoster,
   syncTeacherRosterForClassroomMemberDelta,
 } from "@/lib/worksheet/teacherRosterApi";
 import "@/pages/pages.css";
 
-type TabId = "intro" | "notices" | "materials" | "video" | "qa" | "enrollment" | "members";
+type TabId = "intro" | "notices" | "materials" | "video" | "qa" | "members";
 
 function tsLabel(t: unknown): string {
   if (t && typeof t === "object" && "toMillis" in t && typeof (t as { toMillis: () => number }).toMillis === "function") {
     return new Date((t as { toMillis: () => number }).toMillis()).toLocaleString();
   }
   return "";
-}
-
-/** orderBy(createdAt) 는 createdAt 없는 문서를 결과에서 빼 목록이 비어 보일 수 있음 → 전체 조회 후 정렬 */
-function enrollmentRequestSortMs(d: ClassroomEnrollmentRequestDocument): number {
-  const t = d.createdAt;
-  if (t && typeof t === "object" && "toMillis" in t && typeof (t as { toMillis: () => number }).toMillis === "function") {
-    try {
-      return (t as { toMillis: () => number }).toMillis();
-    } catch {
-      return 0;
-    }
-  }
-  return 0;
 }
 
 function Inner() {
@@ -96,10 +76,6 @@ function Inner() {
 
   const [pricingType, setPricingType] = useState<"free" | "paid">("free");
   const [tuitionFeeInput, setTuitionFeeInput] = useState("");
-  const [enrollmentRows, setEnrollmentRows] = useState<{ id: string; data: ClassroomEnrollmentRequestDocument }[]>([]);
-  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
-  const [enrollmentActionErr, setEnrollmentActionErr] = useState<string | null>(null);
-  const [enrollmentBusyId, setEnrollmentBusyId] = useState<string | null>(null);
 
   const [noticeRows, setNoticeRows] = useState<{ id: string; data: ClassroomNoticeDocument }[]>([]);
   const [noticesLoading, setNoticesLoading] = useState(true);
@@ -188,28 +164,6 @@ function Inner() {
     );
     return () => unsub();
   }, [id, room]);
-
-  useEffect(() => {
-    if (!id || tab !== "enrollment" || !room) return;
-    setEnrollmentLoading(true);
-    setEnrollmentActionErr(null);
-    const q = query(collection(db, "classrooms", id, "enrollment_requests"));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const rows: { id: string; data: ClassroomEnrollmentRequestDocument }[] = [];
-        snap.forEach((d) => rows.push({ id: d.id, data: d.data() as ClassroomEnrollmentRequestDocument }));
-        rows.sort((a, b) => enrollmentRequestSortMs(b.data) - enrollmentRequestSortMs(a.data));
-        setEnrollmentRows(rows);
-        setEnrollmentLoading(false);
-      },
-      (e) => {
-        setEnrollmentActionErr(e.message || "목록을 불러오지 못했습니다.");
-        setEnrollmentLoading(false);
-      },
-    );
-    return () => unsub();
-  }, [id, tab, room]);
 
   useEffect(() => {
     if (!id || !room) return;
@@ -366,41 +320,6 @@ function Inner() {
     return err instanceof Error ? err.message : "저장에 실패했습니다.";
   }
 
-  async function approveEnrollment(studentId: string) {
-    if (!id || !room) return;
-    setEnrollmentBusyId(studentId);
-    setEnrollmentActionErr(null);
-    try {
-      const batch = writeBatch(db);
-      const cRef = doc(db, "classrooms", id);
-      const rRef = doc(db, "classrooms", id, "enrollment_requests", studentId);
-      batch.update(cRef, { memberStudentIds: arrayUnion(studentId) });
-      batch.update(rRef, { status: "approved", reviewedAt: serverTimestamp() });
-      await batch.commit();
-      setRoom((prev) =>
-        prev ? { ...prev, memberStudentIds: [...new Set([...(prev.memberStudentIds ?? []), studentId])] } : prev,
-      );
-      await ensureTeacherRosterForStudent(room.teacherId, studentId);
-    } catch (e) {
-      setEnrollmentActionErr(e instanceof Error ? e.message : "승인에 실패했습니다.");
-    } finally {
-      setEnrollmentBusyId(null);
-    }
-  }
-
-  async function rejectEnrollment(studentId: string) {
-    if (!id) return;
-    setEnrollmentBusyId(studentId);
-    setEnrollmentActionErr(null);
-    try {
-      await deleteDoc(doc(db, "classrooms", id, "enrollment_requests", studentId));
-    } catch (e) {
-      setEnrollmentActionErr(e instanceof Error ? e.message : "처리에 실패했습니다.");
-    } finally {
-      setEnrollmentBusyId(null);
-    }
-  }
-
   async function addNotice(e: React.FormEvent) {
     e.preventDefault();
     if (!id || !room) return;
@@ -441,7 +360,7 @@ function Inner() {
     const ok =
       typeof window !== "undefined"
         ? window.confirm(
-            "이 강의실과 글감 데이터(유료 신청 목록·질문·공지 등)가 모두 삭제됩니다. 정말 삭제할까요?",
+            "이 강의실과 글감 데이터(질문·공지 등)가 모두 삭제됩니다. 정말 삭제할까요?",
           )
         : false;
     if (!ok) return;
@@ -548,7 +467,6 @@ function Inner() {
     { id: "materials", label: "강의 자료", sub: "파일 업로드·신청 현황" },
     { id: "video", label: "강의 영상", sub: "영상 URL 등록·신청 현황" },
     { id: "qa", label: "질의응답", sub: "게시판" },
-    { id: "enrollment", label: "수강 신청", sub: "유료 대기 · 연락처" },
     { id: "members", label: "학습지 멤버", sub: "학생 UID 목록" },
   ];
 
@@ -640,15 +558,14 @@ function Inner() {
                         onChange={(e) => setPricingType(e.target.value === "paid" ? "paid" : "free")}
                       >
                         <option value="free">무료 — 학생이 전체 강의실에서 바로 수강(멤버 등록)</option>
-                        <option value="paid">유료 — 수강 신청 후 연락처 접수 · 강사 승인 (PG 결제 전)</option>
+                        <option value="paid">유료 — 목록에 안내 가격 표시(PG 결제·수강 조건은 추후)</option>
                       </select>
                     </label>
                     {pricingType === "paid" ? (
                       <label className="auth-field">
                         <span className="classroom-hub__field-label">수강 가격 (원)</span>
                         <span className="classroom-hub__field-hint">
-                          학생의「전체 강의실」목록과 수강신청요청 팝업에 그대로 표시됩니다. PG 연동 전 안내용
-                          금액입니다.
+                          학생의「전체 강의실」목록에 안내 가격으로 표시됩니다.
                         </span>
                         <input
                           className="add-passage__control"
@@ -712,7 +629,7 @@ function Inner() {
                   <h3>강의실 영구 삭제</h3>
                   <p>
                     <strong>등록된 학습지 멤버(수강생)가 1명이라도 있으면 삭제할 수 없습니다.</strong> 현재 등록된 UID{" "}
-                    <strong>{memberCount}</strong>명. 삭제 시 이 강의실의 수강 신청·질문·공지 등 함께 제거됩니다.
+                    <strong>{memberCount}</strong>명. 삭제 시 이 강의실의 질문·공지 등 함께 제거됩니다.
                   </p>
                   {deleteClassroomErr ? <p className="auth-error">{deleteClassroomErr}</p> : null}
                   <button
@@ -907,103 +824,15 @@ function Inner() {
             </section>
           )}
 
-          {tab === "enrollment" && id && (
-            <section className="classroom-hub__section" aria-labelledby="hub-enroll-h">
-              <h2 id="hub-enroll-h" className="classroom-hub__section-title">
-                유료 수강 신청 대기
-              </h2>
-              <p className="classroom-hub__hint">
-                학생이 <strong>수강신청요청</strong>으로 남긴 연락처입니다. <strong>승인</strong> 시 멤버 UID에 자동
-                반영됩니다. <strong>반려</strong> 시 해당 학생의 신청 문서를 <strong>삭제</strong>하여 처음 신청한 것과
-                같은 상태로 돌아가게 하며, 학생이 동일 강의실에 다시 신청할 수 있습니다. 무료 강의는 전체 강의실에서
-                학생이 직접 수강합니다.
-              </p>
-              {enrollmentActionErr ? <p className="auth-error">{enrollmentActionErr}</p> : null}
-              <div className="classroom-hub__card">
-                {enrollmentLoading ? (
-                  <p className="classroom-hub__hint">목록 불러오는 중…</p>
-                ) : enrollmentRows.length === 0 ? (
-                  <p className="classroom-hub__hint">접수된 수강 신청이 없습니다.</p>
-                ) : (
-                  <ul className="classroom-hub__request-list">
-                    {enrollmentRows.map((row) => {
-                      const st = row.data.status;
-                      const label =
-                        st === "pending" ? "수강 대기" : st === "approved" ? "승인됨" : "반려";
-                      return (
-                        <li key={row.id} className="classroom-hub__request-item">
-                          <div>
-                            <strong>학생 UID {row.data.studentId}</strong>
-                            <span className="classroom-hub__request-meta">
-                              {label}
-                              {" · "}
-                              {tsLabel(row.data.createdAt)}
-                            </span>
-                          </div>
-                          <p className="classroom-hub__request-desc">
-                            전화 {row.data.phone} · 이메일 {row.data.email}
-                            {typeof row.data.tuitionFeeKrwAtRequest === "number" &&
-                            Number.isFinite(row.data.tuitionFeeKrwAtRequest) &&
-                            row.data.tuitionFeeKrwAtRequest > 0 ? (
-                              <>
-                                <br />
-                                신청 시 안내 수강가:{" "}
-                                {new Intl.NumberFormat("ko-KR").format(
-                                  Math.round(row.data.tuitionFeeKrwAtRequest),
-                                )}
-                                원
-                              </>
-                            ) : null}
-                          </p>
-                          {st === "pending" ? (
-                            <div className="classroom-hub__cta-row classroom-hub__cta-row--tight">
-                              <button
-                                type="button"
-                                className="btn btn--primary btn--stack"
-                                disabled={enrollmentBusyId === row.id}
-                                onClick={() => void approveEnrollment(row.id)}
-                              >
-                                {enrollmentBusyId === row.id ? "처리 중…" : "승인 (멤버 등록)"}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn--ghost btn--stack"
-                                disabled={enrollmentBusyId === row.id}
-                                onClick={() => void rejectEnrollment(row.id)}
-                              >
-                                {enrollmentBusyId === row.id ? "처리 중…" : "반려 · 신청 삭제"}
-                              </button>
-                            </div>
-                          ) : st === "rejected" ? (
-                            <div className="classroom-hub__cta-row classroom-hub__cta-row--tight">
-                              <button
-                                type="button"
-                                className="btn btn--ghost btn--stack"
-                                disabled={enrollmentBusyId === row.id}
-                                onClick={() => void rejectEnrollment(row.id)}
-                              >
-                                {enrollmentBusyId === row.id ? "처리 중…" : "신청 기록 삭제"}
-                              </button>
-                            </div>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            </section>
-          )}
-
           {tab === "members" && id && (
             <section className="classroom-hub__section" aria-labelledby="hub-mem-h">
               <h2 id="hub-mem-h" className="classroom-hub__section-title">
                 학습지 배포용 멤버 UID
               </h2>
               <p className="classroom-hub__hint">
-                멤버는 <strong>강좌 신청 승인</strong> 또는 <strong>무료 강좌 참여</strong> 시 담당 선생님
-                학습지 주소록에도 자동으로 올라갑니다. 아래에서 UID를 직접 추가·제거할 수 있습니다. 학습지
-                배포 시 이 강의실 링크로 들어오면 해당 멤버가 자동으로 선택됩니다. (최대 120명)
+                멤버는 <strong>강좌 수강 등록</strong> 시 담당 선생님 학습지 주소록에도 자동으로 올라갑니다. 아래에서
+                UID를 직접 추가·제거할 수 있습니다. 학습지 배포 시 이 강의실 링크로 들어오면 해당 멤버가 자동으로
+                선택됩니다. (최대 120명)
               </p>
               {membersErr ? <p className="auth-error">{membersErr}</p> : null}
               <div className="classroom-hub__card">
@@ -1033,7 +862,7 @@ function Inner() {
                 <h3 className="classroom-hub__card-title">등록된 멤버</h3>
                 {(room.memberStudentIds ?? []).length === 0 ? (
                   <p className="classroom-hub__hint classroom-hub__hint--tight-top">
-                    등록된 멤버가 없습니다. 학생 수강·승인으로 들어오면 자동으로 채워집니다.
+                    등록된 멤버가 없습니다. 학생이 전체 강의실에서 수강 신청하면 자동으로 채워집니다.
                   </p>
                 ) : (
                   <ul className="classroom-member-list">

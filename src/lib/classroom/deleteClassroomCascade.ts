@@ -34,7 +34,7 @@ async function deleteAllInCollection(
 }
 
 /**
- * 서브컬렉션(enrollment_requests·qa_posts·notices)을 먼저 지운 뒤 강의실 문서 삭제.
+ * 서브컬렉션(레거시 enrollment_requests·qa_posts·notices)을 먼저 지운 뒤 강의실 문서 삭제.
  * Firestore 규칙상 멤버 0명일 때만 교사 삭제가 허용된다.
  */
 export async function deleteClassroomCascade(db: Firestore, classroomId: string): Promise<void> {

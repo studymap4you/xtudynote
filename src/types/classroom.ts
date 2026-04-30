@@ -1,13 +1,13 @@
-/** 강의 요금 구분 — 유료는 수강 신청(연락처) 후 강사 승인·추후 PG 결제 연동 */
+/** 강의 요금 구분 — 유료는 목록·상세에 안내 가격 표시용(실제 결제·수강 정책은 별도) */
 export type ClassroomPricingType = "free" | "paid";
 
 /** 강의실 — 선생님이 개설, 학생은 목록에서 입장 */
 export interface ClassroomDocument {
   teacherId: string;
   title: string;
-  /** 무료: 학생이 직접 멤버 등록. 유료: enrollment_requests 후 강사 승인 (미설정 시 무료로 간주) */
+  /** 무료(기본) 또는 유료 표시. 멤버 등록 방식은 앱·규칙에서 정의 (미설정 시 무료로 간주) */
   pricingType?: ClassroomPricingType;
-  /** 유료(`pricingType === "paid"`)일 때 수강 가격(원, 정수). 학생 카탈로그·신청 팝업에 표시 */
+  /** 유료(`pricingType === "paid"`)일 때 수강 안내 가격(원, 정수) */
   tuitionFeeKrw?: number;
   /** 짧은 요약·한 줄 안내 (개설 시) */
   description: string;
@@ -18,21 +18,6 @@ export interface ClassroomDocument {
   /** 마스터 지식 큐레이션에서 생성한 학습자료 문서 ID (선택) */
   knowledgeMaterialId?: string;
   createdAt: unknown;
-}
-
-/** 강의실 유료 수강 신청 (문서 ID = 학생 UID, 한 강의실당 1건 유지) */
-export type ClassroomEnrollmentRequestStatus = "pending" | "approved" | "rejected";
-
-export interface ClassroomEnrollmentRequestDocument {
-  studentId: string;
-  phone: string;
-  email: string;
-  status: ClassroomEnrollmentRequestStatus;
-  createdAt: unknown;
-  reviewedAt?: unknown;
-  displayName?: string;
-  /** 신청 시점에 강의실에 표시된 수강가(원) — 안내·분쟁 시 참고 */
-  tuitionFeeKrwAtRequest?: number;
 }
 
 /** 강의실 질의응답 (스레드: parentPostId 가 null 이면 질문, 아니면 답글) */

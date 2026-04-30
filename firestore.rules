@@ -129,11 +129,18 @@ service cloud.firestore {
         ? resource.data.memberStudentIds.size()
         : 0;
     }
-    /** 무료 강의실에 활성 학생이 본인 UID만 arrayUnion 하는 업데이트 */
+    /** 전체 강의실에서 타인 강의실 멤버 추가(self-enroll)에 허용되는 역할 */
+    function classroomCatalogSelfEnrollRoleOk() {
+      let u = userData(request.auth.uid);
+      return !('role' in u)
+        || u.role in ['student', 'pending_teacher', 'teacher', 'super_admin'];
+    }
+    /** 무료·유료 강의실에 수강자가 본인 UID만 arrayUnion 하는 업데이트 */
     function studentSelfEnrollFreeClassroom() {
-      return isActiveStudent()
+      return userEffectiveAccountNotBanned()
+        && classroomCatalogSelfEnrollRoleOk()
         && request.auth.uid != resource.data.teacherId
-        && (!('pricingType' in resource.data) || resource.data.pricingType == 'free')
+        && (!('pricingType' in resource.data) || resource.data.pricingType in ['free', 'paid'])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberStudentIds'])
         && request.resource.data.memberStudentIds is list
         && request.resource.data.memberStudentIds.size() <= 200
@@ -1015,111 +1022,6 @@ service cloud.firestore {
           && resource.data.teacherId == request.auth.uid
           && classroomMemberCount() == 0
         );
-
-      /** 유료 수강 신청 (강사가 멤버 승인 전 연락처 수집) */
-      match /enrollment_requests/{requestId} {
-        function enrollmentClassroomData() {
-          return get(/databases/$(database)/documents/classrooms/$(classroomId)).data;
-        }
-        function enrollmentClassroomMemberIds() {
-          return (
-            'memberStudentIds' in enrollmentClassroomData()
-            && enrollmentClassroomData().memberStudentIds is list
-          )
-            ? enrollmentClassroomData().memberStudentIds
-            : [];
-        }
-        /** 유료 수강신청 작성: 학생·강사 등 (본인 개설 강의실 제외). users.role 미설정 구계정은 Auth와 동일하게 허용 */
-        function canSubmitEnrollmentRequest() {
-          return userEffectiveAccountNotBanned()
-            && enrollmentRequestSubmitterRoleOk()
-            && request.auth.uid != enrollmentClassroomData().teacherId;
-        }
-        function enrollmentRequestSubmitterRoleOk() {
-          let u = userData(request.auth.uid);
-          return !('role' in u)
-            || u.role in ['student', 'pending_teacher', 'teacher', 'super_admin'];
-        }
-        /** 신규 접수(create)·재신청(update) 시 본인 pending 페이로드 공통 검사 */
-        function enrollmentRequestPendingFieldsOk() {
-          return request.resource.data.studentId == request.auth.uid
-            && request.resource.data.status == 'pending'
-            && request.resource.data.phone is string
-            && request.resource.data.phone.size() >= 5
-            && request.resource.data.phone.size() <= 40
-            && request.resource.data.email is string
-            && request.resource.data.email.size() >= 3
-            && request.resource.data.email.size() <= 200
-            && 'createdAt' in request.resource.data
-            && request.resource.data.keys().hasAll(['studentId', 'phone', 'email', 'status', 'createdAt'])
-            && (
-              request.resource.data.keys().hasOnly(['studentId', 'phone', 'email', 'status', 'createdAt'])
-              || request.resource.data.keys().hasOnly(['studentId', 'phone', 'email', 'status', 'createdAt', 'tuitionFeeKrwAtRequest'])
-            )
-            && (!('tuitionFeeKrwAtRequest' in request.resource.data) || (
-              request.resource.data.tuitionFeeKrwAtRequest is number
-              && request.resource.data.tuitionFeeKrwAtRequest > 0
-              && request.resource.data.tuitionFeeKrwAtRequest <= 99999999
-            ));
-        }
-        /** 읽기: 신청 작성(create)과 동일하게 accountStatus 미설정 계정도 허용 — isSignedInActiveAccount 는 필드 누락 시 거부됨 */
-        allow read: if isActiveSuperAdmin()
-          || (
-            userEffectiveAccountNotBanned()
-            && resource.data.studentId == request.auth.uid
-          )
-          || (isActiveTeacher() && ownsClassroom(classroomId));
-
-        allow create: if canSubmitEnrollmentRequest()
-          && exists(/databases/$(database)/documents/classrooms/$(classroomId))
-          && !exists(/databases/$(database)/documents/classrooms/$(classroomId)/enrollment_requests/$(requestId))
-          && requestId == request.auth.uid
-          && enrollmentClassroomData().pricingType == 'paid'
-          && !(request.auth.uid in enrollmentClassroomMemberIds())
-          && enrollmentRequestPendingFieldsOk();
-
-        allow update: if isActiveSuperAdmin()
-          || (
-            isActiveTeacher()
-            && ownsClassroom(classroomId)
-            && resource.data.status == 'pending'
-            && request.resource.data.studentId == resource.data.studentId
-            && request.resource.data.phone == resource.data.phone
-            && request.resource.data.email == resource.data.email
-            && request.resource.data.createdAt == resource.data.createdAt
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt'])
-            && request.resource.data.status in ['approved', 'rejected']
-            && (
-              !('reviewedAt' in request.resource.data)
-              || request.resource.data.reviewedAt != null
-            )
-          )
-          /** 반려·승인 후 탈퇴·대기(pending) 문서 덮어쓰기: delete 없이 pending 페이로드로 재접수·연락처 정정 (setDoc 전체 교체 = update) */
-          || (
-            canSubmitEnrollmentRequest()
-            && requestId == request.auth.uid
-            && resource.data.studentId == request.auth.uid
-            && resource.data.status in ['rejected', 'approved', 'pending']
-            && !(request.auth.uid in enrollmentClassroomMemberIds())
-            && enrollmentClassroomData().pricingType == 'paid'
-            && enrollmentRequestPendingFieldsOk()
-          );
-
-        allow delete: if isActiveSuperAdmin()
-          || (isActiveTeacher() && ownsClassroom(classroomId))
-          || (
-            canSubmitEnrollmentRequest()
-            && resource.data.studentId == request.auth.uid
-            && resource.data.status in ['pending', 'rejected']
-          )
-          /** 승인 후 수강 취소(멤버 제외) 시 문서가 남으면 재신청이 막힘 — 멤버가 아닐 때 본인이 정리 가능 */
-          || (
-            canSubmitEnrollmentRequest()
-            && resource.data.studentId == request.auth.uid
-            && resource.data.status == 'approved'
-            && !(request.auth.uid in enrollmentClassroomMemberIds())
-          );
-      }
 
       /** 질의응답 (강의실 단위 스레드) */
       match /qa_posts/{postId} {

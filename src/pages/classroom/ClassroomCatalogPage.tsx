@@ -1,23 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   arrayRemove,
   arrayUnion,
   collection,
-  deleteDoc,
   doc,
-  getDoc,
-  getDocFromServer,
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
-  setDoc,
   updateDoc,
-  writeBatch,
   type Timestamp,
 } from "firebase/firestore";
-import { FirebaseError } from "firebase/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
 import { db } from "@/firebase/config";
@@ -26,11 +19,7 @@ import {
   syncTeacherRosterForClassroomMemberDelta,
 } from "@/lib/worksheet/teacherRosterApi";
 import { formatTuitionKrwWon } from "@/lib/formatTuitionKrw";
-import type {
-  ClassroomDocument,
-  ClassroomEnrollmentRequestDocument,
-  ClassroomEnrollmentRequestStatus,
-} from "@/types/classroom";
+import type { ClassroomDocument } from "@/types/classroom";
 import "@/pages/pages.css";
 
 type Row = ClassroomDocument & { id: string };
@@ -55,7 +44,13 @@ function isMember(r: Row, uid: string | undefined): boolean {
   return (r.memberStudentIds ?? []).includes(uid);
 }
 
-/** Firestore 유료 수강신청 규칙(canSubmit)과 동일: 타인 강의실에 신청 UI·상태 동기화 대상 */
+function paidTuitionOk(r: Row): boolean {
+  if (!isPaidClassroom(r)) return true;
+  const fee = r.tuitionFeeKrw;
+  return typeof fee === "number" && Number.isFinite(fee) && fee >= 1;
+}
+
+/** Firestore classroomCatalogSelfEnrollRoleOk 와 맞춤: 타인 강의실 수강 UI 노출 */
 function canEnrollInOthersClassrooms(
   isStudent: boolean,
   isPendingTeacher: boolean,
@@ -65,48 +60,17 @@ function canEnrollInOthersClassrooms(
 }
 
 export function ClassroomCatalogPage() {
-  const {
-    firebaseUser,
-    canManageMaterials,
-    isStudent,
-    isPendingTeacher,
-    isTeacherApproved,
-  } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { firebaseUser, canManageMaterials, isStudent, isPendingTeacher, isTeacherApproved } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  /** classroomId -> latest enrollment request for current user (any status) */
-  const [myEnrollmentByClassroom, setMyEnrollmentByClassroom] = useState<
-    Record<string, { status: ClassroomEnrollmentRequestStatus; id: string }>
-  >({});
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [busyClassId, setBusyClassId] = useState<string | null>(null);
 
-  const [modalRoom, setModalRoom] = useState<Row | null>(null);
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [modalSubmitting, setModalSubmitting] = useState(false);
-  /** 유료 수강신청요청 제출 직후 안내(과목명과 함께 팝업으로만 표시) */
-  const [enrollmentResultModal, setEnrollmentResultModal] = useState<
-    | null
-    | { variant: "success" | "error"; courseTitle: string; message: string }
-  >(null);
   const mayEnrollCatalog = canEnrollInOthersClassrooms(isStudent, isPendingTeacher, isTeacherApproved);
-  const [myEnrollmentMapReady, setMyEnrollmentMapReady] = useState(!mayEnrollCatalog);
 
   const uid = firebaseUser?.uid;
-
-  /** 유료·비멤버 강의실 id 목록이 바뀔 때만 enrollment 리스너를 갈아끼움 (rows 참조 변경 무시) */
-  const enrollmentWatchKey = useMemo(() => {
-    if (!uid || !mayEnrollCatalog) return "";
-    return rows
-      .filter((r) => r.teacherId !== uid && isPaidClassroom(r) && !isMember(r, uid))
-      .map((r) => r.id)
-      .sort()
-      .join(",");
-  }, [rows, uid, mayEnrollCatalog]);
 
   useEffect(() => {
     if (!uid) {
@@ -133,132 +97,11 @@ export function ClassroomCatalogPage() {
     return () => unsub();
   }, [uid]);
 
-  /** collectionGroup 대신 문서 단위 구독 + 초기 getDoc(딥링크·첫 표시 레이스 완화) */
-  useEffect(() => {
-    if (!uid || !mayEnrollCatalog) {
-      setMyEnrollmentByClassroom({});
-      setMyEnrollmentMapReady(true);
-      return undefined;
-    }
-
-    if (!enrollmentWatchKey) {
-      setMyEnrollmentByClassroom({});
-      setMyEnrollmentMapReady(true);
-      return undefined;
-    }
-
-    const classroomIds = enrollmentWatchKey.split(",").filter(Boolean);
-    setMyEnrollmentMapReady(false);
-
-    let cancelled = false;
-
-    (async () => {
-      const bootstrap: Record<string, { status: ClassroomEnrollmentRequestStatus; id: string }> = {};
-      await Promise.all(
-        classroomIds.map(async (classroomId) => {
-          try {
-            const ref = doc(db, "classrooms", classroomId, "enrollment_requests", uid);
-            const snap = await getDoc(ref);
-            if (!snap.exists()) return;
-            const data = snap.data() as ClassroomEnrollmentRequestDocument;
-            bootstrap[classroomId] = { status: data.status, id: snap.id };
-          } catch {
-            /* 네트워크·권한 */
-          }
-        }),
-      );
-      if (cancelled) return;
-      setMyEnrollmentByClassroom((prev) => {
-        const next = { ...prev };
-        for (const id of classroomIds) delete next[id];
-        return { ...next, ...bootstrap };
-      });
-      setMyEnrollmentMapReady(true);
-    })();
-
-    const unsubs = classroomIds.map((classroomId) => {
-      const ref = doc(db, "classrooms", classroomId, "enrollment_requests", uid);
-      return onSnapshot(
-        ref,
-        (snap) => {
-          setMyEnrollmentByClassroom((prev) => {
-            const next = { ...prev };
-            if (!snap.exists()) {
-              delete next[classroomId];
-            } else {
-              const data = snap.data() as ClassroomEnrollmentRequestDocument;
-              next[classroomId] = { status: data.status, id: snap.id };
-            }
-            return next;
-          });
-        },
-        () => {
-          setMyEnrollmentByClassroom((prev) => {
-            const next = { ...prev };
-            delete next[classroomId];
-            return next;
-          });
-        },
-      );
-    });
-
-    return () => {
-      cancelled = true;
-      unsubs.forEach((u) => u());
-    };
-  }, [uid, mayEnrollCatalog, enrollmentWatchKey]);
-
   const scrollToEnrollSection = useCallback(() => {
     window.requestAnimationFrame(() => {
       document.getElementById("classroom-catalog-enroll")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }, []);
-
-  const openPaidModal = useCallback(
-    (r: Row) => {
-      scrollToEnrollSection();
-      setEnrollmentResultModal(null);
-      setPhone("");
-      setEmail(firebaseUser?.email ?? "");
-      setModalRoom(r);
-      setActionErr(null);
-    },
-    [firebaseUser?.email, scrollToEnrollSection],
-  );
-
-  useEffect(() => {
-    const enrollId = searchParams.get("enroll");
-    if (!enrollId || !rows.length || !mayEnrollCatalog || !uid || !myEnrollmentMapReady) return;
-    const r = rows.find((x) => x.id === enrollId);
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("enroll");
-        return next;
-      },
-      { replace: true },
-    );
-    if (!r || r.teacherId === uid) return;
-    scrollToEnrollSection();
-    if (isPaidClassroom(r) && !isMember(r, uid)) {
-      const st = myEnrollmentByClassroom[r.id]?.status;
-      if (st !== "pending") {
-        setPhone("");
-        setEmail(firebaseUser?.email ?? "");
-        setModalRoom(r);
-      }
-    }
-  }, [
-    searchParams,
-    rows,
-    mayEnrollCatalog,
-    uid,
-    firebaseUser?.email,
-    scrollToEnrollSection,
-    myEnrollmentByClassroom,
-    myEnrollmentMapReady,
-    setSearchParams,
-  ]);
 
   async function cancelMembership(r: Row) {
     if (!uid || busyClassId) return;
@@ -273,17 +116,9 @@ export function ClassroomCatalogPage() {
     setActionErr(null);
     setActionMsg(null);
     try {
-      const batch = writeBatch(db);
-      batch.update(doc(db, "classrooms", r.id), { memberStudentIds: arrayRemove(uid) });
-      batch.delete(doc(db, "classrooms", r.id, "enrollment_requests", uid));
-      await batch.commit();
+      await updateDoc(doc(db, "classrooms", r.id), { memberStudentIds: arrayRemove(uid) });
       await syncTeacherRosterForClassroomMemberDelta(r.teacherId, { added: [], removed: [uid] });
-      setMyEnrollmentByClassroom((prev) => {
-        const next = { ...prev };
-        delete next[r.id];
-        return next;
-      });
-      setActionMsg(`「${r.title}」수강을 취소했습니다. 유료 신청 기록도 함께 삭제되어 다시 신청할 수 있습니다.`);
+      setActionMsg(`「${r.title}」수강을 취소했습니다.`);
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : "수강 취소에 실패했습니다.");
     } finally {
@@ -291,43 +126,14 @@ export function ClassroomCatalogPage() {
     }
   }
 
-  async function cancelPendingEnrollment(r: Row) {
+  async function enrollInClassroom(r: Row) {
     if (!uid || busyClassId) return;
-    if (
-      !window.confirm(
-        `「${r.title}」유료 수강 신청을 취소할까요? 신청 기록이 삭제되며 처음과 같이 다시 신청할 수 있습니다.`,
-      )
-    )
+    if (isPaidClassroom(r) && !paidTuitionOk(r)) {
+      setActionErr(
+        "이 강의는 수강 안내 가격이 아직 등록되지 않았습니다. 강사에게 문의한 뒤 다시 시도해 주세요.",
+      );
       return;
-    setBusyClassId(r.id);
-    setActionErr(null);
-    setActionMsg(null);
-    const ref = doc(db, "classrooms", r.id, "enrollment_requests", uid);
-    try {
-      let snap;
-      try {
-        snap = await getDocFromServer(ref);
-      } catch {
-        snap = await getDoc(ref);
-      }
-      if (snap.exists()) {
-        await deleteDoc(ref);
-      }
-      setMyEnrollmentByClassroom((prev) => {
-        const next = { ...prev };
-        delete next[r.id];
-        return next;
-      });
-      setActionMsg(`「${r.title}」유료 수강 신청을 취소했습니다. 신청 기록이 삭제되었습니다.`);
-    } catch (e) {
-      setActionErr(e instanceof Error ? e.message : "취소에 실패했습니다.");
-    } finally {
-      setBusyClassId(null);
     }
-  }
-
-  async function enrollFree(r: Row) {
-    if (!uid || busyClassId) return;
     setBusyClassId(r.id);
     setActionErr(null);
     setActionMsg(null);
@@ -344,146 +150,6 @@ export function ClassroomCatalogPage() {
     }
   }
 
-  async function submitPaidRequest() {
-    if (!modalRoom || !uid) return;
-    const p = phone.replace(/\s/g, "");
-    const em = email.trim();
-    if (p.length < 5) {
-      setActionErr("전화번호를 5자 이상 입력해 주세요.");
-      return;
-    }
-    if (em.length < 3 || !em.includes("@")) {
-      setActionErr("유효한 이메일을 입력해 주세요.");
-      return;
-    }
-    if (isPaidClassroom(modalRoom)) {
-      const fee = modalRoom.tuitionFeeKrw;
-      if (typeof fee !== "number" || !Number.isFinite(fee) || fee < 1) {
-        setActionErr(
-          "이 강의는 수강 가격이 아직 등록되지 않았습니다. 강사에게 문의한 뒤 다시 시도해 주세요.",
-        );
-        return;
-      }
-    }
-    const courseTitle = modalRoom.title;
-    const classroomId = modalRoom.id;
-    setModalSubmitting(true);
-    setActionErr(null);
-    try {
-      const ref = doc(db, "classrooms", modalRoom.id, "enrollment_requests", uid);
-      /** 로컬 캐시만 보면 '없음'으로 잘못 판단해 setDoc이 update로 거절되는 경우 방지 */
-      let existing;
-      try {
-        existing = await getDocFromServer(ref);
-      } catch {
-        existing = await getDoc(ref);
-      }
-      if (existing.exists()) {
-        const cur = existing.data() as ClassroomEnrollmentRequestDocument;
-        if (cur.status === "pending") {
-          setMyEnrollmentByClassroom((prev) => ({
-            ...prev,
-            [classroomId]: { status: "pending", id: uid },
-          }));
-          setModalRoom(null);
-          setEnrollmentResultModal({
-            variant: "success",
-            courseTitle,
-            message:
-              "이미 접수된 신청입니다. 강사 승인을 기다려 주세요. 해당 강의실 카드의 버튼이「승인 대기중」으로 바뀌는지 확인해 주세요.",
-          });
-          return;
-        }
-        if (cur.status === "approved" && isMember(modalRoom, uid)) {
-          setModalRoom(null);
-          setEnrollmentResultModal({
-            variant: "success",
-            courseTitle,
-            message: "이미 승인된 강의입니다. 내 강의실에서 입장해 주세요.",
-          });
-          return;
-        }
-        /** 재신청: 기존 기록(반려·승인 후 탈퇴 등) 완전 삭제 후 신규 create 와 동일하게 접수 */
-        await deleteDoc(ref);
-      }
-      const listedFee =
-        isPaidClassroom(modalRoom) &&
-        typeof modalRoom.tuitionFeeKrw === "number" &&
-        Number.isFinite(modalRoom.tuitionFeeKrw) &&
-        modalRoom.tuitionFeeKrw > 0
-          ? Math.round(modalRoom.tuitionFeeKrw)
-          : undefined;
-      const payload: ClassroomEnrollmentRequestDocument = {
-        studentId: uid,
-        phone: p,
-        email: em,
-        status: "pending",
-        createdAt: serverTimestamp(),
-        ...(listedFee != null ? { tuitionFeeKrwAtRequest: listedFee } : {}),
-      };
-      await setDoc(ref, payload);
-      setMyEnrollmentByClassroom((prev) => ({
-        ...prev,
-        [classroomId]: { status: "pending", id: uid },
-      }));
-      setModalRoom(null);
-      setEnrollmentResultModal({
-        variant: "success",
-        courseTitle,
-        message:
-          "수강 신청이 접수되었습니다. 강사 승인 후 이용할 수 있습니다. 아래 목록에서 해당 강의실 버튼이「승인 대기중」으로 표시됩니다.",
-      });
-    } catch (e) {
-      if (e instanceof FirebaseError && e.code === "permission-denied") {
-        try {
-          const ref = doc(db, "classrooms", classroomId, "enrollment_requests", uid);
-          const s = await getDocFromServer(ref);
-          if (s.exists()) {
-            const cur = s.data() as ClassroomEnrollmentRequestDocument;
-            if (cur.status === "pending") {
-              setMyEnrollmentByClassroom((prev) => ({
-                ...prev,
-                [classroomId]: { status: "pending", id: uid },
-              }));
-              setModalRoom(null);
-              setEnrollmentResultModal({
-                variant: "success",
-                courseTitle,
-                message:
-                  "이미 이 강의실에 수강 신청이 접수된 상태입니다. (다른 강의실 강의는 각각 따로 신청할 수 있습니다.) 강사 승인을 기다려 주세요.",
-              });
-              return;
-            }
-            if (cur.status === "approved") {
-              const row = rows.find((x) => x.id === classroomId);
-              if (row && isMember(row, uid)) {
-                setModalRoom(null);
-                setEnrollmentResultModal({
-                  variant: "success",
-                  courseTitle,
-                  message: "이미 승인된 강의입니다. 내 강의실에서 입장해 주세요.",
-                });
-                return;
-              }
-            }
-          }
-        } catch {
-          /* fall through to error modal */
-        }
-      }
-      const msg =
-        e instanceof FirebaseError && e.code === "permission-denied"
-          ? "저장이 거절되었습니다. 같은 강의실은 중복 접수할 수 없습니다. 다른 강의실은 강의마다 따로 신청 가능합니다. 이미 멤버인 경우·본인이 연 강의실인 경우에도 거절될 수 있습니다. 새로고침 후에도 반복되면 관리자에게 문의해 주세요."
-          : e instanceof Error
-            ? e.message
-            : "신청에 실패했습니다.";
-      setModalRoom(null);
-      setEnrollmentResultModal({ variant: "error", courseTitle, message: msg });
-    } finally {
-      setModalSubmitting(false);
-    }
-  }
-
   const enrollmentSection = useMemo(
     () => (
       <section id="classroom-catalog-enroll" className="classroom-catalog-enroll" aria-labelledby="catalog-enroll-h">
@@ -492,10 +158,11 @@ export function ClassroomCatalogPage() {
         </h2>
         <p className="classroom-catalog-enroll__lede ui-ko">
           <span className="ui-en" style={{ display: "block", marginBottom: "0.35rem" }}>
-            Free courses enroll instantly. Paid courses collect your contact for the teacher until PG checkout is live.
+            Use Enroll to add yourself as a member of a classroom. Paid rooms show a reference price only until
+            checkout is wired up.
           </span>
-          무료 강의는 <strong>수강신청</strong> 한 번으로 바로 멤버로 등록됩니다. 유료 강의는 온라인 결제(PG) 준비 전까지{" "}
-          <strong>수강신청요청</strong> 팝업에서 연락처를 남기면 강사에게 <strong>수강 대기</strong> 명단으로 전달됩니다.
+          <strong>수강신청</strong>을 누르면 이 목록의 강의실에 멤버로 등록됩니다. 유료로 표시된 강의는{" "}
+          <strong>안내 가격</strong>만 보여 주며, 실제 결제·환불·수강 조건은 추후 정책에 따라 다시 안내할 예정입니다.
         </p>
       </section>
     ),
@@ -506,7 +173,7 @@ export function ClassroomCatalogPage() {
     if (!uid || r.teacherId === uid) return null;
     const member = isMember(r, uid);
     const paid = isPaidClassroom(r);
-    const en = myEnrollmentByClassroom[r.id];
+    const enrollDisabled = !!busyClassId || (paid && !paidTuitionOk(r));
 
     if (member) {
       return (
@@ -528,59 +195,18 @@ export function ClassroomCatalogPage() {
       );
     }
 
-    if (paid && en?.status === "pending") {
-      return (
-        <div className="classroom-catalog__enroll-stack">
-          <button
-            type="button"
-            className="btn btn--ghost btn--stack classroom-catalog__btn-pending"
-            disabled
-          >
-            <span className="ui-ko">승인 대기중</span>
-            <span className="ui-en">Pending approval</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn--ghost btn--stack"
-            disabled={!!busyClassId}
-            onClick={() => void cancelPendingEnrollment(r)}
-          >
-            <span className="ui-ko">신청 취소</span>
-            <span className="ui-en">Cancel request</span>
-          </button>
-        </div>
-      );
-    }
-
-    if (paid) {
-      return (
-        <button
-          type="button"
-          className="btn btn--primary btn--stack"
-          disabled={!!busyClassId}
-          onClick={() => {
-            scrollToEnrollSection();
-            openPaidModal(r);
-          }}
-        >
-          <span className="ui-ko">수강신청</span>
-          <span className="ui-en">Enroll (paid)</span>
-        </button>
-      );
-    }
-
     return (
       <button
         type="button"
         className="btn btn--primary btn--stack"
-        disabled={!!busyClassId}
+        disabled={enrollDisabled}
         onClick={() => {
           scrollToEnrollSection();
-          void enrollFree(r);
+          void enrollInClassroom(r);
         }}
       >
         <span className="ui-ko">수강신청</span>
-        <span className="ui-en">Enroll (free)</span>
+        <span className="ui-en">{paid ? "Enroll (paid listing)" : "Enroll (free)"}</span>
       </button>
     );
   }
@@ -621,7 +247,7 @@ export function ClassroomCatalogPage() {
             {actionMsg}
           </p>
         ) : null}
-        {(actionErr || err) ? <p className="auth-error">{actionErr || err}</p> : null}
+        {actionErr || err ? <p className="auth-error">{actionErr || err}</p> : null}
 
         {loading ? (
           <div className="route-loading route-loading--light">
@@ -658,150 +284,6 @@ export function ClassroomCatalogPage() {
             ))}
           </ul>
         )}
-
-        {enrollmentResultModal ? (
-          <div
-            className="crm-modal-root classroom-catalog__result-modal-root"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="enroll-result-title"
-          >
-            <div
-              className="crm-modal-backdrop"
-              onClick={() => setEnrollmentResultModal(null)}
-              aria-hidden
-            />
-            <div
-              className={`crm-modal crm-modal--send classroom-catalog__result-modal ${
-                enrollmentResultModal.variant === "error"
-                  ? "classroom-catalog__result-modal--error"
-                  : ""
-              }`}
-            >
-              <button
-                type="button"
-                className="crm-modal__close"
-                aria-label="닫기"
-                onClick={() => setEnrollmentResultModal(null)}
-              />
-              <h3 id="enroll-result-title" className="crm-modal__title">
-                <span className="crm-modal__title-ko">
-                  {enrollmentResultModal.variant === "success" ? "신청 안내" : "처리 불가"}
-                </span>
-                <span className="crm-modal__title-en">
-                  {enrollmentResultModal.variant === "success" ? "Request status" : "Request failed"}
-                </span>
-              </h3>
-              <p className="classroom-catalog__result-course">
-                <strong>{enrollmentResultModal.courseTitle}</strong>
-              </p>
-              <p className="classroom-catalog__result-msg">{enrollmentResultModal.message}</p>
-              <div className="crm-modal__actions">
-                <button
-                  type="button"
-                  className="btn btn--primary btn--stack"
-                  onClick={() => setEnrollmentResultModal(null)}
-                >
-                  확인
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {modalRoom ? (
-          <div className="crm-modal-root" role="dialog" aria-modal="true" aria-labelledby="enroll-paid-title">
-            <div
-              className="crm-modal-backdrop"
-              onClick={() => !modalSubmitting && setModalRoom(null)}
-              aria-hidden
-            />
-            <div className="crm-modal crm-modal--send">
-              <button
-                type="button"
-                className="crm-modal__close"
-                aria-label="닫기"
-                disabled={modalSubmitting}
-                onClick={() => setModalRoom(null)}
-              />
-              <h3 id="enroll-paid-title" className="crm-modal__title">
-                <span className="crm-modal__title-ko">수강신청요청</span>
-                <span className="crm-modal__title-en">Enrollment request</span>
-              </h3>
-              <p className="crm-modal__hint ui-ko">
-                PG 결제 연동 후에는 이 단계 대신 결제창으로 안내될 예정입니다. 지금은 연락처를 남기면 강사에게 수강
-                대기 명단으로 전달됩니다.
-              </p>
-              <p className="classroom-catalog__modal-class">
-                <strong>{modalRoom.title}</strong>
-              </p>
-              {isPaidClassroom(modalRoom) ? (
-                <p className="classroom-catalog__modal-tuition" role="status">
-                  {typeof modalRoom.tuitionFeeKrw === "number" &&
-                  Number.isFinite(modalRoom.tuitionFeeKrw) &&
-                  modalRoom.tuitionFeeKrw > 0 ? (
-                    <>
-                      <span className="classroom-catalog__modal-tuition-label">수강 안내가격</span>
-                      <span className="classroom-catalog__modal-tuition-amount">
-                        {formatTuitionKrwWon(modalRoom.tuitionFeeKrw)}
-                      </span>
-                      <span className="classroom-catalog__modal-tuition-note ui-ko">
-                        (PG 결제 연동 전까지는 참고 금액이며, 실제 결제는 강사 안내에 따릅니다.)
-                      </span>
-                    </>
-                  ) : (
-                    <span className="classroom-catalog__modal-tuition-pending ui-ko">
-                      수강 가격이 아직 등록되지 않아 신청할 수 없습니다. 강사에게 문의해 주세요.
-                    </span>
-                  )}
-                </p>
-              ) : null}
-              <div className="classroom-catalog__modal-fields">
-                <label className="auth-field">
-                  <span>전화번호</span>
-                  <input
-                    className="add-passage__control"
-                    type="tel"
-                    autoComplete="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="010-0000-0000"
-                  />
-                </label>
-                <label className="auth-field">
-                  <span>이메일</span>
-                  <input
-                    className="add-passage__control"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </label>
-              </div>
-              {actionErr && modalRoom ? <p className="auth-error">{actionErr}</p> : null}
-              <div className="crm-modal__actions">
-                <button type="button" className="btn btn--ghost btn--stack" disabled={modalSubmitting} onClick={() => setModalRoom(null)}>
-                  취소
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--primary btn--stack"
-                  disabled={
-                    modalSubmitting ||
-                    (isPaidClassroom(modalRoom) &&
-                      (typeof modalRoom.tuitionFeeKrw !== "number" ||
-                        !Number.isFinite(modalRoom.tuitionFeeKrw) ||
-                        modalRoom.tuitionFeeKrw < 1))
-                  }
-                  onClick={() => void submitPaidRequest()}
-                >
-                  {modalSubmitting ? "제출 중…" : "수강신청요청"}
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </main>
     </DashboardShell>
   );

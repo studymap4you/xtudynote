@@ -159,14 +159,6 @@
       ]
     },
     {
-      "collectionGroup": "enrollment_requests",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "studentId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "classroom_exam_assignments",
       "queryScope": "COLLECTION",
       "fields": [

@@ -260,9 +260,10 @@ export function ClassroomDetailPage() {
           <div className="admin-layout__title-row">
             <h1>입장 불가</h1>
             <p className="classroom-page__lede">
-              이 강의실은 개설 선생님 또는 멤버로 등록된 학습자만 열람할 수 있습니다. 다른 계정으로 수강 신청만 한 경우,
-              그 계정으로 로그인했는지 확인해 주세요. 멤버 등록이 필요하면{" "}
-              <Link to="/classrooms">전체 강의실</Link>에서 강사에게 요청하거나{" "}
+              이 강의실은 개설 선생님 또는 멤버로 등록된 학습자만 열람할 수 있습니다. 전체 강의실에서{" "}
+              <strong>수강신청</strong>으로 멤버 등록을 마쳤는지, 같은 계정으로 로그인했는지 확인해 주세요. 아직
+              멤버가 아니면{" "}
+              <Link to="/classrooms">전체 강의실</Link>에서 수강 신청 후 다시 시도하거나{" "}
               <Link to="/classroom">내 강의실</Link>로 돌아가 주세요.
             </p>
           </div>

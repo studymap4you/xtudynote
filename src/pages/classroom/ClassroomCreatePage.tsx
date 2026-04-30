@@ -221,14 +221,14 @@ function Inner() {
                       onChange={(e) => setPricingType(e.target.value === "paid" ? "paid" : "free")}
                     >
                       <option value="free">무료 — 학생이 목록에서 바로 수강(멤버 등록)</option>
-                      <option value="paid">유료 — 수강신청요청 후 강사 승인 (연락처 접수)</option>
+                      <option value="paid">유료 — 목록에 안내 가격 표시 (결제·수강 조건은 추후)</option>
                     </select>
                   </label>
                   {pricingType === "paid" ? (
                     <label className="auth-field">
                       <span className="classroom-hub__field-label">수강 가격 (원)</span>
                       <span className="classroom-hub__field-hint">
-                        강의실 목록과 수강신청요청 팝업에 표시됩니다.
+                        강의실 전체 목록에 안내 가격으로 표시됩니다.
                       </span>
                       <input
                         className="add-passage__control"

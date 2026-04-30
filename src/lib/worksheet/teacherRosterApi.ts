@@ -95,7 +95,7 @@ export async function syncTeacherRosterForClassroomMemberDelta(
   );
 }
 
-/** 학생 한 명 추가 시 — 승인·무료 수강 직후 단순 업서트 */
+/** 학생 한 명 추가 시 — 카탈로그 수강(멤버 등록) 직후 단순 업서트 */
 export async function ensureTeacherRosterForStudent(
   teacherUid: string,
   studentUid: string,
