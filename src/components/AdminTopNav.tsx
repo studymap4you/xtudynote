@@ -1,4 +1,4 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
@@ -7,11 +7,24 @@ function adminPillClass({ isActive }: { isActive: boolean }): string {
   return `nav-pill${isActive ? " nav-pill--active" : ""}`;
 }
 
+function useMaterialsNavActive(): boolean {
+  const { pathname } = useLocation();
+  return (
+    pathname === "/admin/materials" ||
+    pathname.startsWith("/admin/contents") ||
+    pathname.startsWith("/admin/pending-materials") ||
+    pathname.startsWith("/admin/landing-hero") ||
+    pathname.startsWith("/admin/knowledge-curation")
+  );
+}
+
 /**
- * 슈퍼 관리자 전용 상단 바: 대시보드 복귀 + 콘텐츠 DB / 회원 관리 전환
+ * 슈퍼 관리자 전용 상단 바: 회원 / 강의실 / 자료(허브 및 세부 경로) + 대시보드 복귀
  */
 export function AdminTopNav() {
   const { firebaseUser, logOut } = useAuth();
+  const materialsActive = useMaterialsNavActive();
+
   return (
     <header className="top-nav admin-top-nav">
       <div className="admin-top-nav__bar">
@@ -19,26 +32,21 @@ export function AdminTopNav() {
           <BrandLockup />
         </Link>
         <nav className="admin-nav-tabs" aria-label="관리자 메뉴">
-          <NavLink to="/admin/pending-materials" className={adminPillClass}>
-            <span className="nav-pill__title">자료 검수 대기</span>
-            <span className="nav-pill__sub">Pending reviews</span>
-          </NavLink>
-          <NavLink to="/admin/contents" className={adminPillClass}>
-            <span className="nav-pill__title">콘텐츠 DB 관리</span>
-            <span className="nav-pill__sub">Content database</span>
-          </NavLink>
-          <NavLink to="/admin/landing-hero" className={adminPillClass}>
-            <span className="nav-pill__title">홈 배경</span>
-            <span className="nav-pill__sub">Home background</span>
-          </NavLink>
-          <NavLink to="/admin/knowledge-curation" className={adminPillClass}>
-            <span className="nav-pill__title">지식 큐레이션</span>
-            <span className="nav-pill__sub">Knowledge curation</span>
-          </NavLink>
           <NavLink to="/admin" className={adminPillClass} end>
-            <span className="nav-pill__title">회원 관리</span>
-            <span className="nav-pill__sub">Members</span>
+            <span className="nav-pill__title">전체 회원관리</span>
+            <span className="nav-pill__sub">All members</span>
           </NavLink>
+          <NavLink to="/admin/classrooms" className={adminPillClass}>
+            <span className="nav-pill__title">전체 강의실관리</span>
+            <span className="nav-pill__sub">All classrooms</span>
+          </NavLink>
+          <Link
+            to="/admin/materials"
+            className={adminPillClass({ isActive: materialsActive })}
+          >
+            <span className="nav-pill__title">전체 자료관리</span>
+            <span className="nav-pill__sub">All materials</span>
+          </Link>
         </nav>
         <div className="admin-top-nav__actions">
           <Link to="/dashboard" className="nav-pill nav-pill--tail">

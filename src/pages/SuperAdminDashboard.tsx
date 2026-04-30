@@ -46,13 +46,13 @@ export function SuperAdminDashboard() {
               Manage every account, review pending educators, and keep the learning ecosystem trusted.
             </span>
             <span className="ui-ko">
-              학습 자료는 콘텐츠 DB 관리, 계정·승인은 회원 관리에서 다룹니다.
+              회원·강의실·자료는 관리자 전용 상단 메뉴와 연결되어 있습니다. 세부 자료 도구는 아래에서 열 수 있습니다.
             </span>
           </p>
           <ul className="super-admin-hero__chips" aria-label="관리 영역">
-            <li className="super-admin-hero__chip">검수 · 승인</li>
-            <li className="super-admin-hero__chip">콘텐츠 DB</li>
-            <li className="super-admin-hero__chip">지식 큐레이션</li>
+            <li className="super-admin-hero__chip">전체 회원관리</li>
+            <li className="super-admin-hero__chip">전체 강의실관리</li>
+            <li className="super-admin-hero__chip">전체 자료관리</li>
           </ul>
         </div>
       </header>
@@ -68,24 +68,37 @@ export function SuperAdminDashboard() {
           </div>
           <p className="super-admin-panel__lead">
             <span className="ui-en">
-              User directory, document review, approve or suspend — all in one view.
+              Open member and classroom consoles from the admin bar, or jump into material workflows below.
             </span>
             <span className="ui-ko super-admin-panel__lead-ko">
-              유저 목록·서류 검토·승인·추방을 한 화면에서 처리합니다.
+              상단 관리자 메뉴에서 회원·강의실·자료 허브로 들어갈 수 있고, 아래에서 세부 자료 도구로 바로 이동할 수 있습니다.
             </span>
           </p>
           <div className="super-admin-actions">
+            <p className="super-admin-actions__group-label ui-ko">전체 자료관리 · 세부 메뉴</p>
+            <p className="super-admin-actions__group-hint ui-ko">
+              자료 검수 대기, 콘텐츠 DB, 홈 배경, 지식 큐레이션 — 관리자 대시보드와「전체 자료관리」화면에서 동일하게 안내합니다.
+            </p>
             <Link to="/admin/pending-materials" className="btn btn--primary btn--stack super-admin-actions__primary">
               <span className="ui-en">Review pending registrations</span>
-              <span className="ui-ko">자료 등록 검수 대기 열기</span>
+              <span className="ui-ko">자료 검수 대기</span>
             </Link>
             <Link to="/admin/contents" className="btn btn--stack super-admin-actions__db">
               <span className="ui-en">Content database (approved items)</span>
               <span className="ui-ko">콘텐츠 DB 관리</span>
             </Link>
+            <Link to="/admin/landing-hero" className="btn btn--stack super-admin-actions__landing">
+              <span className="ui-en">Landing home background</span>
+              <span className="ui-ko">홈 배경</span>
+            </Link>
             <Link to="/admin/knowledge-curation" className="btn btn--stack super-admin-actions__knowledge">
               <span className="ui-en">Knowledge curation</span>
-              <span className="ui-ko">지식 큐레이션 · 검색·저장·학습자료</span>
+              <span className="ui-ko">지식 큐레이션</span>
+            </Link>
+            <p className="super-admin-actions__group-label ui-ko">스토어 · 기타</p>
+            <Link to="/admin/materials" className="btn btn--ghost btn--stack super-admin-actions__materials-hub">
+              <span className="ui-en">Materials hub (overview)</span>
+              <span className="ui-ko">전체 자료관리 허브로 이동</span>
             </Link>
             <Link to="/admin/storefront" className="btn btn--stack super-admin-actions__storefront">
               <span className="ui-en">Storefront & home videos</span>

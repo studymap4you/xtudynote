@@ -5917,6 +5917,22 @@ button.top-nav__auth-link--logout:hover {
   gap: 0.65rem;
 }
 
+.super-admin-actions__group-label {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.super-admin-actions__group-hint {
+  margin: -0.45rem 0 0.1rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
 .super-admin-actions__primary {
   width: 100%;
   justify-content: center;
@@ -5996,6 +6012,35 @@ button.top-nav__auth-link--logout:hover {
   font-weight: 800;
   opacity: 1;
   color: #064e3b;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__landing {
+  width: 100%;
+  justify-content: center;
+  padding: 0.58rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1.5px solid rgba(148, 163, 184, 0.55);
+  background: linear-gradient(178deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+  box-shadow: 0 4px 14px -8px rgba(15, 23, 42, 0.12);
+  transition: transform 0.08s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__landing:hover {
+  border-color: rgba(100, 116, 139, 0.65);
+  box-shadow: 0 8px 22px -12px rgba(15, 23, 42, 0.14);
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__landing:active {
+  transform: scale(0.99);
+}
+
+.app-shell--light .dashboard--super-admin .super-admin-actions__landing .ui-en,
+.app-shell--light .dashboard--super-admin .super-admin-actions__landing .ui-ko {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
 }
 
 .app-shell--light .dashboard--super-admin .super-admin-actions__storefront {
@@ -8124,6 +8169,83 @@ button.top-nav__auth-link--logout:hover {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.88em;
   word-break: break-all;
+}
+
+/* 관리자 · 전체 자료관리 허브 (/admin/materials) */
+.admin-materials-hub {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2.5rem;
+  box-sizing: border-box;
+}
+
+.admin-materials-hub__hero {
+  margin-bottom: 1.35rem;
+}
+
+.admin-materials-hub__h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.38rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.admin-materials-hub__lede {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.admin-materials-hub__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14.5rem, 1fr));
+  gap: 0.9rem;
+}
+
+.admin-materials-hub__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.05rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 4px 14px -8px rgba(15, 23, 42, 0.1);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.admin-materials-hub__card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 14px 32px -14px rgba(15, 23, 42, 0.16);
+}
+
+.admin-materials-hub__card-en {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6366f1;
+}
+
+.admin-materials-hub__card-ko {
+  font-size: 1.03rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.admin-materials-hub__card-desc {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #64748b;
 }
 
 .contents-list__actions {

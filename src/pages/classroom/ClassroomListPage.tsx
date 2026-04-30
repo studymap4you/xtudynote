@@ -37,7 +37,7 @@ function emptyIdSet(): Set<string> {
   return new Set();
 }
 
-export function ClassroomListPage() {
+export function ClassroomListPage({ embedInAdminShell = false }: { embedInAdminShell?: boolean }) {
   const { firebaseUser, isTeacherApproved, isSuperAdmin } = useAuth();
   const [rowsOwn, setRowsOwn] = useState<Row[]>([]);
   const [rowsMem, setRowsMem] = useState<Row[]>([]);
@@ -215,24 +215,31 @@ export function ClassroomListPage() {
     }
   }
 
-  return (
-    <DashboardShell light>
+  const body = (
       <main className="admin-layout classroom-page admin-layout--light">
         <div className="admin-layout__title-row">
-          <h1>내 강의실</h1>
+          <h1>{embedInAdminShell ? "전체 강의실 관리" : "내 강의실"}</h1>
           <span className="ui-ko">
-            {isSuperAdmin
-              ? "마스터: 전체 강의실 목록 · 위반 조치를 위해 수강생 유무와 관계없이 선택 삭제할 수 있습니다"
-              : isTeacherApproved
-                ? "개설한 강의실과 멤버로 참여 중인 강의실"
-                : "선생님이 멤버로 등록한 강의실만 표시됩니다"}
+            {embedInAdminShell
+              ? "마스터: 모든 강의실을 조회·입장하고, 수강생 유무와 관계없이 선택 삭제할 수 있습니다."
+              : isSuperAdmin
+                ? "마스터: 전체 강의실 목록 · 위반 조치를 위해 수강생 유무와 관계없이 선택 삭제할 수 있습니다"
+                : isTeacherApproved
+                  ? "개설한 강의실과 멤버로 참여 중인 강의실"
+                  : "선생님이 멤버로 등록한 강의실만 표시됩니다"}
           </span>
         </div>
-        <p className="classroom-page__lede">
-          수강이 승인된 강의실에서만 자료와 과제를 이용할 수 있습니다.{" "}
-          <strong>유료</strong> 자료는 상세 페이지의 안내에 따라 결제·구매 절차를 진행해 주세요.{" "}
-          <Link to="/classrooms">전체 강의실 보기 (강의 신청)</Link>
-        </p>
+        {!embedInAdminShell ? (
+          <p className="classroom-page__lede">
+            수강이 승인된 강의실에서만 자료와 과제를 이용할 수 있습니다.{" "}
+            <strong>유료</strong> 자료는 상세 페이지의 안내에 따라 결제·구매 절차를 진행해 주세요.{" "}
+            <Link to="/classrooms">전체 강의실 보기 (강의 신청)</Link>
+          </p>
+        ) : (
+          <p className="classroom-page__lede">
+            <Link to="/classrooms">강의 신청·카탈로그</Link>는 일반 메뉴에서도 이용할 수 있습니다.
+          </p>
+        )}
         {isTeacherApproved && (
           <p className="classroom-page__teacher-hint">
             <Link to="/classroom/new" className="btn btn--primary btn--stack">
@@ -459,6 +466,8 @@ export function ClassroomListPage() {
           </div>
         ) : null}
       </main>
-    </DashboardShell>
   );
+
+  if (embedInAdminShell) return body;
+  return <DashboardShell light>{body}</DashboardShell>;
 }

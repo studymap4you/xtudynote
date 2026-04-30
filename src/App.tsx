@@ -10,6 +10,8 @@ import { LandingHeroAdminPage } from "@/pages/admin/LandingHeroAdminPage";
 import { ContentsListPage } from "@/pages/admin/ContentsListPage";
 import { PendingMaterialReviewsPage } from "@/pages/admin/PendingMaterialReviewsPage";
 import { KnowledgeCurationPage } from "@/pages/admin/KnowledgeCurationPage";
+import { AdminClassroomsPage } from "@/pages/admin/AdminClassroomsPage";
+import { AdminMaterialsHubPage } from "@/pages/admin/AdminMaterialsHubPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { LogicDashboardPage } from "@/pages/LogicDashboardPage";
 import { ContentDetailPage } from "@/pages/ContentDetailPage";
@@ -153,6 +155,22 @@ export default function App() {
         element={
           <SuperAdminRoute>
             <AdminPanelPage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/classrooms"
+        element={
+          <SuperAdminRoute>
+            <AdminClassroomsPage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/materials"
+        element={
+          <SuperAdminRoute>
+            <AdminMaterialsHubPage />
           </SuperAdminRoute>
         }
       />
