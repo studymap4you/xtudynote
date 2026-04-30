@@ -970,21 +970,24 @@ button.intro-landing-tile {
   color: inherit;
 }
 .intro-landing-tile--classroom-enter {
-  background: linear-gradient(145deg, #3730a3 0%, #4f46e5 42%, #6366f1 100%);
-  border-color: rgba(165, 180, 252, 0.5);
-  color: #ffffff;
+  background: linear-gradient(165deg, #ececef 0%, #dadadd 38%, #c8c8cf 100%);
+  border-color: transparent;
+  color: #1e293b;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 10px 28px -12px rgba(15, 23, 42, 0.12);
 }
 .intro-landing-tile--classroom-enter .intro-landing-tile__badge {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.35);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.45);
+  border-color: transparent;
+  color: #334155;
 }
 .intro-landing-tile--classroom-enter .intro-landing-tile__title {
-  color: #fef9c3;
+  color: #0f172a;
 }
 .intro-landing-tile--classroom-enter:hover {
-  filter: brightness(1.05);
-  border-color: rgba(199, 210, 254, 0.65);
+  filter: brightness(1.04);
+  border-color: transparent;
 }
 .intro-landing-tile--classroom-new {
   background: linear-gradient(160deg, #ecfdf5 0%, #d1fae5 45%, #a7f3d0 100%);
@@ -1003,40 +1006,44 @@ button.intro-landing-tile {
   border-color: rgba(5, 150, 105, 0.4);
 }
 .intro-landing-tile--dashboard {
-  background: linear-gradient(145deg, #115e59 0%, #0d9488 40%, #0e7490 100%);
-  border-color: rgba(45, 212, 191, 0.35);
-  color: #ffffff;
+  background: linear-gradient(165deg, #ececef 0%, #dadadd 38%, #c8c8cf 100%);
+  border-color: transparent;
+  color: #1e293b;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 10px 28px -12px rgba(15, 23, 42, 0.12);
 }
 .intro-landing-tile--dashboard .intro-landing-tile__badge {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.38);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.45);
+  border-color: transparent;
+  color: #334155;
 }
 .intro-landing-tile--dashboard .intro-landing-tile__title {
-  color: #ffffff;
+  color: #0f172a;
 }
 .intro-landing-tile--dashboard:hover {
-  filter: brightness(1.06);
-  border-color: rgba(153, 246, 228, 0.45);
+  filter: brightness(1.04);
+  border-color: transparent;
 }
 .intro-landing-tile--logout {
-  background: linear-gradient(165deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
-  border-color: rgba(245, 158, 11, 0.35);
-  color: #1c1917;
+  background: linear-gradient(165deg, #ececef 0%, #dadadd 38%, #c8c8cf 100%);
+  border-color: transparent;
+  color: #1e293b;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 10px 26px -12px rgba(180, 83, 9, 0.15);
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 10px 28px -12px rgba(15, 23, 42, 0.12);
 }
 .intro-landing-tile--logout .intro-landing-tile__badge {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(120, 53, 15, 0.18);
-  color: #78350f;
+  background: rgba(255, 255, 255, 0.45);
+  border-color: transparent;
+  color: #334155;
 }
 .intro-landing-tile--logout .intro-landing-tile__title {
-  color: #1c1917;
+  color: #0f172a;
 }
 .intro-landing-tile--logout:hover {
-  border-color: rgba(217, 119, 6, 0.45);
+  filter: brightness(1.04);
+  border-color: transparent;
 }
 
 /* 마켓 상품 등록 — 대표 이미지 옆 미리보기 */
