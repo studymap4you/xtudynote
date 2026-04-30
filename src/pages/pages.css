@@ -8014,6 +8014,95 @@ button.top-nav__auth-link--logout:hover {
   color: #0f172a;
 }
 
+.admin-members-page__toolbar--split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-members-page__bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-members-page__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.admin-members-page__section {
+  margin: 0;
+}
+
+.admin-members-page__section-head {
+  margin-bottom: 0.65rem;
+}
+
+.admin-members-page__section-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-members-page__section-meta {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.admin-members-page__section-select {
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.65rem !important;
+  font-size: 0.82rem !important;
+}
+
+.admin-members-page__th-cb {
+  width: 2.75rem;
+  text-align: center;
+}
+
+.admin-members-page__td-cb {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.admin-members-page__cb {
+  width: 1.05rem;
+  height: 1.05rem;
+  cursor: pointer;
+  accent-color: #6366f1;
+}
+
+.admin-members-page__position-pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.18rem 0.45rem;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.admin-members-page__orphan {
+  font-size: 0.88rem;
+  color: #94a3b8;
+}
+
+.admin-members-page__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  word-break: break-all;
+}
+
 .contents-list__actions {
   display: flex;
   flex-direction: column;
