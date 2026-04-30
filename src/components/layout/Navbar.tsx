@@ -1,5 +1,4 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export type TopNavMainLinksProps = {
@@ -26,24 +25,12 @@ export function TopNavMainLinks({
   const { pathname } = useLocation();
   const showCoursesNav =
     !firebaseUser || isStudent || (!isTeacherApproved && !isPendingTeacher && !isSuperAdmin);
-  /** 시그널 로직 — 상단 네비는 마스터만 (그 외 회원은 대시보드·홈 플로우) */
-  const showSignalLogicNav = Boolean(firebaseUser && isSuperAdmin);
 
   const classroomActive =
     pathname.startsWith("/classroom") && !pathname.startsWith("/classrooms");
 
   return (
     <div className="top-nav__main-cluster">
-      {showSignalLogicNav ? (
-        <NavLink to="/logic-dashboard" className={({ isActive }) => pillClass(isActive)} end>
-          <span className="nav-pill__title nav-pill__title--with-icon">
-            <LayoutDashboard size={15} strokeWidth={2} aria-hidden className="nav-pill__icon" />
-            시그널 로직
-          </span>
-          <span className="nav-pill__sub">Signal Logic</span>
-        </NavLink>
-      ) : null}
-
       {showCoursesNav ? (
         <NavLink
           to="/classrooms"

@@ -64,10 +64,10 @@ export function ContentDbManageRoute({ children }: { children: React.ReactNode }
 }
 
 /**
- * `/logic-dashboard` — 비회원은 공개, 로그인 회원은 마스터만 (그 외는 대시보드로).
+ * `/logic-dashboard` — 비회원 공개. 로그인 시 차단 계정만 홈으로 보냄 (시그널 로직은 홈 박스·직접 URL 등).
  */
 export function LogicDashboardGate({ children }: { children: React.ReactNode }) {
-  const { isSuperAdmin, loading, firebaseUser, profile } = useAuth();
+  const { loading, firebaseUser, profile } = useAuth();
 
   if (loading || (firebaseUser && !profile)) {
     return (
@@ -82,13 +82,8 @@ export function LogicDashboardGate({ children }: { children: React.ReactNode }) 
       </div>
     );
   }
-  if (firebaseUser && profile) {
-    if (profile.accountStatus === "banned") {
-      return <Navigate to="/" replace />;
-    }
-    if (!isSuperAdmin) {
-      return <Navigate to="/dashboard" replace />;
-    }
+  if (firebaseUser && profile && profile.accountStatus === "banned") {
+    return <Navigate to="/" replace />;
   }
   return <>{children}</>;
 }
