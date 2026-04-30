@@ -115,6 +115,12 @@ export function ApprovedTeacherDashboard() {
                 <span className="educator-quick-links__ko">영어 지문 학습</span>
               </Link>
             </li>
+            <li>
+              <Link to="/logic-dashboard" className="educator-quick-links__a">
+                <span className="educator-quick-links__en">Signal Logic</span>
+                <span className="educator-quick-links__ko">시그널로직</span>
+              </Link>
+            </li>
           </ul>
         </section>
 
