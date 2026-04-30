@@ -13,6 +13,7 @@ import {
   uploadDigitalMarketImage,
 } from "@/lib/market/digitalMarketApi";
 import type { DigitalMarketProductDoc } from "@/types/digitalMarketProduct";
+import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
 import "@/pages/pages.css";
 
 function isHttpUrl(s: string): boolean {
@@ -40,6 +41,7 @@ export function DigitalMarketRegisterPage() {
     useState<DigitalMarketProductDoc["fulfillmentType"]>("download");
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [priceKrwInput, setPriceKrwInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [formMsg, setFormMsg] = useState<string | null>(null);
   const [loadBusy, setLoadBusy] = useState(isEdit);
@@ -74,6 +76,11 @@ export function DigitalMarketRegisterPage() {
         setFulfillmentType(row.data.fulfillmentType === "email" ? "email" : "download");
         setImageUrlInput(row.data.imageUrl ?? "");
         setImageFile(null);
+        setPriceKrwInput(
+          typeof row.data.priceKrw === "number" && row.data.priceKrw >= 1
+            ? String(row.data.priceKrw)
+            : "",
+        );
       } catch (e) {
         if (!cancelled) setLoadErr(e instanceof Error ? e.message : String(e));
       } finally {
@@ -101,6 +108,12 @@ export function DigitalMarketRegisterPage() {
       }
       if (!isHttpUrl(pu)) {
         setFormMsg("구매·신청 링크는 http(s):// 로 시작하는 전체 URL이어야 합니다.");
+        return;
+      }
+
+      const priceKrw = parseTuitionKrwInput(priceKrwInput);
+      if (priceKrw == null) {
+        setFormMsg("판매 가격(원)을 1원 이상으로 입력해 주세요.");
         return;
       }
 
@@ -132,6 +145,7 @@ export function DigitalMarketRegisterPage() {
             imageUrl,
             purchaseUrl: pu,
             fulfillmentType,
+            priceKrw,
           });
           showToast("ok", "디지털마켓 상품이 수정되었습니다.");
         } else {
@@ -142,6 +156,7 @@ export function DigitalMarketRegisterPage() {
             imageUrl,
             purchaseUrl: pu,
             fulfillmentType,
+            priceKrw,
             createdBy: uid,
           });
           showToast("ok", "디지털마켓 상품이 등록되었습니다.");
@@ -164,6 +179,7 @@ export function DigitalMarketRegisterPage() {
       fulfillmentType,
       imageFile,
       imageUrlInput,
+      priceKrwInput,
       showToast,
       navigate,
     ],
@@ -242,6 +258,23 @@ export function DigitalMarketRegisterPage() {
                       onChange={(e) => setSummary(e.target.value)}
                       placeholder="한 줄 소개"
                       autoComplete="off"
+                    />
+                  </label>
+                  <label className="reg-form__field" htmlFor="dm-price">
+                    <span className="reg-form__label-line">
+                      <span className="reg-form__label-en">Price (KRW)</span>
+                      <span className="reg-form__label-ko">판매 가격(원) · 필수</span>
+                    </span>
+                    <input
+                      id="dm-price"
+                      className="add-passage__control material-register-form__input"
+                      type="text"
+                      inputMode="numeric"
+                      value={priceKrwInput}
+                      onChange={(e) => setPriceKrwInput(e.target.value)}
+                      placeholder="예: 39000"
+                      autoComplete="off"
+                      required
                     />
                   </label>
                 </div>

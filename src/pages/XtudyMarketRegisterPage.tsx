@@ -12,6 +12,7 @@ import {
   updateXtudyMarketProduct,
   uploadXtudyMarketImage,
 } from "@/lib/market/xtudyMarketApi";
+import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
 import "@/pages/pages.css";
 
 function isHttpUrl(s: string): boolean {
@@ -36,6 +37,7 @@ export function XtudyMarketRegisterPage() {
   const [purchaseUrl, setPurchaseUrl] = useState("");
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [priceKrwInput, setPriceKrwInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [formMsg, setFormMsg] = useState<string | null>(null);
   const [loadBusy, setLoadBusy] = useState(isEdit);
@@ -68,6 +70,11 @@ export function XtudyMarketRegisterPage() {
         setPurchaseUrl(row.data.purchaseUrl ?? "");
         setImageUrlInput(row.data.imageUrl ?? "");
         setImageFile(null);
+        setPriceKrwInput(
+          typeof row.data.priceKrw === "number" && row.data.priceKrw >= 1
+            ? String(row.data.priceKrw)
+            : "",
+        );
       } catch (e) {
         if (!cancelled) setLoadErr(e instanceof Error ? e.message : String(e));
       } finally {
@@ -98,6 +105,12 @@ export function XtudyMarketRegisterPage() {
         return;
       }
 
+      const priceKrw = parseTuitionKrwInput(priceKrwInput);
+      if (priceKrw == null) {
+        setFormMsg("판매 가격(원)을 1원 이상으로 입력해 주세요.");
+        return;
+      }
+
       let imageUrl: string;
       if (imageFile) {
         try {
@@ -124,6 +137,7 @@ export function XtudyMarketRegisterPage() {
             detailHtml,
             imageUrl,
             purchaseUrl: pu,
+            priceKrw,
           });
           showToast("ok", "엑스터디마켓 상품이 수정되었습니다.");
         } else {
@@ -132,6 +146,7 @@ export function XtudyMarketRegisterPage() {
             detailHtml,
             imageUrl,
             purchaseUrl: pu,
+            priceKrw,
             createdBy: uid,
           });
           const share = `${window.location.origin}/xtudy-market/p/${newId}`;
@@ -149,7 +164,7 @@ export function XtudyMarketRegisterPage() {
         setBusy(false);
       }
     },
-    [uid, productId, isEdit, title, detailHtml, purchaseUrl, imageFile, imageUrlInput, showToast, navigate],
+    [uid, productId, isEdit, title, detailHtml, purchaseUrl, imageFile, imageUrlInput, priceKrwInput, showToast, navigate],
   );
 
   return (
@@ -228,6 +243,23 @@ export function XtudyMarketRegisterPage() {
                       placeholder="https://…"
                       required
                       autoComplete="off"
+                    />
+                  </label>
+                  <label className="reg-form__field" htmlFor="xm-price">
+                    <span className="reg-form__label-line">
+                      <span className="reg-form__label-en">Price (KRW)</span>
+                      <span className="reg-form__label-ko">판매 가격(원) · 필수</span>
+                    </span>
+                    <input
+                      id="xm-price"
+                      className="add-passage__control material-register-form__input"
+                      type="text"
+                      inputMode="numeric"
+                      value={priceKrwInput}
+                      onChange={(e) => setPriceKrwInput(e.target.value)}
+                      placeholder="예: 39000"
+                      autoComplete="off"
+                      required
                     />
                   </label>
                 </div>

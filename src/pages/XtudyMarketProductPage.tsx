@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { PublicShell } from "@/components/PublicShell";
 import { RichHtmlView } from "@/components/RichHtmlView";
 import { getXtudyMarketProduct } from "@/lib/market/xtudyMarketApi";
+import { formatMarketPriceLabelKrw } from "@/lib/formatTuitionKrw";
 import type { XtudyMarketProductDoc } from "@/types/xtudyMarketProduct";
 import styles from "@/pages/videoCatalog.module.css";
 import extra from "@/pages/marketExtras.module.css";
@@ -48,6 +49,8 @@ export function XtudyMarketProductPage() {
     }
   }
 
+  const priceLabel = row ? formatMarketPriceLabelKrw(row.data.priceKrw) : "";
+
   return (
     <PublicShell light>
       <main className={extra.detailArticle}>
@@ -64,6 +67,7 @@ export function XtudyMarketProductPage() {
         ) : row ? (
           <>
             <h1 className={extra.detailTitle}>{row.data.title}</h1>
+            {priceLabel ? <p className={extra.detailPriceLine}>{priceLabel}</p> : null}
             {row.data.imageUrl ? (
               <img
                 src={row.data.imageUrl}

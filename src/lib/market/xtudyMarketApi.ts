@@ -65,6 +65,7 @@ export async function addXtudyMarketProduct(input: {
   detailHtml: string;
   imageUrl: string;
   purchaseUrl: string;
+  priceKrw: number;
   createdBy: string;
 }): Promise<string> {
   const docRef = await addDoc(collection(db, COL), {
@@ -72,6 +73,7 @@ export async function addXtudyMarketProduct(input: {
     detailHtml: input.detailHtml.trim(),
     imageUrl: input.imageUrl.trim(),
     purchaseUrl: input.purchaseUrl.trim(),
+    priceKrw: input.priceKrw,
     createdBy: input.createdBy,
     createdAt: serverTimestamp(),
   });
@@ -85,6 +87,7 @@ export async function updateXtudyMarketProduct(
     detailHtml: string;
     imageUrl: string;
     purchaseUrl: string;
+    priceKrw: number;
   },
 ): Promise<void> {
   await updateDoc(doc(db, COL, id), {
@@ -92,6 +95,7 @@ export async function updateXtudyMarketProduct(
     detailHtml: input.detailHtml.trim(),
     imageUrl: input.imageUrl.trim(),
     purchaseUrl: input.purchaseUrl.trim(),
+    priceKrw: input.priceKrw,
   });
 }
 

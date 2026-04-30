@@ -59,6 +59,7 @@ export async function addDigitalMarketProduct(input: {
   imageUrl: string;
   purchaseUrl: string;
   fulfillmentType: DigitalMarketProductDoc["fulfillmentType"];
+  priceKrw: number;
   createdBy: string;
 }): Promise<string> {
   const docRef = await addDoc(collection(db, COL), {
@@ -68,6 +69,7 @@ export async function addDigitalMarketProduct(input: {
     imageUrl: input.imageUrl.trim(),
     purchaseUrl: input.purchaseUrl.trim(),
     fulfillmentType: input.fulfillmentType,
+    priceKrw: input.priceKrw,
     createdBy: input.createdBy,
     createdAt: serverTimestamp(),
   });
@@ -91,6 +93,7 @@ export async function updateDigitalMarketProduct(
     imageUrl: string;
     purchaseUrl: string;
     fulfillmentType: DigitalMarketProductDoc["fulfillmentType"];
+    priceKrw: number;
   },
 ): Promise<void> {
   await updateDoc(doc(db, COL, id), {
@@ -100,6 +103,7 @@ export async function updateDigitalMarketProduct(
     imageUrl: input.imageUrl.trim(),
     purchaseUrl: input.purchaseUrl.trim(),
     fulfillmentType: input.fulfillmentType,
+    priceKrw: input.priceKrw,
   });
 }
 

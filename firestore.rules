@@ -539,6 +539,7 @@ service cloud.firestore {
           'imageUrl',
           'purchaseUrl',
           'fulfillmentType',
+          'priceKrw',
           'createdAt',
           'createdBy',
         ])
@@ -558,6 +559,9 @@ service cloud.firestore {
         && request.resource.data.purchaseUrl.size() <= 2048
         && request.resource.data.purchaseUrl.matches('https?://.*')
         && request.resource.data.fulfillmentType in ['download', 'email']
+        && request.resource.data.priceKrw is int
+        && request.resource.data.priceKrw >= 1
+        && request.resource.data.priceKrw <= 99999999
         && request.resource.data.createdBy is string;
 
       allow update: if isActiveSuperAdmin()
@@ -573,7 +577,10 @@ service cloud.firestore {
         && request.resource.data.imageUrl.matches('https?://.*')
         && request.resource.data.purchaseUrl is string
         && request.resource.data.purchaseUrl.matches('https?://.*')
-        && request.resource.data.fulfillmentType in ['download', 'email'];
+        && request.resource.data.fulfillmentType in ['download', 'email']
+        && request.resource.data.priceKrw is int
+        && request.resource.data.priceKrw >= 1
+        && request.resource.data.priceKrw <= 99999999;
 
       allow delete: if isActiveSuperAdmin();
     }
@@ -589,6 +596,7 @@ service cloud.firestore {
           'detailHtml',
           'imageUrl',
           'purchaseUrl',
+          'priceKrw',
           'createdAt',
           'createdBy',
         ])
@@ -601,6 +609,9 @@ service cloud.firestore {
         && request.resource.data.imageUrl.matches('https?://.*')
         && request.resource.data.purchaseUrl is string
         && request.resource.data.purchaseUrl.matches('https?://.*')
+        && request.resource.data.priceKrw is int
+        && request.resource.data.priceKrw >= 1
+        && request.resource.data.priceKrw <= 99999999
         && request.resource.data.createdBy is string;
 
       allow update: if isActiveSuperAdmin()
@@ -612,7 +623,10 @@ service cloud.firestore {
         && request.resource.data.imageUrl is string
         && request.resource.data.imageUrl.matches('https?://.*')
         && request.resource.data.purchaseUrl is string
-        && request.resource.data.purchaseUrl.matches('https?://.*');
+        && request.resource.data.purchaseUrl.matches('https?://.*')
+        && request.resource.data.priceKrw is int
+        && request.resource.data.priceKrw >= 1
+        && request.resource.data.priceKrw <= 99999999;
 
       allow delete: if isActiveSuperAdmin();
     }
