@@ -23,11 +23,11 @@ const SHORTCUTS: ShortcutDef[] = [
   { to: "/library", label: "라이브러리", tone: "a" },
   { to: "/worksheet/create", label: "학습지 자동생성", tone: "i", gateAuth: true },
   { to: "/english-passage-lab", label: "영어지문변환학습", tone: "j", gateAuth: true },
-  { to: "/digital-market", label: "디지털마켓", tone: "d" },
+  { to: "/logic-dashboard", label: "시그널로직", tone: "h" },
   { to: "/material/register", label: "새자료 등록", tone: "e" },
   { to: "/videos", label: "동영상 강의", tone: "f" },
   { to: "/xtudy-market", label: "엑스터디마켓", tone: "g" },
-  { to: "/logic-dashboard", label: "시그널로직", tone: "h" },
+  { to: "/digital-market", label: "디지털마켓", tone: "d" },
 ];
 
 const SHARE_TITLE = BRAND_SHARE_TITLE;
