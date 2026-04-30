@@ -7,6 +7,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocFromServer,
   onSnapshot,
   orderBy,
   query,
@@ -344,7 +345,13 @@ export function ClassroomCatalogPage() {
     setActionErr(null);
     try {
       const ref = doc(db, "classrooms", modalRoom.id, "enrollment_requests", uid);
-      const existing = await getDoc(ref);
+      /** 로컬 캐시만 보면 '없음'으로 잘못 판단해 setDoc이 update로 거절되는 경우 방지 */
+      let existing;
+      try {
+        existing = await getDocFromServer(ref);
+      } catch {
+        existing = await getDoc(ref);
+      }
       if (existing.exists()) {
         const cur = existing.data() as ClassroomEnrollmentRequestDocument;
         if (cur.status === "pending") {
@@ -411,9 +418,43 @@ export function ClassroomCatalogPage() {
           "수강 신청이 접수되었습니다. 강사 승인 후 이용할 수 있습니다. 아래 목록에서 해당 강의실 버튼이「승인 대기중」으로 표시됩니다.",
       });
     } catch (e) {
+      if (e instanceof FirebaseError && e.code === "permission-denied") {
+        try {
+          const ref = doc(db, "classrooms", classroomId, "enrollment_requests", uid);
+          const s = await getDocFromServer(ref);
+          if (s.exists()) {
+            const cur = s.data() as ClassroomEnrollmentRequestDocument;
+            if (cur.status === "pending") {
+              setMyEnrollmentByClassroom((prev) => ({
+                ...prev,
+                [classroomId]: { status: "pending", id: uid },
+              }));
+              setModalRoom(null);
+              setEnrollmentResultModal({
+                variant: "success",
+                courseTitle,
+                message:
+                  "이미 이 강의실에 수강 신청이 접수된 상태입니다. (다른 강의실 강의는 각각 따로 신청할 수 있습니다.) 강사 승인을 기다려 주세요.",
+              });
+              return;
+            }
+            if (cur.status === "approved") {
+              setModalRoom(null);
+              setEnrollmentResultModal({
+                variant: "success",
+                courseTitle,
+                message: "이미 승인된 강의입니다. 내 강의실에서 입장해 주세요.",
+              });
+              return;
+            }
+          }
+        } catch {
+          /* fall through to error modal */
+        }
+      }
       const msg =
         e instanceof FirebaseError && e.code === "permission-denied"
-          ? "저장이 거절되었습니다. 이미 접수한 적이 있다면 새로고침 후 해당 강의실에「승인 대기중」이 표시되는지 확인해 주세요. 문제가 계속되면「학생」계정·Firestore 규칙 배포를 관리자에게 문의해 주세요."
+          ? "저장이 거절되었습니다. 같은 강의실은 중복 접수할 수 없습니다. 다른 강의실은 강의마다 따로 신청 가능합니다. 이미 멤버인 경우·본인이 연 강의실인 경우에도 거절될 수 있습니다. 새로고침 후에도 반복되면 관리자에게 문의해 주세요."
           : e instanceof Error
             ? e.message
             : "신청에 실패했습니다.";

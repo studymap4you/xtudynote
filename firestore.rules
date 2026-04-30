@@ -1029,11 +1029,16 @@ service cloud.firestore {
             ? enrollmentClassroomData().memberStudentIds
             : [];
         }
-        /** 유료 수강신청 작성: 학생·강사 승인 대기·타 강의 수강 중인 승인 강사 (본인 개설 강의실 제외) */
+        /** 유료 수강신청 작성: 학생·강사 등 (본인 개설 강의실 제외). users.role 미설정 구계정은 Auth와 동일하게 허용 */
         function canSubmitEnrollmentRequest() {
           return userEffectiveAccountNotBanned()
-            && userData(request.auth.uid).role in ['student', 'pending_teacher', 'teacher']
+            && enrollmentRequestSubmitterRoleOk()
             && request.auth.uid != enrollmentClassroomData().teacherId;
+        }
+        function enrollmentRequestSubmitterRoleOk() {
+          let u = userData(request.auth.uid);
+          return !('role' in u)
+            || u.role in ['student', 'pending_teacher', 'teacher', 'super_admin'];
         }
         /** 읽기: 신청 작성(create)과 동일하게 accountStatus 미설정 계정도 허용 — isSignedInActiveAccount 는 필드 누락 시 거부됨 */
         allow read: if isActiveSuperAdmin()
