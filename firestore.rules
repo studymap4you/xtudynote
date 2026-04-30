@@ -1242,8 +1242,12 @@ service cloud.firestore {
         function lessonClassroomData() {
           return get(/databases/$(database)/documents/classrooms/$(classroomId)).data;
         }
+        /**
+         * 강의실 본문 읽기와 동일하게: accountStatus 누락·카탈로그 열람 계정도 소유 교사·멤버면 레슨 목록 허용.
+         * (예전에는 isSignedInActiveAccount만 써서 본문은 되는데 레슨만 permission-denied 되는 경우가 생김)
+         */
         function lessonReaderHasAccess() {
-          return isSignedInActiveAccount()
+          return userEffectiveAccountNotBanned()
             && exists(/databases/$(database)/documents/classrooms/$(classroomId))
             && (
               lessonClassroomData().teacherId == request.auth.uid
@@ -1348,7 +1352,7 @@ service cloud.firestore {
             );
         }
         function progressReader() {
-          return isSignedInActiveAccount()
+          return userEffectiveAccountNotBanned()
             && exists(/databases/$(database)/documents/classrooms/$(classroomId))
             && (
               progressClassroom().teacherId == request.auth.uid
