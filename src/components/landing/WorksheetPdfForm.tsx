@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { extractWorksheetPassageFromUpload } from "@/lib/worksheet/extractWorksheetPassageFromUpload";
 import {
   generateProfessionalKeySummary,
   generateSubjectiveReviewQuestions,
@@ -34,10 +35,14 @@ const emptyForm = (): FormState => ({
 
 export function WorksheetPdfForm() {
   const { profile } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [wordBusy, setWordBusy] = useState(false);
   const [busyAiQuestions, setBusyAiQuestions] = useState(false);
   const [busyAiSummary, setBusyAiSummary] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [autoAiAfterUpload, setAutoAiAfterUpload] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [aiExerciseTools, setAiExerciseTools] = useState(false);
@@ -156,8 +161,102 @@ export function WorksheetPdfForm() {
     }
   }, [aiContext]);
 
+  const contextFrom = useCallback(
+    (content: string): WorksheetAiContext => ({
+      unit: form.unit.trim(),
+      objectives: form.objectives.trim(),
+      studyDate: form.studyDate.trim(),
+      content: content.trim(),
+    }),
+    [form.unit, form.objectives, form.studyDate],
+  );
+
+  const processUploadedFile = useCallback(
+    async (file: File) => {
+      setErr(null);
+      setMsg(null);
+      setUploadBusy(true);
+      try {
+        const extracted = (await extractWorksheetPassageFromUpload(file)).trim();
+        if (!extracted) {
+          setErr("파일에서 추출한 본문이 비어 있습니다.");
+          return;
+        }
+        let nextContent = "";
+        let hadPrev = false;
+        setForm((f) => {
+          hadPrev = !!f.content.trim();
+          nextContent = f.content.trim() ? `${f.content.trim()}\n\n---\n\n${extracted}` : extracted;
+          return { ...f, content: nextContent };
+        });
+
+        if (!autoAiAfterUpload || nextContent.length < 40) {
+          setMsg(
+            hadPrev
+              ? "추출한 본문을 기존 학습내용 아래에 이어 붙였습니다."
+              : "파일에서 학습내용을 채웠습니다. 필요하면 수정한 뒤 AI 생성을 누르세요.",
+          );
+          return;
+        }
+
+        setBusyAiQuestions(true);
+        try {
+          const ctx = contextFrom(nextContent);
+          const { questionsText, answersText } = await generateSubjectiveReviewQuestions(ctx, aiQuestionCount);
+          setForm((f) => ({
+            ...f,
+            content: nextContent,
+            exercises: questionsText,
+            exerciseAnswers: answersText,
+          }));
+          setBusyAiQuestions(false);
+          setBusyAiSummary(true);
+          const summaryText = await generateProfessionalKeySummary(ctx);
+          setForm((f) => ({
+            ...f,
+            content: nextContent,
+            exercises: questionsText,
+            exerciseAnswers: answersText,
+            summary: summaryText,
+          }));
+          setAiExerciseTools(true);
+          setAiSummaryTools(true);
+          setTeacherAnswersOpen(true);
+          setMsg(
+            `「${file.name}」분석 후 확인문제 ${aiQuestionCount}문항·핵심요약까지 반영했습니다. 필요 시 수정하세요.`,
+          );
+        } catch (e) {
+          setErr(
+            e instanceof Error
+              ? `${e.message} (학습내용·확인문제 중 일부는 반영됐을 수 있습니다.)`
+              : "AI 생성에 실패했습니다.",
+          );
+        } finally {
+          setBusyAiSummary(false);
+          setBusyAiQuestions(false);
+        }
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "파일 처리에 실패했습니다.");
+      } finally {
+        setUploadBusy(false);
+      }
+    },
+    [aiQuestionCount, autoAiAfterUpload, contextFrom],
+  );
+
+  const onPickFiles = useCallback(
+    (list: FileList | null) => {
+      const file = list?.[0];
+      if (!file) return;
+      void processUploadedFile(file);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    [processUploadedFile],
+  );
+
   const aiBusy = busyAiQuestions || busyAiSummary;
   const exportBusy = wordBusy;
+  const anyBusy = aiBusy || uploadBusy || exportBusy;
 
   return (
     <section id="worksheet-pdf" className="worksheet-pdf" aria-labelledby="worksheet-pdf-title">
@@ -203,16 +302,68 @@ export function WorksheetPdfForm() {
               />
             </label>
           </div>
-          <label className="worksheet-pdf__field">
+          <div className="worksheet-pdf__field">
             <span className="worksheet-pdf__label">학습내용</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="worksheet-pdf__file-input"
+              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/gif,image/webp"
+              onChange={(e) => onPickFiles(e.target.files)}
+            />
+            <div
+              className={`worksheet-pdf__drop${dragOver ? " worksheet-pdf__drop--active" : ""}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOver(false);
+                onPickFiles(e.dataTransfer.files);
+              }}
+            >
+              <p className="worksheet-pdf__drop-text ui-ko">
+                <strong>PDF · Word(DOCX) · 이미지</strong>를 드래그하거나 파일 선택
+              </p>
+              <p className="worksheet-pdf__drop-sub ui-ko">
+                텍스트를 추출해 학습내용에 반영합니다. 이미지는 AI Vision으로 읽습니다( API 키 필요).
+              </p>
+              <div className="worksheet-pdf__drop-actions">
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--stack worksheet-pdf__drop-btn"
+                  disabled={anyBusy}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploadBusy ? "분석 중…" : "파일 선택"}
+                </button>
+                <label className="worksheet-pdf__auto-ai">
+                  <input
+                    type="checkbox"
+                    checked={autoAiAfterUpload}
+                    onChange={(e) => setAutoAiAfterUpload(e.target.checked)}
+                    disabled={anyBusy}
+                  />
+                  <span>추출 후 확인문제·핵심요약 자동 생성</span>
+                </label>
+              </div>
+            </div>
             <textarea
               className="worksheet-pdf__textarea worksheet-pdf__textarea--tall"
               rows={6}
               value={form.content}
               onChange={(e) => update("content", e.target.value)}
-              placeholder="본문에 들어갈 학습 내용입니다."
+              placeholder="본문에 들어갈 학습 내용입니다. 또는 위에서 자료를 올려 채울 수 있습니다."
             />
-          </label>
+          </div>
 
           <div className="worksheet-pdf__field worksheet-pdf__field--block">
             <span className="worksheet-pdf__label">확인문제</span>
@@ -245,7 +396,7 @@ export function WorksheetPdfForm() {
                   <button
                     type="button"
                     className="btn btn--primary worksheet-pdf__ai-run"
-                    disabled={aiBusy || exportBusy}
+                    disabled={anyBusy}
                     onClick={() => void runAiQuestions()}
                   >
                     {busyAiQuestions ? "생성 중…" : "AI로 확인문제 생성"}
@@ -292,7 +443,7 @@ export function WorksheetPdfForm() {
                 <button
                   type="button"
                   className="btn btn--primary worksheet-pdf__ai-run worksheet-pdf__ai-run--solo"
-                  disabled={aiBusy || exportBusy}
+                  disabled={anyBusy}
                   onClick={() => void runAiSummary()}
                 >
                   {busyAiSummary ? "생성 중…" : "AI로 핵심요약 작성"}
@@ -356,8 +507,9 @@ export function WorksheetPdfForm() {
           인쇄 시 브라우저 대화상자에서「PDF로 저장」을 고르면 [날짜]_[선생님성함]_[학습단원] 등 원하는 파일명으로 저장할 수 있습니다.
           <span className="worksheet-pdf__hint-sub">
             {" "}
-            AI 기능은 영어 지문 분석과 동일하게 <code className="worksheet-pdf__code">VITE_OPENAI_API_KEY</code> 가
-            필요합니다.
+            PDF·DOCX 텍스트 추출은 브라우저에서 처리하고, <strong>이미지 분석·확인문제·핵심요약</strong>은{" "}
+            <code className="worksheet-pdf__code">VITE_OPENAI_API_KEY</code>와 비전 지원 모델(예:{" "}
+            <code className="worksheet-pdf__code">gpt-4o-mini</code>)이 필요합니다.
           </span>
         </p>
       </div>

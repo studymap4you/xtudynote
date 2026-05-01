@@ -173,6 +173,97 @@ Rules:
 - 일목요연하게 핵심만. 전문 보고서 톤, 과장·감상 없음.
 - 학습내용에 근거한 요약만.`;
 
+function imageMimeOk(mime: string): boolean {
+  return /^image\/(png|jpeg|jpg|gif|webp)$/i.test(mime);
+}
+
+function resolveImageMime(file: File): string {
+  const fromType = (file.type || "").toLowerCase();
+  if (fromType && imageMimeOk(fromType)) return fromType;
+  const n = file.name.toLowerCase();
+  if (/\.jpe?g$/i.test(n)) return "image/jpeg";
+  if (/\.png$/i.test(n)) return "image/png";
+  if (/\.gif$/i.test(n)) return "image/gif";
+  if (/\.webp$/i.test(n)) return "image/webp";
+  throw new Error("이미지 형식을 인식하지 못했습니다. PNG, JPEG, GIF, WEBP만 지원합니다.");
+}
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error("파일을 읽지 못했습니다."));
+    r.readAsDataURL(file);
+  });
+}
+
+/**
+ * 학습지용: 이미지에서 본문 텍스트를 추출합니다(Vision). gpt-4o-mini 등 비전 지원 모델 필요.
+ */
+export async function extractEducationalTextFromImageFile(file: File): Promise<string> {
+  const apiKey = readOpenAiKey();
+  if (!apiKey) {
+    throw new Error(
+      "OpenAI API 키가 없습니다. .env.local에 VITE_OPENAI_API_KEY를 설정한 뒤 개발 서버를 다시 실행하세요.",
+    );
+  }
+  const mime = resolveImageMime(file);
+  const maxBytes = 12 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    throw new Error("이미지는 12MB 이하로 올려 주세요.");
+  }
+
+  const ab = await file.arrayBuffer();
+  const typed = new File([ab], file.name, { type: mime });
+  const dataUrl = await fileToDataUrl(typed);
+  const model = readOpenAiModel();
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.1,
+      max_tokens: 8192,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You transcribe educational materials. Output plain text only: every readable line from the image in reading order. Preserve paragraph breaks. No preamble. If there is almost no text, say (이미지에서 읽을 텍스트가 거의 없습니다.)",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "아래 이미지에 인쇄된 학습·교재 본문을 그대로 옮겨 적어 주세요. 수식·도표는 짧게 설명하거나 생략해도 됩니다.",
+            },
+            { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(
+      t ||
+        `이미지 분석 요청 실패 (${res.status}). 모델이 비전을 지원하는지(VITE_OPENAI_MODEL을 gpt-4o-mini 또는 gpt-4o 등으로) 확인해 주세요.`,
+    );
+  }
+
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+  };
+  const text = data.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error("이미지에서 본문을 추출하지 못했습니다.");
+  return text;
+}
+
 export async function generateProfessionalKeySummary(ctx: WorksheetAiContext): Promise<string> {
   const apiKey = readOpenAiKey();
   if (!apiKey) {
