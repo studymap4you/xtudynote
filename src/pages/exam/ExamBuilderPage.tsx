@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { collection, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -8,11 +8,20 @@ import { db } from "@/firebase/config";
 import { generateAiExamQuestions } from "@/lib/aiExam/generateAiExamQuestions";
 import { downloadExamPaperDocx } from "@/lib/exam/downloadExamPaperDocx";
 import { openExamPaperPrint } from "@/lib/exam/openExamPaperPrint";
+import { parseCommaSeparatedPdfPages } from "@/lib/pdf/parseCommaSeparatedPdfPages";
+import {
+  extractWorksheetPassageFromUpload,
+  isWorksheetPdfUpload,
+  type WorksheetExtractOptions,
+} from "@/lib/worksheet/extractWorksheetPassageFromUpload";
 import type { AiExamQuestion } from "@/types/aiExam";
 import type { ClassroomDocument } from "@/types/classroom";
 import styles from "@/pages/exam/examPages.module.css";
 
 const MAX_ITEMS = 20;
+
+const PASSAGE_FILE_ACCEPT =
+  ".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 type ManualDraft = {
   key: string;
@@ -112,6 +121,14 @@ export function ExamBuilderPage() {
   );
   const [wordBusy, setWordBusy] = useState(false);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadAnalysisMode, setUploadAnalysisMode] = useState<"full" | "range" | "pick">("full");
+  const [pdfPageFromInput, setPdfPageFromInput] = useState("1");
+  const [pdfPageToInput, setPdfPageToInput] = useState("");
+  const [pdfPageListInput, setPdfPageListInput] = useState("");
+
   const teacherName = profile?.displayName?.trim() || firebaseUser?.email?.trim() || "선생님";
 
   useEffect(() => {
@@ -161,6 +178,90 @@ export function ExamBuilderPage() {
   const patchManual = useCallback((key: string, patch: Partial<ManualDraft>) => {
     setManuals((xs) => xs.map((m) => (m.key === key ? { ...m, ...patch } : m)));
   }, []);
+
+  const processPassageFile = useCallback(
+    async (file: File) => {
+      setUploadBusy(true);
+      try {
+        let extractOpts: WorksheetExtractOptions | undefined;
+        if (isWorksheetPdfUpload(file)) {
+          if (uploadAnalysisMode === "range") {
+            const fromPage = Math.max(1, parseInt(pdfPageFromInput.trim(), 10) || 1);
+            const toTrim = pdfPageToInput.trim();
+            if (toTrim !== "") {
+              const toNum = parseInt(toTrim, 10);
+              if (!Number.isFinite(toNum) || toNum < fromPage) {
+                showToast("err", "PDF 끝 페이지는 시작 페이지 이상이거나 비워 두세요.");
+                return;
+              }
+              extractOpts = { pdfPageFrom: fromPage, pdfPageTo: toNum };
+            } else {
+              extractOpts = { pdfPageFrom: fromPage };
+            }
+          } else if (uploadAnalysisMode === "pick") {
+            const parsed = parseCommaSeparatedPdfPages(pdfPageListInput);
+            if (parsed === "invalid") {
+              showToast("err", "페이지는 1 이상의 정수를 쉼표로 구분해 입력하세요. 예: 4, 5, 9");
+              return;
+            }
+            if (parsed === "empty") {
+              showToast("err", "추출할 페이지 번호를 입력하세요. 예: 4, 5, 9");
+              return;
+            }
+            extractOpts = { pdfPageList: parsed };
+          }
+        }
+
+        const ext = file.name.toLowerCase();
+        const isTxt = ext.endsWith(".txt") || (file.type || "").toLowerCase() === "text/plain";
+        let body: string;
+        if (isTxt) {
+          body = (await file.text()).replace(/^\uFEFF/, "");
+        } else {
+          body = await extractWorksheetPassageFromUpload(file, extractOpts);
+        }
+
+        const extracted = body.trim();
+        if (!extracted) {
+          showToast("err", "파일에서 읽을 본문이 없습니다.");
+          return;
+        }
+
+        const insert = `${file.name ? `【${file.name}】\n\n` : ""}${extracted}`;
+        setPassage((prev) => {
+          const t = prev.trim();
+          return t ? `${t}\n\n---\n\n${insert}` : insert;
+        });
+        showToast(
+          "ok",
+          uploadAnalysisMode !== "full" && !isWorksheetPdfUpload(file)
+            ? `「${file.name}」전체 본문을 넣었습니다. (페이지 지정은 PDF만 적용)`
+            : `「${file.name}」본문을 반영했습니다.`,
+        );
+      } catch (e) {
+        showToast("err", e instanceof Error ? e.message : "파일을 읽지 못했습니다.");
+      } finally {
+        setUploadBusy(false);
+      }
+    },
+    [
+      pdfPageFromInput,
+      pdfPageListInput,
+      pdfPageToInput,
+      showToast,
+      uploadAnalysisMode,
+    ],
+  );
+
+  const onPickPassageFiles = useCallback(
+    (list: FileList | null) => {
+      const file = list?.[0];
+      if (!file) return;
+      void processPassageFile(file);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    [processPassageFile],
+  );
 
   const buildManualQuestions = useCallback((): AiExamQuestion[] => {
     const out: AiExamQuestion[] = [];
@@ -343,6 +444,8 @@ export function ExamBuilderPage() {
     }
   }, [assembled.length, examPaperPayload, showToast]);
 
+  const passageWorkBusy = generating || uploadBusy;
+
   return (
     <DashboardShell light>
       <div className={styles.wrap}>
@@ -400,15 +503,154 @@ export function ExamBuilderPage() {
               </span>
             </label>
           </div>
-          <label className={styles.label} style={{ marginTop: "0.75rem" }}>
-            본문 (지문)
+          <div className={styles.passageBlock}>
+            <div className={styles.passageToolbar}>
+              <span id="exam-passage-heading" className={styles.passageToolbarTitle}>
+                본문 (지문)
+              </span>
+              <button
+                type="button"
+                className={`${styles.btn} ${styles.btnGhost} ${styles.filePickBtn}`}
+                disabled={passageWorkBusy}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploadBusy ? "불러오는 중…" : "파일 선택"}
+              </button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={PASSAGE_FILE_ACCEPT}
+              className={styles.fileInputHidden}
+              aria-label="본문용 텍스트, PDF, Word 파일"
+              onChange={(e) => onPickPassageFiles(e.target.files)}
+            />
+            <div
+              className={`${styles.uploadDrop}${dragOver ? ` ${styles.uploadDropActive}` : ""}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOver(false);
+                onPickPassageFiles(e.dataTransfer.files);
+              }}
+            >
+              <p className={styles.uploadDropText}>
+                <strong>PDF · Word(DOCX) · TXT</strong>를 드래그하거나 위에서 파일 선택
+              </p>
+              <p className={styles.uploadDropSub}>
+                추출한 텍스트는 아래 본문에 이어 붙입니다. 이미지 파일은 지원하지 않습니다.
+              </p>
+            </div>
+            <div className={styles.uploadScope}>
+              <span className={styles.uploadScopeLabel}>분석 범위 (PDF)</span>
+              <div className={styles.segmentRow} role="radiogroup" aria-label="PDF 본문 범위">
+                <label className={styles.segmentItem}>
+                  <input
+                    type="radio"
+                    name="exam-passage-scope"
+                    checked={uploadAnalysisMode === "full"}
+                    onChange={() => setUploadAnalysisMode("full")}
+                    disabled={passageWorkBusy}
+                  />
+                  <span>전체</span>
+                </label>
+                <label className={styles.segmentItem}>
+                  <input
+                    type="radio"
+                    name="exam-passage-scope"
+                    checked={uploadAnalysisMode === "range"}
+                    onChange={() => setUploadAnalysisMode("range")}
+                    disabled={passageWorkBusy}
+                  />
+                  <span>
+                    페이지 구간 <span className={styles.segmentNote}>(PDF)</span>
+                  </span>
+                </label>
+                <label className={styles.segmentItem}>
+                  <input
+                    type="radio"
+                    name="exam-passage-scope"
+                    checked={uploadAnalysisMode === "pick"}
+                    onChange={() => setUploadAnalysisMode("pick")}
+                    disabled={passageWorkBusy}
+                  />
+                  <span>
+                    특정 페이지 <span className={styles.segmentNote}>(PDF)</span>
+                  </span>
+                </label>
+              </div>
+              {uploadAnalysisMode === "range" ? (
+                <div className={styles.pageRangeGrid}>
+                  <label className={styles.pageField}>
+                    <span className={styles.pageFieldLabel}>시작 페이지</span>
+                    <input
+                      className={styles.input}
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={pdfPageFromInput}
+                      onChange={(e) => setPdfPageFromInput(e.target.value)}
+                      disabled={passageWorkBusy}
+                      aria-label="PDF 시작 페이지"
+                    />
+                  </label>
+                  <label className={styles.pageField}>
+                    <span className={styles.pageFieldLabel}>끝 페이지</span>
+                    <input
+                      className={styles.input}
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={pdfPageToInput}
+                      onChange={(e) => setPdfPageToInput(e.target.value)}
+                      disabled={passageWorkBusy}
+                      placeholder="비우면 마지막까지"
+                      aria-label="PDF 끝 페이지"
+                    />
+                  </label>
+                  <p className={styles.scopeHint}>.txt · .docx 는 전체 본문만 반영됩니다.</p>
+                </div>
+              ) : null}
+              {uploadAnalysisMode === "pick" ? (
+                <div className={styles.pageRangeGrid}>
+                  <label className={styles.pageFieldWide}>
+                    <span className={styles.pageFieldLabel}>페이지 번호</span>
+                    <input
+                      className={styles.input}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={pdfPageListInput}
+                      onChange={(e) => setPdfPageListInput(e.target.value)}
+                      disabled={passageWorkBusy}
+                      placeholder="예: 4, 5, 9"
+                      aria-label="PDF 특정 페이지"
+                    />
+                  </label>
+                  <p className={styles.scopeHint}>.txt · .docx 는 구간 없이 전체입니다.</p>
+                </div>
+              ) : null}
+            </div>
             <textarea
+              id="exam-passage-textarea"
               className={styles.textarea}
               value={passage}
               onChange={(e) => setPassage(e.target.value)}
-              placeholder="시험의 근거가 되는 본문 전체를 붙여 넣어 주세요."
+              disabled={passageWorkBusy}
+              placeholder="시험의 근거가 되는 본문을 붙여 넣거나, 위에서 파일을 불러오세요."
+              aria-labelledby="exam-passage-heading"
             />
-          </label>
+          </div>
 
           <div className={`${styles.fieldGrid} ${styles.cols2}`} style={{ marginTop: "0.75rem" }}>
             <label className={styles.label}>
@@ -582,7 +824,7 @@ export function ExamBuilderPage() {
           <button
             type="button"
             className={`${styles.btn} ${styles.btnPrimary}`}
-            disabled={generating}
+            disabled={passageWorkBusy}
             onClick={() => void generateAndSave()}
           >
             시험 생성 및 저장
@@ -697,10 +939,12 @@ export function ExamBuilderPage() {
         )}
       </div>
 
-      {generating && (
+      {passageWorkBusy && (
         <div className={styles.overlay} role="alertdialog" aria-busy aria-live="polite">
           <div className={styles.spinner} />
-          <p className={styles.overlayText}>문제 생성 중...</p>
+          <p className={styles.overlayText}>
+            {generating ? "문제 생성 중..." : "본문 파일을 읽는 중..."}
+          </p>
         </div>
       )}
     </DashboardShell>
