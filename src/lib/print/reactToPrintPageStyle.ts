@@ -56,6 +56,10 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
  * 뉴스레터 빌더 — 서버 PDF 대신 브라우저 인쇄(PDF 저장)용
  * 부모 앱 `body`의 다크 배경(var(--bg-deep))이 스타일시트 복사로 iframe에 그대로 들어오므로
  * html/body를 밝게 강제하지 않으면 인쇄 미리보기가 남색으로만 채워질 수 있음.
+ *
+ * **여백:** 페이지마다 상·하 25mm를 맞추려면 `body` 패딩이 아니라 **@page margin** 을 씁니다.
+ * (인쇄 시 body 패딩은 2페이지째 상단에 반영되지 않는 경우가 많습니다.)
+ * 인쇄 대화상자에서는 **여백 「없음」**을 권장합니다. 「기본」이면 브라우저 여백이 더해져 이중으로 보일 수 있습니다.
  */
 export const NEWSLETTER_PRINT_PAGE_STYLE = `
   * { box-sizing: border-box; }
@@ -161,7 +165,7 @@ export const NEWSLETTER_PRINT_PAGE_STYLE = `
   }
   @page {
     size: A4 portrait;
-    margin: 0;
+    margin: 25mm;
   }
   @media print {
     html,
@@ -175,9 +179,6 @@ export const NEWSLETTER_PRINT_PAGE_STYLE = `
       color-adjust: exact !important;
       print-color-adjust: exact !important;
       -webkit-print-color-adjust: exact !important;
-    }
-    body {
-      padding: 20mm 22mm !important;
     }
     .newsletter-print-root section {
       break-inside: avoid;

@@ -559,6 +559,7 @@ export function NewsletterBuilderPage() {
             {published && !finalizedForPdf ? (
               <p className={styles.pdfHint}>
                 내용 확인·편집 후 미리보기 아래 「수정」을 열고 「수정완료」로 확정한 뒤, Word 파일로 내보내거나 인쇄로 PDF를 저장하세요.
+                인쇄 창에서 <strong>여백은 「없음」</strong>으로 두면 페이지마다 상·하·좌·우 25mm 여백이 적용됩니다.
               </p>
             ) : null}
 
