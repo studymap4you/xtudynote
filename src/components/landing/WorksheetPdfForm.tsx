@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { extractWorksheetPassageFromUpload } from "@/lib/worksheet/extractWorksheetPassageFromUpload";
+import {
+  extractWorksheetPassageFromUpload,
+  isWorksheetPdfUpload,
+  type WorksheetExtractOptions,
+} from "@/lib/worksheet/extractWorksheetPassageFromUpload";
 import {
   generateProfessionalKeySummary,
   generateSubjectiveReviewQuestions,
@@ -49,6 +53,9 @@ export function WorksheetPdfForm() {
   const [aiSummaryTools, setAiSummaryTools] = useState(false);
   const [aiQuestionCount, setAiQuestionCount] = useState(5);
   const [teacherAnswersOpen, setTeacherAnswersOpen] = useState(false);
+  const [uploadAnalysisMode, setUploadAnalysisMode] = useState<"full" | "pages">("full");
+  const [pdfPageFromInput, setPdfPageFromInput] = useState("1");
+  const [pdfPageToInput, setPdfPageToInput] = useState("");
 
   useEffect(() => {
     const dn = profile?.displayName?.trim();
@@ -176,8 +183,33 @@ export function WorksheetPdfForm() {
       setErr(null);
       setMsg(null);
       setUploadBusy(true);
+      let extractOpts: WorksheetExtractOptions | undefined;
+      if (uploadAnalysisMode === "pages" && isWorksheetPdfUpload(file)) {
+        const fromPage = Math.max(1, parseInt(pdfPageFromInput.trim(), 10) || 1);
+        const toTrim = pdfPageToInput.trim();
+        if (toTrim !== "") {
+          const toNum = parseInt(toTrim, 10);
+          if (!Number.isFinite(toNum) || toNum < fromPage) {
+            setErr("PDF 끝 페이지는 시작 페이지 이상의 숫자로 입력하거나 비워 두세요.");
+            setUploadBusy(false);
+            return;
+          }
+          extractOpts = { pdfPageFrom: fromPage, pdfPageTo: toNum };
+        } else {
+          extractOpts = { pdfPageFrom: fromPage };
+        }
+      }
+
+      const nonPdfPagesNote =
+        uploadAnalysisMode === "pages" && !isWorksheetPdfUpload(file)
+          ? "페이지 구간 지정은 PDF에만 적용되어 전체 본문을 추출했습니다."
+          : "";
+
       try {
-        const extracted = (await extractWorksheetPassageFromUpload(file)).trim();
+        const extracted = (await extractWorksheetPassageFromUpload(
+          file,
+          extractOpts,
+        )).trim();
         if (!extracted) {
           setErr("파일에서 추출한 본문이 비어 있습니다.");
           return;
@@ -192,9 +224,10 @@ export function WorksheetPdfForm() {
 
         if (!autoAiAfterUpload || nextContent.length < 40) {
           setMsg(
-            hadPrev
+            (hadPrev
               ? "추출한 본문을 기존 학습내용 아래에 이어 붙였습니다."
-              : "파일에서 학습내용을 채웠습니다. 필요하면 수정한 뒤 AI 생성을 누르세요.",
+              : "파일에서 학습내용을 채웠습니다. 필요하면 수정한 뒤 AI 생성을 누르세요.") +
+              (nonPdfPagesNote ? ` ${nonPdfPagesNote}` : ""),
           );
           return;
         }
@@ -223,7 +256,8 @@ export function WorksheetPdfForm() {
           setAiSummaryTools(true);
           setTeacherAnswersOpen(true);
           setMsg(
-            `「${file.name}」분석 후 확인문제 ${aiQuestionCount}문항·핵심요약까지 반영했습니다. 필요 시 수정하세요.`,
+            `「${file.name}」분석 후 확인문제 ${aiQuestionCount}문항·핵심요약까지 반영했습니다. 필요 시 수정하세요.` +
+              (nonPdfPagesNote ? ` ${nonPdfPagesNote}` : ""),
           );
         } catch (e) {
           setErr(
@@ -241,7 +275,14 @@ export function WorksheetPdfForm() {
         setUploadBusy(false);
       }
     },
-    [aiQuestionCount, autoAiAfterUpload, contextFrom],
+    [
+      aiQuestionCount,
+      autoAiAfterUpload,
+      contextFrom,
+      pdfPageFromInput,
+      pdfPageToInput,
+      uploadAnalysisMode,
+    ],
   );
 
   const onPickFiles = useCallback(
@@ -258,13 +299,38 @@ export function WorksheetPdfForm() {
   const exportBusy = wordBusy;
   const anyBusy = aiBusy || uploadBusy || exportBusy;
 
+  const startNewWorksheet = useCallback(() => {
+    if (anyBusy) return;
+    if (!window.confirm("작성 중인 학습내용·확인문제·요약이 모두 지워집니다. 새로 작성할까요?")) return;
+    setForm(emptyForm());
+    setAiExerciseTools(false);
+    setAiSummaryTools(false);
+    setTeacherAnswersOpen(false);
+    setUploadAnalysisMode("full");
+    setPdfPageFromInput("1");
+    setPdfPageToInput("");
+    setMsg(null);
+    setErr(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [anyBusy]);
+
   return (
     <section id="worksheet-pdf" className="worksheet-pdf" aria-labelledby="worksheet-pdf-title">
       <div className="worksheet-pdf__inner">
-        <h2 id="worksheet-pdf-title" className="worksheet-pdf__title">
-          <span className="worksheet-pdf__title-en">Worksheet PDF</span>
-          <span className="worksheet-pdf__title-ko">학습지 PDF 자동 생성</span>
-        </h2>
+        <div className="worksheet-pdf__title-row">
+          <h2 id="worksheet-pdf-title" className="worksheet-pdf__title">
+            <span className="worksheet-pdf__title-en">Worksheet PDF</span>
+            <span className="worksheet-pdf__title-ko">학습지 PDF 자동 생성</span>
+          </h2>
+          <button
+            type="button"
+            className="btn btn--ghost worksheet-pdf__new-task"
+            disabled={anyBusy}
+            onClick={() => startNewWorksheet()}
+          >
+            새로 작성
+          </button>
+        </div>
         <p className="worksheet-pdf__lede ui-ko">
           입력한 내용으로 브라우저 인쇄에서 A4 학습지를 저장(PDF)하거나, 같은 내용을 Word(.docx)로 내려받아 Google 문서에서 편집할 수 있습니다.
           로그인 없이 사용할 수 있습니다.
@@ -355,6 +421,67 @@ export function WorksheetPdfForm() {
                   <span>추출 후 확인문제·핵심요약 자동 생성</span>
                 </label>
               </div>
+            </div>
+            <div className="worksheet-pdf__upload-scope">
+              <span className="worksheet-pdf__label worksheet-pdf__upload-scope-heading ui-ko">분석 범위</span>
+              <div className="worksheet-pdf__segment" role="radiogroup" aria-label="업로드 분석 범위">
+                <label className="worksheet-pdf__segment-item">
+                  <input
+                    type="radio"
+                    name="worksheet-upload-scope"
+                    checked={uploadAnalysisMode === "full"}
+                    onChange={() => setUploadAnalysisMode("full")}
+                    disabled={anyBusy}
+                  />
+                  <span>전체 분석</span>
+                </label>
+                <label className="worksheet-pdf__segment-item">
+                  <input
+                    type="radio"
+                    name="worksheet-upload-scope"
+                    checked={uploadAnalysisMode === "pages"}
+                    onChange={() => setUploadAnalysisMode("pages")}
+                    disabled={anyBusy}
+                  />
+                  <span>
+                    페이지 지정 <span className="worksheet-pdf__segment-note">(PDF)</span>
+                  </span>
+                </label>
+              </div>
+              {uploadAnalysisMode === "pages" ? (
+                <div className="worksheet-pdf__page-range">
+                  <label className="worksheet-pdf__page-field">
+                    <span className="worksheet-pdf__page-field-label">시작 페이지</span>
+                    <input
+                      className="worksheet-pdf__control worksheet-pdf__page-input"
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={pdfPageFromInput}
+                      onChange={(e) => setPdfPageFromInput(e.target.value)}
+                      disabled={anyBusy}
+                      aria-label="PDF 시작 페이지"
+                    />
+                  </label>
+                  <label className="worksheet-pdf__page-field">
+                    <span className="worksheet-pdf__page-field-label">끝 페이지</span>
+                    <input
+                      className="worksheet-pdf__control worksheet-pdf__page-input"
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={pdfPageToInput}
+                      onChange={(e) => setPdfPageToInput(e.target.value)}
+                      disabled={anyBusy}
+                      placeholder="비우면 마지막까지"
+                      aria-label="PDF 끝 페이지, 비우면 마지막 페이지까지"
+                    />
+                  </label>
+                  <p className="worksheet-pdf__upload-scope-hint ui-ko">
+                    번호는 1부터입니다. Word·이미지는 구간 없이 전체가 반영됩니다.
+                  </p>
+                </div>
+              ) : null}
             </div>
             <textarea
               className="worksheet-pdf__textarea worksheet-pdf__textarea--tall"

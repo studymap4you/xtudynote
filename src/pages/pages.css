@@ -4032,6 +4032,23 @@ button.intro-login-card__btn {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
   max-width: 100%;
 }
+.worksheet-pdf__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+}
+.worksheet-pdf__title-row .worksheet-pdf__title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+.worksheet-pdf__new-task {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
 .worksheet-pdf__title {
   margin: 0 0 8px;
   display: flex;
@@ -4167,6 +4184,68 @@ button.intro-login-card__btn {
   width: 1rem;
   height: 1rem;
   accent-color: #007aff;
+}
+.worksheet-pdf__upload-scope {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fafbfc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.worksheet-pdf__upload-scope-heading {
+  margin: 0;
+}
+.worksheet-pdf__segment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+.worksheet-pdf__segment-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+}
+.worksheet-pdf__segment-item input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #007aff;
+}
+.worksheet-pdf__segment-note {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 500;
+}
+.worksheet-pdf__page-range {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.worksheet-pdf__page-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+.worksheet-pdf__page-field-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+.worksheet-pdf__page-input {
+  max-width: 8rem;
+}
+.worksheet-pdf__upload-scope-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #64748b;
 }
 .worksheet-pdf__actions {
   margin-top: 16px;
