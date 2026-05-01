@@ -6,10 +6,64 @@ import { NewsletterEditModal } from "@/components/newsletter/NewsletterEditModal
 import { NewsletterPrintView } from "@/components/newsletter/NewsletterPrintView";
 import { NEWSLETTER_PRINT_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { downloadNewsletterDocx } from "@/lib/newsletter/downloadNewsletterDocx";
-import { requestNewsletterFromImage } from "@/lib/newsletter/requestNewsletterFromImage";
+import { requestNewsletterFromMaterials } from "@/lib/newsletter/requestNewsletterFromImage";
+import { parseCommaSeparatedPdfPages } from "@/lib/pdf/parseCommaSeparatedPdfPages";
+import {
+  extractWorksheetPassageFromUpload,
+  type WorksheetExtractOptions,
+} from "@/lib/worksheet/extractWorksheetPassageFromUpload";
 import type { NewsletterAiResult, NewsletterPurpose } from "@/types/newsletter";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./newsletter-builder.module.css";
+
+const MAX_SOURCE_FILES = 24;
+
+function isNewsletterImageFile(f: File): boolean {
+  return f.type.startsWith("image/");
+}
+
+function isNewsletterPdfFile(f: File): boolean {
+  return f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+}
+
+type PdfExtractMode = "full" | "range" | "pick";
+
+function isPdfExtractPlaceholder(text: string): boolean {
+  return text.includes("PDF에서 본문 텍스트를 찾지 못했습니다");
+}
+
+function buildPdfExtractOptionsForNewsletter(
+  mode: PdfExtractMode,
+  fromStr: string,
+  toStr: string,
+  listStr: string,
+): { opts?: WorksheetExtractOptions; error?: string } {
+  if (mode === "full") return { opts: undefined };
+  if (mode === "range") {
+    const fromPage = Math.max(1, parseInt(fromStr.trim(), 10) || 1);
+    const toTrim = toStr.trim();
+    if (toTrim !== "") {
+      const toNum = parseInt(toTrim, 10);
+      if (!Number.isFinite(toNum) || toNum < fromPage) {
+        return {
+          error: "PDF 끝 페이지는 시작 페이지 이상의 숫자로 입력하거나 비워 두세요.",
+        };
+      }
+      return { opts: { pdfPageFrom: fromPage, pdfPageTo: toNum } };
+    }
+    return { opts: { pdfPageFrom: fromPage } };
+  }
+  const parsed = parseCommaSeparatedPdfPages(listStr);
+  if (parsed === "invalid") {
+    return {
+      error: "PDF 페이지는 1 이상의 정수를 쉼표로 구분해 입력하세요. 예: 4, 5, 9",
+    };
+  }
+  if (parsed === "empty") {
+    return { error: "추출할 페이지 번호를 입력하세요. 예: 4, 5, 9" };
+  }
+  return { opts: { pdfPageList: parsed } };
+}
 
 const PURPOSES: { value: NewsletterPurpose; labelKo: string }[] = [
   { value: "parent_monthly", labelKo: "월간 학부모 소식" },
@@ -25,11 +79,13 @@ function displayBody(raw: string): string {
 export function NewsletterBuilderPage() {
   const { profile } = useAuth();
   const uid = useId();
-  const fileInputId = `${uid}-newsletter-image`;
+  const fileInputId = `${uid}-newsletter-sources`;
   const printRef = useRef<HTMLDivElement>(null);
 
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [sourceFiles, setSourceFiles] = useState<File[]>([]);
+  const [previewEntries, setPreviewEntries] = useState<
+    Array<{ name: string; url?: string; isPdf: boolean }>
+  >([]);
   const [purpose, setPurpose] = useState<NewsletterPurpose>("parent_monthly");
   const [keywords, setKeywords] = useState("");
   const [titleOverride, setTitleOverride] = useState("");
@@ -41,6 +97,10 @@ export function NewsletterBuilderPage() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [exportBusy, setExportBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pdfExtractMode, setPdfExtractMode] = useState<PdfExtractMode>("full");
+  const [pdfPageFromInput, setPdfPageFromInput] = useState("1");
+  const [pdfPageToInput, setPdfPageToInput] = useState("");
+  const [pdfPageListInput, setPdfPageListInput] = useState("");
 
   const teacherName =
     profile?.displayName?.trim() ||
@@ -48,36 +108,84 @@ export function NewsletterBuilderPage() {
     "Xtudy 마스터";
 
   useEffect(() => {
-    if (!imageFile) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(imageFile);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [imageFile]);
+    const urls: string[] = [];
+    const entries = sourceFiles.map((f) => {
+      if (isNewsletterImageFile(f)) {
+        const url = URL.createObjectURL(f);
+        urls.push(url);
+        return { name: f.name, url, isPdf: false };
+      }
+      return { name: f.name, isPdf: true };
+    });
+    setPreviewEntries(entries);
+    return () => {
+      urls.forEach(URL.revokeObjectURL);
+    };
+  }, [sourceFiles]);
 
-  const onFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
+  const onPickSources = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
-    if (!f || !f.type.startsWith("image/")) {
-      setImageFile(null);
-      if (f) setError("이미지 파일만 업로드할 수 있습니다.");
+    const list = e.target.files;
+    e.target.value = "";
+    if (!list?.length) {
+      setSourceFiles([]);
       return;
     }
-    setImageFile(f);
+    const arr = Array.from(list);
+    if (arr.length > MAX_SOURCE_FILES) {
+      setError(`한 번에 최대 ${MAX_SOURCE_FILES}개까지 선택할 수 있습니다.`);
+      return;
+    }
+    const bad = arr.find((f) => !isNewsletterImageFile(f) && !isNewsletterPdfFile(f));
+    if (bad) {
+      setError(`지원하지 않는 형식입니다: ${bad.name} (이미지 또는 PDF만)`);
+      return;
+    }
+    setSourceFiles(arr);
+  }, []);
+
+  const clearSources = useCallback(() => {
+    setSourceFiles([]);
+    setError(null);
   }, []);
 
   const runGenerate = useCallback(async () => {
-    if (!imageFile) {
-      setError("분석할 이미지를 업로드해 주세요.");
+    const imageFiles = sourceFiles.filter(isNewsletterImageFile);
+    const pdfFiles = sourceFiles.filter(isNewsletterPdfFile);
+    if (imageFiles.length === 0 && pdfFiles.length === 0) {
+      setError("이미지 또는 PDF를 하나 이상 선택해 주세요.");
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      const { data, model } = await requestNewsletterFromImage({
-        imageFile,
+      let pdfOpts: WorksheetExtractOptions | undefined;
+      if (pdfFiles.length > 0) {
+        const built = buildPdfExtractOptionsForNewsletter(
+          pdfExtractMode,
+          pdfPageFromInput,
+          pdfPageToInput,
+          pdfPageListInput,
+        );
+        if (built.error) {
+          setError(built.error);
+          return;
+        }
+        pdfOpts = built.opts;
+      }
+
+      const pdfDocuments: { fileName: string; text: string }[] = [];
+      for (const f of pdfFiles) {
+        const text = (await extractWorksheetPassageFromUpload(f, pdfOpts)).trim();
+        if (text && !isPdfExtractPlaceholder(text)) pdfDocuments.push({ fileName: f.name, text });
+      }
+      if (imageFiles.length === 0 && pdfDocuments.length === 0) {
+        setError("PDF에서 읽을 텍스트가 없습니다. 다른 파일을 선택해 주세요.");
+        return;
+      }
+      const { data, model } = await requestNewsletterFromMaterials({
+        imageFiles,
+        pdfDocuments,
         purpose,
         keywords,
         newsletterTitle: titleOverride || undefined,
@@ -93,7 +201,16 @@ export function NewsletterBuilderPage() {
     } finally {
       setBusy(false);
     }
-  }, [imageFile, purpose, keywords, titleOverride]);
+  }, [
+    sourceFiles,
+    purpose,
+    keywords,
+    titleOverride,
+    pdfExtractMode,
+    pdfPageFromInput,
+    pdfPageToInput,
+    pdfPageListInput,
+  ]);
 
   const printNewsletter = useReactToPrint({
     contentRef: printRef,
@@ -148,11 +265,11 @@ export function NewsletterBuilderPage() {
           <h1>Newsletter Builder</h1>
           <p className={styles.headLead}>
             <span className="ui-en">
-              Upload image → Vision AI → preview → finalize edits → export Word (.docx) for Google Docs, or print to PDF.
+              Upload images/PDFs (multi-select) → Vision + PDF text → preview → finalize edits → export Word (.docx) for Google Docs, or print to PDF.
             </span>
             <span className="ui-ko" style={{ display: "block", marginTop: "0.35rem" }}>
-              이미지 업로드 후 GPT-4o Vision이 지문·필기를 읽고,{" "}
-              <strong>학습법 분석(Binary Logic / 시그널 로직)</strong>을 메인 섹션에 넣은 뉴스레터 초안을 만듭니다.
+              이미지와 PDF를 <strong>여러 개 한꺼번에</strong> 올릴 수 있습니다. GPT-4o Vision이 이미지의 지문·필기를 읽고, PDF는 본문 텍스트를 추출해 함께 분석합니다.{" "}
+              <strong>학습법 분석(Binary Logic / 시그널 로직)</strong>이 메인 섹션에 들어간 뉴스레터 초안이 만들어집니다.
               확정 후 <strong>Word(.docx) 내보내기</strong>로 구글 독스 등에서 열어 수정하거나, 브라우저{" "}
               <strong>인쇄</strong>에서 <strong>PDF로 저장</strong>할 수 있습니다.
             </span>
@@ -164,14 +281,133 @@ export function NewsletterBuilderPage() {
             <h2 className={styles.panelTitle}>Editor</h2>
 
             <div className={styles.field}>
-              <label htmlFor={fileInputId}>이미지 업로드 (지문·필기 포함)</label>
-              <input id={fileInputId} type="file" accept="image/*" onChange={onFile} />
-              {previewUrl ? (
-                <div className={styles.thumb}>
-                  <img src={previewUrl} alt="업로드 미리보기" />
+              <div className={styles.uploadRow}>
+                <label htmlFor={fileInputId}>이미지·PDF 업로드 (다중 선택)</label>
+                {sourceFiles.length > 0 ? (
+                  <button
+                    type="button"
+                    className={styles.btnLink}
+                    onClick={clearSources}
+                    disabled={busy}
+                  >
+                    선택 초기화
+                  </button>
+                ) : null}
+              </div>
+              <p className={styles.uploadHint}>
+                한 파일 선택 대화상자에서 Ctrl/Shift로 여러 장을 고를 수 있습니다. PDF는 텍스트 추출 후 AI에 전달되고, 이미지는 비전으로 함께 분석됩니다.
+              </p>
+              <input
+                id={fileInputId}
+                type="file"
+                accept="image/*,.pdf,application/pdf"
+                multiple
+                onChange={onPickSources}
+              />
+              {previewEntries.length > 0 ? (
+                <div className={styles.sourcePreviews} aria-label="선택한 파일 미리보기">
+                  {previewEntries.map((e, i) =>
+                    e.isPdf ? (
+                      <div key={`pdf-${e.name}-${i}`} className={styles.pdfChip} title={e.name}>
+                        <span className={styles.pdfIcon} aria-hidden>
+                          PDF
+                        </span>
+                        <span className={styles.pdfName}>{e.name}</span>
+                      </div>
+                    ) : (
+                      <div key={e.url ?? `img-${e.name}-${i}`} className={styles.thumb}>
+                        <img src={e.url} alt="" />
+                      </div>
+                    ),
+                  )}
                 </div>
               ) : null}
             </div>
+
+            {sourceFiles.some(isNewsletterPdfFile) ? (
+              <div className={styles.pdfScope}>
+                <p className={styles.pdfScopeTitle}>PDF 텍스트 추출 범위</p>
+                <p className={styles.pdfScopeHint}>
+                  모든 업로드한 PDF에 동일하게 적용됩니다. 이미지는 비전으로 전체를 봅니다.
+                </p>
+                <div className={styles.segmentRow} role="radiogroup" aria-label="PDF 추출 범위">
+                  <label className={styles.segmentLabel}>
+                    <input
+                      type="radio"
+                      name={`${uid}-pdf-extract`}
+                      checked={pdfExtractMode === "full"}
+                      onChange={() => setPdfExtractMode("full")}
+                      disabled={busy}
+                    />
+                    전체
+                  </label>
+                  <label className={styles.segmentLabel}>
+                    <input
+                      type="radio"
+                      name={`${uid}-pdf-extract`}
+                      checked={pdfExtractMode === "range"}
+                      onChange={() => setPdfExtractMode("range")}
+                      disabled={busy}
+                    />
+                    페이지 구간
+                  </label>
+                  <label className={styles.segmentLabel}>
+                    <input
+                      type="radio"
+                      name={`${uid}-pdf-extract`}
+                      checked={pdfExtractMode === "pick"}
+                      onChange={() => setPdfExtractMode("pick")}
+                      disabled={busy}
+                    />
+                    특정 페이지
+                  </label>
+                </div>
+                {pdfExtractMode === "range" ? (
+                  <div className={styles.pageRangeRow}>
+                    <label className={styles.pageField}>
+                      <span className={styles.pageFieldCap}>시작</span>
+                      <input
+                        type="number"
+                        min={1}
+                        inputMode="numeric"
+                        value={pdfPageFromInput}
+                        onChange={(e) => setPdfPageFromInput(e.target.value)}
+                        disabled={busy}
+                        aria-label="PDF 시작 페이지"
+                      />
+                    </label>
+                    <label className={styles.pageField}>
+                      <span className={styles.pageFieldCap}>끝</span>
+                      <input
+                        type="number"
+                        min={1}
+                        inputMode="numeric"
+                        value={pdfPageToInput}
+                        onChange={(e) => setPdfPageToInput(e.target.value)}
+                        disabled={busy}
+                        placeholder="마지막까지"
+                        aria-label="PDF 끝 페이지"
+                      />
+                    </label>
+                  </div>
+                ) : null}
+                {pdfExtractMode === "pick" ? (
+                  <label className={styles.pageListField}>
+                    <span className={styles.pageFieldCap}>페이지</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={pdfPageListInput}
+                      onChange={(e) => setPdfPageListInput(e.target.value)}
+                      disabled={busy}
+                      placeholder="예: 4, 5, 9"
+                      aria-label="PDF 특정 페이지, 쉼표 구분"
+                    />
+                  </label>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className={styles.field}>
               <label htmlFor={`${uid}-purpose`}>뉴스레터 목적</label>
@@ -210,7 +446,12 @@ export function NewsletterBuilderPage() {
             </div>
 
             <div className={styles.actions}>
-              <button type="button" className={styles.btnPrimary} disabled={busy || !imageFile} onClick={runGenerate}>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                disabled={busy || sourceFiles.length === 0}
+                onClick={() => void runGenerate()}
+              >
                 {busy ? "생성 중…" : "뉴스레터 생성"}
               </button>
               <button
@@ -251,7 +492,7 @@ export function NewsletterBuilderPage() {
             <div className={styles.preview}>
               {!published ? (
                 <p className={styles.previewEmpty}>
-                  이미지와 옵션을 채운 뒤 「뉴스레터 생성」을 누르면 이 영역에 결과가 표시됩니다. 메인 섹션은 항상{" "}
+                  이미지·PDF와 옵션을 채운 뒤 「뉴스레터 생성」을 누르면 이 영역에 결과가 표시됩니다. 메인 섹션은 항상{" "}
                   <strong>Binary Logic · 시그널 로직</strong> 기반 학습법 분석입니다.
                 </p>
               ) : (
