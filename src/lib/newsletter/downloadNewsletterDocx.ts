@@ -8,6 +8,7 @@ import {
   Table,
   TableBorders,
   TableCell,
+  TableLayoutType,
   TableRow,
   TextRun,
   VerticalAlignTable,
@@ -97,6 +98,9 @@ function bodyParagraphs(text: string): Paragraph[] {
   );
 }
 
+/** 본문 폭(대략 A4 세로·기본 여백 기준) twips — 고정 열 너비에 사용 */
+const DOC_BODY_GRID_TWIPS = 8760;
+
 async function sectionBlocks(s: NewsletterSection): Promise<(Paragraph | Table)[]> {
   const out: (Paragraph | Table)[] = [];
   out.push(
@@ -112,23 +116,28 @@ async function sectionBlocks(s: NewsletterSection): Promise<(Paragraph | Table)[
   const hasImg = !!s.imageDataUrl;
 
   if (hasImg && (layout === "left" || layout === "right")) {
-    const colImg = Math.min(90, Math.max(25, s.imageWidthPercent ?? 40));
-    const colText = 100 - colImg;
-    const imgPara = await imageParagraph(s.imageDataUrl!, colImg);
+    const colImgPct = Math.min(90, Math.max(25, s.imageWidthPercent ?? 40));
+    const colTextPct = 100 - colImgPct;
+    const imgColTwips = Math.max(1200, Math.round((DOC_BODY_GRID_TWIPS * colImgPct) / 100));
+    const textColTwips = Math.max(1800, DOC_BODY_GRID_TWIPS - imgColTwips);
+    const imgPara = await imageParagraph(s.imageDataUrl!, colImgPct);
     const textParas = bodyParagraphs(s.bodyKo);
+    const cellPad = { marginUnitType: WidthType.DXA, top: 80, bottom: 80, left: 60, right: 60 };
     const row =
       layout === "left"
         ? new TableRow({
             children: [
               new TableCell({
                 children: [imgPara],
-                width: { size: colImg, type: WidthType.PERCENTAGE },
+                width: { size: colImgPct, type: WidthType.PERCENTAGE },
                 verticalAlign: VerticalAlignTable.TOP,
+                margins: cellPad,
               }),
               new TableCell({
                 children: textParas,
-                width: { size: colText, type: WidthType.PERCENTAGE },
+                width: { size: colTextPct, type: WidthType.PERCENTAGE },
                 verticalAlign: VerticalAlignTable.TOP,
+                margins: cellPad,
               }),
             ],
           })
@@ -136,19 +145,25 @@ async function sectionBlocks(s: NewsletterSection): Promise<(Paragraph | Table)[
             children: [
               new TableCell({
                 children: textParas,
-                width: { size: colText, type: WidthType.PERCENTAGE },
+                width: { size: colTextPct, type: WidthType.PERCENTAGE },
                 verticalAlign: VerticalAlignTable.TOP,
+                margins: cellPad,
               }),
               new TableCell({
                 children: [imgPara],
-                width: { size: colImg, type: WidthType.PERCENTAGE },
+                width: { size: colImgPct, type: WidthType.PERCENTAGE },
                 verticalAlign: VerticalAlignTable.TOP,
+                margins: cellPad,
               }),
             ],
           });
+    const gridTwips =
+      layout === "left" ? ([imgColTwips, textColTwips] as const) : ([textColTwips, imgColTwips] as const);
     out.push(
       new Table({
+        layout: TableLayoutType.FIXED,
         width: { size: 100, type: WidthType.PERCENTAGE },
+        columnWidths: [...gridTwips],
         borders: TableBorders.NONE,
         rows: [row],
       }),

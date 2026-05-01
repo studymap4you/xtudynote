@@ -188,5 +188,33 @@ export const NEWSLETTER_PRINT_PAGE_STYLE = `
     .newsletter-print-root img {
       page-break-inside: avoid;
     }
+    /*
+     * Chrome/Edge 인쇄·PDF 저장 시 flex row가 세로 스택으로 바뀌는 경우가 많아,
+     * 미리보기(화면 flex)와 맞추려면 print에서는 float 기반 흐름이 안정적입니다.
+     */
+    .newsletter-print-root .newsletter-print-flex-row {
+      display: block !important;
+      width: 100% !important;
+      overflow: visible !important;
+    }
+    .newsletter-print-root .newsletter-print-flex-row figure {
+      float: left !important;
+      max-width: 52% !important;
+      margin: 0 10pt 8pt 0 !important;
+      box-sizing: border-box !important;
+    }
+    .newsletter-print-root .newsletter-print-flex-row--rev figure {
+      float: right !important;
+      margin: 0 0 8pt 10pt !important;
+    }
+    .newsletter-print-root .newsletter-print-flex-row .newsletter-print-body {
+      display: block !important;
+      overflow: visible !important;
+    }
+    .newsletter-print-root .newsletter-print-flex-row::after {
+      content: "" !important;
+      display: table !important;
+      clear: both !important;
+    }
   }
 `;

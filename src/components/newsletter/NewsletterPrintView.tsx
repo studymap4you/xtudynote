@@ -19,7 +19,7 @@ function SectionBody({ s }: { s: NewsletterSection }) {
       <div className={rowCls}>
         <figure
           className={styles.sideFigure}
-          style={{ width: `${Math.min(55, Math.max(22, pct))}%` }}
+          style={{ width: `${Math.min(52, Math.max(24, pct))}%` }}
         >
           <img src={s.imageDataUrl} alt="" className={styles.sideImg} />
         </figure>
