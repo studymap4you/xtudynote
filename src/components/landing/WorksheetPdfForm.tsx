@@ -37,6 +37,29 @@ const emptyForm = (): FormState => ({
   teacherName: "",
 });
 
+/** "4, 5, 9" 형태. 빈 문자열이면 empty, 잘못된 토큰이면 invalid */
+function parseCommaSeparatedPdfPages(raw: string): "empty" | "invalid" | number[] {
+  const segments = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (segments.length === 0) return "empty";
+  const nums: number[] = [];
+  for (const seg of segments) {
+    const n = Number.parseInt(seg, 10);
+    if (!Number.isFinite(n) || n < 1) return "invalid";
+    nums.push(Math.floor(n));
+  }
+  const seen = new Set<number>();
+  const deduped: number[] = [];
+  for (const n of nums) {
+    if (seen.has(n)) continue;
+    seen.add(n);
+    deduped.push(n);
+  }
+  return deduped;
+}
+
 export function WorksheetPdfForm() {
   const { profile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,9 +76,10 @@ export function WorksheetPdfForm() {
   const [aiSummaryTools, setAiSummaryTools] = useState(false);
   const [aiQuestionCount, setAiQuestionCount] = useState(5);
   const [teacherAnswersOpen, setTeacherAnswersOpen] = useState(false);
-  const [uploadAnalysisMode, setUploadAnalysisMode] = useState<"full" | "pages">("full");
+  const [uploadAnalysisMode, setUploadAnalysisMode] = useState<"full" | "range" | "pick">("full");
   const [pdfPageFromInput, setPdfPageFromInput] = useState("1");
   const [pdfPageToInput, setPdfPageToInput] = useState("");
+  const [pdfPageListInput, setPdfPageListInput] = useState("");
 
   useEffect(() => {
     const dn = profile?.displayName?.trim();
@@ -184,24 +208,39 @@ export function WorksheetPdfForm() {
       setMsg(null);
       setUploadBusy(true);
       let extractOpts: WorksheetExtractOptions | undefined;
-      if (uploadAnalysisMode === "pages" && isWorksheetPdfUpload(file)) {
-        const fromPage = Math.max(1, parseInt(pdfPageFromInput.trim(), 10) || 1);
-        const toTrim = pdfPageToInput.trim();
-        if (toTrim !== "") {
-          const toNum = parseInt(toTrim, 10);
-          if (!Number.isFinite(toNum) || toNum < fromPage) {
-            setErr("PDF 끝 페이지는 시작 페이지 이상의 숫자로 입력하거나 비워 두세요.");
+      if (isWorksheetPdfUpload(file)) {
+        if (uploadAnalysisMode === "range") {
+          const fromPage = Math.max(1, parseInt(pdfPageFromInput.trim(), 10) || 1);
+          const toTrim = pdfPageToInput.trim();
+          if (toTrim !== "") {
+            const toNum = parseInt(toTrim, 10);
+            if (!Number.isFinite(toNum) || toNum < fromPage) {
+              setErr("PDF 끝 페이지는 시작 페이지 이상의 숫자로 입력하거나 비워 두세요.");
+              setUploadBusy(false);
+              return;
+            }
+            extractOpts = { pdfPageFrom: fromPage, pdfPageTo: toNum };
+          } else {
+            extractOpts = { pdfPageFrom: fromPage };
+          }
+        } else if (uploadAnalysisMode === "pick") {
+          const parsed = parseCommaSeparatedPdfPages(pdfPageListInput);
+          if (parsed === "invalid") {
+            setErr("PDF 페이지는 1 이상의 정수를 쉼표로 구분해 입력하세요. 예: 4, 5, 9");
             setUploadBusy(false);
             return;
           }
-          extractOpts = { pdfPageFrom: fromPage, pdfPageTo: toNum };
-        } else {
-          extractOpts = { pdfPageFrom: fromPage };
+          if (parsed === "empty") {
+            setErr("추출할 페이지 번호를 입력하세요. 예: 4, 5, 9");
+            setUploadBusy(false);
+            return;
+          }
+          extractOpts = { pdfPageList: parsed };
         }
       }
 
       const nonPdfPagesNote =
-        uploadAnalysisMode === "pages" && !isWorksheetPdfUpload(file)
+        uploadAnalysisMode !== "full" && !isWorksheetPdfUpload(file)
           ? "페이지 구간 지정은 PDF에만 적용되어 전체 본문을 추출했습니다."
           : "";
 
@@ -280,6 +319,7 @@ export function WorksheetPdfForm() {
       autoAiAfterUpload,
       contextFrom,
       pdfPageFromInput,
+      pdfPageListInput,
       pdfPageToInput,
       uploadAnalysisMode,
     ],
@@ -309,6 +349,7 @@ export function WorksheetPdfForm() {
     setUploadAnalysisMode("full");
     setPdfPageFromInput("1");
     setPdfPageToInput("");
+    setPdfPageListInput("");
     setMsg(null);
     setErr(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -439,16 +480,28 @@ export function WorksheetPdfForm() {
                   <input
                     type="radio"
                     name="worksheet-upload-scope"
-                    checked={uploadAnalysisMode === "pages"}
-                    onChange={() => setUploadAnalysisMode("pages")}
+                    checked={uploadAnalysisMode === "range"}
+                    onChange={() => setUploadAnalysisMode("range")}
                     disabled={anyBusy}
                   />
                   <span>
-                    페이지 지정 <span className="worksheet-pdf__segment-note">(PDF)</span>
+                    페이지 구간 <span className="worksheet-pdf__segment-note">(PDF)</span>
+                  </span>
+                </label>
+                <label className="worksheet-pdf__segment-item">
+                  <input
+                    type="radio"
+                    name="worksheet-upload-scope"
+                    checked={uploadAnalysisMode === "pick"}
+                    onChange={() => setUploadAnalysisMode("pick")}
+                    disabled={anyBusy}
+                  />
+                  <span>
+                    특정 페이지 <span className="worksheet-pdf__segment-note">(PDF)</span>
                   </span>
                 </label>
               </div>
-              {uploadAnalysisMode === "pages" ? (
+              {uploadAnalysisMode === "range" ? (
                 <div className="worksheet-pdf__page-range">
                   <label className="worksheet-pdf__page-field">
                     <span className="worksheet-pdf__page-field-label">시작 페이지</span>
@@ -478,7 +531,28 @@ export function WorksheetPdfForm() {
                     />
                   </label>
                   <p className="worksheet-pdf__upload-scope-hint ui-ko">
-                    번호는 1부터입니다. Word·이미지는 구간 없이 전체가 반영됩니다.
+                    연속 구간만 추출합니다. 번호는 1부터입니다. Word·이미지는 구간 없이 전체가 반영됩니다.
+                  </p>
+                </div>
+              ) : null}
+              {uploadAnalysisMode === "pick" ? (
+                <div className="worksheet-pdf__page-range">
+                  <label className="worksheet-pdf__page-field worksheet-pdf__page-field--wide">
+                    <span className="worksheet-pdf__page-field-label">페이지 번호</span>
+                    <input
+                      className="worksheet-pdf__control worksheet-pdf__page-list-input"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={pdfPageListInput}
+                      onChange={(e) => setPdfPageListInput(e.target.value)}
+                      disabled={anyBusy}
+                      placeholder="예: 4, 5, 9"
+                      aria-label="PDF 특정 페이지, 쉼표로 구분"
+                    />
+                  </label>
+                  <p className="worksheet-pdf__upload-scope-hint ui-ko">
+                    쉼표로 구분해 여러 페이지를 골라 추출합니다(순서대로 이어 붙입니다). Word·이미지는 전체가 반영됩니다.
                   </p>
                 </div>
               ) : null}

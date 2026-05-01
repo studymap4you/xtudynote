@@ -4241,6 +4241,12 @@ button.intro-login-card__btn {
 .worksheet-pdf__page-input {
   max-width: 8rem;
 }
+.worksheet-pdf__page-field--wide {
+  max-width: 100%;
+}
+.worksheet-pdf__page-list-input {
+  max-width: 100%;
+}
 .worksheet-pdf__upload-scope-hint {
   margin: 0;
   font-size: 0.75rem;

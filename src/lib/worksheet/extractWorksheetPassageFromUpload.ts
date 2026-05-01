@@ -14,10 +14,12 @@ export function isWorksheetPdfUpload(file: File): boolean {
 }
 
 export type WorksheetExtractOptions = {
-  /** PDF만 적용. 없거나 전체 분석이면 생략 */
+  /** PDF만 적용. pdfPageList 가 있으면 구간보다 우선 */
   pdfPageFrom?: number;
   /** PDF만 적용. 생략 시 마지막 페이지까지 */
   pdfPageTo?: number;
+  /** PDF만 적용. 1-based, 입력 순서 유지·문서 범위 밖·중복 제거는 추출 단계에서 처리 */
+  pdfPageList?: number[];
 };
 
 /** PDF, DOCX, 이미지에서 학습지 본문용 텍스트를 추출합니다. 이미지는 OpenAI Vision을 사용합니다. */
@@ -33,15 +35,21 @@ export async function extractWorksheetPassageFromUpload(
   }
 
   if (isWorksheetPdfUpload(file)) {
-    const usePartial =
-      options != null && (options.pdfPageFrom != null || options.pdfPageTo != null);
-    const range = usePartial
-      ? {
-          fromPage: options!.pdfPageFrom ?? 1,
-          toPage: options!.pdfPageTo,
-        }
-      : null;
-    const t = (await extractPdfPlainTextFromBuffer(buf, range)).trim();
+    const list = options?.pdfPageList;
+    const useList = list != null && list.length > 0;
+    const useRange =
+      !useList &&
+      options != null &&
+      (options.pdfPageFrom != null || options.pdfPageTo != null);
+    const selection = useList
+      ? { pages: list! }
+      : useRange
+        ? {
+            fromPage: options!.pdfPageFrom ?? 1,
+            toPage: options!.pdfPageTo,
+          }
+        : null;
+    const t = (await extractPdfPlainTextFromBuffer(buf, selection)).trim();
     return t || "(PDF에서 본문 텍스트를 찾지 못했습니다. 아래 지문란을 직접 채워 주세요.)";
   }
 
