@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { useReactToPrint } from "react-to-print";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -259,7 +260,7 @@ export function NewsletterBuilderPage() {
   ]);
 
   const printNewsletter = useReactToPrint({
-    contentRef: printRef,
+    ignoreGlobalStyles: true,
     documentTitle: () => {
       const raw = published?.titleKo?.slice(0, 72) ?? "newsletter";
       const safe = raw.replace(/[/\\?%*:|"<>]/g, "_").trim() || "newsletter";
@@ -267,11 +268,10 @@ export function NewsletterBuilderPage() {
     },
     pageStyle: NEWSLETTER_PRINT_PAGE_STYLE,
     onBeforePrint: async () => {
-      setPdfBusy(true);
-      /* 수정 완료 직후 인쇄 시 printRef 자식이 아직 커밋 안 된 프레임이 있을 수 있음 */
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       });
+      await new Promise<void>((r) => setTimeout(r, 50));
     },
     onAfterPrint: () => {
       setPdfBusy(false);
@@ -284,8 +284,14 @@ export function NewsletterBuilderPage() {
 
   const runPrint = useCallback(() => {
     if (!published || !finalizedForPdf) return;
+    const node = printRef.current;
+    if (!node || !node.querySelector(".newsletter-print-root")) {
+      setError("인쇄할 뉴스레터가 준비되지 않았습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.");
+      return;
+    }
     setError(null);
-    printNewsletter();
+    setPdfBusy(true);
+    printNewsletter(() => node);
   }, [published, finalizedForPdf, printNewsletter]);
 
   const runExportDocx = useCallback(async () => {
@@ -619,15 +625,20 @@ export function NewsletterBuilderPage() {
         />
       ) : null}
 
-      <div ref={printRef} className={styles.printSink}>
-        {published ? (
-          <NewsletterPrintView
-            data={published}
-            teacherName={teacherName}
-            issueLabel={new Date().toLocaleDateString("ko-KR", { dateStyle: "medium" })}
-          />
-        ) : null}
-      </div>
+      {typeof document !== "undefined"
+        ? createPortal(
+            <div ref={printRef} className={styles.printSink} id="newsletter-print-mount">
+              {published ? (
+                <NewsletterPrintView
+                  data={published}
+                  teacherName={teacherName}
+                  issueLabel={new Date().toLocaleDateString("ko-KR", { dateStyle: "medium" })}
+                />
+              ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </DashboardShell>
   );
 }

@@ -11,15 +11,19 @@ function SectionBody({ s }: { s: NewsletterSection }) {
   const pct = s.imageWidthPercent ?? (layout === "block" ? 100 : 40);
 
   if (s.imageDataUrl && (layout === "left" || layout === "right")) {
+    const rowCls =
+      layout === "left"
+        ? `newsletter-print-flex-row ${styles.sideRow}`
+        : `newsletter-print-flex-row newsletter-print-flex-row--rev ${styles.sideRow} ${styles.sideRowRev}`;
     return (
-      <div className={layout === "left" ? styles.sideRow : `${styles.sideRow} ${styles.sideRowRev}`}>
+      <div className={rowCls}>
         <figure
           className={styles.sideFigure}
           style={{ width: `${Math.min(55, Math.max(22, pct))}%` }}
         >
           <img src={s.imageDataUrl} alt="" className={styles.sideImg} />
         </figure>
-        <div className={styles.sideText}>{displayBody(s.bodyKo)}</div>
+        <div className={`newsletter-print-body ${styles.sideText}`}>{displayBody(s.bodyKo)}</div>
       </div>
     );
   }
@@ -27,7 +31,7 @@ function SectionBody({ s }: { s: NewsletterSection }) {
   return (
     <>
       {s.imageDataUrl ? (
-        <div className={styles.imgWrap}>
+        <div className={`newsletter-print-imgwrap ${styles.imgWrap}`}>
           <img
             src={s.imageDataUrl}
             alt=""
@@ -36,7 +40,7 @@ function SectionBody({ s }: { s: NewsletterSection }) {
           />
         </div>
       ) : null}
-      <div className={styles.body}>{displayBody(s.bodyKo)}</div>
+      <div className={`newsletter-print-body ${styles.body}`}>{displayBody(s.bodyKo)}</div>
     </>
   );
 }
@@ -68,7 +72,7 @@ export function NewsletterPrintView({ data, teacherName, issueLabel }: Newslette
         </section>
       ))}
 
-      <p className={styles.printFoot}>Xtudy-Universe · Learning Newsletter</p>
+      <p className={`printFoot ${styles.printFoot}`}>Xtudy-Universe · Learning Newsletter</p>
     </div>
   );
 }

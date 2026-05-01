@@ -564,6 +564,7 @@
   top: 0;
   width: 210mm;
   max-width: 794px;
+  pointer-events: none;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 

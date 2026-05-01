@@ -58,11 +58,106 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
  * html/body를 밝게 강제하지 않으면 인쇄 미리보기가 남색으로만 채워질 수 있음.
  */
 export const NEWSLETTER_PRINT_PAGE_STYLE = `
+  * { box-sizing: border-box; }
   html,
   body {
-    background: #f8fafc !important;
+    margin: 0;
+    background: #ffffff !important;
     color: #0f172a !important;
-    box-sizing: border-box !important;
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  }
+  .newsletter-print-root {
+    max-width: 100%;
+    font-size: 11pt;
+    line-height: 1.55;
+    color: #0c1222 !important;
+    background: #ffffff !important;
+    padding: 2mm 0 0;
+  }
+  .newsletter-print-root > header {
+    background: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);
+    border: 1px solid #cbd5e1;
+    padding: 0.65rem 0.85rem;
+    margin: 0 0 1rem;
+    border-radius: 10px;
+  }
+  .newsletter-print-root > header p {
+    margin: 0;
+    font-size: 8.5pt;
+    color: #64748b !important;
+  }
+  .newsletter-print-root .brand {
+    margin: 0 0 0.25rem;
+    font-size: 8pt;
+    color: #64748b !important;
+  }
+  .newsletter-print-root h1 {
+    margin: 0 0 0.65rem;
+    font-size: 16pt;
+    font-weight: 800;
+    line-height: 1.25;
+    color: #0c1222 !important;
+  }
+  .newsletter-print-root .rule {
+    height: 2px;
+    background: #e2e8f0;
+    margin: 0 0 1rem;
+    border-radius: 1px;
+  }
+  .newsletter-print-root section {
+    margin-bottom: 1rem;
+    padding: 0.55rem 0.6rem 0.75rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+  }
+  .newsletter-print-root h2 {
+    margin: 0 0 0.45rem;
+    font-size: 11.5pt;
+    font-weight: 700;
+    color: #1e40af !important;
+    letter-spacing: -0.02em;
+  }
+  .newsletter-print-root .newsletter-print-imgwrap {
+    margin: 0 0 0.55rem;
+    max-width: 100%;
+  }
+  .newsletter-print-root img {
+    display: block;
+    max-width: 100% !important;
+    height: auto !important;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+  .newsletter-print-root .newsletter-print-flex-row {
+    display: flex !important;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.55rem;
+    margin: 0 0 0.35rem;
+  }
+  .newsletter-print-root .newsletter-print-flex-row--rev {
+    flex-direction: row-reverse;
+  }
+  .newsletter-print-root .newsletter-print-flex-row figure {
+    flex-shrink: 0;
+    margin: 0;
+    min-width: 0;
+  }
+  .newsletter-print-body {
+    margin: 0 !important;
+    white-space: pre-wrap !important;
+    color: #1e293b !important;
+    font-size: 10pt !important;
+    line-height: 1.65 !important;
+  }
+  .newsletter-print-root .printFoot {
+    margin: 1.25rem 0 0;
+    padding-top: 0.65rem;
+    border-top: 1px solid #e2e8f0;
+    font-size: 8pt;
+    color: #94a3b8 !important;
+    text-align: center;
   }
   @page {
     size: A4 portrait;
@@ -75,20 +170,14 @@ export const NEWSLETTER_PRINT_PAGE_STYLE = `
       min-height: 0 !important;
       margin: 0 !important;
       padding: 0 !important;
-      background: #f8fafc !important;
+      background: #ffffff !important;
       color: #0f172a !important;
-      box-sizing: border-box !important;
       color-adjust: exact !important;
       print-color-adjust: exact !important;
       -webkit-print-color-adjust: exact !important;
     }
     body {
-      padding: 22mm 24mm !important;
-      font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif;
-    }
-    .newsletter-print-root {
-      background: transparent !important;
-      color: #0f172a !important;
+      padding: 20mm 22mm !important;
     }
     .newsletter-print-root section {
       break-inside: avoid;
@@ -97,7 +186,6 @@ export const NEWSLETTER_PRINT_PAGE_STYLE = `
       break-after: avoid;
     }
     .newsletter-print-root img {
-      max-width: 100% !important;
       page-break-inside: avoid;
     }
   }
