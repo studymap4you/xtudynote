@@ -97,6 +97,112 @@
   margin: 0;
 }
 
+.uploadScope {
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.uploadScopeLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #475569;
+}
+
+.segmentRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+}
+
+.segmentItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+}
+
+.segmentItem input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: #2563eb;
+}
+
+.segmentNote {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.pageRangeGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pageField,
+.pageFieldWide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+}
+
+.pageFieldLabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.pageNumInput {
+  width: 100%;
+  max-width: 5.5rem;
+  box-sizing: border-box;
+  min-height: 2rem;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.82rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #0f172a;
+}
+
+.pageListInput {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 2rem;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.82rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #0f172a;
+}
+
+.pageNumInput:focus,
+.pageListInput:focus {
+  outline: 2px solid rgba(37, 99, 235, 0.3);
+  outline-offset: 0;
+  border-color: #93c5fd;
+}
+
+.scopeHint {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+
 .fileBtn {
   flex-shrink: 0;
   display: inline-flex;
