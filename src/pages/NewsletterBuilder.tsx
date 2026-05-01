@@ -125,13 +125,14 @@ export function NewsletterBuilderPage() {
 
   const onPickSources = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
-    const list = e.target.files;
+    const files = e.target.files;
+    // FileList는 입력 값을 비우면 즉시 비워지는(live) 참조라, 먼저 복사해야 합니다.
+    const arr = files && files.length > 0 ? Array.from(files) : [];
     e.target.value = "";
-    if (!list?.length) {
+    if (!arr.length) {
       setSourceFiles([]);
       return;
     }
-    const arr = Array.from(list);
     if (arr.length > MAX_SOURCE_FILES) {
       setError(`한 번에 최대 ${MAX_SOURCE_FILES}개까지 선택할 수 있습니다.`);
       return;
