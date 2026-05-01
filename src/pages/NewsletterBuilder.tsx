@@ -268,6 +268,10 @@ export function NewsletterBuilderPage() {
     pageStyle: NEWSLETTER_PRINT_PAGE_STYLE,
     onBeforePrint: async () => {
       setPdfBusy(true);
+      /* 수정 완료 직후 인쇄 시 printRef 자식이 아직 커밋 안 된 프레임이 있을 수 있음 */
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
     },
     onAfterPrint: () => {
       setPdfBusy(false);
@@ -615,8 +619,8 @@ export function NewsletterBuilderPage() {
         />
       ) : null}
 
-      <div ref={printRef} className={styles.printSink} aria-hidden>
-        {published && finalizedForPdf ? (
+      <div ref={printRef} className={styles.printSink}>
+        {published ? (
           <NewsletterPrintView
             data={published}
             teacherName={teacherName}
