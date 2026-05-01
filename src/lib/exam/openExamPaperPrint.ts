@@ -1,4 +1,5 @@
 import type { ExamPaperPdfPayload } from "@/lib/exam/examPaperPdfClient";
+import { PRINT_PAGE_MARGIN_MM } from "@/lib/print/reactToPrintPageStyle";
 
 function esc(s: string): string {
   return s
@@ -56,7 +57,8 @@ export function openExamPaperPrint(payload: ExamPaperPdfPayload): void {
 
   const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${esc(title)}</title>
 <style>
-  @page { size: A4; margin: 18mm; }
+  /* 인쇄 대화상자 여백은 「없음」 권장 — @page margin이 모든 페이지에 적용됩니다. */
+  @page { size: A4 portrait; margin: ${PRINT_PAGE_MARGIN_MM}mm; }
   html { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body {
     box-sizing: border-box;

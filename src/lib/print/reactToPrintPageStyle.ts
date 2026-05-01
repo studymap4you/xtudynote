@@ -1,8 +1,15 @@
 /**
+ * 모든 인쇄/PDF 저장에 통일할 페이지 여백(mm). `window.open` 인쇄 HTML을 새로 만들 때도 이 값을 쓰세요.
+ * @see REACT_TO_PRINT_A4_PAGE_STYLE
+ */
+export const PRINT_PAGE_MARGIN_MM = 25;
+
+/**
  * react-to-print `pageStyle` — 인쇄 iframe에 주입되어 A4·여백·색 재현을 맞춥니다.
- * 인쇄 대화상자 **여백은 「없음」**을 권장합니다. 그러면 @page margin: 0과 함께 iframe
- * `body`의 패딩 **25mm(상·하·좌·우 동일)** 만 콘텐츠 여백으로 들어갑니다.
- * 「기본」 여백을 쓰면 브라우저가 추가 여백을 넣어 이중으로 보일 수 있습니다.
+ *
+ * **여백:** 페이지마다 상·하·좌·우 동일 여백은 **`@page { margin }`** 으로 둡니다.
+ * (`body` 패딩은 2페이지째 상단 등에서 기대대로 반복되지 않는 경우가 많습니다.)
+ * 인쇄 대화상자 **여백은 「없음」**을 권장합니다. 「기본」이면 브라우저가 추가 여백을 넣을 수 있습니다.
  *
  * 대시보드 등 다크 `body` 배경이 스타일 복사로 iframe에 들어오면 미리보기가 남색으로만
  * 채워질 수 있어, html/body 배경을 흰색으로 명시합니다.
@@ -17,7 +24,7 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
   }
   @page {
     size: A4 portrait;
-    margin: 0;
+    margin: ${PRINT_PAGE_MARGIN_MM}mm;
     @bottom-center {
       font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif;
       font-size: 8.5pt;
@@ -41,9 +48,6 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
       print-color-adjust: exact !important;
       -webkit-print-color-adjust: exact !important;
     }
-    body {
-      padding: 25mm !important;
-    }
     .passage-deep-print p,
     .passage-deep-print li {
       orphans: 2;
@@ -57,7 +61,7 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
  * 부모 앱 `body`의 다크 배경(var(--bg-deep))이 스타일시트 복사로 iframe에 그대로 들어오므로
  * html/body를 밝게 강제하지 않으면 인쇄 미리보기가 남색으로만 채워질 수 있음.
  *
- * **여백:** 페이지마다 상·하 25mm를 맞추려면 `body` 패딩이 아니라 **@page margin** 을 씁니다.
+ * **여백:** 페이지마다 상·하·좌·우 동일 여백은 `body` 패딩이 아니라 **@page margin** (`PRINT_PAGE_MARGIN_MM`)을 씁니다.
  * (인쇄 시 body 패딩은 2페이지째 상단에 반영되지 않는 경우가 많습니다.)
  * 인쇄 대화상자에서는 **여백 「없음」**을 권장합니다. 「기본」이면 브라우저 여백이 더해져 이중으로 보일 수 있습니다.
  */
@@ -165,7 +169,7 @@ export const NEWSLETTER_PRINT_PAGE_STYLE = `
   }
   @page {
     size: A4 portrait;
-    margin: 25mm;
+    margin: ${PRINT_PAGE_MARGIN_MM}mm;
   }
   @media print {
     html,

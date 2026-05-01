@@ -1,4 +1,5 @@
 import type { WorksheetDocxFormPayload } from "@/lib/worksheet/downloadWorksheetFormDocx";
+import { PRINT_PAGE_MARGIN_MM } from "@/lib/print/reactToPrintPageStyle";
 
 /** 학생용 인쇄 — 확인문제 정답 미포함 (서버 PDF와 동일) */
 export type WorksheetFormPrintPayload = Omit<WorksheetDocxFormPayload, "exerciseAnswers">;
@@ -26,7 +27,8 @@ export function openWorksheetFormPrint(payload: WorksheetFormPrintPayload): void
 
   const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${esc(unit || "학습지")}</title>
 <style>
-  @page { size: A4; margin: 20mm; }
+  /* 인쇄 대화상자 여백은 「없음」 권장 — @page margin이 모든 페이지에 적용됩니다. */
+  @page { size: A4 portrait; margin: ${PRINT_PAGE_MARGIN_MM}mm; }
   html { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body {
     box-sizing: border-box;
