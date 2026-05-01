@@ -12,7 +12,7 @@ import {
   extractWorksheetPassageFromUpload,
   type WorksheetExtractOptions,
 } from "@/lib/worksheet/extractWorksheetPassageFromUpload";
-import type { NewsletterAiResult, NewsletterPurpose } from "@/types/newsletter";
+import type { NewsletterAiResult, NewsletterPurpose, NewsletterSection } from "@/types/newsletter";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./newsletter-builder.module.css";
 
@@ -65,16 +65,56 @@ function buildPdfExtractOptionsForNewsletter(
   return { opts: { pdfPageList: parsed } };
 }
 
+function displayBody(raw: string): string {
+  return raw.replace(/\\n/g, "\n").replace(/\*\*/g, "");
+}
+
+function PreviewSectionBody({ s }: { s: NewsletterSection }) {
+  const layout =
+    s.imageLayout === "left" || s.imageLayout === "right" ? s.imageLayout : "block";
+  const pct = s.imageWidthPercent ?? (layout === "block" ? 100 : 40);
+
+  if (s.imageDataUrl && (layout === "left" || layout === "right")) {
+    return (
+      <div
+        className={
+          layout === "left" ? styles.sidePreviewRow : `${styles.sidePreviewRow} ${styles.sidePreviewRowRev}`
+        }
+      >
+        <figure
+          className={styles.sidePreviewFig}
+          style={{ width: `${Math.min(52, Math.max(24, pct))}%` }}
+        >
+          <img src={s.imageDataUrl} alt="" className={styles.sidePreviewImg} />
+        </figure>
+        <div className={styles.sidePreviewText}>{displayBody(s.bodyKo)}</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {s.imageDataUrl ? (
+        <div className={styles.previewImageWrap}>
+          <img
+            src={s.imageDataUrl}
+            alt=""
+            className={styles.previewImage}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      ) : null}
+      <p className={styles.body}>{displayBody(s.bodyKo)}</p>
+    </>
+  );
+}
+
 const PURPOSES: { value: NewsletterPurpose; labelKo: string }[] = [
   { value: "parent_monthly", labelKo: "월간 학부모 소식" },
   { value: "teacher_tip", labelKo: "교사·튜터 팁" },
   { value: "student_motivation", labelKo: "학습자 동기·루틴" },
   { value: "brand_story", labelKo: "브랜드·서비스 소개" },
 ];
-
-function displayBody(raw: string): string {
-  return raw.replace(/\\n/g, "\n").replace(/\*\*/g, "");
-}
 
 export function NewsletterBuilderPage() {
   const { profile } = useAuth();
@@ -147,6 +187,11 @@ export function NewsletterBuilderPage() {
 
   const clearSources = useCallback(() => {
     setSourceFiles([]);
+    setError(null);
+  }, []);
+
+  const removeSourceAt = useCallback((index: number) => {
+    setSourceFiles((prev) => prev.filter((_, i) => i !== index));
     setError(null);
   }, []);
 
@@ -305,19 +350,46 @@ export function NewsletterBuilderPage() {
                 multiple
                 onChange={onPickSources}
               />
+              {sourceFiles.length > 0 ? (
+                <p className={styles.fileCount} aria-live="polite">
+                  {sourceFiles.length}개 파일 선택됨 (개별 제거는 썸네일의 ×를 누르세요)
+                </p>
+              ) : null}
               {previewEntries.length > 0 ? (
                 <div className={styles.sourcePreviews} aria-label="선택한 파일 미리보기">
                   {previewEntries.map((e, i) =>
                     e.isPdf ? (
-                      <div key={`pdf-${e.name}-${i}`} className={styles.pdfChip} title={e.name}>
-                        <span className={styles.pdfIcon} aria-hidden>
-                          PDF
-                        </span>
-                        <span className={styles.pdfName}>{e.name}</span>
+                      <div key={`pdf-${e.name}-${i}`} className={styles.sourceTile}>
+                        <button
+                          type="button"
+                          className={styles.removeSource}
+                          onClick={() => removeSourceAt(i)}
+                          disabled={busy}
+                          aria-label={`${e.name} 목록에서 제거`}
+                        >
+                          ×
+                        </button>
+                        <div className={styles.pdfChip} title={e.name}>
+                          <span className={styles.pdfIcon} aria-hidden>
+                            PDF
+                          </span>
+                          <span className={styles.pdfName}>{e.name}</span>
+                        </div>
                       </div>
                     ) : (
-                      <div key={e.url ?? `img-${e.name}-${i}`} className={styles.thumb}>
-                        <img src={e.url} alt="" />
+                      <div key={e.url ?? `img-${e.name}-${i}`} className={styles.sourceTile}>
+                        <button
+                          type="button"
+                          className={styles.removeSource}
+                          onClick={() => removeSourceAt(i)}
+                          disabled={busy}
+                          aria-label={`${e.name} 목록에서 제거`}
+                        >
+                          ×
+                        </button>
+                        <div className={styles.thumb}>
+                          <img src={e.url} alt="" />
+                        </div>
                       </div>
                     ),
                   )}
@@ -506,18 +578,11 @@ export function NewsletterBuilderPage() {
                         {s.id === "binaryLogic" ? (
                           <span className={styles.mainBadge}>Main · Binary Logic</span>
                         ) : null}
+                        {/^pair_\d+$/.test(s.id) ? (
+                          <span className={styles.pairBadge}>이미지·텍스트</span>
+                        ) : null}
                       </div>
-                      {s.imageDataUrl ? (
-                        <div className={styles.previewImageWrap}>
-                          <img
-                            src={s.imageDataUrl}
-                            alt=""
-                            className={styles.previewImage}
-                            style={{ width: `${s.imageWidthPercent ?? 100}%` }}
-                          />
-                        </div>
-                      ) : null}
-                      <p className={styles.body}>{displayBody(s.bodyKo)}</p>
+                      <PreviewSectionBody s={s} />
                     </article>
                   ))}
                 </>

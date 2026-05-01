@@ -1,8 +1,44 @@
-import type { NewsletterAiResult } from "@/types/newsletter";
+import type { NewsletterAiResult, NewsletterSection } from "@/types/newsletter";
 import styles from "./NewsletterPrintView.module.css";
 
 function displayBody(raw: string): string {
   return raw.replace(/\\n/g, "\n").replace(/\*\*/g, "");
+}
+
+function SectionBody({ s }: { s: NewsletterSection }) {
+  const layout =
+    s.imageLayout === "left" || s.imageLayout === "right" ? s.imageLayout : "block";
+  const pct = s.imageWidthPercent ?? (layout === "block" ? 100 : 40);
+
+  if (s.imageDataUrl && (layout === "left" || layout === "right")) {
+    return (
+      <div className={layout === "left" ? styles.sideRow : `${styles.sideRow} ${styles.sideRowRev}`}>
+        <figure
+          className={styles.sideFigure}
+          style={{ width: `${Math.min(55, Math.max(22, pct))}%` }}
+        >
+          <img src={s.imageDataUrl} alt="" className={styles.sideImg} />
+        </figure>
+        <div className={styles.sideText}>{displayBody(s.bodyKo)}</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {s.imageDataUrl ? (
+        <div className={styles.imgWrap}>
+          <img
+            src={s.imageDataUrl}
+            alt=""
+            className={styles.sectionImg}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      ) : null}
+      <div className={styles.body}>{displayBody(s.bodyKo)}</div>
+    </>
+  );
 }
 
 export type NewsletterPrintViewProps = {
@@ -28,17 +64,7 @@ export function NewsletterPrintView({ data, teacherName, issueLabel }: Newslette
       {data.sections.map((s) => (
         <section key={s.id} className={styles.section}>
           <h2 className={styles.h2}>{s.headingKo}</h2>
-          {s.imageDataUrl ? (
-            <div className={styles.imgWrap}>
-              <img
-                src={s.imageDataUrl}
-                alt=""
-                className={styles.sectionImg}
-                style={{ width: `${s.imageWidthPercent ?? 100}%` }}
-              />
-            </div>
-          ) : null}
-          <div className={styles.body}>{displayBody(s.bodyKo)}</div>
+          <SectionBody s={s} />
         </section>
       ))}
 

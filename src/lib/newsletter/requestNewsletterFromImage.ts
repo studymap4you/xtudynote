@@ -1,4 +1,9 @@
-import type { NewsletterAiResult, NewsletterPurpose } from "@/types/newsletter";
+import type {
+  NewsletterAiResult,
+  NewsletterImageLayout,
+  NewsletterPurpose,
+  NewsletterSection,
+} from "@/types/newsletter";
 
 function readOpenAiKey(): string {
   return String(import.meta.env.VITE_OPENAI_API_KEY ?? "").trim();
@@ -12,30 +17,54 @@ function visionModel(): string {
 const MAX_PDF_TEXT_PER_FILE = 28_000;
 const MAX_TOTAL_PDF_TEXT = 56_000;
 
-const NEWSLETTER_JSON_INSTRUCTION = `You are the editorial AI for Xtudy-Universe (English reading & Binary Logic / Signal Logic learning platform for Korean students).
 
-Analyze the uploaded content: one or more images (passages, worksheets, handwritten marks) and/or plain text extracted from PDF file(s). Images may show English learning materials, underlines, circles, margin notes. PDF text may duplicate or extend what is visible in images.
+function newsletterSystemPrompt(imageCount: number): string {
+  const pairRules =
+    imageCount > 0
+      ? `
+When ${imageCount} image(s) are attached (vision), you MUST include EXACTLY these section ids after "opening" and BEFORE "binaryLogic", in this numeric order:
+${Array.from({ length: imageCount }, (_, i) => `pair_${i}`).join(", ")}
+
+For EACH pair_k section (k = 0..${imageCount - 1}):
+- That section corresponds to the (k+1)-th attached image in the same order the user uploaded.
+- Provide headingKo + bodyKo as ONE newsletter module: **image-then-text rhythm in reading order** — headingKo is a short news-style headline; bodyKo is 2–5 short paragraphs (use \\n\\n between paragraphs).
+- **Informational newsletter writing (MANDATORY)**: Teach the reader something useful (methods, pitfalls, how to practice, what the material implies for KSAT English / reading). Give concrete guidance parents or students can act on.
+- **FORBIDDEN**: Do NOT write like a photo caption or vision summary. Banned patterns include: "이 이미지는", "사진에서", "첨부 이미지에서", "그림을 보면", "위 이미지는", "보시는 바와 같이", similar meta description of the picture. Use third-person news/editorial tone about **the topic**, not about the image artifact.
+- Do NOT invent exact quotes unless clearly legible; paraphrase.
+
+Do NOT include a section with id "fromImage" when any images are attached (the pair_* sections replace it).
+`
+      : `
+Include section id "fromImage" after "opening": summarize insights grounded ONLY in PDF-extracted text (no invented quotes). Same informational newsletter style — no filler.
+`;
+
+  return `You are the editorial AI for Xtudy-Universe (English reading & Binary Logic / Signal Logic learning platform for Korean students).
+
+Analyze uploaded content: images (passages, worksheets, notes) via vision and/or plain text from PDFs.
 
 Respond with a SINGLE JSON object (no markdown fences) exactly in this shape:
 {
   "titleKo": string,
   "sections": [
-    { "id": string, "headingKo": string, "bodyKo": string }
+    { "id": string, "headingKo": string, "bodyKo": string, "imageLayout"?: "block" | "left" | "right" }
   ]
 }
 
-You MUST include these section ids in order (you may add one extra closing section with id "closing" at the end):
-1) "opening" — Hook aligned with the newsletter purpose; mention Xtudy-Universe briefly.
-2) "fromImage" — What the sources show: from images and/or PDF text—theme, notes, study guidance (evidence-based; if unclear, say what is uncertain).
-3) "binaryLogic" — MAIN SECTION. Fixed tone: this is the core of our product. Explain **Binary Logic / Signal Logic (시그널 로직)** in plain Korean for parents or students: one-shot pivot signals, binary oppositions (A vs B poles), reading the author's argumentative move—not word-by-word translation. Relate briefly to what the materials suggest (e.g. contrasts or markers the teacher highlighted). 3–6 short paragraphs in bodyKo (use \\n\\n between paragraphs inside the string).
-4) "keywords" — Weave in the user-supplied keywords naturally with practical study tips.
-5) "closing" — Short CTA to explore Logic Dashboard / 지문 학습 on Xtudy-Universe.
+Optional per-section "imageLayout" applies only if that section will carry an image (pair_* from client). Prefer "right" or "left" so text wraps beside the image like a magazine; use "block" if a full-width figure fits better.
 
+You MUST include these section ids in order:
+1) "opening" — Hook aligned with the newsletter purpose; mention Xtudy-Universe briefly. Informational tone.
+${imageCount > 0 ? `2) pair_0 .. pair_${imageCount - 1} — one per attached image (see rules below).` : `2) "fromImage" — PDF/text-based insights (no images attached).`}
+3) "binaryLogic" — MAIN SECTION. Core product: **Binary Logic / Signal Logic (시그널 로직)** in plain Korean for parents or students: pivot signals, binary oppositions (A vs B), reading the author's move—not word-by-word translation. Tie briefly to the materials. 3–6 short paragraphs in bodyKo (use \\n\\n between paragraphs).
+4) "keywords" — Weave user-supplied keywords with practical study tips.
+5) "closing" — Short CTA (Logic Dashboard / 지문 학습).
+
+${pairRules}
 Rules:
 - All human-facing copy in Korean (headingKo, bodyKo, titleKo).
-- binaryLogic.bodyKo must be substantive (not generic filler): reflect real Signal Logic / binary analysis concepts used in KSAT-style English reading.
-- Do not invent exact quotes unless clearly legible in an image or present in the PDF excerpt; paraphrase if needed.
+- binaryLogic.bodyKo must be substantive (real Signal Logic concepts for KSAT-style reading).
 - Keep JSON valid; escape newlines in strings as \\n.`;
+}
 
 const PURPOSE_LABEL: Record<NewsletterPurpose, string> = {
   parent_monthly: "월간 학부모 뉴스레터",
@@ -106,7 +135,12 @@ export type NewsletterVisionParams = {
   newsletterTitle?: string;
 };
 
-function normalizeNewsletterJson(content: string): NewsletterAiResult {
+function parseImageLayout(v: unknown): NewsletterImageLayout | undefined {
+  if (v === "left" || v === "right" || v === "block") return v;
+  return undefined;
+}
+
+function normalizeNewsletterJson(content: string, imageCount: number): NewsletterAiResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(content) as unknown;
@@ -117,7 +151,7 @@ function normalizeNewsletterJson(content: string): NewsletterAiResult {
   const obj = parsed as Record<string, unknown>;
   const titleKo = String(obj.titleKo ?? "").trim() || "Xtudy-Universe 뉴스레터";
   const rawSecs = obj.sections;
-  const sections: NewsletterAiResult["sections"] = [];
+  const sections: NewsletterSection[] = [];
   if (Array.isArray(rawSecs)) {
     for (const row of rawSecs) {
       if (!row || typeof row !== "object") continue;
@@ -126,26 +160,81 @@ function normalizeNewsletterJson(content: string): NewsletterAiResult {
       const headingKo = String(r.headingKo ?? "").trim();
       const bodyKo = String(r.bodyKo ?? "").trim();
       if (!headingKo || !bodyKo) continue;
-      sections.push({ id, headingKo, bodyKo });
+      const rawPct = r.imageWidthPercent;
+      let imageWidthPercent: number | undefined;
+      if (typeof rawPct === "number" && Number.isFinite(rawPct)) {
+        imageWidthPercent = Math.min(100, Math.max(25, Math.round(rawPct)));
+      }
+      sections.push({
+        id,
+        headingKo,
+        bodyKo,
+        imageLayout: parseImageLayout(r.imageLayout),
+        imageWidthPercent,
+      });
     }
   }
 
-  const required = ["opening", "fromImage", "binaryLogic", "keywords", "closing"];
+  const requiredCore = ["opening", "binaryLogic", "keywords", "closing"];
   const ids = new Set(sections.map((s) => s.id));
-  for (const rid of required) {
+  for (const rid of requiredCore) {
     if (!ids.has(rid)) {
       throw new Error(`AI 응답에 필수 섹션 "${rid}"가 없습니다. 다시 시도해 주세요.`);
     }
   }
 
-  const order = [...required, ...sections.map((s) => s.id).filter((id) => !required.includes(id))];
-  const uniqueOrder = [...new Set(order)];
+  if (imageCount > 0) {
+    for (let i = 0; i < imageCount; i++) {
+      const pid = `pair_${i}`;
+      if (!ids.has(pid)) {
+        throw new Error(
+          `AI 응답에 첨부 이미지 ${imageCount}장에 맞는 "${pid}" 섹션이 없습니다. 다시 생성해 주세요.`,
+        );
+      }
+    }
+  } else if (!ids.has("fromImage")) {
+    throw new Error(`AI 응답에 필수 섹션 "fromImage"가 없습니다. 다시 시도해 주세요.`);
+  }
+
+  const baseOrder =
+    imageCount > 0
+      ? (["opening", ...Array.from({ length: imageCount }, (_, i) => `pair_${i}`), "binaryLogic", "keywords", "closing"] as const)
+      : (["opening", "fromImage", "binaryLogic", "keywords", "closing"] as const);
+
   const map = new Map(sections.map((s) => [s.id, s]));
-  const sorted = uniqueOrder
-    .map((id) => map.get(id))
-    .filter((s): s is NewsletterAiResult["sections"][number] => !!s);
+  const sorted: NewsletterSection[] = [];
+  for (const id of baseOrder) {
+    const s = map.get(id);
+    if (!s) {
+      throw new Error(`섹션 "${id}"를 찾을 수 없습니다.`);
+    }
+    sorted.push(s);
+  }
 
   return { titleKo, sections: sorted };
+}
+
+async function attachPairImages(data: NewsletterAiResult, imageFiles: File[]): Promise<NewsletterAiResult> {
+  if (!imageFiles.length) return data;
+  const sections = await Promise.all(
+    data.sections.map(async (s) => {
+      const m = /^pair_(\d+)$/.exec(s.id);
+      if (!m) return s;
+      const idx = Number(m[1]);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= imageFiles.length) {
+        return s;
+      }
+      const url = await fileToDataUrl(imageFiles[idx]);
+      const layout: NewsletterImageLayout =
+        s.imageLayout === "left" || s.imageLayout === "right" || s.imageLayout === "block"
+          ? s.imageLayout
+          : "right";
+      const imageWidthPercent =
+        s.imageWidthPercent ?? (layout === "block" ? 100 : 40);
+      return { ...s, imageDataUrl: url, imageLayout: layout, imageWidthPercent };
+    }),
+  );
+  return { ...data, sections };
 }
 
 /**
@@ -208,7 +297,7 @@ export async function requestNewsletterFromMaterials(
       model,
       temperature: 0.45,
       response_format: { type: "json_object" },
-      messages: [{ role: "system", content: NEWSLETTER_JSON_INSTRUCTION }, userMessage],
+      messages: [{ role: "system", content: newsletterSystemPrompt(params.imageFiles.length) }, userMessage],
     }),
   });
 
@@ -217,15 +306,19 @@ export async function requestNewsletterFromMaterials(
     throw new Error(t || `OpenAI 요청 실패 (${res.status})`);
   }
 
-  const data = (await res.json()) as {
+  const raw = (await res.json()) as {
     choices?: { message?: { content?: string } }[];
   };
-  const content = data.choices?.[0]?.message?.content;
+  const content = raw.choices?.[0]?.message?.content;
   if (!content) {
     throw new Error("AI 응답에 본문이 없습니다.");
   }
 
-  return { data: normalizeNewsletterJson(content), model };
+  const parsed = normalizeNewsletterJson(content, params.imageFiles.length);
+  const result =
+    params.imageFiles.length > 0 ? await attachPairImages(parsed, params.imageFiles) : parsed;
+
+  return { data: result, model };
 }
 
 export async function requestNewsletterFromImage(

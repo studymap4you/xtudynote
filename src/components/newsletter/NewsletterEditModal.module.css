@@ -128,6 +128,65 @@
   color: #1e40af;
 }
 
+.pairPill {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  background: rgba(14, 165, 233, 0.14);
+  color: #0369a1;
+}
+
+.layoutPick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.65rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 10px;
+  background: rgba(241, 245, 249, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+}
+.layoutPickCap {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #64748b;
+  margin-right: 0.25rem;
+}
+.layoutOpt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+.layoutOpt input {
+  margin: 0;
+}
+
+.splitEditor {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.splitEditorRev {
+  flex-direction: row-reverse;
+}
+.splitImageCol {
+  min-width: 0;
+}
+.splitTextCol {
+  flex: 1;
+  min-width: 0;
+}
+
 .imageBlock {
   margin-bottom: 0.65rem;
 }

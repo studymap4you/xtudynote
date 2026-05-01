@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { NewsletterAiResult, NewsletterSection } from "@/types/newsletter";
+import type {
+  NewsletterAiResult,
+  NewsletterImageLayout,
+  NewsletterSection,
+} from "@/types/newsletter";
 import styles from "./NewsletterEditModal.module.css";
 
 const MAX_IMAGE_BYTES = 2_400_000;
@@ -88,23 +92,34 @@ export function NewsletterEditModal({ open, initial, onCancel, onComplete }: New
     }));
   }, []);
 
-  const onReplacePick = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const sid = replaceTargetRef.current;
-      replaceTargetRef.current = null;
-      const f = e.target.files?.[0];
-      e.target.value = "";
-      if (!f || !sid) return;
-      setErr(null);
-      try {
-        const url = await readImageFileAsDataUrl(f);
-        setSection(sid, { imageDataUrl: url, imageWidthPercent: 100 });
-      } catch (er) {
-        setErr(er instanceof Error ? er.message : "이미지를 불러오지 못했습니다.");
-      }
-    },
-    [setSection],
-  );
+  const onReplacePick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const sid = replaceTargetRef.current;
+    replaceTargetRef.current = null;
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f || !sid) return;
+    setErr(null);
+    try {
+      const url = await readImageFileAsDataUrl(f);
+      setDraft((d) => ({
+        ...d,
+        sections: d.sections.map((s) => {
+          if (s.id !== sid) return s;
+          const layout: NewsletterImageLayout =
+            s.imageLayout === "left" || s.imageLayout === "right" || s.imageLayout === "block"
+              ? s.imageLayout
+              : "block";
+          const imageWidthPercent =
+            layout === "block"
+              ? Math.max(s.imageWidthPercent ?? 100, 85)
+              : (s.imageWidthPercent ?? 40);
+          return { ...s, imageDataUrl: url, imageLayout: layout, imageWidthPercent };
+        }),
+      }));
+    } catch (er) {
+      setErr(er instanceof Error ? er.message : "이미지를 불러오지 못했습니다.");
+    }
+  }, []);
 
   const openReplace = (sectionId: string) => {
     replaceTargetRef.current = sectionId;
@@ -113,9 +128,31 @@ export function NewsletterEditModal({ open, initial, onCancel, onComplete }: New
   };
 
   const removeImage = (sectionId: string) => {
-    setSection(sectionId, { imageDataUrl: null, imageWidthPercent: undefined });
+    setSection(sectionId, {
+      imageDataUrl: null,
+      imageWidthPercent: undefined,
+      imageLayout: "block",
+    });
     setImageMenu(null);
   };
+
+  const setSectionLayout = useCallback((id: string, next: NewsletterImageLayout) => {
+    setDraft((d) => ({
+      ...d,
+      sections: d.sections.map((s) => {
+        if (s.id !== id) return s;
+        if (next === "block") {
+          return {
+            ...s,
+            imageLayout: "block",
+            imageWidthPercent: s.imageWidthPercent && s.imageWidthPercent < 70 ? s.imageWidthPercent : 100,
+          };
+        }
+        const sidePct = s.imageWidthPercent && s.imageWidthPercent < 85 ? s.imageWidthPercent : 40;
+        return { ...s, imageLayout: next, imageWidthPercent: sidePct };
+      }),
+    }));
+  }, []);
 
   const startResize = useCallback(
     (sectionId: string, e: React.MouseEvent, wrapEl: HTMLDivElement | null, startPct: number) => {
@@ -149,8 +186,8 @@ export function NewsletterEditModal({ open, initial, onCancel, onComplete }: New
           뉴스레터 수정
         </h2>
         <p className={styles.modalLead}>
-          제목·본문을 고치고, 섹션에 이미지를 넣을 수 있습니다. 이미지를 누르면 교체·삭제 메뉴가 열리고, 오른쪽 아래 핸들을
-          드래그해 크기를 조절합니다.
+          제목·본문을 고치고, 이미지를 눌러 교체·삭제하세요. 이미지를 본문 왼쪽·오른쪽에 두면 한 줄 레이아웃으로 미리보기·인쇄·Word에
+          반영됩니다. 오른쪽 아래 핸들로 가로 비율을 조절합니다.
         </p>
 
         <div className={styles.scroll}>
@@ -164,62 +201,156 @@ export function NewsletterEditModal({ open, initial, onCancel, onComplete }: New
             />
           </div>
 
-          {draft.sections.map((s) => (
-            <section key={s.id} className={styles.block}>
-              <div className={styles.blockHead}>
-                <span className={styles.blockTag}>{s.id}</span>
-                {s.id === "binaryLogic" ? <span className={styles.mainPill}>Main · Binary Logic</span> : null}
-              </div>
-              <label className={styles.srOnly} htmlFor={`${uid}-h-${s.id}`}>
-                섹션 제목
-              </label>
-              <input
-                id={`${uid}-h-${s.id}`}
-                className={styles.sectionHeadingInput}
-                type="text"
-                value={s.headingKo}
-                onChange={(e) => setSection(s.id, { headingKo: e.target.value })}
-              />
+          {draft.sections.map((s) => {
+            const layout: NewsletterImageLayout =
+              s.imageLayout === "left" || s.imageLayout === "right" || s.imageLayout === "block"
+                ? s.imageLayout
+                : "block";
+            const sidePct = s.imageWidthPercent ?? (layout === "block" ? 100 : 40);
+            const isPair = /^pair_\d+$/.test(s.id);
+            return (
+              <section key={s.id} className={styles.block}>
+                <div className={styles.blockHead}>
+                  <span className={styles.blockTag}>{s.id}</span>
+                  {s.id === "binaryLogic" ? <span className={styles.mainPill}>Main · Binary Logic</span> : null}
+                  {isPair ? <span className={styles.pairPill}>이미지·텍스트</span> : null}
+                </div>
+                <label className={styles.srOnly} htmlFor={`${uid}-h-${s.id}`}>
+                  섹션 제목
+                </label>
+                <input
+                  id={`${uid}-h-${s.id}`}
+                  className={styles.sectionHeadingInput}
+                  type="text"
+                  value={s.headingKo}
+                  onChange={(e) => setSection(s.id, { headingKo: e.target.value })}
+                />
 
-              <div className={styles.imageBlock}>
-                {s.imageDataUrl ? (
-                  <SectionImage
-                    src={s.imageDataUrl}
-                    widthPercent={s.imageWidthPercent ?? 100}
-                    onImageClick={(ev) => {
-                      ev.stopPropagation();
-                      const el = ev.currentTarget;
-                      const r = el.getBoundingClientRect();
-                      setImageMenu({ sectionId: s.id, left: r.left, top: r.bottom + 6 });
-                    }}
-                    onResizeStart={(ev, wrap, pct) => startResize(s.id, ev, wrap, pct)}
-                  />
+                <div className={styles.layoutPick} role="radiogroup" aria-label="이미지·본문 배치">
+                  <span className={styles.layoutPickCap}>배치</span>
+                  <label className={styles.layoutOpt}>
+                    <input
+                      type="radio"
+                      name={`${uid}-lay-${s.id}`}
+                      checked={layout === "block"}
+                      onChange={() => setSectionLayout(s.id, "block")}
+                    />
+                    이미지 위·본문 아래
+                  </label>
+                  <label className={styles.layoutOpt}>
+                    <input
+                      type="radio"
+                      name={`${uid}-lay-${s.id}`}
+                      checked={layout === "left"}
+                      onChange={() => setSectionLayout(s.id, "left")}
+                    />
+                    본문 옆(이미지 왼쪽)
+                  </label>
+                  <label className={styles.layoutOpt}>
+                    <input
+                      type="radio"
+                      name={`${uid}-lay-${s.id}`}
+                      checked={layout === "right"}
+                      onChange={() => setSectionLayout(s.id, "right")}
+                    />
+                    본문 옆(이미지 오른쪽)
+                  </label>
+                </div>
+
+                {layout === "block" ? (
+                  <>
+                    <div className={styles.imageBlock}>
+                      {s.imageDataUrl ? (
+                        <SectionImage
+                          src={s.imageDataUrl}
+                          widthPercent={sidePct}
+                          onImageClick={(ev) => {
+                            ev.stopPropagation();
+                            const el = ev.currentTarget;
+                            const r = el.getBoundingClientRect();
+                            setImageMenu({ sectionId: s.id, left: r.left, top: r.bottom + 6 });
+                          }}
+                          onResizeStart={(ev, wrap, pct) => startResize(s.id, ev, wrap, pct)}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.addImageBtn}
+                          onClick={() => {
+                            replaceTargetRef.current = s.id;
+                            fileRef.current?.click();
+                          }}
+                        >
+                          + 이미지 추가 (PNG / JPEG)
+                        </button>
+                      )}
+                    </div>
+                    <label className={styles.bodyLabel} htmlFor={`${uid}-b-${s.id}`}>
+                      본문
+                    </label>
+                    <textarea
+                      id={`${uid}-b-${s.id}`}
+                      className={styles.bodyArea}
+                      value={s.bodyKo}
+                      onChange={(e) => setSection(s.id, { bodyKo: e.target.value })}
+                      rows={8}
+                    />
+                  </>
                 ) : (
-                  <button
-                    type="button"
-                    className={styles.addImageBtn}
-                    onClick={() => {
-                      replaceTargetRef.current = s.id;
-                      fileRef.current?.click();
-                    }}
+                  <div
+                    className={
+                      layout === "right"
+                        ? `${styles.splitEditor} ${styles.splitEditorRev}`
+                        : styles.splitEditor
+                    }
                   >
-                    + 이미지 추가 (PNG / JPEG)
-                  </button>
+                    <div
+                      className={styles.splitImageCol}
+                      style={{ flex: `0 1 ${sidePct}%`, minWidth: "min(140px, 100%)" }}
+                    >
+                      {s.imageDataUrl ? (
+                        <SectionImage
+                          src={s.imageDataUrl}
+                          widthPercent={100}
+                          dragBasePercent={sidePct}
+                          onImageClick={(ev) => {
+                            ev.stopPropagation();
+                            const el = ev.currentTarget;
+                            const r = el.getBoundingClientRect();
+                            setImageMenu({ sectionId: s.id, left: r.left, top: r.bottom + 6 });
+                          }}
+                          onResizeStart={(ev, wrap, pct) => startResize(s.id, ev, wrap, pct)}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.addImageBtn}
+                          onClick={() => {
+                            replaceTargetRef.current = s.id;
+                            fileRef.current?.click();
+                          }}
+                        >
+                          + 이미지
+                        </button>
+                      )}
+                    </div>
+                    <div className={styles.splitTextCol}>
+                      <label className={styles.bodyLabel} htmlFor={`${uid}-b-${s.id}`}>
+                        본문
+                      </label>
+                      <textarea
+                        id={`${uid}-b-${s.id}`}
+                        className={styles.bodyArea}
+                        value={s.bodyKo}
+                        onChange={(e) => setSection(s.id, { bodyKo: e.target.value })}
+                        rows={10}
+                      />
+                    </div>
+                  </div>
                 )}
-              </div>
-
-              <label className={styles.bodyLabel} htmlFor={`${uid}-b-${s.id}`}>
-                본문
-              </label>
-              <textarea
-                id={`${uid}-b-${s.id}`}
-                className={styles.bodyArea}
-                value={s.bodyKo}
-                onChange={(e) => setSection(s.id, { bodyKo: e.target.value })}
-                rows={8}
-              />
-            </section>
-          ))}
+              </section>
+            );
+          })}
         </div>
 
         {imageMenu ? (
@@ -286,12 +417,21 @@ export function NewsletterEditModal({ open, initial, onCancel, onComplete }: New
 type SectionImageProps = {
   src: string;
   widthPercent: number;
+  /** 드래그 리사이즈 시 기준이 되는 % (옆 배치일 때 열 너비). 생략 시 widthPercent */
+  dragBasePercent?: number;
   onImageClick: (e: React.MouseEvent<HTMLImageElement>) => void;
   onResizeStart: (e: React.MouseEvent, wrap: HTMLDivElement | null, widthPercent: number) => void;
 };
 
-function SectionImage({ src, widthPercent, onImageClick, onResizeStart }: SectionImageProps) {
+function SectionImage({
+  src,
+  widthPercent,
+  dragBasePercent,
+  onImageClick,
+  onResizeStart,
+}: SectionImageProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const dragFrom = dragBasePercent ?? widthPercent;
   return (
     <div ref={wrapRef} className={styles.imgWrap}>
       <img
@@ -305,7 +445,7 @@ function SectionImage({ src, widthPercent, onImageClick, onResizeStart }: Sectio
         type="button"
         className={styles.resizeHandle}
         aria-label="이미지 크기 조절"
-        onMouseDown={(e) => onResizeStart(e, wrapRef.current, widthPercent)}
+        onMouseDown={(e) => onResizeStart(e, wrapRef.current, dragFrom)}
       />
     </div>
   );

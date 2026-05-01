@@ -125,6 +125,12 @@
   line-height: 1.45;
   color: #94a3b8;
 }
+.fileCount {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+}
 .btnLink {
   appearance: none;
   border: none;
@@ -147,6 +153,43 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: 0.5rem;
+}
+.sourceTile {
+  position: relative;
+}
+.removeSource {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 3;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.75);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+}
+.removeSource:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.92);
+}
+.removeSource:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.sourceTile .pdfChip {
+  padding: 1.2rem 1.6rem 0.5rem 0.6rem;
+  min-height: 4.75rem;
+}
+.sourceTile .thumb {
+  padding-top: 0.15rem;
 }
 .pdfChip {
   display: flex;
@@ -397,6 +440,17 @@
   color: #1d4ed8;
 }
 
+.pairBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(14, 165, 233, 0.14);
+  color: #0369a1;
+}
+
 .body {
   margin: 0;
   font-size: 0.92rem;
@@ -417,6 +471,39 @@
   border-radius: 10px;
   border: 1px solid rgba(226, 232, 240, 0.95);
   box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.2);
+}
+
+.sidePreviewRow {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+.sidePreviewRowRev {
+  flex-direction: row-reverse;
+}
+.sidePreviewFig {
+  margin: 0;
+  flex-shrink: 0;
+  min-width: 0;
+}
+.sidePreviewImg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.2);
+}
+.sidePreviewText {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: #1e293b;
+  white-space: pre-wrap;
 }
 
 .previewActions {

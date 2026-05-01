@@ -5,9 +5,15 @@ import {
   ImageRun,
   Packer,
   Paragraph,
+  Table,
+  TableBorders,
+  TableCell,
+  TableRow,
   TextRun,
+  VerticalAlignTable,
+  WidthType,
 } from "docx";
-import type { NewsletterAiResult } from "@/types/newsletter";
+import type { NewsletterAiResult, NewsletterSection } from "@/types/newsletter";
 
 function displayBody(raw: string): string {
   return raw.replace(/\\n/g, "\n").replace(/\*\*/g, "");
@@ -42,6 +48,7 @@ function loadImageDimensions(dataUrl: string): Promise<{ w: number; h: number }>
   });
 }
 
+/** widthPercent: 콘텐츠 폭(약 520px 가정) 대비 이미지 가로 비율 */
 async function imageParagraph(dataUrl: string, widthPercent: number): Promise<Paragraph> {
   const parsed = parseImageDataUrl(dataUrl);
   if (!parsed) {
@@ -90,6 +97,72 @@ function bodyParagraphs(text: string): Paragraph[] {
   );
 }
 
+async function sectionBlocks(s: NewsletterSection): Promise<(Paragraph | Table)[]> {
+  const out: (Paragraph | Table)[] = [];
+  out.push(
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      children: [new TextRun({ text: s.headingKo, bold: true, color: "1E40AF", size: 26 })],
+      spacing: { before: 200, after: 120 },
+    }),
+  );
+
+  const layout =
+    s.imageLayout === "left" || s.imageLayout === "right" ? s.imageLayout : "block";
+  const hasImg = !!s.imageDataUrl;
+
+  if (hasImg && (layout === "left" || layout === "right")) {
+    const colImg = Math.min(90, Math.max(25, s.imageWidthPercent ?? 40));
+    const colText = 100 - colImg;
+    const imgPara = await imageParagraph(s.imageDataUrl!, colImg);
+    const textParas = bodyParagraphs(s.bodyKo);
+    const row =
+      layout === "left"
+        ? new TableRow({
+            children: [
+              new TableCell({
+                children: [imgPara],
+                width: { size: colImg, type: WidthType.PERCENTAGE },
+                verticalAlign: VerticalAlignTable.TOP,
+              }),
+              new TableCell({
+                children: textParas,
+                width: { size: colText, type: WidthType.PERCENTAGE },
+                verticalAlign: VerticalAlignTable.TOP,
+              }),
+            ],
+          })
+        : new TableRow({
+            children: [
+              new TableCell({
+                children: textParas,
+                width: { size: colText, type: WidthType.PERCENTAGE },
+                verticalAlign: VerticalAlignTable.TOP,
+              }),
+              new TableCell({
+                children: [imgPara],
+                width: { size: colImg, type: WidthType.PERCENTAGE },
+                verticalAlign: VerticalAlignTable.TOP,
+              }),
+            ],
+          });
+    out.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: TableBorders.NONE,
+        rows: [row],
+      }),
+    );
+    return out;
+  }
+
+  if (hasImg) {
+    out.push(await imageParagraph(s.imageDataUrl!, s.imageWidthPercent ?? 100));
+  }
+  out.push(...bodyParagraphs(s.bodyKo));
+  return out;
+}
+
 /** Google Docs에서 열기 좋은 Word 문서로 저장 */
 export async function downloadNewsletterDocx(args: {
   data: NewsletterAiResult;
@@ -97,7 +170,7 @@ export async function downloadNewsletterDocx(args: {
   issueLabel: string;
 }): Promise<void> {
   const { data, teacherName, issueLabel } = args;
-  const blocks: Paragraph[] = [];
+  const blocks: (Paragraph | Table)[] = [];
 
   blocks.push(
     new Paragraph({
@@ -121,17 +194,8 @@ export async function downloadNewsletterDocx(args: {
   );
 
   for (const s of data.sections) {
-    blocks.push(
-      new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        children: [new TextRun({ text: s.headingKo, bold: true, color: "1E40AF", size: 26 })],
-        spacing: { before: 200, after: 120 },
-      }),
-    );
-    if (s.imageDataUrl) {
-      blocks.push(await imageParagraph(s.imageDataUrl, s.imageWidthPercent ?? 100));
-    }
-    blocks.push(...bodyParagraphs(s.bodyKo));
+    const chunk = await sectionBlocks(s);
+    blocks.push(...chunk);
   }
 
   blocks.push(
