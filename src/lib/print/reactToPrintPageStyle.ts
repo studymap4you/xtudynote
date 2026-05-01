@@ -1,9 +1,20 @@
 /**
  * react-to-print `pageStyle` — 인쇄 iframe에 주입되어 A4·여백·색 재현을 맞춥니다.
- * 인쇄 대화상자에서 여백「없음」이어도 iframe body 안쪽 패딩으로 상하좌우 25mm를 확보합니다.
+ * 인쇄 대화상자 **여백은 「없음」**을 권장합니다. 그러면 @page margin: 0과 함께 iframe
+ * `body`의 패딩 **25mm(상·하·좌·우 동일)** 만 콘텐츠 여백으로 들어갑니다.
+ * 「기본」 여백을 쓰면 브라우저가 추가 여백을 넣어 이중으로 보일 수 있습니다.
+ *
+ * 대시보드 등 다크 `body` 배경이 스타일 복사로 iframe에 들어오면 미리보기가 남색으로만
+ * 채워질 수 있어, html/body 배경을 흰색으로 명시합니다.
  * @see https://github.com/MatthewHerbst/react-to-print
  */
 export const REACT_TO_PRINT_A4_PAGE_STYLE = `
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-sizing: border-box !important;
+  }
   @page {
     size: A4 portrait;
     margin: 0;
@@ -15,12 +26,17 @@ export const REACT_TO_PRINT_A4_PAGE_STYLE = `
     }
   }
   @media print {
+    html {
+      color-scheme: light !important;
+    }
     html,
     body {
       height: auto !important;
       margin: 0 !important;
       padding: 0 !important;
       box-sizing: border-box !important;
+      background: #ffffff !important;
+      color: #0f172a !important;
       color-adjust: exact !important;
       print-color-adjust: exact !important;
       -webkit-print-color-adjust: exact !important;
