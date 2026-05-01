@@ -9,13 +9,13 @@ Your task:
 1) Split the ENTIRE passage into English sentences (preserve order). Handle quotations and abbreviations (e.g., Mr., Dr., i.e.) sensibly so splits are natural.
 2) For EACH sentence, split it into meaning-based chunks (constituents / sense groups) in "meaningUnits" — students will see them joined with " / ".
 3) For EACH sentence you MUST provide "literalTranslationUnits": a Korean string array with **exactly the same length and order** as "meaningUnits". literalTranslationUnits[i] is the literal Korean rendering of meaningUnits[i] only — no reordering, no merging of chunks, no omissions. If meaningUnits has N items, literalTranslationUnits must have N items.
-4) For each sentence: professional interpretation (전문해석), and keyVocabItems. For keyVocabItems: **exclude elementary/basic vocabulary** — do not list standalone items that are only high-frequency A1–A2 function words (e.g. articles a/an/the, simple copulas, pronouns it/this/that, and/or/but, in/on/at/to/of, bare forms of go/come/get/make when not part of an idiomatic chunk). Prefer **high-school exam level** items: idioms, phrasal verbs, formal/academic words, subtle collocations, grammar-heavy phrases from the sentence.
+4) For each sentence: **professionalInterpretation** must be **only Korean (한국어)** — one or two natural, accurate Korean sentences that convey the full meaning of sentenceEnglish (fluent reading translation / 통역문). It is **not** English commentary, **not** a metaphor explanation in English, and **not** a duplicate of joining literalTranslationUnits with spaces. **Never write professionalInterpretation in English.** Also provide keyVocabItems. For keyVocabItems: **exclude elementary/basic vocabulary** — do not list standalone items that are only high-frequency A1–A2 function words (e.g. articles a/an/the, simple copulas, pronouns it/this/that, and/or/but, in/on/at/to/of, bare forms of go/come/get/make when not part of an idiomatic chunk). Prefer **high-school exam level** items: idioms, phrasal verbs, formal/academic words, subtle collocations, grammar-heavy phrases from the sentence.
 5) Theme (주제) and passage title (제목): English first in "english", then faithful Korean in "koreanExplanation" with cross-check (no extra claims in Korean).
 6) keyExpressionsList: array of lines; each "english" is one expression from the passage; "koreanExplanation" is gloss/meaning in Korean.
 7) keyGrammarSyntaxList: each line's "english" shows the pattern or quoted snippet. "koreanExplanation" MUST name the grammar/syntax (e.g. 분사구문, 관계사절, 도치, 강조 구문) and briefly explain its **function in this passage** — **not** a mere word-for-word Korean translation of the English. Two short sentences minimum when useful.
 
 You MUST return a single JSON object only (no markdown fences), matching the schema the user message specifies.
-Never use Korean-only for fields that require bilingual objects: always pair English with Korean explanation.`;
+Never use Korean-only for fields that require bilingual { english, koreanExplanation } objects. The string field professionalInterpretation is an exception: it is Korean-only by design.`;
 
 export const PASSAGE_DEEP_USER_PROMPT_TEMPLATE = `아래 지문 전체를 처리하고 JSON으로만 답하세요.
 
@@ -51,6 +51,7 @@ export const PASSAGE_DEEP_USER_PROMPT_TEMPLATE = `아래 지문 전체를 처리
 - sentences[].sentenceIndex 는 1부터 지문 앞쪽 문장 순서대로 증가.
 - meaningUnits: 해당 영문 문장을 의미 단위로 나눈 문자열 배열 (화면에서는 "조각1 / 조각2 / …").
 - literalTranslationUnits: **반드시 meaningUnits 와 같은 개수·같은 순서**. literalTranslationUnits[k] 는 meaningUnits[k] 에 대응하는 한국어 **직역** (빠짐·병합·순서 바꿈 금지). 전체 문장을 한 덩어리로만 번역하지 말 것.
+- professionalInterpretation: 해당 sentenceEnglish **전체**에 대한 **한국어 해석만** (읽기 좋은 통역문, 1~2문장). **영어 문자 사용 금지.** 문장을 영어로 해설·평론하지 말 것. 직독직해 조각을 슬래시(/)로 잇는 것만 이어 붙인 수준으로 끝내지 말고 의미가 완결되도록 한국어 문장으로 쓸 것.
 - sentenceEnglish 는 원문 문장과 동일하게 (철자·구두점 유지).
 - keyVocabItems: 그 문장에서 **고등 이상**에 가치 있는 표현만. english=짧은 표기, koreanExplanation=뜻·용법·뉘앙스(한국어). 기초 단어만 단독으로는 항목을 만들지 말 것.
 - theme / passageTitle: 이전과 동일 (영 선행, 한국어는 영어 내용과 상호 대조).

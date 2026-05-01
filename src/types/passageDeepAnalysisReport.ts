@@ -19,7 +19,7 @@ export type PassageDeepSentenceBlock = {
   meaningUnits: string[];
   /** 직독직해 — meaningUnits와 같은 길이·순서: i번째 한국어 직역이 meaningUnits[i]에 대응 */
   literalTranslationUnits: string[];
-  /** 전문 해석 */
+  /** 전문 해석 — 영문 원문 문장 전체에 대한 자연스러운 한국어 통역 */
   professionalInterpretation: string;
   /** 주요 어휘·표현 (항목별 영어 + 한국어 해설) */
   keyVocabItems: PassageDeepBilingualBlock[];

@@ -108,8 +108,10 @@ export const PassageDeepAnalysisPreview = forwardRef<HTMLDivElement, Props>(func
                   </div>
                 </div>
                 <div className={styles.subBlock}>
-                  <div className={styles.subLabel}>전문 해석</div>
-                  <p className={styles.subText}>{s.professionalInterpretation}</p>
+                  <div className={styles.subLabel}>전문 해석 (한국어)</div>
+                  <p className={styles.subText} lang="ko">
+                    {s.professionalInterpretation}
+                  </p>
                 </div>
                 <div className={styles.printCategory}>
                   <div className={styles.subLabel}>주요 어휘·표현</div>

@@ -3,7 +3,12 @@ import { createPortal, flushSync } from "react-dom";
 import { useReactToPrint } from "react-to-print";
 import { useAuth } from "@/contexts/AuthContext";
 import { PassageDeepAnalysisPreview } from "@/components/signalLogic/PassageDeepAnalysisPreview";
-import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
+import { parseCommaSeparatedPdfPages } from "@/lib/pdf/parseCommaSeparatedPdfPages";
+import {
+  extractWorksheetPassageFromUpload,
+  isWorksheetPdfUpload,
+  type WorksheetExtractOptions,
+} from "@/lib/worksheet/extractWorksheetPassageFromUpload";
 import { requestPassageDeepAnalysis } from "@/lib/passageDeep/requestPassageDeepAnalysis";
 import { savePassageDeepReport } from "@/lib/passageDeep/savePassageDeepReport";
 import { downloadPassageDeepReportDocx } from "@/lib/passageDeep/downloadPassageDeepReportDocx";
@@ -34,6 +39,10 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
   const [wordBusy, setWordBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
+  const [uploadAnalysisMode, setUploadAnalysisMode] = useState<"full" | "range" | "pick">("full");
+  const [pdfPageFromInput, setPdfPageFromInput] = useState("1");
+  const [pdfPageToInput, setPdfPageToInput] = useState("");
+  const [pdfPageListInput, setPdfPageListInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -61,6 +70,10 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
     setPhase("input");
     setReport(null);
     setAnalysisModel("");
+    setUploadAnalysisMode("full");
+    setPdfPageFromInput("1");
+    setPdfPageToInput("");
+    setPdfPageListInput("");
     const t = requestAnimationFrame(() => textareaRef.current?.focus());
     return () => cancelAnimationFrame(t);
   }, [open]);
@@ -78,8 +91,45 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
     setError(null);
     setFileBusy(true);
     try {
-      const body = (await extractPlainTextFromLocalFile(file)).trim();
-      const insert = `${file.name ? `【${file.name}】\n\n` : ""}${body}`.trim();
+      const ext = file.name.toLowerCase();
+      const isTxt = ext.endsWith(".txt") || (file.type || "").toLowerCase() === "text/plain";
+
+      let body: string;
+      if (isTxt) {
+        body = (await file.text()).replace(/^\uFEFF/, "");
+      } else {
+        let extractOpts: WorksheetExtractOptions | undefined;
+        if (isWorksheetPdfUpload(file)) {
+          if (uploadAnalysisMode === "range") {
+            const fromPage = Math.max(1, parseInt(pdfPageFromInput.trim(), 10) || 1);
+            const toTrim = pdfPageToInput.trim();
+            if (toTrim !== "") {
+              const toNum = parseInt(toTrim, 10);
+              if (!Number.isFinite(toNum) || toNum < fromPage) {
+                setError("PDF 끝 페이지는 시작 페이지 이상의 숫자로 입력하거나 비워 두세요.");
+                return;
+              }
+              extractOpts = { pdfPageFrom: fromPage, pdfPageTo: toNum };
+            } else {
+              extractOpts = { pdfPageFrom: fromPage };
+            }
+          } else if (uploadAnalysisMode === "pick") {
+            const parsed = parseCommaSeparatedPdfPages(pdfPageListInput);
+            if (parsed === "invalid") {
+              setError("PDF 페이지는 1 이상의 정수를 쉼표로 구분해 입력하세요. 예: 4, 5, 9");
+              return;
+            }
+            if (parsed === "empty") {
+              setError("추출할 페이지 번호를 입력하세요. 예: 4, 5, 9");
+              return;
+            }
+            extractOpts = { pdfPageList: parsed };
+          }
+        }
+        body = await extractWorksheetPassageFromUpload(file, extractOpts);
+      }
+
+      const insert = `${file.name ? `【${file.name}】\n\n` : ""}${body.trim()}`.trim();
       if (!insert) {
         setError("파일에서 읽을 텍스트가 없습니다.");
         return;
@@ -107,7 +157,7 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
     } finally {
       setFileBusy(false);
     }
-  }, []);
+  }, [pdfPageFromInput, pdfPageListInput, pdfPageToInput, uploadAnalysisMode]);
 
   const runAnalysis = useCallback(async () => {
     const text = passage.trim();
@@ -204,7 +254,7 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
               <button
                 type="button"
                 className={styles.fileBtn}
-                disabled={fileBusy || runBusy}
+                disabled={fileBusy || runBusy || phase === "running"}
                 onClick={() => fileInputRef.current?.click()}
               >
                 {fileBusy ? "불러오는 중…" : "파일 불러오기"}
@@ -218,6 +268,96 @@ export function PassageDeepAnalysisModal({ open, onClose }: Props) {
               aria-label="텍스트, PDF, Word 파일 선택"
               onChange={(ev) => void onLocalFileChange(ev)}
             />
+            <div className={styles.uploadScope}>
+              <span className={styles.uploadScopeLabel}>파일 분석 범위 (PDF)</span>
+              <div className={styles.segmentRow} role="radiogroup" aria-label="PDF 업로드 분석 범위">
+                <label className={styles.segmentItem}>
+                  <input
+                    type="radio"
+                    name="pd-upload-scope"
+                    checked={uploadAnalysisMode === "full"}
+                    onChange={() => setUploadAnalysisMode("full")}
+                    disabled={fileBusy || runBusy || phase === "running"}
+                  />
+                  <span>전체</span>
+                </label>
+                <label className={styles.segmentItem}>
+                  <input
+                    type="radio"
+                    name="pd-upload-scope"
+                    checked={uploadAnalysisMode === "range"}
+                    onChange={() => setUploadAnalysisMode("range")}
+                    disabled={fileBusy || runBusy || phase === "running"}
+                  />
+                  <span>
+                    페이지 구간 <span className={styles.segmentNote}>(PDF)</span>
+                  </span>
+                </label>
+                <label className={styles.segmentItem}>
+                  <input
+                    type="radio"
+                    name="pd-upload-scope"
+                    checked={uploadAnalysisMode === "pick"}
+                    onChange={() => setUploadAnalysisMode("pick")}
+                    disabled={fileBusy || runBusy || phase === "running"}
+                  />
+                  <span>
+                    특정 페이지 <span className={styles.segmentNote}>(PDF)</span>
+                  </span>
+                </label>
+              </div>
+              {uploadAnalysisMode === "range" ? (
+                <div className={styles.pageRangeGrid}>
+                  <label className={styles.pageField}>
+                    <span className={styles.pageFieldLabel}>시작</span>
+                    <input
+                      className={styles.pageNumInput}
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={pdfPageFromInput}
+                      onChange={(e) => setPdfPageFromInput(e.target.value)}
+                      disabled={fileBusy || runBusy || phase === "running"}
+                      aria-label="PDF 시작 페이지"
+                    />
+                  </label>
+                  <label className={styles.pageField}>
+                    <span className={styles.pageFieldLabel}>끝 (비우면 끝까지)</span>
+                    <input
+                      className={styles.pageNumInput}
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={pdfPageToInput}
+                      onChange={(e) => setPdfPageToInput(e.target.value)}
+                      disabled={fileBusy || runBusy || phase === "running"}
+                      placeholder="—"
+                      aria-label="PDF 끝 페이지"
+                    />
+                  </label>
+                  <p className={styles.scopeHint}>.txt · .docx 는 전체 내용만 불러옵니다.</p>
+                </div>
+              ) : null}
+              {uploadAnalysisMode === "pick" ? (
+                <div className={styles.pageRangeGrid}>
+                  <label className={styles.pageFieldWide}>
+                    <span className={styles.pageFieldLabel}>페이지 번호</span>
+                    <input
+                      className={styles.pageListInput}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={pdfPageListInput}
+                      onChange={(e) => setPdfPageListInput(e.target.value)}
+                      disabled={fileBusy || runBusy || phase === "running"}
+                      placeholder="예: 4, 5, 9"
+                      aria-label="PDF 특정 페이지"
+                    />
+                  </label>
+                  <p className={styles.scopeHint}>.txt · .docx 는 구간 없이 전체입니다.</p>
+                </div>
+              ) : null}
+            </div>
             <textarea
               id="pd-passage-textarea"
               ref={textareaRef}
