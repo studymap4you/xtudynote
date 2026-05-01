@@ -1,9 +1,15 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { DashboardShell } from "@/components/DashboardShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { gradeShortAnswer } from "@/lib/exam/gradeShortAnswer";
+import { parseCommaSeparatedPdfPages } from "@/lib/pdf/parseCommaSeparatedPdfPages";
+import {
+  extractWorksheetPassageFromUpload,
+  isWorksheetPdfUpload,
+  type WorksheetExtractOptions,
+} from "@/lib/worksheet/extractWorksheetPassageFromUpload";
 import { analyzeEnglishPassage } from "@/lib/englishPassageLab/analyzeEnglishPassage";
 import { gradeKoreanTranslation } from "@/lib/englishPassageLab/gradeKoreanTranslation";
 import { openEnglishWorksheetPrint } from "@/lib/englishPassage/openEnglishWorksheetPrint";
@@ -16,6 +22,7 @@ export function EnglishPassageLabPage() {
   const { firebaseUser, profile } = useAuth();
   const { showToast } = useToast();
   const teacherName = profile?.displayName?.trim() || firebaseUser?.email?.trim() || "선생님";
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState("");
   const [examDate, setExamDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -43,6 +50,12 @@ export function EnglishPassageLabPage() {
   const [pdfLayout, setPdfLayout] = useState<"1col" | "2col">("1col");
   const [previewReady, setPreviewReady] = useState(false);
   const [wordBusy, setWordBusy] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadAnalysisMode, setUploadAnalysisMode] = useState<"full" | "range" | "pick">("full");
+  const [pdfPageFromInput, setPdfPageFromInput] = useState("1");
+  const [pdfPageToInput, setPdfPageToInput] = useState("");
+  const [pdfPageListInput, setPdfPageListInput] = useState("");
 
   const vocabularyForUse = finalVocabulary ?? [];
 
@@ -206,6 +219,125 @@ export function EnglishPassageLabPage() {
     vocabularyForUse,
   ]);
 
+  const processUploadedFile = useCallback(
+    async (file: File) => {
+      setError(null);
+      setUploadBusy(true);
+      let extractOpts: WorksheetExtractOptions | undefined;
+      if (isWorksheetPdfUpload(file)) {
+        if (uploadAnalysisMode === "range") {
+          const fromPage = Math.max(1, parseInt(pdfPageFromInput.trim(), 10) || 1);
+          const toTrim = pdfPageToInput.trim();
+          if (toTrim !== "") {
+            const toNum = parseInt(toTrim, 10);
+            if (!Number.isFinite(toNum) || toNum < fromPage) {
+              const msg = "PDF 끝 페이지는 시작 페이지 이상의 숫자로 입력하거나 비워 두세요.";
+              setError(msg);
+              showToast("err", msg);
+              setUploadBusy(false);
+              return;
+            }
+            extractOpts = { pdfPageFrom: fromPage, pdfPageTo: toNum };
+          } else {
+            extractOpts = { pdfPageFrom: fromPage };
+          }
+        } else if (uploadAnalysisMode === "pick") {
+          const parsed = parseCommaSeparatedPdfPages(pdfPageListInput);
+          if (parsed === "invalid") {
+            const msg = "PDF 페이지는 1 이상의 정수를 쉼표로 구분해 입력하세요. 예: 4, 5, 9";
+            setError(msg);
+            showToast("err", msg);
+            setUploadBusy(false);
+            return;
+          }
+          if (parsed === "empty") {
+            const msg = "추출할 페이지 번호를 입력하세요. 예: 4, 5, 9";
+            setError(msg);
+            showToast("err", msg);
+            setUploadBusy(false);
+            return;
+          }
+          extractOpts = { pdfPageList: parsed };
+        }
+      }
+
+      const nonPdfPagesNote = uploadAnalysisMode !== "full" && !isWorksheetPdfUpload(file);
+
+      try {
+        const extracted = (await extractWorksheetPassageFromUpload(file, extractOpts)).trim();
+        if (!extracted) {
+          const msg = "파일에서 추출한 본문이 비어 있습니다.";
+          setError(msg);
+          showToast("err", msg);
+          return;
+        }
+        setPassageText((prev) => {
+          const t = prev.trim();
+          return t ? `${t}\n\n---\n\n${extracted}` : extracted;
+        });
+        showToast(
+          "ok",
+          nonPdfPagesNote
+            ? `「${file.name}」전체 본문을 가져왔습니다. (페이지 지정은 PDF만 적용)`
+            : `「${file.name}」에서 지문을 채웠습니다.`,
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "파일 처리에 실패했습니다.";
+        setError(msg);
+        showToast("err", msg);
+      } finally {
+        setUploadBusy(false);
+      }
+    },
+    [
+      pdfPageFromInput,
+      pdfPageListInput,
+      pdfPageToInput,
+      showToast,
+      uploadAnalysisMode,
+    ],
+  );
+
+  const onPickFiles = useCallback(
+    (list: FileList | null) => {
+      const file = list?.[0];
+      if (!file) return;
+      void processUploadedFile(file);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    [processUploadedFile],
+  );
+
+  const anyBusy = analyzing || uploadBusy || wordBusy;
+
+  const startNewPassageLab = useCallback(() => {
+    if (anyBusy) return;
+    if (!window.confirm("입력·분석·연습 내용이 모두 초기화됩니다. 새로 작성할까요?")) return;
+    setTitle("");
+    setExamDate(new Date().toISOString().slice(0, 10));
+    setPassageText("");
+    setAnalysis(null);
+    setFinalVocabulary(null);
+    setVocabConfirmed(false);
+    setVocabModalOpen(false);
+    setPendingModalVocab([]);
+    setWordAnswersEnKo({});
+    setWordAnswersKoEn({});
+    setTranslationAnswers({});
+    setCompAnswers({});
+    setWordChecked(false);
+    setTranslationChecked(false);
+    setCompChecked(false);
+    setPdfLayout("1col");
+    setPreviewReady(false);
+    setError(null);
+    setUploadAnalysisMode("full");
+    setPdfPageFromInput("1");
+    setPdfPageToInput("");
+    setPdfPageListInput("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [anyBusy]);
+
   return (
     <DashboardShell light>
       <div className={styles.wrap}>
@@ -218,10 +350,20 @@ export function EnglishPassageLabPage() {
         </p>
 
         <section className={styles.sectionCard}>
-          <h2 className={styles.sectionTitle}>
-            <span className={styles.sectionTitleDot} aria-hidden />
-            지문 입력
-          </h2>
+          <div className={styles.sectionHeadRow}>
+            <h2 className={styles.sectionTitle}>
+              <span className={styles.sectionTitleDot} aria-hidden />
+              지문 입력
+            </h2>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={anyBusy}
+              onClick={() => startNewPassageLab()}
+            >
+              새로 작성
+            </button>
+          </div>
           <div className={styles.grid132}>
             <label className={styles.label}>
               학습 제목
@@ -246,6 +388,142 @@ export function EnglishPassageLabPage() {
               <input className={styles.input48} readOnly value={teacherName} />
             </label>
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className={styles.fileInputHidden}
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/gif,image/webp"
+            onChange={(e) => onPickFiles(e.target.files)}
+          />
+          <div
+            className={`${styles.uploadDrop}${dragOver ? ` ${styles.uploadDropActive}` : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDragOver(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDragOver(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDragOver(false);
+              onPickFiles(e.dataTransfer.files);
+            }}
+          >
+            <p className={styles.uploadDropTitle}>
+              <strong>PDF · Word(DOCX) · 이미지</strong>를 드래그하거나 파일 선택
+            </p>
+            <p className={styles.uploadDropSub}>
+              텍스트를 추출해 아래 영어 지문에 반영합니다. 이미지는 AI Vision으로 읽습니다(
+              <code className={styles.uploadCode}>VITE_OPENAI_API_KEY</code> 필요).
+            </p>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={anyBusy}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploadBusy ? "추출 중…" : "파일 선택"}
+            </button>
+          </div>
+          <div className={styles.uploadScope}>
+            <span className={styles.uploadScopeLabel}>분석 범위</span>
+            <div className={styles.segmentRow} role="radiogroup" aria-label="업로드 분석 범위">
+              <label className={styles.segmentItem}>
+                <input
+                  type="radio"
+                  name="epl-upload-scope"
+                  checked={uploadAnalysisMode === "full"}
+                  onChange={() => setUploadAnalysisMode("full")}
+                  disabled={anyBusy}
+                />
+                <span>전체 분석</span>
+              </label>
+              <label className={styles.segmentItem}>
+                <input
+                  type="radio"
+                  name="epl-upload-scope"
+                  checked={uploadAnalysisMode === "range"}
+                  onChange={() => setUploadAnalysisMode("range")}
+                  disabled={anyBusy}
+                />
+                <span>
+                  페이지 구간 <span className={styles.segmentNote}>(PDF)</span>
+                </span>
+              </label>
+              <label className={styles.segmentItem}>
+                <input
+                  type="radio"
+                  name="epl-upload-scope"
+                  checked={uploadAnalysisMode === "pick"}
+                  onChange={() => setUploadAnalysisMode("pick")}
+                  disabled={anyBusy}
+                />
+                <span>
+                  특정 페이지 <span className={styles.segmentNote}>(PDF)</span>
+                </span>
+              </label>
+            </div>
+            {uploadAnalysisMode === "range" ? (
+              <div className={styles.pageRangeGrid}>
+                <label className={styles.pageField}>
+                  <span className={styles.pageFieldLabel}>시작 페이지</span>
+                  <input
+                    className={styles.input48}
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={pdfPageFromInput}
+                    onChange={(e) => setPdfPageFromInput(e.target.value)}
+                    disabled={anyBusy}
+                    aria-label="PDF 시작 페이지"
+                  />
+                </label>
+                <label className={styles.pageField}>
+                  <span className={styles.pageFieldLabel}>끝 페이지</span>
+                  <input
+                    className={styles.input48}
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={pdfPageToInput}
+                    onChange={(e) => setPdfPageToInput(e.target.value)}
+                    disabled={anyBusy}
+                    placeholder="비우면 마지막까지"
+                    aria-label="PDF 끝 페이지"
+                  />
+                </label>
+                <p className={styles.scopeHint}>
+                  연속 구간만 추출합니다. Word·이미지는 전체 본문만 반영됩니다.
+                </p>
+              </div>
+            ) : null}
+            {uploadAnalysisMode === "pick" ? (
+              <div className={styles.pageRangeGrid}>
+                <label className={styles.pageFieldWide}>
+                  <span className={styles.pageFieldLabel}>페이지 번호</span>
+                  <input
+                    className={styles.input48}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={pdfPageListInput}
+                    onChange={(e) => setPdfPageListInput(e.target.value)}
+                    disabled={anyBusy}
+                    placeholder="예: 4, 5, 9"
+                    aria-label="PDF 특정 페이지, 쉼표로 구분"
+                  />
+                </label>
+                <p className={styles.scopeHint}>
+                  쉼표로 구분해 여러 페이지만 순서대로 가져옵니다. Word·이미지는 전체입니다.
+                </p>
+              </div>
+            ) : null}
+          </div>
           <label className={styles.label} style={{ marginTop: "0.75rem" }}>
             영어 지문
             <textarea
@@ -259,13 +537,18 @@ export function EnglishPassageLabPage() {
             <button
               type="button"
               className={styles.btnPrimary}
-              disabled={analyzing || passageText.trim().length < 40}
+              disabled={anyBusy || passageText.trim().length < 40}
               onClick={() => void runAnalyze()}
             >
               지문 분석
             </button>
             {analysis && (
-              <button type="button" className={styles.btnGhost} onClick={openVocabEditor}>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={anyBusy}
+                onClick={openVocabEditor}
+              >
                 단어 목록 검토·편집
               </button>
             )}
@@ -639,12 +922,14 @@ export function EnglishPassageLabPage() {
         </section>
       </div>
 
-      {analyzing && (
+      {analyzing || uploadBusy ? (
         <div className={styles.overlay} role="alertdialog" aria-busy aria-live="polite">
           <div className={styles.spinner} />
-          <p className={styles.overlayText}>지문 분석 중...</p>
+          <p className={styles.overlayText}>
+            {analyzing ? "지문 분석 중..." : "자료에서 텍스트 추출 중..."}
+          </p>
         </div>
-      )}
+      ) : null}
     </DashboardShell>
   );
 }
