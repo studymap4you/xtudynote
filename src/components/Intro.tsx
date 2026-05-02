@@ -9,7 +9,7 @@ import {
   BRAND_SHARE_TITLE,
 } from "@/lib/brand";
 
-type ShortcutTone = "a" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k";
+type ShortcutTone = "a" | "d" | "e" | "f" | "h" | "i" | "j" | "k";
 
 type ShortcutDef = {
   to: string;
@@ -27,7 +27,6 @@ const SHORTCUTS: ShortcutDef[] = [
   { to: "/logic-dashboard", label: "시그널로직", tone: "h", gateAuth: true },
   { to: "/material/register", label: "새자료 등록", tone: "e" },
   { to: "/videos", label: "동영상 강의", tone: "f" },
-  { to: "/xtudy-market", label: "엑스터디마켓", tone: "g" },
   { to: "/digital-market", label: "디지털마켓", tone: "d" },
 ];
 
@@ -511,22 +510,6 @@ function IconShortcutVideo() {
   );
 }
 
-/** 엑스터디마켓 — 스토어 */
-function IconShortcutStorefront() {
-  return (
-    <svg {...shortcutIconProps}>
-      <path
-        d="M3 9h18v2a4 4 0 0 1-4 4h-1M3 9 5 5h14l2 4M9 17v4h6v-4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M7 21h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 /** 시그널로직 — 파형 */
 function IconShortcutSignal() {
   return (
@@ -574,8 +557,6 @@ function ShortcutOrbIcon({ tone }: { tone: ShortcutTone }) {
       return <IconShortcutNewDoc />;
     case "f":
       return <IconShortcutVideo />;
-    case "g":
-      return <IconShortcutStorefront />;
     case "h":
       return <IconShortcutSignal />;
     case "i":

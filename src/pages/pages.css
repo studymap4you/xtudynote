@@ -4532,12 +4532,6 @@ button.intro-login-card__btn {
 .intro-shortcut--f .intro-shortcut__icon {
   color: #be185d;
 }
-.intro-shortcut--g .intro-shortcut__orb {
-  background: linear-gradient(155deg, var(--intro-pastel-g) 0%, rgba(52, 211, 153, 0.34) 100%);
-}
-.intro-shortcut--g .intro-shortcut__icon {
-  color: #0f766e;
-}
 .intro-shortcut--h .intro-shortcut__orb {
   background: linear-gradient(155deg, var(--intro-pastel-h) 0%, rgba(59, 130, 246, 0.28) 100%);
 }
