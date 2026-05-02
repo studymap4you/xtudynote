@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { DashboardShell } from "@/components/DashboardShell";
 import { TextbookAutoAnswerKeyPrintView } from "@/components/textbookAuto/TextbookAutoAnswerKeyPrintView";
@@ -11,12 +11,15 @@ import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle"
 import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextbookUnitGeneration";
 import { buildAnswerKeyStubs } from "@/lib/textbookAuto/buildAnswerKeyStubs";
 import { requestTextbookAnswerKeyForUnit } from "@/lib/textbookAuto/requestTextbookAnswerKey";
+import { downloadTextbookAutoStudentDocx, downloadTextbookAutoTeacherDocx } from "@/lib/textbookAuto/downloadTextbookAutoDocx";
 import {
   createTextbookAutoSession,
   deleteAllAnswerKeysForSession,
+  deleteAnswerKeysForUnit,
   loadAnswerKeyItems,
   loadConfirmedUnits,
   setSessionCurrentUnit,
+  updateAnswerKeyItem,
   writeAnswerKeyItems,
   writeUnitConfirmed,
   writeUnitDraft,
@@ -64,6 +67,8 @@ export function TextbookAutoBuilderPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [answerKeyItems, setAnswerKeyItems] = useState<TextbookAnswerKeyItem[]>([]);
+  const [docxBusy, setDocxBusy] = useState<"student" | "teacher" | null>(null);
+  const [phase2UnitBusy, setPhase2UnitBusy] = useState<number | null>(null);
 
   const isComplete = sessionId !== null && currentUnitIndex >= totalUnits;
 
@@ -229,7 +234,7 @@ export function TextbookAutoBuilderPage() {
       setDraftModel("");
       setMsg(
         next >= totalUnits
-          ? "모든 단원이 확정되었습니다. 아래에서 2단계(정답·해설)를 진행할 수 있습니다."
+          ? "모든 단원이 확정되었습니다. 아래 3단계에서 정답·해설을 생성·검수할 수 있습니다."
           : "다음 단원으로 넘어갔습니다.",
       );
     } catch (e) {
@@ -278,11 +283,11 @@ export function TextbookAutoBuilderPage() {
       setAnswerKeyItems(rows);
       setMsg(
         totalWritten > 0
-          ? `2단계 완료: ${totalWritten}개 문항의 정답·해설을 저장했습니다.`
+          ? `3단계(AI): ${totalWritten}개 문항의 정답·해설을 저장했습니다. 아래에서 수정·Word 내보내기를 할 수 있습니다.`
           : "확인학습·단원평가 문항이 없어 저장할 항목이 없습니다.",
       );
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "2단계 생성에 실패했습니다.");
+      setErr(e instanceof Error ? e.message : "정답·해설 생성에 실패했습니다.");
     } finally {
       setBusy(false);
     }
@@ -391,16 +396,139 @@ export function TextbookAutoBuilderPage() {
     [unitInputs],
   );
 
+  const answerKeysByUnit = useMemo(() => {
+    const m = new Map<number, TextbookAnswerKeyItem[]>();
+    for (const it of answerKeyItems) {
+      const arr = m.get(it.unitIndex) ?? [];
+      arr.push(it);
+      m.set(it.unitIndex, arr);
+    }
+    return [...m.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([unitIndex, items]) => ({
+        unitIndex,
+        items: [...items].sort((a, b) => {
+          if (a.bucket !== b.bucket) return a.bucket === "practice" ? -1 : 1;
+          return a.orderIndex - b.orderIndex;
+        }),
+      }));
+  }, [answerKeyItems]);
+
+  const [savingKeyId, setSavingKeyId] = useState<string | null>(null);
+
+  const saveAnswerKeyEdit = useCallback(
+    async (itemId: string, answer: string, explanationBullets: string[]) => {
+      if (!uid || !sessionId) return;
+      setSavingKeyId(itemId);
+      setErr(null);
+      try {
+        await updateAnswerKeyItem(uid, sessionId, itemId, { answer, explanationBullets });
+        setAnswerKeyItems((prev) =>
+          prev.map((x) =>
+            x.id === itemId
+              ? {
+                  ...x,
+                  answer: answer.trim(),
+                  explanationBullets: explanationBullets.map((s) => s.trim()).filter(Boolean).slice(0, 25),
+                }
+              : x,
+          ),
+        );
+        setMsg("정답·해설을 저장했습니다.");
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "저장에 실패했습니다.");
+      } finally {
+        setSavingKeyId(null);
+      }
+    },
+    [uid, sessionId],
+  );
+
+  const runPhase2ForUnit = useCallback(
+    async (unitIndex: number) => {
+      setErr(null);
+      setMsg(null);
+      if (!uid || !sessionId) return;
+      const row = confirmedUnits.find((u) => u.unitIndex === unitIndex);
+      if (!row) {
+        setErr("해당 단원을 찾을 수 없습니다.");
+        return;
+      }
+      setPhase2UnitBusy(unitIndex);
+      try {
+        await deleteAnswerKeysForUnit(uid, sessionId, unitIndex);
+        const title = bookTitle.trim() || "교재";
+        const stubs = buildAnswerKeyStubs(unitIndex, row.unit);
+        if (stubs.length === 0) {
+          setMsg(`제 ${unitIndex + 1}단원: 확인학습·단원평가 문항이 없어 건너뜁니다.`);
+          const rows = await loadAnswerKeyItems(uid, sessionId);
+          setAnswerKeyItems(rows);
+          return;
+        }
+        const { items, meta } = await requestTextbookAnswerKeyForUnit({
+          bookTitle: title,
+          unitTitle: row.unit.unitTitle,
+          unitIndex,
+          stubs,
+        });
+        await writeAnswerKeyItems(uid, sessionId, items, meta.model);
+        const rows = await loadAnswerKeyItems(uid, sessionId);
+        setAnswerKeyItems(rows);
+        setMsg(`제 ${unitIndex + 1}단원: 정답·해설 ${items.length}개를 저장했습니다.`);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "단원 정답·해설 생성에 실패했습니다.");
+      } finally {
+        setPhase2UnitBusy(null);
+      }
+    },
+    [uid, sessionId, confirmedUnits, bookTitle],
+  );
+
+  const runDownloadStudentDocx = useCallback(async () => {
+    if (confirmedUnits.length === 0) return;
+    setDocxBusy("student");
+    setErr(null);
+    try {
+      await downloadTextbookAutoStudentDocx({
+        bookTitle: bookTitle.trim() || "교재",
+        units: confirmedUnits,
+      });
+      setMsg("학생용 Word(.docx)를 받았습니다.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Word 내보내기에 실패했습니다.");
+    } finally {
+      setDocxBusy(null);
+    }
+  }, [confirmedUnits, bookTitle]);
+
+  const runDownloadTeacherDocx = useCallback(async () => {
+    if (answerKeyItems.length === 0) return;
+    setDocxBusy("teacher");
+    setErr(null);
+    try {
+      await downloadTextbookAutoTeacherDocx({
+        bookTitle: bookTitle.trim() || "교재",
+        unitTitles: confirmedUnits.map(({ unitIndex, unit }) => ({ unitIndex, unitTitle: unit.unitTitle })),
+        items: answerKeyItems,
+      });
+      setMsg("교사용 정답·해설 Word(.docx)를 받았습니다.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Word 내보내기에 실패했습니다.");
+    } finally {
+      setDocxBusy(null);
+    }
+  }, [answerKeyItems, confirmedUnits, bookTitle]);
+
   return (
     <DashboardShell light>
       <main className={styles.main}>
         <div className={styles.wrap}>
           <header className={styles.hero}>
             <p className={styles.eyebrow}>{BRAND_APP_NAME}</p>
-            <h1 className={styles.title}>교재 자동 생성 · 1–2단계</h1>
+            <h1 className={styles.title}>교재 자동 생성 · 1–3단계</h1>
             <p className={styles.lead}>
               단원 수만큼 지문 칸이 열립니다. 각 단원에 직접 붙여넣거나 파일을 여러 개 올린 뒤 PDF는 페이지 범위·개별 페이지를 지정해 추출할 수 있습니다. 세션을 시작한 뒤 단원별 AI
-              생성과 2단계 정답·해설을 진행합니다.
+              초안을 확정하고, 3단계에서 정답·해설을 생성·수정한 다음 인쇄 또는 Word로 내보냅니다.
             </p>
           </header>
 
@@ -627,22 +755,75 @@ export function TextbookAutoBuilderPage() {
               </section>
 
               {isComplete ? (
-                <section className={styles.card} aria-labelledby="phase2-h">
-                  <h2 id="phase2-h" className={styles.cardTitle}>
-                    3. 정답·해설 (2단계)
+                <section className={styles.card} aria-labelledby="phase3-h">
+                  <h2 id="phase3-h" className={styles.cardTitle}>
+                    3. 정답·해설 · 내보내기
                   </h2>
+                  <h3 className={styles.phase3Sub}>AI 생성</h3>
                   <p className={styles.p}>
-                    문항 id(예: u0-p-0)로 확인학습·단원평가를 묶고, AI가 정답과 불릿 해설을 붙입니다. 실행하면 이 세션의 기존 2단계 저장분은 모두 삭제 후 다시 씁니다.
+                    「전체 생성」은 이 세션의 저장된 정답·해설을 <strong>모두 삭제한 뒤</strong> 모든 단원을 다시 씁니다. 특정 단원만 갱신하려면 「단원별 생성」 버튼을
+                    사용하세요.
                   </p>
                   <div className={styles.row}>
                     <button
                       type="button"
                       className={styles.btnPrimary}
-                      disabled={busy || confirmedUnits.length === 0}
+                      disabled={busy || phase2UnitBusy !== null || confirmedUnits.length === 0}
                       onClick={() => void runPhase2All()}
                     >
-                      {busy ? "처리 중…" : "정답·해설 AI 생성"}
+                      {busy ? "처리 중…" : "정답·해설 전체 AI 생성"}
                     </button>
+                  </div>
+                  <div className={styles.unitPhase2Wrap}>
+                    <p className={styles.hint}>단원별 생성 (해당 단원의 정답만 삭제 후 재생성)</p>
+                    <div className={styles.unitPhase2Row}>
+                      {[...confirmedUnits]
+                        .sort((a, b) => a.unitIndex - b.unitIndex)
+                        .map(({ unitIndex, unit }) => (
+                          <button
+                            key={unitIndex}
+                            type="button"
+                            className={styles.btnMini}
+                            disabled={busy || phase2UnitBusy !== null}
+                            onClick={() => void runPhase2ForUnit(unitIndex)}
+                            title={unit.unitTitle}
+                          >
+                            {phase2UnitBusy === unitIndex ? "생성 중…" : `제 ${unitIndex + 1}단원만`}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {answerKeyItems.length > 0 ? (
+                    <>
+                      <h3 className={styles.phase3Sub}>검수·수정</h3>
+                      <p className={styles.p}>문항별로 정답과 해설(줄바꿈 = 불릿)을 고친 뒤 저장할 수 있습니다.</p>
+                      {answerKeysByUnit.map(({ unitIndex, items }) => {
+                        const ut =
+                          confirmedUnits.find((u) => u.unitIndex === unitIndex)?.unit.unitTitle ?? "";
+                        return (
+                          <div key={unitIndex} className={styles.answerUnitBlock}>
+                            <h4 className={styles.answerUnitTitle}>
+                              제 {unitIndex + 1}단원 · {ut || "(제목 없음)"}
+                            </h4>
+                            {items.map((it) => (
+                              <AnswerKeyEditCard
+                                key={it.id}
+                                item={it}
+                                saving={savingKeyId === it.id}
+                                onSave={saveAnswerKeyEdit}
+                              />
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <p className={styles.hint}>아직 저장된 정답·해설이 없습니다. 위에서 AI 생성을 실행하세요.</p>
+                  )}
+
+                  <h3 className={styles.phase3Sub}>인쇄 · Word</h3>
+                  <div className={styles.row}>
                     <button
                       type="button"
                       className={styles.btnSecondary}
@@ -651,12 +832,26 @@ export function TextbookAutoBuilderPage() {
                     >
                       교사용 PDF (정답·해설)
                     </button>
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      disabled={docxBusy !== null || confirmedUnits.length === 0}
+                      onClick={() => void runDownloadStudentDocx()}
+                    >
+                      {docxBusy === "student" ? "만드는 중…" : "학생용 Word (.docx)"}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      disabled={docxBusy !== null || answerKeyItems.length === 0}
+                      onClick={() => void runDownloadTeacherDocx()}
+                    >
+                      {docxBusy === "teacher" ? "만드는 중…" : "교사용 Word (.docx)"}
+                    </button>
                   </div>
                   {answerKeyItems.length > 0 ? (
                     <p className={styles.hint}>Firestore에 저장된 문항: {answerKeyItems.length}개</p>
-                  ) : (
-                    <p className={styles.hint}>아직 2단계 데이터가 없습니다.</p>
-                  )}
+                  ) : null}
                 </section>
               ) : null}
             </>
@@ -693,6 +888,61 @@ export function TextbookAutoBuilderPage() {
         </div>
       </main>
     </DashboardShell>
+  );
+}
+
+function AnswerKeyEditCard({
+  item,
+  saving,
+  onSave,
+}: {
+  item: TextbookAnswerKeyItem;
+  saving: boolean;
+  onSave: (itemId: string, answer: string, explanationBullets: string[]) => Promise<void>;
+}) {
+  const [answer, setAnswer] = useState(item.answer);
+  const [expLines, setExpLines] = useState(() => item.explanationBullets.join("\n"));
+  const expJoin = item.explanationBullets.join("\n");
+  useEffect(() => {
+    setAnswer(item.answer);
+    setExpLines(expJoin);
+  }, [item.id, item.answer, expJoin]);
+
+  const bucketLabel = item.bucket === "practice" ? "확인학습" : "단원평가";
+
+  return (
+    <div className={styles.answerKeyCard}>
+      <p className={styles.answerKeyMeta}>
+        {bucketLabel} · {item.id}
+      </p>
+      <p className={styles.answerKeyQ}>{item.question}</p>
+      <label className={styles.field}>
+        <span className={styles.label}>정답</span>
+        <input className={styles.input} value={answer} onChange={(e) => setAnswer(e.target.value)} maxLength={8000} />
+      </label>
+      <label className={styles.field}>
+        <span className={styles.label}>해설 (줄마다 한 불릿)</span>
+        <textarea className={styles.textarea} rows={4} value={expLines} onChange={(e) => setExpLines(e.target.value)} />
+      </label>
+      <button
+        type="button"
+        className={styles.btnMini}
+        disabled={saving}
+        onClick={() =>
+          void onSave(
+            item.id,
+            answer,
+            expLines
+              .split("\n")
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .slice(0, 25),
+          )
+        }
+      >
+        {saving ? "저장 중…" : "이 문항 저장"}
+      </button>
+    </div>
   );
 }
 

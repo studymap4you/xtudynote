@@ -417,3 +417,75 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* 3단계 — 정답·해설 패널 */
+.phase3Sub {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.phase3Sub:first-of-type {
+  margin-top: 0;
+}
+
+.unitPhase2Wrap {
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 0.85rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.unitPhase2Row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.answerUnitBlock {
+  margin: 1rem 0 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed #cbd5e1;
+}
+
+.answerUnitBlock:last-child {
+  border-bottom: none;
+}
+
+.answerUnitTitle {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #1d4ed8;
+}
+
+.answerKeyCard {
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.answerKeyCard .textarea {
+  min-height: 5rem;
+}
+
+.answerKeyMeta {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.02em;
+}
+
+.answerKeyQ {
+  margin: 0 0 0.65rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #1e293b;
+  white-space: pre-wrap;
+}

@@ -204,3 +204,30 @@ export async function deleteAllAnswerKeysForSession(uid: string, sessionId: stri
     await batch.commit();
   }
 }
+
+/** 한 단원에 해당하는 정답·해설 문서만 삭제 (단원별 재생성용) */
+export async function deleteAnswerKeysForUnit(uid: string, sessionId: string, unitIndex: number): Promise<void> {
+  const snap = await getDocs(answerKeysCollection(uid, sessionId));
+  const toDelete = snap.docs.filter((d) => {
+    const x = d.data();
+    return typeof x.unitIndex === "number" && x.unitIndex === unitIndex;
+  });
+  for (let i = 0; i < toDelete.length; i += 400) {
+    const batch = writeBatch(db);
+    toDelete.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
+export async function updateAnswerKeyItem(
+  uid: string,
+  sessionId: string,
+  itemId: string,
+  patch: { answer: string; explanationBullets: string[] },
+): Promise<void> {
+  const bullets = patch.explanationBullets.map((s) => s.trim()).filter(Boolean).slice(0, 25);
+  await updateDoc(doc(answerKeysCollection(uid, sessionId), itemId), {
+    answer: patch.answer.trim(),
+    explanationBullets: bullets,
+  });
+}

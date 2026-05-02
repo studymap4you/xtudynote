@@ -129,8 +129,8 @@ export function ApprovedTeacherDashboard() {
             </li>
             <li>
               <Link to="/tools/textbook-auto" className="educator-quick-links__a">
-                <span className="educator-quick-links__en">Textbook auto (step 1)</span>
-                <span className="educator-quick-links__ko">교재 자동생성 1단계</span>
+                <span className="educator-quick-links__en">Textbook auto (steps 1–3)</span>
+                <span className="educator-quick-links__ko">교재 자동생성 (1–3단계)</span>
               </Link>
             </li>
             <li>
