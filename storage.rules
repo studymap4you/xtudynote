@@ -82,6 +82,25 @@ service firebase.storage {
       );
     }
 
+    /** 교재 자동 생성 4단계 — 본인 세션별 Word 패키지 (.docx) */
+    match /textbook_auto/{uid}/{sessionId}/{fileName} {
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && (isActiveTeacher() || isActiveSuperAdmin())
+        && request.resource.size < 35 * 1024 * 1024
+        && (fileName == 'student.docx' || fileName == 'teacher.docx');
+
+      allow read: if request.auth != null && (
+        request.auth.uid == uid
+        || isActiveSuperAdmin()
+      );
+
+      allow delete: if request.auth != null && (
+        request.auth.uid == uid
+        || isActiveSuperAdmin()
+      );
+    }
+
     /** 학습지 배포용 로컬 첨부 (업로더·마스터만 직접 읽기; 학생은 Functions 서명 URL) */
     match /worksheet_uploads/{uid}/{allPaths=**} {
       allow create, update: if request.auth != null

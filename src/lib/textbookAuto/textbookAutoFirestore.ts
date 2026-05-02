@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -193,6 +194,70 @@ export async function loadAnswerKeyItems(uid: string, sessionId: string): Promis
     return a.orderIndex - b.orderIndex;
   });
   return rows;
+}
+
+export const TEXTBOOK_AUTO_EXPORT_PACKAGE_SCHEMA_VERSION = 1;
+export const TEXTBOOK_AUTO_EXPORT_PACKAGE_DOC_ID = "current";
+
+export type TextbookAutoExportPackageDoc = {
+  packageSchemaVersion: number;
+  studentStoragePath: string;
+  teacherStoragePath: string;
+  updatedAt: unknown;
+  createdAt?: unknown;
+};
+
+function exportPackageRef(uid: string, sessionId: string) {
+  return doc(
+    db,
+    "users",
+    uid,
+    "textbook_auto_sessions",
+    sessionId,
+    "export_package",
+    TEXTBOOK_AUTO_EXPORT_PACKAGE_DOC_ID,
+  );
+}
+
+export async function loadTextbookExportPackage(
+  uid: string,
+  sessionId: string,
+): Promise<TextbookAutoExportPackageDoc | null> {
+  const snap = await getDoc(exportPackageRef(uid, sessionId));
+  if (!snap.exists()) return null;
+  const x = snap.data();
+  return {
+    packageSchemaVersion:
+      typeof x.packageSchemaVersion === "number" ? x.packageSchemaVersion : TEXTBOOK_AUTO_EXPORT_PACKAGE_SCHEMA_VERSION,
+    studentStoragePath: String(x.studentStoragePath ?? ""),
+    teacherStoragePath: String(x.teacherStoragePath ?? ""),
+    updatedAt: x.updatedAt,
+    createdAt: x.createdAt,
+  };
+}
+
+export async function upsertTextbookExportPackage(
+  uid: string,
+  sessionId: string,
+  paths: { studentStoragePath: string; teacherStoragePath: string },
+): Promise<void> {
+  const r = exportPackageRef(uid, sessionId);
+  const snap = await getDoc(r);
+  if (!snap.exists()) {
+    await setDoc(r, {
+      packageSchemaVersion: TEXTBOOK_AUTO_EXPORT_PACKAGE_SCHEMA_VERSION,
+      studentStoragePath: paths.studentStoragePath,
+      teacherStoragePath: paths.teacherStoragePath,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } else {
+    await updateDoc(r, {
+      studentStoragePath: paths.studentStoragePath,
+      teacherStoragePath: paths.teacherStoragePath,
+      updatedAt: serverTimestamp(),
+    });
+  }
 }
 
 export async function deleteAllAnswerKeysForSession(uid: string, sessionId: string): Promise<void> {

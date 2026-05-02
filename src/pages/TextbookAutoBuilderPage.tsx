@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
+import { getDownloadURL, ref as storageRef } from "firebase/storage";
 import { DashboardShell } from "@/components/DashboardShell";
 import { TextbookAutoAnswerKeyPrintView } from "@/components/textbookAuto/TextbookAutoAnswerKeyPrintView";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
 import { useAuth } from "@/contexts/AuthContext";
+import { storage } from "@/firebase/config";
 import { BRAND_APP_NAME } from "@/lib/brand";
 import { combineUnitPassage, emptyUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
 import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
@@ -12,17 +14,20 @@ import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextboo
 import { buildAnswerKeyStubs } from "@/lib/textbookAuto/buildAnswerKeyStubs";
 import { requestTextbookAnswerKeyForUnit } from "@/lib/textbookAuto/requestTextbookAnswerKey";
 import { downloadTextbookAutoStudentDocx, downloadTextbookAutoTeacherDocx } from "@/lib/textbookAuto/downloadTextbookAutoDocx";
+import { publishTextbookAutoPackage } from "@/lib/textbookAuto/publishTextbookAutoPackage";
 import {
   createTextbookAutoSession,
   deleteAllAnswerKeysForSession,
   deleteAnswerKeysForUnit,
   loadAnswerKeyItems,
   loadConfirmedUnits,
+  loadTextbookExportPackage,
   setSessionCurrentUnit,
   updateAnswerKeyItem,
   writeAnswerKeyItems,
   writeUnitConfirmed,
   writeUnitDraft,
+  type TextbookAutoExportPackageDoc,
 } from "@/lib/textbookAuto/textbookAutoFirestore";
 import type {
   TextbookAnswerKeyItem,
@@ -69,6 +74,8 @@ export function TextbookAutoBuilderPage() {
   const [answerKeyItems, setAnswerKeyItems] = useState<TextbookAnswerKeyItem[]>([]);
   const [docxBusy, setDocxBusy] = useState<"student" | "teacher" | null>(null);
   const [phase2UnitBusy, setPhase2UnitBusy] = useState<number | null>(null);
+  const [exportPackage, setExportPackage] = useState<TextbookAutoExportPackageDoc | null>(null);
+  const [packageBusy, setPackageBusy] = useState(false);
 
   const isComplete = sessionId !== null && currentUnitIndex >= totalUnits;
 
@@ -108,6 +115,7 @@ export function TextbookAutoBuilderPage() {
     setDraftModel("");
     setConfirmedUnits([]);
     setAnswerKeyItems([]);
+    setExportPackage(null);
     setMsg(null);
     setErr(null);
   }, []);
@@ -117,6 +125,17 @@ export function TextbookAutoBuilderPage() {
     let cancelled = false;
     void loadAnswerKeyItems(uid, sessionId).then((rows) => {
       if (!cancelled) setAnswerKeyItems(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, sessionId, isComplete]);
+
+  useEffect(() => {
+    if (!uid || !sessionId || !isComplete) return;
+    let cancelled = false;
+    void loadTextbookExportPackage(uid, sessionId).then((p) => {
+      if (!cancelled) setExportPackage(p);
     });
     return () => {
       cancelled = true;
@@ -234,7 +253,7 @@ export function TextbookAutoBuilderPage() {
       setDraftModel("");
       setMsg(
         next >= totalUnits
-          ? "모든 단원이 확정되었습니다. 아래 3단계에서 정답·해설을 생성·검수할 수 있습니다."
+          ? "모든 단원이 확정되었습니다. 3–4단계에서 정답·해설과 클라우드 패키지를 진행할 수 있습니다."
           : "다음 단원으로 넘어갔습니다.",
       );
     } catch (e) {
@@ -250,7 +269,9 @@ export function TextbookAutoBuilderPage() {
     setConfirmedUnits(rows);
     const ak = await loadAnswerKeyItems(uid, sessionId);
     setAnswerKeyItems(ak);
-    setMsg("단원·정답 데이터를 Firestore에서 다시 불러왔습니다.");
+    const pkg = await loadTextbookExportPackage(uid, sessionId);
+    setExportPackage(pkg);
+    setMsg("단원·정답·패키지 정보를 Firestore에서 다시 불러왔습니다.");
   }, [uid, sessionId]);
 
   const runPhase2All = useCallback(async () => {
@@ -519,16 +540,50 @@ export function TextbookAutoBuilderPage() {
     }
   }, [answerKeyItems, confirmedUnits, bookTitle]);
 
+  const runPublishPackage = useCallback(async () => {
+    setErr(null);
+    setMsg(null);
+    if (!uid || !sessionId || confirmedUnits.length === 0) return;
+    setPackageBusy(true);
+    try {
+      await publishTextbookAutoPackage({
+        uid,
+        sessionId,
+        bookTitle: bookTitle.trim() || "교재",
+        units: confirmedUnits,
+        answerKeyItems,
+      });
+      const pkg = await loadTextbookExportPackage(uid, sessionId);
+      setExportPackage(pkg);
+      setMsg("클라우드에 Word 패키지를 저장했습니다. 아래에서 다시 받을 수 있습니다.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "패키지 업로드에 실패했습니다.");
+    } finally {
+      setPackageBusy(false);
+    }
+  }, [uid, sessionId, confirmedUnits, bookTitle, answerKeyItems]);
+
+  const openCloudDownload = useCallback(async (path: string) => {
+    if (!path) return;
+    setErr(null);
+    try {
+      const url = await getDownloadURL(storageRef(storage, path));
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "다운로드 링크를 열지 못했습니다.");
+    }
+  }, []);
+
   return (
     <DashboardShell light>
       <main className={styles.main}>
         <div className={styles.wrap}>
           <header className={styles.hero}>
             <p className={styles.eyebrow}>{BRAND_APP_NAME}</p>
-            <h1 className={styles.title}>교재 자동 생성 · 1–3단계</h1>
+            <h1 className={styles.title}>교재 자동 생성 · 1–4단계</h1>
             <p className={styles.lead}>
               단원 수만큼 지문 칸이 열립니다. 각 단원에 직접 붙여넣거나 파일을 여러 개 올린 뒤 PDF는 페이지 범위·개별 페이지를 지정해 추출할 수 있습니다. 세션을 시작한 뒤 단원별 AI
-              초안을 확정하고, 3단계에서 정답·해설을 생성·수정한 다음 인쇄 또는 Word로 내보냅니다.
+              초안을 확정하고, 3단계에서 정답·해설을 다룬 뒤, 4단계에서 클라우드에 패키지를 올리거나 로컬로 인쇄·Word 내보내기를 할 수 있습니다.
             </p>
           </header>
 
@@ -755,6 +810,7 @@ export function TextbookAutoBuilderPage() {
               </section>
 
               {isComplete ? (
+                <>
                 <section className={styles.card} aria-labelledby="phase3-h">
                   <h2 id="phase3-h" className={styles.cardTitle}>
                     3. 정답·해설 · 내보내기
@@ -853,6 +909,62 @@ export function TextbookAutoBuilderPage() {
                     <p className={styles.hint}>Firestore에 저장된 문항: {answerKeyItems.length}개</p>
                   ) : null}
                 </section>
+
+                <section className={styles.card} aria-labelledby="phase4-h">
+                  <h2 id="phase4-h" className={styles.cardTitle}>
+                    4. 클라우드 패키지 (Storage)
+                  </h2>
+                  <p className={styles.p}>
+                    확정 단원·현재 정답·해설을 반영해 Word(.docx)를 만들어 <strong>본인 Storage</strong>에 저장합니다. 같은 세션에서 다시 누르면 파일을 덮어씁니다. 정답·해설이
+                    없으면 학생용만 올리고 교사용은 생략합니다.
+                  </p>
+                  <div className={styles.row}>
+                    <button
+                      type="button"
+                      className={styles.btnPrimary}
+                      disabled={packageBusy || confirmedUnits.length === 0}
+                      onClick={() => void runPublishPackage()}
+                    >
+                      {packageBusy ? "업로드 중…" : "패키지 업로드·갱신"}
+                    </button>
+                  </div>
+                  {exportPackage ? (
+                    <div className={styles.packageMeta}>
+                      <p className={styles.hint}>
+                        학생용: <span className={styles.monoInline}>{exportPackage.studentStoragePath}</span>
+                      </p>
+                      {exportPackage.teacherStoragePath ? (
+                        <p className={styles.hint}>
+                          교사용: <span className={styles.monoInline}>{exportPackage.teacherStoragePath}</span>
+                        </p>
+                      ) : (
+                        <p className={styles.hint}>교사용 파일은 정답·해설이 있을 때만 업로드됩니다.</p>
+                      )}
+                      <div className={styles.row}>
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          disabled={!exportPackage.studentStoragePath}
+                          onClick={() => void openCloudDownload(exportPackage.studentStoragePath)}
+                        >
+                          클라우드에서 학생용 받기
+                        </button>
+                        {exportPackage.teacherStoragePath ? (
+                          <button
+                            type="button"
+                            className={styles.btnSecondary}
+                            onClick={() => void openCloudDownload(exportPackage.teacherStoragePath)}
+                          >
+                            클라우드에서 교사용 받기
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className={styles.hint}>아직 클라우드에 저장된 패키지가 없습니다.</p>
+                  )}
+                </section>
+                </>
               ) : null}
             </>
           )}

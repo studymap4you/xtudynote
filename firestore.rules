@@ -434,6 +434,59 @@ service cloud.firestore {
 
           allow delete: if signedIn() && request.auth.uid == userId;
         }
+
+        /** 4단계: Word 패키지 Storage 경로 (문서 id 고정 current) */
+        match /export_package/{pkgDocId} {
+          allow read: if signedIn() && request.auth.uid == userId
+            && userData(userId).accountStatus != 'banned';
+
+          allow create: if signedIn()
+            && request.auth.uid == userId
+            && userData(userId).accountStatus != 'banned'
+            && pkgDocId == 'current'
+            && request.resource.data.packageSchemaVersion is int
+            && request.resource.data.packageSchemaVersion == 1
+            && request.resource.data.keys().hasAll([
+              'packageSchemaVersion',
+              'studentStoragePath',
+              'teacherStoragePath',
+              'createdAt',
+              'updatedAt',
+            ])
+            && request.resource.data.studentStoragePath is string
+            && request.resource.data.studentStoragePath.size() > 0
+            && request.resource.data.studentStoragePath.size() <= 500
+            && request.resource.data.teacherStoragePath is string
+            && request.resource.data.teacherStoragePath.size() <= 500
+            && request.resource.data.createdAt != null
+            && request.resource.data.updatedAt != null;
+
+          allow update: if signedIn()
+            && request.auth.uid == userId
+            && userData(userId).accountStatus != 'banned'
+            && pkgDocId == 'current'
+            && resource.data.packageSchemaVersion == request.resource.data.packageSchemaVersion
+            && resource.data.packageSchemaVersion is int
+            && resource.data.packageSchemaVersion == 1
+            && resource.data.createdAt == request.resource.data.createdAt
+            && request.resource.data.keys().hasAll([
+              'packageSchemaVersion',
+              'studentStoragePath',
+              'teacherStoragePath',
+              'createdAt',
+              'updatedAt',
+            ])
+            && request.resource.data.studentStoragePath is string
+            && request.resource.data.studentStoragePath.size() > 0
+            && request.resource.data.studentStoragePath.size() <= 500
+            && request.resource.data.teacherStoragePath is string
+            && request.resource.data.teacherStoragePath.size() <= 500
+            && request.resource.data.updatedAt != null
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['studentStoragePath', 'teacherStoragePath', 'updatedAt']);
+
+          allow delete: if signedIn() && request.auth.uid == userId;
+        }
       }
 
       /** 학습지 배포용 주소록 — 교사·승인 관리자 본인만 (표시명·이메일은 선택, UID는 문서 ID와 동일) */

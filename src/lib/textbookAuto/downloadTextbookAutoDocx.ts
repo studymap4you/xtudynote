@@ -33,10 +33,10 @@ function listBlock(title: string, items: string[]): Paragraph[] {
   return blocks;
 }
 
-export async function downloadTextbookAutoStudentDocx(params: {
+function buildStudentParagraphs(params: {
   bookTitle: string;
   units: { unitIndex: number; unit: TextbookUnitContent }[];
-}): Promise<void> {
+}): Paragraph[] {
   const blocks: Paragraph[] = [];
   blocks.push(textPara("Xtudy-Universe · 교재 자동 생성 · 학생용", { size: 18, after: 50 }));
   blocks.push(
@@ -64,9 +64,23 @@ export async function downloadTextbookAutoStudentDocx(params: {
     blocks.push(...listBlock("확인학습", unit.practice));
     blocks.push(...listBlock("단원평가", unit.unitTest));
   }
+  return blocks;
+}
 
-  const doc = new Document({ sections: [{ children: blocks }] });
-  const blob = await Packer.toBlob(doc);
+/** Cloud 패키지 업로드·로컬 내보내기 공용 */
+export async function buildTextbookAutoStudentDocxBlob(params: {
+  bookTitle: string;
+  units: { unitIndex: number; unit: TextbookUnitContent }[];
+}): Promise<Blob> {
+  const doc = new Document({ sections: [{ children: buildStudentParagraphs(params) }] });
+  return Packer.toBlob(doc);
+}
+
+export async function downloadTextbookAutoStudentDocx(params: {
+  bookTitle: string;
+  units: { unitIndex: number; unit: TextbookUnitContent }[];
+}): Promise<void> {
+  const blob = await buildTextbookAutoStudentDocxBlob(params);
   const base = safeDocxFilenamePart(params.bookTitle.trim(), "textbook");
   triggerDocxDownload(blob, `Xtudy-Universe_Textbook_Student_${base}.docx`);
 }
@@ -75,11 +89,11 @@ function unitTitleLookup(rows: { unitIndex: number; unitTitle: string }[], unitI
   return rows.find((u) => u.unitIndex === unitIndex)?.unitTitle ?? "";
 }
 
-export async function downloadTextbookAutoTeacherDocx(params: {
+function buildTeacherParagraphs(params: {
   bookTitle: string;
   unitTitles: { unitIndex: number; unitTitle: string }[];
   items: TextbookAnswerKeyItem[];
-}): Promise<void> {
+}): Paragraph[] {
   const byUnit = new Map<number, TextbookAnswerKeyItem[]>();
   for (const it of params.items) {
     const arr = byUnit.get(it.unitIndex) ?? [];
@@ -169,8 +183,24 @@ export async function downloadTextbookAutoTeacherDocx(params: {
     }
   }
 
-  const doc = new Document({ sections: [{ children: blocks }] });
-  const blob = await Packer.toBlob(doc);
+  return blocks;
+}
+
+export async function buildTextbookAutoTeacherDocxBlob(params: {
+  bookTitle: string;
+  unitTitles: { unitIndex: number; unitTitle: string }[];
+  items: TextbookAnswerKeyItem[];
+}): Promise<Blob> {
+  const doc = new Document({ sections: [{ children: buildTeacherParagraphs(params) }] });
+  return Packer.toBlob(doc);
+}
+
+export async function downloadTextbookAutoTeacherDocx(params: {
+  bookTitle: string;
+  unitTitles: { unitIndex: number; unitTitle: string }[];
+  items: TextbookAnswerKeyItem[];
+}): Promise<void> {
+  const blob = await buildTextbookAutoTeacherDocxBlob(params);
   const base = safeDocxFilenamePart(params.bookTitle.trim(), "textbook");
   triggerDocxDownload(blob, `Xtudy-Universe_Textbook_Teacher_${base}.docx`);
 }
