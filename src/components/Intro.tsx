@@ -9,7 +9,7 @@ import {
   BRAND_SHARE_TITLE,
 } from "@/lib/brand";
 
-type ShortcutTone = "a" | "d" | "e" | "f" | "g" | "h" | "i" | "j";
+type ShortcutTone = "a" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k";
 
 type ShortcutDef = {
   to: string;
@@ -22,6 +22,7 @@ type ShortcutDef = {
 const SHORTCUTS: ShortcutDef[] = [
   { to: "/library", label: "라이브러리", tone: "a" },
   { to: "/worksheet/create", label: "학습지 자동생성", tone: "i", gateAuth: true },
+  { to: "/tools/textbook-auto", label: "교재 자동생성", tone: "k", gateAuth: true },
   { to: "/english-passage-lab", label: "영어지문변환학습", tone: "j", gateAuth: true },
   { to: "/logic-dashboard", label: "시그널로직", tone: "h", gateAuth: true },
   { to: "/material/register", label: "새자료 등록", tone: "e" },
@@ -541,6 +542,28 @@ function IconShortcutSignal() {
   );
 }
 
+/** 교재 자동생성 — 겹친 책 */
+function IconShortcutTextbook() {
+  return (
+    <svg {...shortcutIconProps}>
+      <path
+        d="M6 3h9v13H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 20h9a2 2 0 0 0 2-2V7"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M8 8h6M8 11h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function ShortcutOrbIcon({ tone }: { tone: ShortcutTone }) {
   switch (tone) {
     case "a":
@@ -559,6 +582,8 @@ function ShortcutOrbIcon({ tone }: { tone: ShortcutTone }) {
       return <IconShortcutWorksheet />;
     case "j":
       return <IconShortcutEnglishPassage />;
+    case "k":
+      return <IconShortcutTextbook />;
     default:
       return null;
   }

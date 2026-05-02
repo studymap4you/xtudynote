@@ -4556,6 +4556,12 @@ button.intro-login-card__btn {
 .intro-shortcut--j .intro-shortcut__icon {
   color: #0369a1;
 }
+.intro-shortcut--k .intro-shortcut__orb {
+  background: linear-gradient(155deg, rgba(180, 83, 9, 0.16) 0%, rgba(217, 119, 6, 0.32) 100%);
+}
+.intro-shortcut--k .intro-shortcut__icon {
+  color: #b45309;
+}
 .intro-shortcut__label {
   font-size: clamp(0.98rem, 2.4vw, 1.12rem);
   font-weight: 800;
