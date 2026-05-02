@@ -68,6 +68,33 @@
   margin-bottom: 0.35rem;
 }
 
+.ulOl {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.liBlock {
+  margin-bottom: 1rem;
+}
+
+.q {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.ans {
+  margin: 0 0 0.35rem;
+  font-size: 10pt;
+  color: #0f172a;
+}
+
+.muted {
+  margin: 0;
+  font-size: 9.5pt;
+  color: #94a3b8;
+}
+
 @media print {
   .root {
     -webkit-print-color-adjust: exact;

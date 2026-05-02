@@ -1,20 +1,26 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { DashboardShell } from "@/components/DashboardShell";
+import { TextbookAutoAnswerKeyPrintView } from "@/components/textbookAuto/TextbookAutoAnswerKeyPrintView";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
 import { useAuth } from "@/contexts/AuthContext";
 import { BRAND_APP_NAME } from "@/lib/brand";
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextbookUnitGeneration";
+import { buildAnswerKeyStubs } from "@/lib/textbookAuto/buildAnswerKeyStubs";
+import { requestTextbookAnswerKeyForUnit } from "@/lib/textbookAuto/requestTextbookAnswerKey";
 import {
   createTextbookAutoSession,
+  deleteAllAnswerKeysForSession,
+  loadAnswerKeyItems,
   loadConfirmedUnits,
   setSessionCurrentUnit,
+  writeAnswerKeyItems,
   writeUnitConfirmed,
   writeUnitDraft,
 } from "@/lib/textbookAuto/textbookAutoFirestore";
-import type { TextbookUnitContent } from "@/types/textbookAuto";
+import type { TextbookAnswerKeyItem, TextbookUnitContent } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
 const MAX_SOURCE_CHARS = 100_000;
@@ -29,6 +35,7 @@ export function TextbookAutoBuilderPage() {
   const { firebaseUser } = useAuth();
   const uid = firebaseUser?.uid ?? "";
   const printRef = useRef<HTMLDivElement>(null);
+  const answerKeyPrintRef = useRef<HTMLDivElement>(null);
 
   const [bookTitle, setBookTitle] = useState("");
   const [totalUnits, setTotalUnits] = useState(3);
@@ -43,6 +50,7 @@ export function TextbookAutoBuilderPage() {
   const [fileBusy, setFileBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [answerKeyItems, setAnswerKeyItems] = useState<TextbookAnswerKeyItem[]>([]);
 
   const isComplete = sessionId !== null && currentUnitIndex >= totalUnits;
 
@@ -53,15 +61,36 @@ export function TextbookAutoBuilderPage() {
     pageStyle: REACT_TO_PRINT_A4_PAGE_STYLE,
   });
 
+  const printAnswerKey = useReactToPrint({
+    contentRef: answerKeyPrintRef,
+    documentTitle: () =>
+      bookTitle.trim()
+        ? `Xtudy_Textbook_Answers_${bookTitle.trim().slice(0, 20)}`
+        : "Xtudy_Textbook_Answers",
+    pageStyle: REACT_TO_PRINT_A4_PAGE_STYLE,
+  });
+
   const resetSession = useCallback(() => {
     setSessionId(null);
     setCurrentUnitIndex(0);
     setDraftUnit(null);
     setDraftModel("");
     setConfirmedUnits([]);
+    setAnswerKeyItems([]);
     setMsg(null);
     setErr(null);
   }, []);
+
+  useEffect(() => {
+    if (!uid || !sessionId || !isComplete) return;
+    let cancelled = false;
+    void loadAnswerKeyItems(uid, sessionId).then((rows) => {
+      if (!cancelled) setAnswerKeyItems(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, sessionId, isComplete]);
 
   const startSession = useCallback(async () => {
     setErr(null);
@@ -152,7 +181,7 @@ export function TextbookAutoBuilderPage() {
       setCurrentUnitIndex(next);
       setDraftUnit(null);
       setDraftModel("");
-      setMsg(next >= totalUnits ? "모든 단원이 확정되었습니다. PDF(인쇄)로 저장할 수 있습니다." : "다음 단원으로 넘어갔습니다.");
+      setMsg(next >= totalUnits ? "모든 단원이 확정되었습니다. 아래에서 2단계(정답·해설)를 진행할 수 있습니다." : "다음 단원으로 넘어갔습니다.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "저장에 실패했습니다.");
     } finally {
@@ -164,8 +193,50 @@ export function TextbookAutoBuilderPage() {
     if (!uid || !sessionId) return;
     const rows = await loadConfirmedUnits(uid, sessionId);
     setConfirmedUnits(rows);
-    setMsg("확정된 단원을 Firestore에서 다시 불러왔습니다.");
+    const ak = await loadAnswerKeyItems(uid, sessionId);
+    setAnswerKeyItems(ak);
+    setMsg("단원·정답 데이터를 Firestore에서 다시 불러왔습니다.");
   }, [uid, sessionId]);
+
+  const runPhase2All = useCallback(async () => {
+    setErr(null);
+    setMsg(null);
+    if (!uid || !sessionId) return;
+    const sorted = [...confirmedUnits].sort((a, b) => a.unitIndex - b.unitIndex);
+    if (sorted.length === 0) {
+      setErr("확정된 단원이 없습니다.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await deleteAllAnswerKeysForSession(uid, sessionId);
+      const title = bookTitle.trim() || "교재";
+      let totalWritten = 0;
+      for (const { unitIndex, unit } of sorted) {
+        const stubs = buildAnswerKeyStubs(unitIndex, unit);
+        if (stubs.length === 0) continue;
+        const { items, meta } = await requestTextbookAnswerKeyForUnit({
+          bookTitle: title,
+          unitTitle: unit.unitTitle,
+          unitIndex,
+          stubs,
+        });
+        await writeAnswerKeyItems(uid, sessionId, items, meta.model);
+        totalWritten += items.length;
+      }
+      const rows = await loadAnswerKeyItems(uid, sessionId);
+      setAnswerKeyItems(rows);
+      setMsg(
+        totalWritten > 0
+          ? `2단계 완료: ${totalWritten}개 문항의 정답·해설을 저장했습니다.`
+          : "확인학습·단원평가 문항이 없어 저장할 항목이 없습니다.",
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "2단계 생성에 실패했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }, [uid, sessionId, confirmedUnits, bookTitle]);
 
   const onFile = useCallback(async (f: File | null) => {
     if (!f) return;
@@ -188,9 +259,9 @@ export function TextbookAutoBuilderPage() {
         <div className={styles.wrap}>
           <header className={styles.hero}>
             <p className={styles.eyebrow}>{BRAND_APP_NAME}</p>
-            <h1 className={styles.title}>교재 자동 생성 · 1단계</h1>
+            <h1 className={styles.title}>교재 자동 생성 · 1–2단계</h1>
             <p className={styles.lead}>
-              로그인한 사용자만 이용할 수 있습니다. 단원 수를 정한 뒤 단원마다 AI 초안을 만들고 확정하면 Firestore에 저장됩니다. PDF는 브라우저 인쇄로 저장하세요.
+              1단계에서 단원별 학습지를 만들고 확정한 뒤, 2단계에서 확인학습·단원평가의 정답·해설을 생성합니다. 학생용·교사용 PDF는 각각 브라우저 인쇄로 저장하세요.
             </p>
           </header>
 
@@ -251,6 +322,7 @@ export function TextbookAutoBuilderPage() {
               </button>
             </section>
           ) : (
+            <>
             <section className={styles.card} aria-labelledby="session-h">
               <div className={styles.sessionTop}>
                 <h2 id="session-h" className={styles.cardTitle}>
@@ -292,7 +364,7 @@ export function TextbookAutoBuilderPage() {
                   disabled={confirmedUnits.length === 0}
                   onClick={() => printBook()}
                 >
-                  PDF로 저장 (인쇄)
+                  학생용 PDF (인쇄)
                 </button>
                 <button type="button" className={styles.btnGhost} onClick={() => void refreshConfirmedForPrint()}>
                   확정 단원 새로고침
@@ -306,6 +378,41 @@ export function TextbookAutoBuilderPage() {
                 </div>
               ) : null}
             </section>
+
+            {isComplete ? (
+              <section className={styles.card} aria-labelledby="phase2-h">
+                <h2 id="phase2-h" className={styles.cardTitle}>
+                  3. 정답·해설 (2단계)
+                </h2>
+                <p className={styles.p}>
+                  문항 id(예: u0-p-0)로 확인학습·단원평가를 묶고, AI가 정답과 불릿 해설을 붙입니다. 실행하면 이 세션의 기존 2단계 저장분은 모두 삭제 후 다시 씁니다.
+                </p>
+                <div className={styles.row}>
+                  <button
+                    type="button"
+                    className={styles.btnPrimary}
+                    disabled={busy || confirmedUnits.length === 0}
+                    onClick={() => void runPhase2All()}
+                  >
+                    {busy ? "처리 중…" : "정답·해설 AI 생성"}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    disabled={answerKeyItems.length === 0}
+                    onClick={() => printAnswerKey()}
+                  >
+                    교사용 PDF (정답·해설)
+                  </button>
+                </div>
+                {answerKeyItems.length > 0 ? (
+                  <p className={styles.hint}>Firestore에 저장된 문항: {answerKeyItems.length}개</p>
+                ) : (
+                  <p className={styles.hint}>아직 2단계 데이터가 없습니다.</p>
+                )}
+              </section>
+            ) : null}
+            </>
           )}
 
           {msg ? <p className={styles.ok}>{msg}</p> : null}
@@ -316,6 +423,22 @@ export function TextbookAutoBuilderPage() {
           <div ref={printRef}>
             {confirmedUnits.length > 0 ? (
               <TextbookAutoPrintView bookTitle={bookTitle.trim() || "교재"} units={confirmedUnits} />
+            ) : (
+              <div className={styles.printEmpty} />
+            )}
+          </div>
+        </div>
+        <div className={styles.printPortal} aria-hidden={answerKeyItems.length ? undefined : true}>
+          <div ref={answerKeyPrintRef}>
+            {answerKeyItems.length > 0 ? (
+              <TextbookAutoAnswerKeyPrintView
+                bookTitle={bookTitle.trim() || "교재"}
+                unitTitles={confirmedUnits.map(({ unitIndex, unit }) => ({
+                  unitIndex,
+                  unitTitle: unit.unitTitle,
+                }))}
+                items={answerKeyItems}
+              />
             ) : (
               <div className={styles.printEmpty} />
             )}

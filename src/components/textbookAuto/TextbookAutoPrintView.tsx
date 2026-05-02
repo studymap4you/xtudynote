@@ -28,7 +28,7 @@ export function TextbookAutoPrintView({
   return (
     <div className={`${styles.root} textbook-auto-print-root`}>
       <header className={styles.header}>
-        <p className={styles.brand}>{BRAND_APP_NAME} · 교재 자동 생성(1단계)</p>
+        <p className={styles.brand}>{BRAND_APP_NAME} · 교재 자동 생성 · 학생용</p>
         <h1 className={styles.h1}>{bookTitle || "제목 없음"}</h1>
         <p className={styles.meta}>인쇄 시 브라우저 여백은 「없음」을 권장합니다.</p>
       </header>

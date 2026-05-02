@@ -7,9 +7,15 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
-import { TEXTBOOK_AUTO_SCHEMA_VERSION, type TextbookUnitContent } from "@/types/textbookAuto";
+import {
+  TEXTBOOK_AUTO_ANSWER_KEY_SCHEMA_VERSION,
+  TEXTBOOK_AUTO_SCHEMA_VERSION,
+  type TextbookAnswerKeyItem,
+  type TextbookUnitContent,
+} from "@/types/textbookAuto";
 
 export type TextbookAutoSessionDoc = {
   schemaVersion: number;
@@ -25,6 +31,10 @@ function sessionRef(uid: string, sessionId: string) {
 
 function unitsCollection(uid: string, sessionId: string) {
   return collection(db, "users", uid, "textbook_auto_sessions", sessionId, "units");
+}
+
+function answerKeysCollection(uid: string, sessionId: string) {
+  return collection(db, "users", uid, "textbook_auto_sessions", sessionId, "answer_keys");
 }
 
 export async function createTextbookAutoSession(
@@ -127,4 +137,69 @@ export async function loadConfirmedUnits(
     });
   });
   return rows.map(({ unitIndex, unit }) => ({ unitIndex, unit }));
+}
+
+export async function writeAnswerKeyItems(
+  uid: string,
+  sessionId: string,
+  items: TextbookAnswerKeyItem[],
+  model: string,
+): Promise<void> {
+  if (items.length === 0) return;
+  const col = answerKeysCollection(uid, sessionId);
+  let batch = writeBatch(db);
+  let n = 0;
+  for (const item of items) {
+    batch.set(doc(col, item.id), {
+      schemaVersion: TEXTBOOK_AUTO_ANSWER_KEY_SCHEMA_VERSION,
+      unitIndex: item.unitIndex,
+      bucket: item.bucket,
+      orderIndex: item.orderIndex,
+      question: item.question,
+      answer: item.answer,
+      explanationBullets: item.explanationBullets,
+      model,
+      createdAt: serverTimestamp(),
+    });
+    n++;
+    if (n >= 400) {
+      await batch.commit();
+      batch = writeBatch(db);
+      n = 0;
+    }
+  }
+  if (n > 0) await batch.commit();
+}
+
+export async function loadAnswerKeyItems(uid: string, sessionId: string): Promise<TextbookAnswerKeyItem[]> {
+  const snap = await getDocs(answerKeysCollection(uid, sessionId));
+  const rows: TextbookAnswerKeyItem[] = [];
+  snap.forEach((d) => {
+    const x = d.data();
+    rows.push({
+      id: d.id,
+      unitIndex: typeof x.unitIndex === "number" ? x.unitIndex : 0,
+      bucket: x.bucket === "unitTest" ? "unitTest" : "practice",
+      orderIndex: typeof x.orderIndex === "number" ? x.orderIndex : 0,
+      question: String(x.question ?? ""),
+      answer: String(x.answer ?? ""),
+      explanationBullets: Array.isArray(x.explanationBullets) ? x.explanationBullets.map(String) : [],
+    });
+  });
+  rows.sort((a, b) => {
+    if (a.unitIndex !== b.unitIndex) return a.unitIndex - b.unitIndex;
+    if (a.bucket !== b.bucket) return a.bucket === "practice" ? -1 : 1;
+    return a.orderIndex - b.orderIndex;
+  });
+  return rows;
+}
+
+export async function deleteAllAnswerKeysForSession(uid: string, sessionId: string): Promise<void> {
+  const snap = await getDocs(answerKeysCollection(uid, sessionId));
+  const docs = snap.docs;
+  for (let i = 0; i < docs.length; i += 400) {
+    const batch = writeBatch(db);
+    docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
 }

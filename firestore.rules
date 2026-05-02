@@ -389,6 +389,50 @@ service cloud.firestore {
 
           allow delete: if signedIn() && request.auth.uid == userId;
         }
+
+        /** 2단계: 문항 id별 정답·해설 (문서 id = u{단원}-p|t-{순번}) */
+        match /answer_keys/{keyId} {
+          allow read: if signedIn() && request.auth.uid == userId
+            && userData(userId).accountStatus != 'banned';
+
+          allow create, update: if signedIn()
+            && request.auth.uid == userId
+            && userData(userId).accountStatus != 'banned'
+            && keyId.matches('u[0-9]+-[pt]-[0-9]+')
+            && request.resource.data.schemaVersion is int
+            && request.resource.data.schemaVersion == 1
+            && request.resource.data.keys().hasAll([
+              'schemaVersion',
+              'unitIndex',
+              'bucket',
+              'orderIndex',
+              'question',
+              'answer',
+              'explanationBullets',
+              'model',
+              'createdAt',
+            ])
+            && request.resource.data.unitIndex is int
+            && request.resource.data.unitIndex >= 0
+            && request.resource.data.unitIndex < 30
+            && request.resource.data.bucket is string
+            && request.resource.data.bucket in ['practice', 'unitTest']
+            && request.resource.data.orderIndex is int
+            && request.resource.data.orderIndex >= 0
+            && request.resource.data.orderIndex < 40
+            && request.resource.data.question is string
+            && request.resource.data.question.size() > 0
+            && request.resource.data.question.size() <= 12000
+            && request.resource.data.answer is string
+            && request.resource.data.answer.size() <= 8000
+            && request.resource.data.explanationBullets is list
+            && request.resource.data.explanationBullets.size() <= 25
+            && request.resource.data.model is string
+            && request.resource.data.model.size() <= 120
+            && request.resource.data.createdAt != null;
+
+          allow delete: if signedIn() && request.auth.uid == userId;
+        }
       }
 
       /** 학습지 배포용 주소록 — 교사·승인 관리자 본인만 (표시명·이메일은 선택, UID는 문서 ID와 동일) */
