@@ -5,7 +5,8 @@ import { TextbookAutoAnswerKeyPrintView } from "@/components/textbookAuto/Textbo
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
 import { useAuth } from "@/contexts/AuthContext";
 import { BRAND_APP_NAME } from "@/lib/brand";
-import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
+import { combineUnitPassage, emptyUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
+import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextbookUnitGeneration";
 import { buildAnswerKeyStubs } from "@/lib/textbookAuto/buildAnswerKeyStubs";
@@ -20,10 +21,19 @@ import {
   writeUnitConfirmed,
   writeUnitDraft,
 } from "@/lib/textbookAuto/textbookAutoFirestore";
-import type { TextbookAnswerKeyItem, TextbookUnitContent } from "@/types/textbookAuto";
+import type {
+  TextbookAnswerKeyItem,
+  TextbookSetupPendingFile,
+  TextbookSetupPendingMode,
+  TextbookUnitContent,
+  TextbookUnitSetupState,
+} from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
-const MAX_SOURCE_CHARS = 100_000;
+const DEFAULT_TOTAL_UNITS = 3;
+const MAX_UNITS = 30;
+/** Firestore·AI 안정용 단원당 상한 */
+const MAX_UNIT_PASSAGE_CHARS = 38_000;
 const AI_SOURCE_SLICE = 24_000;
 
 function sliceForAi(full: string): string {
@@ -38,21 +48,36 @@ export function TextbookAutoBuilderPage() {
   const answerKeyPrintRef = useRef<HTMLDivElement>(null);
 
   const [bookTitle, setBookTitle] = useState("");
-  const [totalUnits, setTotalUnits] = useState(3);
-  const [sourceText, setSourceText] = useState("");
+  const [totalUnits, setTotalUnits] = useState(DEFAULT_TOTAL_UNITS);
+  const [unitInputs, setUnitInputs] = useState<TextbookUnitSetupState[]>(() =>
+    Array.from({ length: DEFAULT_TOTAL_UNITS }, () => emptyUnitSetup()),
+  );
+  /** 세션 시작 시 고정된 단원별 지문 (생성 단계에서만 사용) */
+  const [sessionUnitPassages, setSessionUnitPassages] = useState<string[] | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  /** Firestore `currentUnitIndex`: 다음에 생성·확정할 단원 (0-based) */
   const [currentUnitIndex, setCurrentUnitIndex] = useState(0);
   const [draftUnit, setDraftUnit] = useState<TextbookUnitContent | null>(null);
   const [confirmedUnits, setConfirmedUnits] = useState<{ unitIndex: number; unit: TextbookUnitContent }[]>([]);
   const [draftModel, setDraftModel] = useState("");
   const [busy, setBusy] = useState(false);
-  const [fileBusy, setFileBusy] = useState(false);
+  const [extractBusyId, setExtractBusyId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [answerKeyItems, setAnswerKeyItems] = useState<TextbookAnswerKeyItem[]>([]);
 
   const isComplete = sessionId !== null && currentUnitIndex >= totalUnits;
+
+  useEffect(() => {
+    setUnitInputs((prev) => {
+      if (prev.length === totalUnits) return prev;
+      if (prev.length > totalUnits) return prev.slice(0, totalUnits);
+      const add: TextbookUnitSetupState[] = Array.from(
+        { length: totalUnits - prev.length },
+        () => emptyUnitSetup(),
+      );
+      return [...prev, ...add];
+    });
+  }, [totalUnits]);
 
   const printBook = useReactToPrint({
     contentRef: printRef,
@@ -72,6 +97,7 @@ export function TextbookAutoBuilderPage() {
 
   const resetSession = useCallback(() => {
     setSessionId(null);
+    setSessionUnitPassages(null);
     setCurrentUnitIndex(0);
     setDraftUnit(null);
     setDraftModel("");
@@ -96,8 +122,7 @@ export function TextbookAutoBuilderPage() {
     setErr(null);
     setMsg(null);
     const title = bookTitle.trim();
-    const src = sourceText.trim();
-    const n = Math.min(30, Math.max(1, Math.floor(totalUnits)));
+    const n = Math.min(MAX_UNITS, Math.max(1, Math.floor(totalUnits)));
     if (!uid) {
       setErr("로그인 정보가 없습니다.");
       return;
@@ -106,19 +131,34 @@ export function TextbookAutoBuilderPage() {
       setErr("교재 제목을 입력하세요.");
       return;
     }
-    if (!src) {
-      setErr("원문 텍스트를 붙여넣거나 파일을 업로드하세요.");
-      return;
+    const slice = unitInputs.slice(0, n);
+    for (let i = 0; i < n; i++) {
+      const u = slice[i] ?? emptyUnitSetup();
+      if (u.pendingFiles.length > 0) {
+        setErr(`제 ${i + 1}단원: 추출하지 않은 파일이 있습니다. 먼저 「추출」을 누르거나 대기 목록에서 제거하세요.`);
+        return;
+      }
     }
-    if (src.length > MAX_SOURCE_CHARS) {
-      setErr(`원문은 약 ${MAX_SOURCE_CHARS.toLocaleString()}자 이내로 준비해 주세요.`);
-      return;
+    const passages = slice.map((u) => combineUnitPassage(u));
+    for (let i = 0; i < n; i++) {
+      const t = passages[i]?.trim() ?? "";
+      if (!t) {
+        setErr(`제 ${i + 1}단원 지문이 비었습니다. 직접 입력하거나 파일을 추출해 주세요.`);
+        return;
+      }
+      if (t.length > MAX_UNIT_PASSAGE_CHARS) {
+        setErr(
+          `제 ${i + 1}단원 지문이 너무 깁니다 (${t.length.toLocaleString()}자). 단원당 약 ${MAX_UNIT_PASSAGE_CHARS.toLocaleString()}자 이내로 나눠 주세요.`,
+        );
+        return;
+      }
     }
     setBusy(true);
     try {
-      const sid = await createTextbookAutoSession(uid, { title, sourceText: src, totalUnits: n });
+      const sid = await createTextbookAutoSession(uid, { title, unitPassages: passages, totalUnits: n });
       setSessionId(sid);
       setTotalUnits(n);
+      setSessionUnitPassages(passages);
       setCurrentUnitIndex(0);
       setDraftUnit(null);
       setConfirmedUnits([]);
@@ -128,19 +168,23 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setBusy(false);
     }
-  }, [uid, bookTitle, sourceText, totalUnits]);
+  }, [uid, bookTitle, unitInputs, totalUnits]);
 
   const runGenerate = useCallback(async () => {
     setErr(null);
     setMsg(null);
-    if (!uid || !sessionId) return;
+    if (!uid || !sessionId || !sessionUnitPassages) return;
     const title = bookTitle.trim();
-    const src = sourceText.trim();
-    if (!title || !src) {
-      setErr("제목과 원문이 필요합니다.");
+    if (!title) {
+      setErr("제목이 필요합니다.");
       return;
     }
     if (currentUnitIndex >= totalUnits) return;
+    const src = sessionUnitPassages[currentUnitIndex] ?? "";
+    if (!src.trim()) {
+      setErr("이 단원 지문이 비었습니다.");
+      return;
+    }
     setBusy(true);
     try {
       const passage = sliceForAi(src);
@@ -155,7 +199,7 @@ export function TextbookAutoBuilderPage() {
       await writeUnitDraft(uid, sessionId, currentUnitIndex, unit, meta.model);
       setMsg(
         src.length > AI_SOURCE_SLICE
-          ? `생성했습니다. (원문 ${AI_SOURCE_SLICE.toLocaleString()}자까지 AI에 전달됨)`
+          ? `생성했습니다. (이 단원 지문 ${AI_SOURCE_SLICE.toLocaleString()}자까지 AI에 전달됨)`
           : "생성했습니다. 내용을 확인한 뒤 확정하세요.",
       );
     } catch (e) {
@@ -163,7 +207,7 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setBusy(false);
     }
-  }, [uid, sessionId, bookTitle, sourceText, currentUnitIndex, totalUnits]);
+  }, [uid, sessionId, sessionUnitPassages, bookTitle, currentUnitIndex, totalUnits]);
 
   const confirmUnit = useCallback(async () => {
     setErr(null);
@@ -177,11 +221,17 @@ export function TextbookAutoBuilderPage() {
       await writeUnitConfirmed(uid, sessionId, currentUnitIndex, draftUnit, draftModel);
       const next = currentUnitIndex + 1;
       await setSessionCurrentUnit(uid, sessionId, next);
-      setConfirmedUnits((prev) => [...prev, { unitIndex: currentUnitIndex, unit: draftUnit }].sort((a, b) => a.unitIndex - b.unitIndex));
+      setConfirmedUnits((prev) =>
+        [...prev, { unitIndex: currentUnitIndex, unit: draftUnit }].sort((a, b) => a.unitIndex - b.unitIndex),
+      );
       setCurrentUnitIndex(next);
       setDraftUnit(null);
       setDraftModel("");
-      setMsg(next >= totalUnits ? "모든 단원이 확정되었습니다. 아래에서 2단계(정답·해설)를 진행할 수 있습니다." : "다음 단원으로 넘어갔습니다.");
+      setMsg(
+        next >= totalUnits
+          ? "모든 단원이 확정되었습니다. 아래에서 2단계(정답·해설)를 진행할 수 있습니다."
+          : "다음 단원으로 넘어갔습니다.",
+      );
     } catch (e) {
       setErr(e instanceof Error ? e.message : "저장에 실패했습니다.");
     } finally {
@@ -238,20 +288,108 @@ export function TextbookAutoBuilderPage() {
     }
   }, [uid, sessionId, confirmedUnits, bookTitle]);
 
-  const onFile = useCallback(async (f: File | null) => {
-    if (!f) return;
-    setErr(null);
-    setFileBusy(true);
-    try {
-      const t = await extractPlainTextFromLocalFile(f);
-      setSourceText(t);
-      setMsg(`「${f.name}」에서 텍스트를 추출했습니다.`);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "파일을 읽지 못했습니다.");
-    } finally {
-      setFileBusy(false);
-    }
+  const setManual = useCallback((unitIndex: number, text: string) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+      row.manualText = text;
+      next[unitIndex] = row;
+      return next;
+    });
   }, []);
+
+  const addPendingFiles = useCallback((unitIndex: number, files: File[]) => {
+    if (!files.length) return;
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+      const batch = files.map((file) => ({
+        id: crypto.randomUUID(),
+        file,
+        mode: "all" as TextbookSetupPendingMode,
+        fromPage: "",
+        toPage: "",
+        pagesRaw: "",
+      }));
+      row.pendingFiles = [...row.pendingFiles, ...batch];
+      next[unitIndex] = row;
+      return next;
+    });
+  }, []);
+
+  const patchPending = useCallback((unitIndex: number, pendingId: string, patch: Partial<TextbookSetupPendingFile>) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+      row.pendingFiles = row.pendingFiles.map((p) => (p.id === pendingId ? { ...p, ...patch } : p));
+      next[unitIndex] = row;
+      return next;
+    });
+  }, []);
+
+  const removePending = useCallback((unitIndex: number, pendingId: string) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+      row.pendingFiles = row.pendingFiles.filter((p) => p.id !== pendingId);
+      next[unitIndex] = row;
+      return next;
+    });
+  }, []);
+
+  const removeFileSegment = useCallback((unitIndex: number, segmentId: string) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+      row.fileSegments = row.fileSegments.filter((s) => s.id !== segmentId);
+      next[unitIndex] = row;
+      return next;
+    });
+  }, []);
+
+  const extractPending = useCallback(
+    async (unitIndex: number, pendingId: string) => {
+      const row = unitInputs[unitIndex];
+      const pending = row?.pendingFiles.find((p) => p.id === pendingId);
+      if (!pending) return;
+      setErr(null);
+      setExtractBusyId(pendingId);
+      try {
+        const fromRaw = pending.fromPage.trim();
+        const toRaw = pending.toPage.trim();
+        const fromNum = fromRaw === "" ? undefined : Number(fromRaw);
+        const toNum = toRaw === "" ? undefined : Number(toRaw);
+        const { text, extractNote } = await extractUnitSourceFile(pending.file, {
+          mode: pending.mode,
+          fromPage: fromNum !== undefined && Number.isFinite(fromNum) ? Math.max(1, Math.floor(fromNum)) : undefined,
+          toPage: toNum !== undefined && Number.isFinite(toNum) ? Math.max(1, Math.floor(toNum)) : undefined,
+          pagesRaw: pending.pagesRaw,
+        });
+        if (!text.trim()) {
+          setErr(`「${pending.file.name}」에서 추출된 텍스트가 없습니다. 페이지 범위를 확인하세요.`);
+          return;
+        }
+        const segId = crypto.randomUUID();
+        setUnitInputs((prev) => {
+          const next = [...prev];
+          const u = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+          u.fileSegments = [
+            ...u.fileSegments,
+            { id: segId, fileName: pending.file.name, extractNote, text },
+          ];
+          u.pendingFiles = u.pendingFiles.filter((p) => p.id !== pendingId);
+          next[unitIndex] = u;
+          return next;
+        });
+        setMsg(`제 ${unitIndex + 1}단원: 「${pending.file.name}」 추출을 추가했습니다.`);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "추출에 실패했습니다.");
+      } finally {
+        setExtractBusyId(null);
+      }
+    },
+    [unitInputs],
+  );
 
   return (
     <DashboardShell light>
@@ -261,14 +399,15 @@ export function TextbookAutoBuilderPage() {
             <p className={styles.eyebrow}>{BRAND_APP_NAME}</p>
             <h1 className={styles.title}>교재 자동 생성 · 1–2단계</h1>
             <p className={styles.lead}>
-              1단계에서 단원별 학습지를 만들고 확정한 뒤, 2단계에서 확인학습·단원평가의 정답·해설을 생성합니다. 학생용·교사용 PDF는 각각 브라우저 인쇄로 저장하세요.
+              단원 수만큼 지문 칸이 열립니다. 각 단원에 직접 붙여넣거나 파일을 여러 개 올린 뒤 PDF는 페이지 범위·개별 페이지를 지정해 추출할 수 있습니다. 세션을 시작한 뒤 단원별 AI
+              생성과 2단계 정답·해설을 진행합니다.
             </p>
           </header>
 
           {!sessionId ? (
             <section className={styles.card} aria-labelledby="setup-h">
               <h2 id="setup-h" className={styles.cardTitle}>
-                1. 세션 시작
+                1. 세션 시작 — 단원별 지문
               </h2>
               <label className={styles.field}>
                 <span className={styles.label}>교재 제목</span>
@@ -281,137 +420,245 @@ export function TextbookAutoBuilderPage() {
                 />
               </label>
               <label className={styles.field}>
-                <span className={styles.label}>총 단원 수 (1–30)</span>
+                <span className={styles.label}>총 단원 수 (1–{MAX_UNITS})</span>
                 <input
                   className={styles.input}
                   type="number"
                   min={1}
-                  max={30}
+                  max={MAX_UNITS}
                   value={totalUnits}
                   onChange={(e) => setTotalUnits(Number(e.target.value) || 1)}
                 />
               </label>
-              <label className={styles.field}>
-                <span className={styles.label}>원문 (.txt · .pdf · .docx 업로드 또는 직접 입력)</span>
-                <input
-                  type="file"
-                  accept=".txt,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-                  className={styles.file}
-                  disabled={fileBusy}
-                  onChange={(e) => {
-                    const files = e.target.files ? Array.from(e.target.files) : [];
-                    void onFile(files[0] ?? null);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              <textarea
-                className={styles.textarea}
-                value={sourceText}
-                onChange={(e) => setSourceText(e.target.value)}
-                placeholder="원문 전체 또는 일부를 붙여넣으세요."
-                rows={14}
-                maxLength={MAX_SOURCE_CHARS}
-              />
-              <p className={styles.hint}>
-                {sourceText.length.toLocaleString()} / {MAX_SOURCE_CHARS.toLocaleString()}자
-                {sourceText.length > AI_SOURCE_SLICE ? ` · AI 전달 상한 약 ${AI_SOURCE_SLICE.toLocaleString()}자` : ""}
-              </p>
+
+              <div className={styles.unitGrid}>
+                {unitInputs.slice(0, totalUnits).map((unitState, ui) => (
+                  <div key={ui} className={styles.unitCard}>
+                    <h3 className={styles.unitCardTitle}>제 {ui + 1}단원 지문</h3>
+                    <label className={styles.field}>
+                      <span className={styles.label}>직접 입력</span>
+                      <textarea
+                        className={styles.textarea}
+                        rows={6}
+                        value={unitState.manualText}
+                        onChange={(e) => setManual(ui, e.target.value)}
+                        placeholder="이 단원에 해당하는 지문을 붙여넣으세요."
+                        maxLength={MAX_UNIT_PASSAGE_CHARS}
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span className={styles.label}>파일 추가 (.txt · .pdf · .docx, 다중 선택 가능)</span>
+                      <input
+                        type="file"
+                        multiple
+                        accept=".txt,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                        className={styles.file}
+                        onChange={(e) => {
+                          const files = e.target.files ? Array.from(e.target.files) : [];
+                          addPendingFiles(ui, files);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {unitState.pendingFiles.length > 0 ? (
+                      <div className={styles.pendingList}>
+                        <p className={styles.pendingHead}>추출 대기</p>
+                        {unitState.pendingFiles.map((p) => {
+                          const isPdf =
+                            p.file.name.toLowerCase().endsWith(".pdf") ||
+                            p.file.type.toLowerCase() === "application/pdf";
+                          return (
+                          <div key={p.id} className={styles.pendingRow}>
+                            <span className={styles.pendingName} title={p.file.name}>
+                              {p.file.name}
+                            </span>
+                            {isPdf ? (
+                              <>
+                            <select
+                              className={styles.select}
+                              value={p.mode}
+                              onChange={(e) =>
+                                patchPending(ui, p.id, { mode: e.target.value as TextbookSetupPendingMode })
+                              }
+                              aria-label="PDF 추출 방식"
+                            >
+                              <option value="all">PDF 전체</option>
+                              <option value="range">PDF 구간 (시작–끝 페이지)</option>
+                              <option value="pages">PDF 페이지 지정 (쉼표)</option>
+                            </select>
+                            {p.mode === "range" ? (
+                              <span className={styles.pageInputs}>
+                                <input
+                                  className={styles.inputSmall}
+                                  type="number"
+                                  min={1}
+                                  placeholder="시작"
+                                  value={p.fromPage}
+                                  onChange={(e) => patchPending(ui, p.id, { fromPage: e.target.value })}
+                                />
+                                <span className={styles.pageSep}>—</span>
+                                <input
+                                  className={styles.inputSmall}
+                                  type="number"
+                                  min={1}
+                                  placeholder="끝"
+                                  value={p.toPage}
+                                  onChange={(e) => patchPending(ui, p.id, { toPage: e.target.value })}
+                                />
+                              </span>
+                            ) : null}
+                            {p.mode === "pages" ? (
+                              <input
+                                className={styles.inputPages}
+                                placeholder="예: 1, 3, 5"
+                                value={p.pagesRaw}
+                                onChange={(e) => patchPending(ui, p.id, { pagesRaw: e.target.value })}
+                              />
+                            ) : null}
+                              </>
+                            ) : (
+                              <span className={styles.nonPdfHint}>TXT/DOCX · 전체 추출</span>
+                            )}
+                            <button
+                              type="button"
+                              className={styles.btnMini}
+                              disabled={extractBusyId === p.id}
+                              onClick={() => void extractPending(ui, p.id)}
+                            >
+                              {extractBusyId === p.id ? "추출 중…" : "추출"}
+                            </button>
+                            <button type="button" className={styles.btnMiniGhost} onClick={() => removePending(ui, p.id)}>
+                              제거
+                            </button>
+                          </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    {unitState.fileSegments.length > 0 ? (
+                      <ul className={styles.segmentList}>
+                        {unitState.fileSegments.map((s) => (
+                          <li key={s.id} className={styles.segmentItem}>
+                            <div className={styles.segmentHead}>
+                              <span className={styles.segmentNote}>{s.extractNote}</span>
+                              <button
+                                type="button"
+                                className={styles.btnMiniGhost}
+                                onClick={() => removeFileSegment(ui, s.id)}
+                              >
+                                블록 제거
+                              </button>
+                            </div>
+                            <p className={styles.segmentPreview}>
+                              {s.text.length > 280 ? `${s.text.slice(0, 280)}…` : s.text}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <p className={styles.hint}>
+                      합계 약 {combineUnitPassage(unitState).length.toLocaleString()}자 / 단원 상한{" "}
+                      {MAX_UNIT_PASSAGE_CHARS.toLocaleString()}자
+                    </p>
+                  </div>
+                ))}
+              </div>
+
               <button type="button" className={styles.btnPrimary} disabled={busy} onClick={() => void startSession()}>
                 {busy ? "처리 중…" : "세션 시작"}
               </button>
             </section>
           ) : (
             <>
-            <section className={styles.card} aria-labelledby="session-h">
-              <div className={styles.sessionTop}>
-                <h2 id="session-h" className={styles.cardTitle}>
-                  2. 단원별 생성 ({isComplete ? "완료" : `진행 ${Math.min(currentUnitIndex + 1, totalUnits)} / ${totalUnits}`})
-                </h2>
-                <button type="button" className={styles.btnGhost} onClick={resetSession}>
-                  새 세션
-                </button>
-              </div>
-              <p className={styles.mono}>session: {sessionId.slice(0, 8)}…</p>
+              <section className={styles.card} aria-labelledby="session-h">
+                <div className={styles.sessionTop}>
+                  <h2 id="session-h" className={styles.cardTitle}>
+                    2. 단원별 생성 ({isComplete ? "완료" : `진행 ${Math.min(currentUnitIndex + 1, totalUnits)} / ${totalUnits}`})
+                  </h2>
+                  <button type="button" className={styles.btnGhost} onClick={resetSession}>
+                    새 세션
+                  </button>
+                </div>
+                <p className={styles.mono}>session: {sessionId.slice(0, 8)}…</p>
 
-              {!isComplete ? (
-                <>
+                {!isComplete ? (
+                  <>
+                    <p className={styles.p}>
+                      <strong>제 {currentUnitIndex + 1}단원</strong>을 생성한 뒤 내용을 확인하고 확정하세요. 확정 시 다음 단원으로 넘어갑니다.
+                    </p>
+                    <div className={styles.row}>
+                      <button type="button" className={styles.btnPrimary} disabled={busy} onClick={() => void runGenerate()}>
+                        {busy ? "생성 중…" : "이 단원 AI 생성"}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        disabled={busy || !draftUnit}
+                        onClick={() => void confirmUnit()}
+                      >
+                        확정하고 다음 단원
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className={styles.p}>모든 단원이 확정되었습니다.</p>
+                )}
+
+                <div className={styles.row}>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    disabled={confirmedUnits.length === 0}
+                    onClick={() => printBook()}
+                  >
+                    학생용 PDF (인쇄)
+                  </button>
+                  <button type="button" className={styles.btnGhost} onClick={() => void refreshConfirmedForPrint()}>
+                    확정 단원 새로고침
+                  </button>
+                </div>
+
+                {draftUnit ? (
+                  <div className={styles.preview}>
+                    <h3 className={styles.previewTitle}>미리보기 — 제 {currentUnitIndex + 1}단원 · {draftUnit.unitTitle}</h3>
+                    <PreviewUnit unit={draftUnit} />
+                  </div>
+                ) : null}
+              </section>
+
+              {isComplete ? (
+                <section className={styles.card} aria-labelledby="phase2-h">
+                  <h2 id="phase2-h" className={styles.cardTitle}>
+                    3. 정답·해설 (2단계)
+                  </h2>
                   <p className={styles.p}>
-                    <strong>제 {currentUnitIndex + 1}단원</strong>을 생성한 뒤 내용을 확인하고 확정하세요. 확정 시 다음 단원으로 넘어갑니다.
+                    문항 id(예: u0-p-0)로 확인학습·단원평가를 묶고, AI가 정답과 불릿 해설을 붙입니다. 실행하면 이 세션의 기존 2단계 저장분은 모두 삭제 후 다시 씁니다.
                   </p>
                   <div className={styles.row}>
-                    <button type="button" className={styles.btnPrimary} disabled={busy} onClick={() => void runGenerate()}>
-                      {busy ? "생성 중…" : "이 단원 AI 생성"}
+                    <button
+                      type="button"
+                      className={styles.btnPrimary}
+                      disabled={busy || confirmedUnits.length === 0}
+                      onClick={() => void runPhase2All()}
+                    >
+                      {busy ? "처리 중…" : "정답·해설 AI 생성"}
                     </button>
                     <button
                       type="button"
                       className={styles.btnSecondary}
-                      disabled={busy || !draftUnit}
-                      onClick={() => void confirmUnit()}
+                      disabled={answerKeyItems.length === 0}
+                      onClick={() => printAnswerKey()}
                     >
-                      확정하고 다음 단원
+                      교사용 PDF (정답·해설)
                     </button>
                   </div>
-                </>
-              ) : (
-                <p className={styles.p}>모든 단원이 확정되었습니다.</p>
-              )}
-
-              <div className={styles.row}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  disabled={confirmedUnits.length === 0}
-                  onClick={() => printBook()}
-                >
-                  학생용 PDF (인쇄)
-                </button>
-                <button type="button" className={styles.btnGhost} onClick={() => void refreshConfirmedForPrint()}>
-                  확정 단원 새로고침
-                </button>
-              </div>
-
-              {draftUnit ? (
-                <div className={styles.preview}>
-                  <h3 className={styles.previewTitle}>미리보기 — 제 {currentUnitIndex + 1}단원 · {draftUnit.unitTitle}</h3>
-                  <PreviewUnit unit={draftUnit} />
-                </div>
+                  {answerKeyItems.length > 0 ? (
+                    <p className={styles.hint}>Firestore에 저장된 문항: {answerKeyItems.length}개</p>
+                  ) : (
+                    <p className={styles.hint}>아직 2단계 데이터가 없습니다.</p>
+                  )}
+                </section>
               ) : null}
-            </section>
-
-            {isComplete ? (
-              <section className={styles.card} aria-labelledby="phase2-h">
-                <h2 id="phase2-h" className={styles.cardTitle}>
-                  3. 정답·해설 (2단계)
-                </h2>
-                <p className={styles.p}>
-                  문항 id(예: u0-p-0)로 확인학습·단원평가를 묶고, AI가 정답과 불릿 해설을 붙입니다. 실행하면 이 세션의 기존 2단계 저장분은 모두 삭제 후 다시 씁니다.
-                </p>
-                <div className={styles.row}>
-                  <button
-                    type="button"
-                    className={styles.btnPrimary}
-                    disabled={busy || confirmedUnits.length === 0}
-                    onClick={() => void runPhase2All()}
-                  >
-                    {busy ? "처리 중…" : "정답·해설 AI 생성"}
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.btnSecondary}
-                    disabled={answerKeyItems.length === 0}
-                    onClick={() => printAnswerKey()}
-                  >
-                    교사용 PDF (정답·해설)
-                  </button>
-                </div>
-                {answerKeyItems.length > 0 ? (
-                  <p className={styles.hint}>Firestore에 저장된 문항: {answerKeyItems.length}개</p>
-                ) : (
-                  <p className={styles.hint}>아직 2단계 데이터가 없습니다.</p>
-                )}
-              </section>
-            ) : null}
             </>
           )}
 

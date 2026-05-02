@@ -312,7 +312,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasAll([
             'schemaVersion',
             'title',
-            'sourceText',
+            'unitPassages',
             'totalUnits',
             'currentUnitIndex',
             'createdAt',
@@ -321,9 +321,10 @@ service cloud.firestore {
           && request.resource.data.title is string
           && request.resource.data.title.size() > 0
           && request.resource.data.title.size() <= 200
-          && request.resource.data.sourceText is string
-          && request.resource.data.sourceText.size() > 0
-          && request.resource.data.sourceText.size() <= 100000
+          && request.resource.data.unitPassages is list
+          && request.resource.data.unitPassages.size() == request.resource.data.totalUnits
+          && request.resource.data.unitPassages.size() >= 1
+          && request.resource.data.unitPassages.size() <= 30
           && request.resource.data.totalUnits is int
           && request.resource.data.totalUnits >= 1
           && request.resource.data.totalUnits <= 30
@@ -336,7 +337,7 @@ service cloud.firestore {
           && request.auth.uid == userId
           && userData(userId).accountStatus != 'banned'
           && resource.data.schemaVersion == request.resource.data.schemaVersion
-          && resource.data.sourceText == request.resource.data.sourceText
+          && resource.data.unitPassages == request.resource.data.unitPassages
           && resource.data.totalUnits == request.resource.data.totalUnits
           && resource.data.createdAt == request.resource.data.createdAt
           && request.resource.data.title is string

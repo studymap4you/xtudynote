@@ -43,3 +43,28 @@ export type TextbookUnitDoc = TextbookUnitContent & {
   status: TextbookUnitStatus;
   model: string;
 };
+
+/** 1단계 세션 폼 — 단원별 지문 (컴포넌트 상태) */
+export type TextbookSetupPendingMode = "all" | "range" | "pages";
+
+export type TextbookSetupPendingFile = {
+  id: string;
+  file: File;
+  mode: TextbookSetupPendingMode;
+  fromPage: string;
+  toPage: string;
+  pagesRaw: string;
+};
+
+export type TextbookSetupFileSegment = {
+  id: string;
+  fileName: string;
+  extractNote: string;
+  text: string;
+};
+
+export type TextbookUnitSetupState = {
+  manualText: string;
+  fileSegments: TextbookSetupFileSegment[];
+  pendingFiles: TextbookSetupPendingFile[];
+};

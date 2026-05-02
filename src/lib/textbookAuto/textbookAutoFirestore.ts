@@ -20,7 +20,8 @@ import {
 export type TextbookAutoSessionDoc = {
   schemaVersion: number;
   title: string;
-  sourceText: string;
+  /** 단원별 지문 (인덱스 = 단원 순번) */
+  unitPassages: string[];
   totalUnits: number;
   currentUnitIndex: number;
 };
@@ -39,13 +40,13 @@ function answerKeysCollection(uid: string, sessionId: string) {
 
 export async function createTextbookAutoSession(
   uid: string,
-  input: { title: string; sourceText: string; totalUnits: number },
+  input: { title: string; unitPassages: string[]; totalUnits: number },
 ): Promise<string> {
   const sessionId = crypto.randomUUID();
   await setDoc(sessionRef(uid, sessionId), {
     schemaVersion: TEXTBOOK_AUTO_SCHEMA_VERSION,
     title: input.title.trim(),
-    sourceText: input.sourceText.trim(),
+    unitPassages: input.unitPassages,
     totalUnits: input.totalUnits,
     currentUnitIndex: 0,
     createdAt: serverTimestamp(),

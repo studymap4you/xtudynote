@@ -6,7 +6,7 @@
 }
 
 .wrap {
-  max-width: 720px;
+  max-width: min(1100px, calc(100% - 2rem));
   margin: 0 auto;
 }
 
@@ -227,4 +227,193 @@
 
 .draft {
   padding: 0.25rem 0;
+}
+
+/* 단원별 지문 설정 */
+.unitGrid {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+@media (min-width: 860px) {
+  .unitGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.unitCard {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem 1rem 0.85rem;
+  background: #f8fafc;
+}
+
+.unitCardTitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e40af;
+}
+
+.pendingList {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+}
+
+.pendingHead {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pendingRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.pendingRow:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.pendingName {
+  flex: 1 1 140px;
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select {
+  font: inherit;
+  font-size: 0.82rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  background: #fff;
+  color: #0f172a;
+  max-width: 100%;
+}
+
+.inputSmall {
+  font: inherit;
+  font-size: 0.82rem;
+  width: 4.25rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  background: #fff;
+  color: #0f172a;
+}
+
+.pageInputs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pageSep {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.inputPages {
+  font: inherit;
+  font-size: 0.82rem;
+  flex: 1 1 120px;
+  min-width: 8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  background: #fff;
+  color: #0f172a;
+}
+
+.nonPdfHint {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.btnMini,
+.btnMiniGhost {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btnMini {
+  border: none;
+  background: #2563eb;
+  color: #fff;
+}
+
+.btnMini:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnMiniGhost {
+  background: #fff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.segmentList {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.segmentItem {
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.segmentHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.segmentNote {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0369a1;
+  flex: 1 1 auto;
+}
+
+.segmentPreview {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #334155;
+  max-height: 5.5rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
