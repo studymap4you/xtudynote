@@ -299,6 +299,98 @@ service cloud.firestore {
         allow update: if false;
       }
 
+      /** 교재 자동 생성 1단계 — 본인 세션·단원만 (단원별 draft/confirmed) */
+      match /textbook_auto_sessions/{sessionId} {
+        allow read: if signedIn() && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned';
+
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && request.resource.data.schemaVersion is int
+          && request.resource.data.schemaVersion == 1
+          && request.resource.data.keys().hasAll([
+            'schemaVersion',
+            'title',
+            'sourceText',
+            'totalUnits',
+            'currentUnitIndex',
+            'createdAt',
+            'updatedAt',
+          ])
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 200
+          && request.resource.data.sourceText is string
+          && request.resource.data.sourceText.size() > 0
+          && request.resource.data.sourceText.size() <= 100000
+          && request.resource.data.totalUnits is int
+          && request.resource.data.totalUnits >= 1
+          && request.resource.data.totalUnits <= 30
+          && request.resource.data.currentUnitIndex is int
+          && request.resource.data.currentUnitIndex == 0
+          && request.resource.data.createdAt != null
+          && request.resource.data.updatedAt != null;
+
+        allow update: if signedIn()
+          && request.auth.uid == userId
+          && userData(userId).accountStatus != 'banned'
+          && resource.data.schemaVersion == request.resource.data.schemaVersion
+          && resource.data.sourceText == request.resource.data.sourceText
+          && resource.data.totalUnits == request.resource.data.totalUnits
+          && resource.data.createdAt == request.resource.data.createdAt
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 200
+          && request.resource.data.currentUnitIndex is int
+          && request.resource.data.currentUnitIndex >= 0
+          && request.resource.data.currentUnitIndex <= request.resource.data.totalUnits
+          && request.resource.data.updatedAt != null
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['currentUnitIndex', 'updatedAt', 'title']);
+
+        allow delete: if signedIn() && request.auth.uid == userId;
+
+        match /units/{unitDocId} {
+          allow read: if signedIn() && request.auth.uid == userId
+            && userData(userId).accountStatus != 'banned';
+
+          allow create, update: if signedIn()
+            && request.auth.uid == userId
+            && userData(userId).accountStatus != 'banned'
+            && request.resource.data.unitIndex is int
+            && request.resource.data.unitIndex >= 0
+            && request.resource.data.unitIndex < 30
+            && request.resource.data.status is string
+            && request.resource.data.status in ['draft', 'confirmed']
+            && request.resource.data.unitTitle is string
+            && request.resource.data.unitTitle.size() > 0
+            && request.resource.data.unitTitle.size() <= 400
+            && request.resource.data.keyConcepts is list
+            && request.resource.data.keyConcepts.size() <= 60
+            && request.resource.data.contentStudy is list
+            && request.resource.data.contentStudy.size() <= 60
+            && request.resource.data.coreSummary is list
+            && request.resource.data.coreSummary.size() <= 40
+            && request.resource.data.practice is list
+            && request.resource.data.practice.size() <= 40
+            && request.resource.data.unitTest is list
+            && request.resource.data.unitTest.size() <= 40
+            && request.resource.data.model is string
+            && request.resource.data.model.size() <= 120
+            && request.resource.data.createdAt != null
+            && (
+              request.resource.data.status == 'draft'
+              || (
+                request.resource.data.status == 'confirmed'
+                && request.resource.data.confirmedAt != null
+              )
+            );
+
+          allow delete: if signedIn() && request.auth.uid == userId;
+        }
+      }
+
       /** 학습지 배포용 주소록 — 교사·승인 관리자 본인만 (표시명·이메일은 선택, UID는 문서 ID와 동일) */
       match /worksheet_roster/{entryId} {
         allow read: if signedIn()

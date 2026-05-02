@@ -1,0 +1,230 @@
+.main {
+  min-height: 100vh;
+  padding: 1.5rem 1rem 3rem;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.hero {
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.03em;
+}
+
+.lead {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #475569;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.cardTitle {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.input,
+.textarea,
+.file {
+  font: inherit;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  color: #0f172a;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 200px;
+}
+
+.hint {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.btnPrimary,
+.btnSecondary,
+.btnGhost {
+  font: inherit;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  border: none;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.btnPrimary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.btnSecondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnGhost {
+  background: transparent;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.sessionTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.mono {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin: 0 0 0.75rem;
+  font-family: ui-monospace, monospace;
+}
+
+.p {
+  margin: 0 0 1rem;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.preview {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.previewTitle {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1d4ed8;
+}
+
+.draftSec {
+  margin-bottom: 0.75rem;
+}
+
+.draftH {
+  margin: 0 0 0.35rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.draftUl {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.draftUl li {
+  margin-bottom: 0.3rem;
+}
+
+.ok {
+  margin: 1rem 0 0;
+  padding: 0.65rem 0.85rem;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  border-radius: 10px;
+  color: #065f46;
+  font-size: 0.9rem;
+}
+
+.bad {
+  margin: 1rem 0 0;
+  padding: 0.65rem 0.85rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+/* 화면에서는 인쇄용 블록을 숨김 — react-to-print가 ref 내용을 복사함 */
+.printPortal {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.printEmpty {
+  width: 1px;
+  height: 1px;
+}
+
+.draft {
+  padding: 0.25rem 0;
+}

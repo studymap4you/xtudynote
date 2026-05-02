@@ -54,6 +54,7 @@ import { ClassroomTodayExamPage } from "@/pages/exam/ClassroomTodayExamPage";
 import { ExamTakePage } from "@/pages/exam/ExamTakePage";
 import { EnglishPassageLabPage } from "@/pages/english-passage/EnglishPassageLabPage";
 import { NewsletterBuilderPage } from "@/pages/NewsletterBuilder";
+import { TextbookAutoBuilderPage } from "@/pages/TextbookAutoBuilderPage";
 
 export default function App() {
   return (
@@ -353,6 +354,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <EnglishPassageLabPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tools/textbook-auto"
+        element={
+          <ProtectedRoute>
+            <TextbookAutoBuilderPage />
           </ProtectedRoute>
         }
       />

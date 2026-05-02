@@ -1,0 +1,76 @@
+.root {
+  background: #fff;
+  color: #0f172a;
+  font-family: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  max-width: 100%;
+  padding: 0;
+}
+
+.brand {
+  margin: 0 0 0.35rem;
+  font-size: 8.5pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.h1 {
+  margin: 0 0 0.5rem;
+  font-size: 16pt;
+  font-weight: 800;
+  color: #0c1222;
+  letter-spacing: -0.02em;
+}
+
+.meta {
+  margin: 0;
+  font-size: 8.5pt;
+  color: #94a3b8;
+}
+
+.header {
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #2563eb;
+}
+
+.unit {
+  margin-bottom: 1.75rem;
+  page-break-inside: avoid;
+}
+
+.unitTitle {
+  margin: 0 0 0.85rem;
+  font-size: 12.5pt;
+  font-weight: 800;
+  color: #1e40af;
+}
+
+.section {
+  margin-bottom: 0.85rem;
+}
+
+.h2 {
+  margin: 0 0 0.4rem;
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #334155;
+}
+
+.ul {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.li {
+  margin-bottom: 0.35rem;
+}
+
+@media print {
+  .root {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
