@@ -103,6 +103,14 @@ export function TextbookAutoBuilderPage() {
   const unitTestTotalOk =
     !sectionInclusion.unitTest || unitTestMcqCount + unitTestShortCount >= MIN_UNIT_TEST_TOTAL;
 
+  const contentStudyAiContext = useMemo(() => {
+    if (!sessionId || !sessionUnitPassages) return null;
+    const raw = sessionUnitPassages[currentUnitIndex] ?? "";
+    const text = sliceForAi(raw);
+    if (!text.trim()) return null;
+    return { bookTitle: bookTitle.trim() || "교재", unitSourceText: text };
+  }, [sessionId, sessionUnitPassages, currentUnitIndex, bookTitle]);
+
   useEffect(() => {
     setUnitInputs((prev) => {
       if (prev.length === totalUnits) return prev;
@@ -1027,6 +1035,16 @@ export function TextbookAutoBuilderPage() {
                       onChange={setDraftUnit}
                       sectionInclusion={sectionInclusion}
                       disabled={busy}
+                      contentStudyAiContext={contentStudyAiContext}
+                      onContentStudyAiNotice={(message, variant) => {
+                        if (variant === "ok") {
+                          setErr(null);
+                          setMsg(message);
+                        } else {
+                          setMsg(null);
+                          setErr(message);
+                        }
+                      }}
                     />
                   </div>
                 ) : null}

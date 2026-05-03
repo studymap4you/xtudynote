@@ -75,6 +75,13 @@
   margin-bottom: 0.65rem;
 }
 
+.csAiRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
 .badge {
   font-size: 0.72rem;
   font-weight: 800;

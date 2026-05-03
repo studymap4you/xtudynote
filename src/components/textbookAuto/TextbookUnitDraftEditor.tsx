@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type {
   TextbookContentStudyBlock,
   TextbookKeyConceptItem,
@@ -5,7 +6,17 @@ import type {
   TextbookUnitContent,
   TextbookUnitTestItem,
 } from "@/types/textbookAuto";
+import {
+  requestContentStudyBulletsForTitle,
+  requestContentStudyFullBlock,
+} from "@/lib/textbookAuto/requestContentStudyBlockAi";
 import styles from "@/components/textbookAuto/textbookUnitDraftEditor.module.css";
+
+/** 내용학습 AI — 이 단원 지문(세션 원문) */
+export type ContentStudyAiContext = {
+  bookTitle: string;
+  unitSourceText: string;
+};
 
 type Props = {
   unit: TextbookUnitContent;
@@ -13,6 +24,8 @@ type Props = {
   /** 체크된 섹션만 편집 UI 표시 (최종 교재·AI 생성과 동일) */
   sectionInclusion: TextbookSectionInclusion;
   disabled?: boolean;
+  contentStudyAiContext?: ContentStudyAiContext | null;
+  onContentStudyAiNotice?: (message: string, variant: "ok" | "error") => void;
 };
 
 function defaultMcq(): TextbookUnitTestItem {
@@ -23,13 +36,73 @@ function defaultShort(): TextbookUnitTestItem {
   return { kind: "short", question: "" };
 }
 
-export function TextbookUnitDraftEditor({ unit, onChange, sectionInclusion: inc, disabled }: Props) {
+export function TextbookUnitDraftEditor({
+  unit,
+  onChange,
+  sectionInclusion: inc,
+  disabled,
+  contentStudyAiContext,
+  onContentStudyAiNotice,
+}: Props) {
   const patch = (partial: Partial<TextbookUnitContent>) => onChange({ ...unit, ...partial });
 
   const setKeyConcepts = (next: TextbookKeyConceptItem[]) => patch({ keyConcepts: next });
   const setContentStudy = (next: TextbookContentStudyBlock[]) => patch({ contentStudy: next });
   const setPractice = (next: string[]) => patch({ practice: next });
   const setUnitTest = (next: TextbookUnitTestItem[]) => patch({ unitTest: next });
+
+  const [csAiBlock, setCsAiBlock] = useState<{ bi: number; mode: "full" | "bullets" } | null>(null);
+  const csAiBusy = csAiBlock !== null;
+  const canCsAi = Boolean(contentStudyAiContext?.unitSourceText.trim());
+
+  const runContentStudyFullAi = async (bi: number) => {
+    if (!contentStudyAiContext?.unitSourceText.trim() || disabled) return;
+    const unitTitle = unit.unitTitle.trim() || "(제목 없음)";
+    const existingBlockTitles = unit.contentStudy
+      .map((b, j) => (j !== bi ? b.title.trim() : ""))
+      .filter(Boolean);
+    setCsAiBlock({ bi, mode: "full" });
+    try {
+      const { title, bullets } = await requestContentStudyFullBlock({
+        bookTitle: contentStudyAiContext.bookTitle,
+        unitTitle,
+        sourceText: contentStudyAiContext.unitSourceText,
+        existingBlockTitles,
+      });
+      const next = [...unit.contentStudy];
+      next[bi] = { title, bullets };
+      setContentStudy(next);
+      onContentStudyAiNotice?.("내용학습 블록을 AI로 채웠습니다.", "ok");
+    } catch (e) {
+      onContentStudyAiNotice?.(e instanceof Error ? e.message : "AI 생성에 실패했습니다.", "error");
+    } finally {
+      setCsAiBlock(null);
+    }
+  };
+
+  const runContentStudyBulletsAi = async (bi: number) => {
+    if (!contentStudyAiContext?.unitSourceText.trim() || disabled) return;
+    const block = unit.contentStudy[bi];
+    if (!block?.title.trim()) return;
+    const unitTitle = unit.unitTitle.trim() || "(제목 없음)";
+    setCsAiBlock({ bi, mode: "bullets" });
+    try {
+      const { bullets } = await requestContentStudyBulletsForTitle({
+        bookTitle: contentStudyAiContext.bookTitle,
+        unitTitle,
+        sourceText: contentStudyAiContext.unitSourceText,
+        blockTitle: block.title.trim(),
+      });
+      const next = [...unit.contentStudy];
+      next[bi] = { ...block, bullets };
+      setContentStudy(next);
+      onContentStudyAiNotice?.("제목에 맞는 설명 불릿을 생성했습니다.", "ok");
+    } catch (e) {
+      onContentStudyAiNotice?.(e instanceof Error ? e.message : "AI 생성에 실패했습니다.", "error");
+    } finally {
+      setCsAiBlock(null);
+    }
+  };
 
   return (
     <div className={styles.root}>
@@ -113,7 +186,8 @@ export function TextbookUnitDraftEditor({ unit, onChange, sectionInclusion: inc,
         <section className={styles.section}>
           <h4 className={styles.sectionTitle}>내용학습</h4>
           <p className={styles.subtle}>
-            소제목(title)과 불릿 설명(bullets)으로 구성합니다. 줄바꿈으로 불릿을 나눕니다. 원문 정보가 빠지지 않도록 불릿을 충분히 나누세요.
+            소제목(title)과 불릿 설명(bullets)으로 구성합니다. 「AI로 블록 채우기」는 제목·설명을 함께 쓰고, 「제목 기반 설명 생성」은 제목을 먼저 넣은 뒤 설명만
+            채웁니다. (이 단원 세션 지문 필요)
           </p>
           {unit.contentStudy.map((block, bi) => (
             <div key={bi} className={styles.itemCard}>
@@ -128,6 +202,27 @@ export function TextbookUnitDraftEditor({ unit, onChange, sectionInclusion: inc,
                   블록 제거
                 </button>
               </div>
+              {canCsAi ? (
+                <div className={styles.csAiRow}>
+                  <button
+                    type="button"
+                    className={styles.btnTiny}
+                    disabled={disabled || csAiBusy}
+                    onClick={() => void runContentStudyFullAi(bi)}
+                  >
+                    {csAiBlock?.bi === bi && csAiBlock.mode === "full" ? "블록 생성 중…" : "AI로 블록 채우기"}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnTinyGhost}
+                    disabled={disabled || csAiBusy || !block.title.trim()}
+                    onClick={() => void runContentStudyBulletsAi(bi)}
+                    title={!block.title.trim() ? "먼저 제목을 입력하세요" : undefined}
+                  >
+                    {csAiBlock?.bi === bi && csAiBlock.mode === "bullets" ? "설명 생성 중…" : "제목 기반 설명 생성"}
+                  </button>
+                </div>
+              ) : null}
               <div className={styles.field}>
                 <span className={styles.label}>제목</span>
                 <input
