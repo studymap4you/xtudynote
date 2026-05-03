@@ -46,8 +46,14 @@ function buildStudentParagraphs(params: {
       spacing: { after: 140 },
     }),
   );
+  blocks.push(...buildTextbookBodyParagraphsFromUnits(params.units));
+  return blocks;
+}
 
-  const sorted = [...params.units].sort((a, b) => a.unitIndex - b.unitIndex);
+/** 5단계 완성본 등 — 앞/뒤표지·목차 없이 단원 본문만 */
+export function buildTextbookBodyParagraphsFromUnits(units: { unitIndex: number; unit: TextbookUnitContent }[]): Paragraph[] {
+  const blocks: Paragraph[] = [];
+  const sorted = [...units].sort((a, b) => a.unitIndex - b.unitIndex);
   for (const { unitIndex, unit } of sorted) {
     blocks.push(
       new Paragraph({
@@ -64,6 +70,24 @@ function buildStudentParagraphs(params: {
     blocks.push(...listBlock("확인학습", unit.practice));
     blocks.push(...listBlock("단원평가", unit.unitTest));
   }
+  return blocks;
+}
+
+export function buildTextbookBodyParagraphsFromPassages(unitPassages: string[]): Paragraph[] {
+  const blocks: Paragraph[] = [];
+  unitPassages.forEach((raw, i) => {
+    blocks.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_1,
+        children: [new TextRun({ text: `제 ${i + 1}단원 · 원문`, bold: true, size: 30 })],
+        spacing: { before: 180, after: 120 },
+      }),
+    );
+    const lines = raw.replace(/\r\n/g, "\n").split("\n");
+    for (const line of lines) {
+      blocks.push(textPara(line.length ? line : " ", { size: 22, after: 55 }));
+    }
+  });
   return blocks;
 }
 

@@ -3,6 +3,7 @@ import { useReactToPrint } from "react-to-print";
 import { getDownloadURL, ref as storageRef } from "firebase/storage";
 import { DashboardShell } from "@/components/DashboardShell";
 import { TextbookAutoAnswerKeyPrintView } from "@/components/textbookAuto/TextbookAutoAnswerKeyPrintView";
+import { TextbookAutoMasterBookPanel } from "@/components/textbookAuto/TextbookAutoMasterBookPanel";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
 import { useAuth } from "@/contexts/AuthContext";
 import { storage } from "@/firebase/config";
@@ -253,7 +254,7 @@ export function TextbookAutoBuilderPage() {
       setDraftModel("");
       setMsg(
         next >= totalUnits
-          ? "모든 단원이 확정되었습니다. 3–4단계에서 정답·해설과 클라우드 패키지를 진행할 수 있습니다."
+          ? "모든 단원이 확정되었습니다. 3–5단계에서 정답·해설·클라우드 패키지·완성본을 진행할 수 있습니다."
           : "다음 단원으로 넘어갔습니다.",
       );
     } catch (e) {
@@ -580,10 +581,10 @@ export function TextbookAutoBuilderPage() {
         <div className={styles.wrap}>
           <header className={styles.hero}>
             <p className={styles.eyebrow}>{BRAND_APP_NAME}</p>
-            <h1 className={styles.title}>교재 자동 생성 · 1–4단계</h1>
+            <h1 className={styles.title}>교재 자동 생성 · 1–5단계</h1>
             <p className={styles.lead}>
               단원 수만큼 지문 칸이 열립니다. 각 단원에 직접 붙여넣거나 파일을 여러 개 올린 뒤 PDF는 페이지 범위·개별 페이지를 지정해 추출할 수 있습니다. 세션을 시작한 뒤 단원별 AI
-              초안을 확정하고, 3단계에서 정답·해설을 다룬 뒤, 4단계에서 클라우드에 패키지를 올리거나 로컬로 인쇄·Word 내보내기를 할 수 있습니다.
+              초안을 확정하고, 3–4단계에서 정답·해설·클라우드를 다룬 뒤, 5단계에서 표지·목차·본문·추가 페이지를 합친 완성본 Word를 내려받을 수 있습니다.
             </p>
           </header>
 
@@ -964,6 +965,13 @@ export function TextbookAutoBuilderPage() {
                     <p className={styles.hint}>아직 클라우드에 저장된 패키지가 없습니다.</p>
                   )}
                 </section>
+
+                <TextbookAutoMasterBookPanel
+                  key={sessionId ?? "session"}
+                  bookTitle={bookTitle}
+                  confirmedUnits={confirmedUnits}
+                  sessionUnitPassages={sessionUnitPassages}
+                />
                 </>
               ) : null}
             </>
