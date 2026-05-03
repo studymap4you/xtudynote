@@ -322,6 +322,28 @@
   color: #0f172a;
 }
 
+.countRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1.25rem;
+}
+
+.countLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.countWarn {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
 .pageInputs {
   display: inline-flex;
   align-items: center;

@@ -1,5 +1,10 @@
 import { BRAND_APP_NAME } from "@/lib/brand";
-import type { TextbookUnitContent } from "@/types/textbookAuto";
+import type {
+  TextbookContentStudyBlock,
+  TextbookKeyConceptItem,
+  TextbookUnitContent,
+  TextbookUnitTestItem,
+} from "@/types/textbookAuto";
 import styles from "@/components/textbookAuto/textbookAutoPrint.module.css";
 
 function ListBlock({ title, items }: { title: string; items: string[] }) {
@@ -14,6 +19,69 @@ function ListBlock({ title, items }: { title: string; items: string[] }) {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+function KeyConceptBlock({ items }: { items: TextbookKeyConceptItem[] }) {
+  if (!items.length) return null;
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.h2}>핵심개념</h2>
+      <ul className={styles.ul}>
+        {items.map((k, i) => (
+          <li key={i} className={styles.li}>
+            <strong>{k.concept}</strong>
+            {k.explanation ? <> — {k.explanation}</> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ContentStudyPrint({ blocks }: { blocks: TextbookContentStudyBlock[] }) {
+  if (!blocks.length) return null;
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.h2}>내용학습</h2>
+      {blocks.map((b, i) => (
+        <div key={i}>
+          <h3 className={styles.h3}>{b.title}</h3>
+          <ul className={styles.ul}>
+            {b.bullets.map((line, j) => (
+              <li key={j} className={styles.li}>
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function UnitTestBlock({ items }: { items: TextbookUnitTestItem[] }) {
+  if (!items.length) return null;
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.h2}>단원평가</h2>
+      <ol className={styles.ul}>
+        {items.map((it, i) => (
+          <li key={i} className={styles.li}>
+            <p>{it.question}</p>
+            {it.kind === "mcq" ? (
+              <ol type="a" className={styles.ul}>
+                {it.choices.map((c, j) => (
+                  <li key={j} className={styles.li}>
+                    {c}
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
@@ -37,11 +105,11 @@ export function TextbookAutoPrintView({
           <h2 className={styles.unitTitle}>
             제 {unitIndex + 1}단원 · {unit.unitTitle}
           </h2>
-          <ListBlock title="핵심개념" items={unit.keyConcepts} />
-          <ListBlock title="내용학습" items={unit.contentStudy} />
+          <KeyConceptBlock items={unit.keyConcepts} />
+          <ContentStudyPrint blocks={unit.contentStudy} />
           <ListBlock title="핵심요약" items={unit.coreSummary} />
           <ListBlock title="확인학습" items={unit.practice} />
-          <ListBlock title="단원평가" items={unit.unitTest} />
+          <UnitTestBlock items={unit.unitTest} />
         </article>
       ))}
     </div>

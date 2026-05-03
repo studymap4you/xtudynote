@@ -4,6 +4,7 @@ import {
   buildTextbookUnitUserPrompt,
 } from "@/config/textbookAutoPrompt";
 import type { TextbookUnitContent } from "@/types/textbookAuto";
+import { normalizeUnitContentFromUnknown } from "@/lib/textbookAuto/normalizeUnitContent";
 
 function readOpenAiKey(): string {
   return String(import.meta.env.VITE_OPENAI_API_KEY ?? "").trim();
@@ -18,36 +19,15 @@ function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 0;
 }
 
-function normalizeStringList(v: unknown, maxItems: number): string[] {
-  if (!Array.isArray(v)) return [];
-  const out: string[] = [];
-  for (const item of v) {
-    if (typeof item === "string") {
-      const t = item.trim();
-      if (t) out.push(t);
-    }
-    if (out.length >= maxItems) break;
-  }
-  return out;
-}
-
 export function parseTextbookUnitJson(raw: unknown): TextbookUnitContent {
   if (raw === null || typeof raw !== "object") {
     throw new Error("AI 응답이 객체가 아닙니다.");
   }
-  const o = raw as Record<string, unknown>;
-  const unitTitle = typeof o.unitTitle === "string" ? o.unitTitle.trim() : "";
-  if (!unitTitle) {
+  const o = normalizeUnitContentFromUnknown(raw as Record<string, unknown>);
+  if (!o.unitTitle.trim() || o.unitTitle === "(제목 없음)") {
     throw new Error("unitTitle이 비었습니다.");
   }
-  return {
-    unitTitle,
-    keyConcepts: normalizeStringList(o.keyConcepts, 40),
-    contentStudy: normalizeStringList(o.contentStudy, 40),
-    coreSummary: normalizeStringList(o.coreSummary, 30),
-    practice: normalizeStringList(o.practice, 25),
-    unitTest: normalizeStringList(o.unitTest, 25),
-  };
+  return o;
 }
 
 export type TextbookUnitGenMeta = { model: string };
@@ -60,6 +40,9 @@ export async function requestTextbookUnitGeneration(params: {
   sourceText: string;
   unitIndex: number;
   totalUnits: number;
+  practiceMin: number;
+  unitTestMcq: number;
+  unitTestShort: number;
 }): Promise<{ unit: TextbookUnitContent; meta: TextbookUnitGenMeta }> {
   const apiKey = readOpenAiKey();
   if (!apiKey) {
@@ -78,7 +61,7 @@ export async function requestTextbookUnitGeneration(params: {
     },
     body: JSON.stringify({
       model,
-      temperature: 0.4,
+      temperature: 0.35,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: TEXTBOOK_AUTO_SYSTEM_PROMPT },

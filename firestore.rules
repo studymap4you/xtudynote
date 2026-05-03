@@ -374,9 +374,9 @@ service cloud.firestore {
             && request.resource.data.coreSummary is list
             && request.resource.data.coreSummary.size() <= 40
             && request.resource.data.practice is list
-            && request.resource.data.practice.size() <= 40
+            && request.resource.data.practice.size() <= 50
             && request.resource.data.unitTest is list
-            && request.resource.data.unitTest.size() <= 40
+            && request.resource.data.unitTest.size() <= 50
             && request.resource.data.model is string
             && request.resource.data.model.size() <= 120
             && request.resource.data.createdAt != null

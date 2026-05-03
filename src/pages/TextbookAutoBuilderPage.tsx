@@ -5,6 +5,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { TextbookAutoAnswerKeyPrintView } from "@/components/textbookAuto/TextbookAutoAnswerKeyPrintView";
 import { TextbookAutoMasterBookPanel } from "@/components/textbookAuto/TextbookAutoMasterBookPanel";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
+import { TextbookUnitDraftEditor } from "@/components/textbookAuto/TextbookUnitDraftEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { storage } from "@/firebase/config";
 import { BRAND_APP_NAME } from "@/lib/brand";
@@ -13,6 +14,7 @@ import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile"
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextbookUnitGeneration";
 import { buildAnswerKeyStubs } from "@/lib/textbookAuto/buildAnswerKeyStubs";
+import { validateDraftUnit } from "@/lib/textbookAuto/validateDraftUnit";
 import { requestTextbookAnswerKeyForUnit } from "@/lib/textbookAuto/requestTextbookAnswerKey";
 import { downloadTextbookAutoStudentDocx, downloadTextbookAutoTeacherDocx } from "@/lib/textbookAuto/downloadTextbookAutoDocx";
 import { publishTextbookAutoPackage } from "@/lib/textbookAuto/publishTextbookAutoPackage";
@@ -23,6 +25,7 @@ import {
   loadAnswerKeyItems,
   loadConfirmedUnits,
   loadTextbookExportPackage,
+  loadUnitDraft,
   setSessionCurrentUnit,
   updateAnswerKeyItem,
   writeAnswerKeyItems,
@@ -41,6 +44,10 @@ import styles from "@/pages/textbookAutoBuilder.module.css";
 
 const DEFAULT_TOTAL_UNITS = 3;
 const MAX_UNITS = 30;
+const MIN_PRACTICE_QUESTIONS = 10;
+const MIN_UNIT_TEST_TOTAL = 20;
+const DEFAULT_UNIT_TEST_MCQ = 12;
+const DEFAULT_UNIT_TEST_SHORT = 8;
 /** Firestore·AI 안정용 단원당 상한 */
 const MAX_UNIT_PASSAGE_CHARS = 38_000;
 const AI_SOURCE_SLICE = 24_000;
@@ -55,6 +62,8 @@ export function TextbookAutoBuilderPage() {
   const uid = firebaseUser?.uid ?? "";
   const printRef = useRef<HTMLDivElement>(null);
   const answerKeyPrintRef = useRef<HTMLDivElement>(null);
+  /** loadUnitDraft 완료가 AI 생성보다 늦게 도착해 초안을 덮어쓰지 않도록 */
+  const draftLoadSeqRef = useRef(0);
 
   const [bookTitle, setBookTitle] = useState("");
   const [totalUnits, setTotalUnits] = useState(DEFAULT_TOTAL_UNITS);
@@ -77,8 +86,12 @@ export function TextbookAutoBuilderPage() {
   const [phase2UnitBusy, setPhase2UnitBusy] = useState<number | null>(null);
   const [exportPackage, setExportPackage] = useState<TextbookAutoExportPackageDoc | null>(null);
   const [packageBusy, setPackageBusy] = useState(false);
+  /** 단원평가 문항 수 (AI 생성·확정 검증에 사용) */
+  const [unitTestMcqCount, setUnitTestMcqCount] = useState(DEFAULT_UNIT_TEST_MCQ);
+  const [unitTestShortCount, setUnitTestShortCount] = useState(DEFAULT_UNIT_TEST_SHORT);
 
   const isComplete = sessionId !== null && currentUnitIndex >= totalUnits;
+  const unitTestTotalOk = unitTestMcqCount + unitTestShortCount >= MIN_UNIT_TEST_TOTAL;
 
   useEffect(() => {
     setUnitInputs((prev) => {
@@ -142,6 +155,22 @@ export function TextbookAutoBuilderPage() {
       cancelled = true;
     };
   }, [uid, sessionId, isComplete]);
+
+  /** 재방문 시 Firestore 임시저장 초안 불러오기 */
+  useEffect(() => {
+    if (!uid || !sessionId || isComplete) return;
+    const token = ++draftLoadSeqRef.current;
+    let cancelled = false;
+    void loadUnitDraft(uid, sessionId, currentUnitIndex).then((row) => {
+      if (cancelled || token !== draftLoadSeqRef.current) return;
+      if (!row) return;
+      setDraftUnit(row.unit);
+      setDraftModel(row.model || "manual");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, sessionId, currentUnitIndex, isComplete]);
 
   const startSession = useCallback(async () => {
     setErr(null);
@@ -210,6 +239,11 @@ export function TextbookAutoBuilderPage() {
       setErr("이 단원 지문이 비었습니다.");
       return;
     }
+    if (!unitTestTotalOk) {
+      setErr(`단원평가 문항 합계는 ${MIN_UNIT_TEST_TOTAL}개 이상이어야 합니다. (객관식+주관식 단답)`);
+      return;
+    }
+    draftLoadSeqRef.current += 1;
     setBusy(true);
     try {
       const passage = sliceForAi(src);
@@ -218,6 +252,9 @@ export function TextbookAutoBuilderPage() {
         sourceText: passage,
         unitIndex: currentUnitIndex,
         totalUnits,
+        practiceMin: MIN_PRACTICE_QUESTIONS,
+        unitTestMcq: unitTestMcqCount,
+        unitTestShort: unitTestShortCount,
       });
       setDraftUnit(unit);
       setDraftModel(meta.model);
@@ -232,18 +269,59 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setBusy(false);
     }
-  }, [uid, sessionId, sessionUnitPassages, bookTitle, currentUnitIndex, totalUnits]);
+  }, [
+    uid,
+    sessionId,
+    sessionUnitPassages,
+    bookTitle,
+    currentUnitIndex,
+    totalUnits,
+    unitTestMcqCount,
+    unitTestShortCount,
+    unitTestTotalOk,
+  ]);
 
-  const confirmUnit = useCallback(async () => {
+  const saveDraftOnly = useCallback(async () => {
     setErr(null);
     setMsg(null);
-    if (!uid || !sessionId || !draftUnit || !draftModel) {
-      setErr("먼저 이 단원을 생성하세요.");
+    if (!uid || !sessionId || !draftUnit) {
+      setErr("저장할 초안이 없습니다. AI 생성으로 초안을 만들거나 불러온 내용을 확인하세요.");
       return;
     }
     setBusy(true);
     try {
-      await writeUnitConfirmed(uid, sessionId, currentUnitIndex, draftUnit, draftModel);
+      const model = draftModel.trim() || "manual";
+      await writeUnitDraft(uid, sessionId, currentUnitIndex, draftUnit, model);
+      setDraftModel(model);
+      setMsg("임시 저장했습니다. 같은 단원에서 계속 편집한 뒤, 확정 시 다음 단원으로 이동합니다.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "임시 저장에 실패했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }, [uid, sessionId, draftUnit, draftModel, currentUnitIndex]);
+
+  const confirmUnit = useCallback(async () => {
+    setErr(null);
+    setMsg(null);
+    if (!uid || !sessionId || !draftUnit) {
+      setErr("먼저 이 단원 초안을 준비하세요.");
+      return;
+    }
+    const model = draftModel.trim() || "manual";
+    const toSave = { ...draftUnit, unitTitle: draftUnit.unitTitle.trim() };
+    const v = validateDraftUnit(toSave, {
+      practiceMin: MIN_PRACTICE_QUESTIONS,
+      unitTestMcq: unitTestMcqCount,
+      unitTestShort: unitTestShortCount,
+    });
+    if (v) {
+      setErr(v);
+      return;
+    }
+    setBusy(true);
+    try {
+      await writeUnitConfirmed(uid, sessionId, currentUnitIndex, toSave, model);
       const next = currentUnitIndex + 1;
       await setSessionCurrentUnit(uid, sessionId, next);
       setConfirmedUnits((prev) =>
@@ -262,7 +340,16 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setBusy(false);
     }
-  }, [uid, sessionId, draftUnit, draftModel, currentUnitIndex, totalUnits]);
+  }, [
+    uid,
+    sessionId,
+    draftUnit,
+    draftModel,
+    currentUnitIndex,
+    totalUnits,
+    unitTestMcqCount,
+    unitTestShortCount,
+  ]);
 
   const refreshConfirmedForPrint = useCallback(async () => {
     if (!uid || !sessionId) return;
@@ -768,11 +855,61 @@ export function TextbookAutoBuilderPage() {
                 {!isComplete ? (
                   <>
                     <p className={styles.p}>
-                      <strong>제 {currentUnitIndex + 1}단원</strong>을 생성한 뒤 내용을 확인하고 확정하세요. 확정 시 다음 단원으로 넘어갑니다.
+                      <strong>제 {currentUnitIndex + 1}단원</strong>을 생성한 뒤 아래에서 구조에 맞게 수정하고, 필요하면 「임시 저장」으로 Firestore에 초안만
+                      남긴 뒤 이어서 편집하세요. 검수가 끝나면 「확정하고 다음 단원」으로 확정합니다.
                     </p>
+                    <div className={styles.field}>
+                      <span className={styles.label}>
+                        단원평가 문항 수 (AI 생성·확정 기준) — 객관식 + 주관식 단답 합계 {MIN_UNIT_TEST_TOTAL}개 이상
+                      </span>
+                      <div className={styles.countRow}>
+                        <label className={styles.countLabel}>
+                          객관식
+                          <input
+                            className={styles.inputSmall}
+                            type="number"
+                            min={0}
+                            max={50}
+                            value={unitTestMcqCount}
+                            onChange={(e) =>
+                              setUnitTestMcqCount(Math.min(50, Math.max(0, Math.floor(Number(e.target.value) || 0))))
+                            }
+                          />
+                        </label>
+                        <label className={styles.countLabel}>
+                          주관식 단답
+                          <input
+                            className={styles.inputSmall}
+                            type="number"
+                            min={0}
+                            max={50}
+                            value={unitTestShortCount}
+                            onChange={(e) =>
+                              setUnitTestShortCount(Math.min(50, Math.max(0, Math.floor(Number(e.target.value) || 0))))
+                            }
+                          />
+                        </label>
+                        <span className={unitTestTotalOk ? styles.hint : styles.countWarn}>
+                          합계 {unitTestMcqCount + unitTestShortCount}개 · 확인학습은 항상 {MIN_PRACTICE_QUESTIONS}문항(주관식 단답)으로 생성됩니다
+                        </span>
+                      </div>
+                    </div>
                     <div className={styles.row}>
-                      <button type="button" className={styles.btnPrimary} disabled={busy} onClick={() => void runGenerate()}>
+                      <button
+                        type="button"
+                        className={styles.btnPrimary}
+                        disabled={busy || !unitTestTotalOk}
+                        onClick={() => void runGenerate()}
+                      >
                         {busy ? "생성 중…" : "이 단원 AI 생성"}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        disabled={busy || !draftUnit}
+                        onClick={() => void saveDraftOnly()}
+                      >
+                        임시 저장
                       </button>
                       <button
                         type="button"
@@ -804,8 +941,10 @@ export function TextbookAutoBuilderPage() {
 
                 {draftUnit ? (
                   <div className={styles.preview}>
-                    <h3 className={styles.previewTitle}>미리보기 — 제 {currentUnitIndex + 1}단원 · {draftUnit.unitTitle}</h3>
-                    <PreviewUnit unit={draftUnit} />
+                    <h3 className={styles.previewTitle}>
+                      편집 — 제 {currentUnitIndex + 1}단원 · {draftUnit.unitTitle}
+                    </h3>
+                    <TextbookUnitDraftEditor unit={draftUnit} onChange={setDraftUnit} disabled={busy} />
                   </div>
                 ) : null}
               </section>
@@ -1063,31 +1202,5 @@ function AnswerKeyEditCard({
         {saving ? "저장 중…" : "이 문항 저장"}
       </button>
     </div>
-  );
-}
-
-function PreviewUnit({ unit }: { unit: TextbookUnitContent }) {
-  return (
-    <div className={styles.draft}>
-      <Section title="핵심개념" items={unit.keyConcepts} />
-      <Section title="내용학습" items={unit.contentStudy} />
-      <Section title="핵심요약" items={unit.coreSummary} />
-      <Section title="확인학습" items={unit.practice} />
-      <Section title="단원평가" items={unit.unitTest} />
-    </div>
-  );
-}
-
-function Section({ title, items }: { title: string; items: string[] }) {
-  if (!items.length) return null;
-  return (
-    <section className={styles.draftSec}>
-      <h4 className={styles.draftH}>{title}</h4>
-      <ul className={styles.draftUl}>
-        {items.map((t, i) => (
-          <li key={i}>{t}</li>
-        ))}
-      </ul>
-    </section>
   );
 }

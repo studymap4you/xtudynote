@@ -1,6 +1,12 @@
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 import { safeDocxFilenamePart, stripMarkdownBold, triggerDocxDownload } from "@/lib/docx/docxHelpers";
-import type { TextbookAnswerKeyItem, TextbookUnitContent } from "@/types/textbookAuto";
+import type {
+  TextbookAnswerKeyItem,
+  TextbookContentStudyBlock,
+  TextbookKeyConceptItem,
+  TextbookUnitContent,
+  TextbookUnitTestItem,
+} from "@/types/textbookAuto";
 
 function textPara(text: string, opts?: { size?: number; bold?: boolean; after?: number }): Paragraph {
   return new Paragraph({
@@ -29,6 +35,80 @@ function listBlock(title: string, items: string[]): Paragraph[] {
     const t = stripMarkdownBold(line).trim();
     if (!t) continue;
     blocks.push(textPara(`• ${t}`, { size: 22, after: 55 }));
+  }
+  return blocks;
+}
+
+function sectionHeading(title: string): Paragraph {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_2,
+    children: [new TextRun({ text: title, bold: true })],
+    spacing: { before: 140, after: 90 },
+  });
+}
+
+function keyConceptParagraphs(items: TextbookKeyConceptItem[]): Paragraph[] {
+  const blocks: Paragraph[] = [];
+  if (!items.length) return blocks;
+  blocks.push(sectionHeading("핵심개념"));
+  for (const k of items) {
+    const c = stripMarkdownBold(k.concept).trim();
+    const e = stripMarkdownBold(k.explanation).trim();
+    if (!c && !e) continue;
+    blocks.push(textPara(`• ${c || "(개념)"}`, { bold: true, after: 45 }));
+    if (e) blocks.push(textPara(`  ${e}`, { size: 22, after: 70 }));
+  }
+  return blocks;
+}
+
+function contentStudyParagraphs(sections: TextbookContentStudyBlock[]): Paragraph[] {
+  const blocks: Paragraph[] = [];
+  if (!sections.length) return blocks;
+  blocks.push(sectionHeading("내용학습"));
+  for (const sec of sections) {
+    const ti = stripMarkdownBold(sec.title).trim();
+    if (ti) {
+      blocks.push(
+        new Paragraph({
+          children: [new TextRun({ text: ti, bold: true, size: 24 })],
+          spacing: { before: 100, after: 55 },
+        }),
+      );
+    }
+    for (const line of sec.bullets) {
+      const t = stripMarkdownBold(line).trim();
+      if (t) blocks.push(textPara(`• ${t}`, { size: 22, after: 55 }));
+    }
+  }
+  return blocks;
+}
+
+function unitTestStudentParagraphs(items: TextbookUnitTestItem[]): Paragraph[] {
+  const blocks: Paragraph[] = [];
+  if (!items.length) return blocks;
+  blocks.push(sectionHeading("단원평가"));
+  let n = 1;
+  for (const it of items) {
+    if (it.kind === "short") {
+      const q = stripMarkdownBold(it.question).trim();
+      if (!q) continue;
+      blocks.push(textPara(`${n}. ${q}`, { size: 22, after: 70 }));
+      n++;
+      continue;
+    }
+    const q = stripMarkdownBold(it.question).trim();
+    const hasChoice = it.choices.some((c) => stripMarkdownBold(c).trim());
+    if (!q && !hasChoice) continue;
+    if (q) blocks.push(textPara(`${n}. ${q}`, { size: 22, after: 50 }));
+    let ci = 1;
+    for (const c of it.choices) {
+      const t = stripMarkdownBold(c).trim();
+      if (t) {
+        blocks.push(textPara(`   ${ci}) ${t}`, { size: 22, after: 45 }));
+        ci++;
+      }
+    }
+    n++;
   }
   return blocks;
 }
@@ -64,11 +144,11 @@ export function buildTextbookBodyParagraphsFromUnits(units: { unitIndex: number;
         spacing: { before: 180, after: 120 },
       }),
     );
-    blocks.push(...listBlock("핵심개념", unit.keyConcepts));
-    blocks.push(...listBlock("내용학습", unit.contentStudy));
+    blocks.push(...keyConceptParagraphs(unit.keyConcepts));
+    blocks.push(...contentStudyParagraphs(unit.contentStudy));
     blocks.push(...listBlock("핵심요약", unit.coreSummary));
     blocks.push(...listBlock("확인학습", unit.practice));
-    blocks.push(...listBlock("단원평가", unit.unitTest));
+    blocks.push(...unitTestStudentParagraphs(unit.unitTest));
   }
   return blocks;
 }

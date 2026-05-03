@@ -17,6 +17,7 @@ import {
   type TextbookAnswerKeyItem,
   type TextbookUnitContent,
 } from "@/types/textbookAuto";
+import { unitContentFromFirestoreDoc } from "@/lib/textbookAuto/normalizeUnitContent";
 
 export type TextbookAutoSessionDoc = {
   schemaVersion: number;
@@ -69,6 +70,11 @@ export function unitDocumentId(unitIndex: number): string {
   return `${UNIT_DOC_PREFIX}${unitIndex}`;
 }
 
+function sanitizeUnitForFirestoreWrite(unit: TextbookUnitContent): TextbookUnitContent {
+  const t = unit.unitTitle.trim();
+  return { ...unit, unitTitle: t || "(제목 미정)" };
+}
+
 export async function writeUnitDraft(
   uid: string,
   sessionId: string,
@@ -76,15 +82,16 @@ export async function writeUnitDraft(
   unit: TextbookUnitContent,
   model: string,
 ): Promise<void> {
+  const u = sanitizeUnitForFirestoreWrite(unit);
   await setDoc(doc(unitsCollection(uid, sessionId), unitDocumentId(unitIndex)), {
     unitIndex,
     status: "draft",
-    unitTitle: unit.unitTitle,
-    keyConcepts: unit.keyConcepts,
-    contentStudy: unit.contentStudy,
-    coreSummary: unit.coreSummary,
-    practice: unit.practice,
-    unitTest: unit.unitTest,
+    unitTitle: u.unitTitle,
+    keyConcepts: u.keyConcepts,
+    contentStudy: u.contentStudy,
+    coreSummary: u.coreSummary,
+    practice: u.practice,
+    unitTest: u.unitTest,
     model,
     createdAt: serverTimestamp(),
   });
@@ -97,19 +104,36 @@ export async function writeUnitConfirmed(
   unit: TextbookUnitContent,
   model: string,
 ): Promise<void> {
+  const u = sanitizeUnitForFirestoreWrite(unit);
   await setDoc(doc(unitsCollection(uid, sessionId), unitDocumentId(unitIndex)), {
     unitIndex,
     status: "confirmed",
-    unitTitle: unit.unitTitle,
-    keyConcepts: unit.keyConcepts,
-    contentStudy: unit.contentStudy,
-    coreSummary: unit.coreSummary,
-    practice: unit.practice,
-    unitTest: unit.unitTest,
+    unitTitle: u.unitTitle,
+    keyConcepts: u.keyConcepts,
+    contentStudy: u.contentStudy,
+    coreSummary: u.coreSummary,
+    practice: u.practice,
+    unitTest: u.unitTest,
     model,
     createdAt: serverTimestamp(),
     confirmedAt: serverTimestamp(),
   });
+}
+
+/** 새로고침·재진입 시 현재 단원 임시저장본 불러오기 */
+export async function loadUnitDraft(
+  uid: string,
+  sessionId: string,
+  unitIndex: number,
+): Promise<{ unit: TextbookUnitContent; model: string } | null> {
+  const snap = await getDoc(doc(unitsCollection(uid, sessionId), unitDocumentId(unitIndex)));
+  if (!snap.exists()) return null;
+  const data = snap.data() as Record<string, unknown>;
+  const status = typeof data.status === "string" ? data.status : "";
+  if (status !== "draft") return null;
+  const unit = unitContentFromFirestoreDoc(data);
+  const model = typeof data.model === "string" ? data.model : "";
+  return { unit, model };
 }
 
 export async function loadConfirmedUnits(
@@ -128,14 +152,7 @@ export async function loadConfirmedUnits(
     rows.push({
       unitIndex,
       status,
-      unit: {
-        unitTitle: String(data.unitTitle ?? ""),
-        keyConcepts: Array.isArray(data.keyConcepts) ? data.keyConcepts.map(String) : [],
-        contentStudy: Array.isArray(data.contentStudy) ? data.contentStudy.map(String) : [],
-        coreSummary: Array.isArray(data.coreSummary) ? data.coreSummary.map(String) : [],
-        practice: Array.isArray(data.practice) ? data.practice.map(String) : [],
-        unitTest: Array.isArray(data.unitTest) ? data.unitTest.map(String) : [],
-      },
+      unit: unitContentFromFirestoreDoc(data as Record<string, unknown>),
     });
   });
   return rows.map(({ unitIndex, unit }) => ({ unitIndex, unit }));

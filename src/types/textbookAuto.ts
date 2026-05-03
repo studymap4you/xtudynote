@@ -24,18 +24,41 @@ export type TextbookAnswerKeyItem = {
   explanationBullets: string[];
 };
 
+/** 핵심개념: 개념명 — 설명 */
+export type TextbookKeyConceptItem = {
+  concept: string;
+  explanation: string;
+};
+
+/** 내용학습: 소제목 + 불릿 설명(원문 사실 누락·과도 축약 금지) */
+export type TextbookContentStudyBlock = {
+  title: string;
+  bullets: string[];
+};
+
+/** 단원평가: 주관식 단답 또는 객관식 */
+export type TextbookUnitTestMcq = {
+  kind: "mcq";
+  question: string;
+  choices: string[];
+};
+
+export type TextbookUnitTestShort = {
+  kind: "short";
+  question: string;
+};
+
+export type TextbookUnitTestItem = TextbookUnitTestMcq | TextbookUnitTestShort;
+
 export type TextbookUnitContent = {
   unitTitle: string;
-  /** 핵심개념 */
-  keyConcepts: string[];
-  /** 내용학습 */
-  contentStudy: string[];
+  keyConcepts: TextbookKeyConceptItem[];
+  contentStudy: TextbookContentStudyBlock[];
   /** 핵심요약 */
   coreSummary: string[];
-  /** 확인학습 */
+  /** 확인학습 — 주관식 단답형 질문 문장만 */
   practice: string[];
-  /** 단원평가 */
-  unitTest: string[];
+  unitTest: TextbookUnitTestItem[];
 };
 
 export type TextbookUnitDoc = TextbookUnitContent & {

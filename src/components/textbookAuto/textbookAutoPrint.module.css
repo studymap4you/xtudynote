@@ -59,6 +59,13 @@
   color: #334155;
 }
 
+.h3 {
+  margin: 0.5rem 0 0.3rem;
+  font-size: 10pt;
+  font-weight: 700;
+  color: #475569;
+}
+
 .ul {
   margin: 0;
   padding-left: 1.15rem;
