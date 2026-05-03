@@ -15,6 +15,12 @@ import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle"
 import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextbookUnitGeneration";
 import { buildAnswerKeyStubs } from "@/lib/textbookAuto/buildAnswerKeyStubs";
 import { validateDraftUnit } from "@/lib/textbookAuto/validateDraftUnit";
+import {
+  anySectionInclusionEnabled,
+  applySectionInclusionToUnit,
+  getSectionInclusion,
+  unitForStudentOutput,
+} from "@/lib/textbookAuto/sectionInclusion";
 import { requestTextbookAnswerKeyForUnit } from "@/lib/textbookAuto/requestTextbookAnswerKey";
 import { downloadTextbookAutoStudentDocx, downloadTextbookAutoTeacherDocx } from "@/lib/textbookAuto/downloadTextbookAutoDocx";
 import { publishTextbookAutoPackage } from "@/lib/textbookAuto/publishTextbookAutoPackage";
@@ -35,11 +41,13 @@ import {
 } from "@/lib/textbookAuto/textbookAutoFirestore";
 import type {
   TextbookAnswerKeyItem,
+  TextbookSectionInclusion,
   TextbookSetupPendingFile,
   TextbookSetupPendingMode,
   TextbookUnitContent,
   TextbookUnitSetupState,
 } from "@/types/textbookAuto";
+import { DEFAULT_SECTION_INCLUSION } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
 const DEFAULT_TOTAL_UNITS = 3;
@@ -89,9 +97,11 @@ export function TextbookAutoBuilderPage() {
   /** 단원평가 문항 수 (AI 생성·확정 검증에 사용) */
   const [unitTestMcqCount, setUnitTestMcqCount] = useState(DEFAULT_UNIT_TEST_MCQ);
   const [unitTestShortCount, setUnitTestShortCount] = useState(DEFAULT_UNIT_TEST_SHORT);
+  const [sectionInclusion, setSectionInclusion] = useState<TextbookSectionInclusion>(DEFAULT_SECTION_INCLUSION);
 
   const isComplete = sessionId !== null && currentUnitIndex >= totalUnits;
-  const unitTestTotalOk = unitTestMcqCount + unitTestShortCount >= MIN_UNIT_TEST_TOTAL;
+  const unitTestTotalOk =
+    !sectionInclusion.unitTest || unitTestMcqCount + unitTestShortCount >= MIN_UNIT_TEST_TOTAL;
 
   useEffect(() => {
     setUnitInputs((prev) => {
@@ -127,11 +137,20 @@ export function TextbookAutoBuilderPage() {
     setCurrentUnitIndex(0);
     setDraftUnit(null);
     setDraftModel("");
+    setSectionInclusion(DEFAULT_SECTION_INCLUSION);
     setConfirmedUnits([]);
     setAnswerKeyItems([]);
     setExportPackage(null);
     setMsg(null);
     setErr(null);
+  }, []);
+
+  const patchSectionInclusion = useCallback((patch: Partial<TextbookSectionInclusion>) => {
+    setSectionInclusion((prev) => {
+      const next = { ...prev, ...patch };
+      setDraftUnit((d) => (d ? applySectionInclusionToUnit(d, next) : d));
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -163,9 +182,13 @@ export function TextbookAutoBuilderPage() {
     let cancelled = false;
     void loadUnitDraft(uid, sessionId, currentUnitIndex).then((row) => {
       if (cancelled || token !== draftLoadSeqRef.current) return;
-      if (!row) return;
+      if (!row) {
+        setSectionInclusion(DEFAULT_SECTION_INCLUSION);
+        return;
+      }
       setDraftUnit(row.unit);
       setDraftModel(row.model || "manual");
+      setSectionInclusion(getSectionInclusion(row.unit));
     });
     return () => {
       cancelled = true;
@@ -215,6 +238,8 @@ export function TextbookAutoBuilderPage() {
       setSessionUnitPassages(passages);
       setCurrentUnitIndex(0);
       setDraftUnit(null);
+      setDraftModel("");
+      setSectionInclusion(DEFAULT_SECTION_INCLUSION);
       setConfirmedUnits([]);
       setMsg("세션이 시작되었습니다. 아래에서 단원별 생성을 진행하세요.");
     } catch (e) {
@@ -239,7 +264,11 @@ export function TextbookAutoBuilderPage() {
       setErr("이 단원 지문이 비었습니다.");
       return;
     }
-    if (!unitTestTotalOk) {
+    if (!anySectionInclusionEnabled(sectionInclusion)) {
+      setErr("AI 생성에 포함할 섹션을 한 개 이상 선택하세요.");
+      return;
+    }
+    if (sectionInclusion.unitTest && !unitTestTotalOk) {
       setErr(`단원평가 문항 합계는 ${MIN_UNIT_TEST_TOTAL}개 이상이어야 합니다. (객관식+주관식 단답)`);
       return;
     }
@@ -252,9 +281,10 @@ export function TextbookAutoBuilderPage() {
         sourceText: passage,
         unitIndex: currentUnitIndex,
         totalUnits,
-        practiceMin: MIN_PRACTICE_QUESTIONS,
-        unitTestMcq: unitTestMcqCount,
-        unitTestShort: unitTestShortCount,
+        practiceMin: sectionInclusion.practice ? MIN_PRACTICE_QUESTIONS : 0,
+        unitTestMcq: sectionInclusion.unitTest ? unitTestMcqCount : 0,
+        unitTestShort: sectionInclusion.unitTest ? unitTestShortCount : 0,
+        sectionInclusion,
       });
       setDraftUnit(unit);
       setDraftModel(meta.model);
@@ -279,6 +309,7 @@ export function TextbookAutoBuilderPage() {
     unitTestMcqCount,
     unitTestShortCount,
     unitTestTotalOk,
+    sectionInclusion,
   ]);
 
   const saveDraftOnly = useCallback(async () => {
@@ -291,7 +322,8 @@ export function TextbookAutoBuilderPage() {
     setBusy(true);
     try {
       const model = draftModel.trim() || "manual";
-      await writeUnitDraft(uid, sessionId, currentUnitIndex, draftUnit, model);
+      const u = applySectionInclusionToUnit(draftUnit, sectionInclusion);
+      await writeUnitDraft(uid, sessionId, currentUnitIndex, u, model);
       setDraftModel(model);
       setMsg("임시 저장했습니다. 같은 단원에서 계속 편집한 뒤, 확정 시 다음 단원으로 이동합니다.");
     } catch (e) {
@@ -299,7 +331,7 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setBusy(false);
     }
-  }, [uid, sessionId, draftUnit, draftModel, currentUnitIndex]);
+  }, [uid, sessionId, draftUnit, draftModel, currentUnitIndex, sectionInclusion]);
 
   const confirmUnit = useCallback(async () => {
     setErr(null);
@@ -309,11 +341,15 @@ export function TextbookAutoBuilderPage() {
       return;
     }
     const model = draftModel.trim() || "manual";
-    const toSave = { ...draftUnit, unitTitle: draftUnit.unitTitle.trim() };
+    const toSave = applySectionInclusionToUnit(
+      { ...draftUnit, unitTitle: draftUnit.unitTitle.trim() },
+      sectionInclusion,
+    );
     const v = validateDraftUnit(toSave, {
       practiceMin: MIN_PRACTICE_QUESTIONS,
       unitTestMcq: unitTestMcqCount,
       unitTestShort: unitTestShortCount,
+      sectionInclusion,
     });
     if (v) {
       setErr(v);
@@ -325,11 +361,12 @@ export function TextbookAutoBuilderPage() {
       const next = currentUnitIndex + 1;
       await setSessionCurrentUnit(uid, sessionId, next);
       setConfirmedUnits((prev) =>
-        [...prev, { unitIndex: currentUnitIndex, unit: draftUnit }].sort((a, b) => a.unitIndex - b.unitIndex),
+        [...prev, { unitIndex: currentUnitIndex, unit: toSave }].sort((a, b) => a.unitIndex - b.unitIndex),
       );
       setCurrentUnitIndex(next);
       setDraftUnit(null);
       setDraftModel("");
+      setSectionInclusion(DEFAULT_SECTION_INCLUSION);
       setMsg(
         next >= totalUnits
           ? "모든 단원이 확정되었습니다. 3–5단계에서 정답·해설·클라우드 패키지·완성본을 진행할 수 있습니다."
@@ -349,6 +386,7 @@ export function TextbookAutoBuilderPage() {
     totalUnits,
     unitTestMcqCount,
     unitTestShortCount,
+    sectionInclusion,
   ]);
 
   const refreshConfirmedForPrint = useCallback(async () => {
@@ -377,7 +415,7 @@ export function TextbookAutoBuilderPage() {
       const title = bookTitle.trim() || "교재";
       let totalWritten = 0;
       for (const { unitIndex, unit } of sorted) {
-        const stubs = buildAnswerKeyStubs(unitIndex, unit);
+        const stubs = buildAnswerKeyStubs(unitIndex, unitForStudentOutput(unit));
         if (stubs.length === 0) continue;
         const { items, meta } = await requestTextbookAnswerKeyForUnit({
           bookTitle: title,
@@ -567,7 +605,7 @@ export function TextbookAutoBuilderPage() {
       try {
         await deleteAnswerKeysForUnit(uid, sessionId, unitIndex);
         const title = bookTitle.trim() || "교재";
-        const stubs = buildAnswerKeyStubs(unitIndex, row.unit);
+        const stubs = buildAnswerKeyStubs(unitIndex, unitForStudentOutput(row.unit));
         if (stubs.length === 0) {
           setMsg(`제 ${unitIndex + 1}단원: 확인학습·단원평가 문항이 없어 건너뜁니다.`);
           const rows = await loadAnswerKeyItems(uid, sessionId);
@@ -859,6 +897,31 @@ export function TextbookAutoBuilderPage() {
                       남긴 뒤 이어서 편집하세요. 검수가 끝나면 「확정하고 다음 단원」으로 확정합니다.
                     </p>
                     <div className={styles.field}>
+                      <span className={styles.label}>AI 생성·교재에 포함할 섹션</span>
+                      <div className={styles.sectionCheckGrid}>
+                        {(
+                          [
+                            ["keyConcepts", "핵심개념"],
+                            ["contentStudy", "내용학습"],
+                            ["coreSummary", "핵심요약"],
+                            ["practice", "확인학습"],
+                            ["unitTest", "단원평가"],
+                          ] as const
+                        ).map(([k, label]) => (
+                          <label key={k} className={styles.sectionCheck}>
+                            <input
+                              type="checkbox"
+                              checked={sectionInclusion[k]}
+                              onChange={(e) => patchSectionInclusion({ [k]: e.target.checked })}
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                      <p className={styles.hint}>체크한 섹션만 AI가 채우며, 학생용 PDF·Word·클라우드 본문에도 반영됩니다.</p>
+                    </div>
+                    {sectionInclusion.unitTest ? (
+                    <div className={styles.field}>
                       <span className={styles.label}>
                         단원평가 문항 수 (AI 생성·확정 기준) — 객관식 + 주관식 단답 합계 {MIN_UNIT_TEST_TOTAL}개 이상
                       </span>
@@ -890,15 +953,30 @@ export function TextbookAutoBuilderPage() {
                           />
                         </label>
                         <span className={unitTestTotalOk ? styles.hint : styles.countWarn}>
-                          합계 {unitTestMcqCount + unitTestShortCount}개 · 확인학습은 항상 {MIN_PRACTICE_QUESTIONS}문항(주관식 단답)으로 생성됩니다
+                          합계 {unitTestMcqCount + unitTestShortCount}개
+                          {sectionInclusion.practice
+                            ? ` · 확인학습 선택 시 AI가 ${MIN_PRACTICE_QUESTIONS}문항(주관식 단답)을 만듭니다`
+                            : ""}
                         </span>
                       </div>
                     </div>
+                    ) : (
+                      <p className={styles.hint}>
+                        단원평가를 끄면 문항 수 설정 없이 생성할 수 있습니다.
+                        {sectionInclusion.practice
+                          ? ` 확인학습만 켠 경우 AI가 주관식 단답 ${MIN_PRACTICE_QUESTIONS}문항을 만듭니다.`
+                          : ""}
+                      </p>
+                    )}
                     <div className={styles.row}>
                       <button
                         type="button"
                         className={styles.btnPrimary}
-                        disabled={busy || !unitTestTotalOk}
+                        disabled={
+                          busy ||
+                          !anySectionInclusionEnabled(sectionInclusion) ||
+                          (sectionInclusion.unitTest && !unitTestTotalOk)
+                        }
                         onClick={() => void runGenerate()}
                       >
                         {busy ? "생성 중…" : "이 단원 AI 생성"}
@@ -944,7 +1022,12 @@ export function TextbookAutoBuilderPage() {
                     <h3 className={styles.previewTitle}>
                       편집 — 제 {currentUnitIndex + 1}단원 · {draftUnit.unitTitle}
                     </h3>
-                    <TextbookUnitDraftEditor unit={draftUnit} onChange={setDraftUnit} disabled={busy} />
+                    <TextbookUnitDraftEditor
+                      unit={draftUnit}
+                      onChange={setDraftUnit}
+                      sectionInclusion={sectionInclusion}
+                      disabled={busy}
+                    />
                   </div>
                 ) : null}
               </section>

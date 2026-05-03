@@ -3,8 +3,9 @@ import {
   TEXTBOOK_AUTO_SYSTEM_PROMPT,
   buildTextbookUnitUserPrompt,
 } from "@/config/textbookAutoPrompt";
-import type { TextbookUnitContent } from "@/types/textbookAuto";
+import type { TextbookSectionInclusion, TextbookUnitContent } from "@/types/textbookAuto";
 import { normalizeUnitContentFromUnknown } from "@/lib/textbookAuto/normalizeUnitContent";
+import { applySectionInclusionToUnit } from "@/lib/textbookAuto/sectionInclusion";
 
 function readOpenAiKey(): string {
   return String(import.meta.env.VITE_OPENAI_API_KEY ?? "").trim();
@@ -43,6 +44,7 @@ export async function requestTextbookUnitGeneration(params: {
   practiceMin: number;
   unitTestMcq: number;
   unitTestShort: number;
+  sectionInclusion: TextbookSectionInclusion;
 }): Promise<{ unit: TextbookUnitContent; meta: TextbookUnitGenMeta }> {
   const apiKey = readOpenAiKey();
   if (!apiKey) {
@@ -90,5 +92,5 @@ export async function requestTextbookUnitGeneration(params: {
     throw new Error("AI 응답 JSON 파싱에 실패했습니다.");
   }
 
-  return { unit: parseTextbookUnitJson(parsed), meta: { model } };
+  return { unit: applySectionInclusionToUnit(parseTextbookUnitJson(parsed), params.sectionInclusion), meta: { model } };
 }

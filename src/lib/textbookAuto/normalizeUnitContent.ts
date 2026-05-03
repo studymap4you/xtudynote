@@ -4,6 +4,8 @@ import type {
   TextbookUnitContent,
   TextbookUnitTestItem,
 } from "@/types/textbookAuto";
+import { DEFAULT_SECTION_INCLUSION } from "@/types/textbookAuto";
+import { parseSectionInclusionFromUnknown } from "@/lib/textbookAuto/sectionInclusion";
 
 function cleanLines(arr: unknown, max: number): string[] {
   if (!Array.isArray(arr)) return [];
@@ -115,6 +117,9 @@ export function normalizeUnitContentFromUnknown(raw: Record<string, unknown>): T
     }
   }
 
+  const sectionInclusion =
+    parseSectionInclusionFromUnknown(raw.sectionInclusion) ?? DEFAULT_SECTION_INCLUSION;
+
   return {
     unitTitle: unitTitle || "(제목 없음)",
     keyConcepts: keyOut,
@@ -122,6 +127,7 @@ export function normalizeUnitContentFromUnknown(raw: Record<string, unknown>): T
     coreSummary: cleanLines(raw.coreSummary, 40),
     practice: cleanLines(raw.practice, 50),
     unitTest: utOut,
+    sectionInclusion,
   };
 }
 
@@ -134,5 +140,6 @@ export function unitContentFromFirestoreDoc(data: Record<string, unknown>): Text
     coreSummary: data.coreSummary,
     practice: data.practice,
     unitTest: data.unitTest,
+    sectionInclusion: data.sectionInclusion,
   });
 }

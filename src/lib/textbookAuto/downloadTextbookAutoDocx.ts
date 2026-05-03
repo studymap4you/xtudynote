@@ -7,6 +7,7 @@ import type {
   TextbookUnitContent,
   TextbookUnitTestItem,
 } from "@/types/textbookAuto";
+import { unitForStudentOutput } from "@/lib/textbookAuto/sectionInclusion";
 
 function textPara(text: string, opts?: { size?: number; bold?: boolean; after?: number }): Paragraph {
   return new Paragraph({
@@ -134,7 +135,8 @@ function buildStudentParagraphs(params: {
 export function buildTextbookBodyParagraphsFromUnits(units: { unitIndex: number; unit: TextbookUnitContent }[]): Paragraph[] {
   const blocks: Paragraph[] = [];
   const sorted = [...units].sort((a, b) => a.unitIndex - b.unitIndex);
-  for (const { unitIndex, unit } of sorted) {
+  for (const { unitIndex, unit: rawUnit } of sorted) {
+    const unit = unitForStudentOutput(rawUnit);
     blocks.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_1,

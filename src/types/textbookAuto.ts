@@ -50,6 +50,23 @@ export type TextbookUnitTestShort = {
 
 export type TextbookUnitTestItem = TextbookUnitTestMcq | TextbookUnitTestShort;
 
+/** 최종 교재·AI 생성에 포함할 섹션 (미저장·구버전 문서는 전부 true로 간주) */
+export type TextbookSectionInclusion = {
+  keyConcepts: boolean;
+  contentStudy: boolean;
+  coreSummary: boolean;
+  practice: boolean;
+  unitTest: boolean;
+};
+
+export const DEFAULT_SECTION_INCLUSION: TextbookSectionInclusion = {
+  keyConcepts: true,
+  contentStudy: true,
+  coreSummary: true,
+  practice: true,
+  unitTest: true,
+};
+
 export type TextbookUnitContent = {
   unitTitle: string;
   keyConcepts: TextbookKeyConceptItem[];
@@ -59,6 +76,7 @@ export type TextbookUnitContent = {
   /** 확인학습 — 주관식 단답형 질문 문장만 */
   practice: string[];
   unitTest: TextbookUnitTestItem[];
+  sectionInclusion?: TextbookSectionInclusion;
 };
 
 export type TextbookUnitDoc = TextbookUnitContent & {

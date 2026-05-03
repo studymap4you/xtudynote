@@ -1,4 +1,5 @@
 import { BRAND_APP_NAME } from "@/lib/brand";
+import { mapUnitsForStudentOutput } from "@/lib/textbookAuto/sectionInclusion";
 import type {
   TextbookContentStudyBlock,
   TextbookKeyConceptItem,
@@ -93,6 +94,7 @@ export function TextbookAutoPrintView({
   bookTitle: string;
   units: { unitIndex: number; unit: TextbookUnitContent }[];
 }) {
+  const outUnits = mapUnitsForStudentOutput(units);
   return (
     <div className={`${styles.root} textbook-auto-print-root`}>
       <header className={styles.header}>
@@ -100,7 +102,7 @@ export function TextbookAutoPrintView({
         <h1 className={styles.h1}>{bookTitle || "제목 없음"}</h1>
         <p className={styles.meta}>인쇄 시 브라우저 여백은 「없음」을 권장합니다.</p>
       </header>
-      {units.map(({ unitIndex, unit }) => (
+      {outUnits.map(({ unitIndex, unit }) => (
         <article key={unitIndex} className={styles.unit}>
           <h2 className={styles.unitTitle}>
             제 {unitIndex + 1}단원 · {unit.unitTitle}

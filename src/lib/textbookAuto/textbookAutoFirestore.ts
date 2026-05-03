@@ -16,6 +16,7 @@ import {
   TEXTBOOK_AUTO_SCHEMA_VERSION,
   type TextbookAnswerKeyItem,
   type TextbookUnitContent,
+  DEFAULT_SECTION_INCLUSION,
 } from "@/types/textbookAuto";
 import { unitContentFromFirestoreDoc } from "@/lib/textbookAuto/normalizeUnitContent";
 
@@ -92,6 +93,7 @@ export async function writeUnitDraft(
     coreSummary: u.coreSummary,
     practice: u.practice,
     unitTest: u.unitTest,
+    sectionInclusion: u.sectionInclusion ?? DEFAULT_SECTION_INCLUSION,
     model,
     createdAt: serverTimestamp(),
   });
@@ -114,6 +116,7 @@ export async function writeUnitConfirmed(
     coreSummary: u.coreSummary,
     practice: u.practice,
     unitTest: u.unitTest,
+    sectionInclusion: u.sectionInclusion ?? DEFAULT_SECTION_INCLUSION,
     model,
     createdAt: serverTimestamp(),
     confirmedAt: serverTimestamp(),

@@ -344,6 +344,29 @@
   color: #b91c1c;
 }
 
+.sectionCheckGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.sectionCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.sectionCheck input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #4338ca;
+}
+
 .pageInputs {
   display: inline-flex;
   align-items: center;
