@@ -53,7 +53,7 @@ export function TextbookUnitDraftEditor({ unit, onChange, sectionInclusion: inc,
       {inc.keyConcepts ? (
         <section className={styles.section}>
           <h4 className={styles.sectionTitle}>핵심개념</h4>
-          <p className={styles.subtle}>각 항목: 개념(용어)과 설명을 나란히 유지합니다. 추가·삭제·수정할 수 있습니다.</p>
+          <p className={styles.subtle}>개념은 한 줄, 설명은 여러 줄로 입력·확인할 수 있습니다.</p>
           {unit.keyConcepts.map((row, i) => (
             <div key={i} className={styles.itemCard}>
               <div className={styles.itemHead}>
@@ -67,33 +67,32 @@ export function TextbookUnitDraftEditor({ unit, onChange, sectionInclusion: inc,
                   제거
                 </button>
               </div>
-              <div className={styles.row2}>
-                <div className={styles.field}>
-                  <span className={styles.label}>개념</span>
-                  <input
-                    className={styles.input}
-                    disabled={disabled}
-                    value={row.concept}
-                    onChange={(e) => {
-                      const next = [...unit.keyConcepts];
-                      next[i] = { ...row, concept: e.target.value };
-                      setKeyConcepts(next);
-                    }}
-                  />
-                </div>
-                <div className={styles.field}>
-                  <span className={styles.label}>설명</span>
-                  <input
-                    className={styles.input}
-                    disabled={disabled}
-                    value={row.explanation}
-                    onChange={(e) => {
-                      const next = [...unit.keyConcepts];
-                      next[i] = { ...row, explanation: e.target.value };
-                      setKeyConcepts(next);
-                    }}
-                  />
-                </div>
+              <div className={styles.field}>
+                <span className={styles.label}>개념</span>
+                <input
+                  className={styles.input}
+                  disabled={disabled}
+                  value={row.concept}
+                  onChange={(e) => {
+                    const next = [...unit.keyConcepts];
+                    next[i] = { ...row, concept: e.target.value };
+                    setKeyConcepts(next);
+                  }}
+                />
+              </div>
+              <div className={styles.field}>
+                <span className={styles.label}>설명</span>
+                <textarea
+                  className={`${styles.textarea} ${styles.keyConceptExplanation}`}
+                  disabled={disabled}
+                  rows={5}
+                  value={row.explanation}
+                  onChange={(e) => {
+                    const next = [...unit.keyConcepts];
+                    next[i] = { ...row, explanation: e.target.value };
+                    setKeyConcepts(next);
+                  }}
+                />
               </div>
             </div>
           ))}

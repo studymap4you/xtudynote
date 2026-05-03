@@ -53,6 +53,12 @@
   min-height: 4.5rem;
 }
 
+.keyConceptExplanation {
+  min-height: 7.5rem;
+  line-height: 1.5;
+  field-sizing: content;
+}
+
 .itemCard {
   background: #fff;
   border: 1px solid #e2e8f0;
