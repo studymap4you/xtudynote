@@ -134,6 +134,33 @@
   gap: 0.75rem;
 }
 
+.sessionTop .cardTitle {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.sessionTopActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.step2BottomActions {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.step2BottomHint {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
 .mono {
   font-size: 0.78rem;
   color: #94a3b8;

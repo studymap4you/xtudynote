@@ -153,6 +153,16 @@ export function TextbookAutoBuilderPage() {
     setErr(null);
   }, []);
 
+  /** 2단계 → 1단계(지문 설정). 세션 UI만 끊음 — Firestore 데이터는 유지됨 */
+  const goBackToStepOne = useCallback(() => {
+    if (!sessionId) return;
+    const ok = window.confirm(
+      "1단계(단원별 지문 설정)로 돌아갑니다. 이 화면의 세션 연결이 끊기며, 저장하지 않은 편집 내용은 사라질 수 있습니다. (임시저장·확정은 이미 서버에 반영된 경우 유지됩니다.) 계속할까요?",
+    );
+    if (!ok) return;
+    resetSession();
+  }, [sessionId, resetSession]);
+
   const patchSectionInclusion = useCallback((patch: Partial<TextbookSectionInclusion>) => {
     setSectionInclusion((prev) => {
       const next = { ...prev, ...patch };
@@ -892,17 +902,22 @@ export function TextbookAutoBuilderPage() {
                   <h2 id="session-h" className={styles.cardTitle}>
                     2. 단원별 생성 ({isComplete ? "완료" : `진행 ${Math.min(currentUnitIndex + 1, totalUnits)} / ${totalUnits}`})
                   </h2>
-                  <button type="button" className={styles.btnGhost} onClick={resetSession}>
-                    새 세션
-                  </button>
+                  <div className={styles.sessionTopActions}>
+                    <button type="button" className={styles.btnGhost} disabled={busy} onClick={() => void goBackToStepOne()}>
+                      1단계로
+                    </button>
+                    <button type="button" className={styles.btnGhost} onClick={resetSession}>
+                      새 세션
+                    </button>
+                  </div>
                 </div>
                 <p className={styles.mono}>session: {sessionId.slice(0, 8)}…</p>
 
                 {!isComplete ? (
                   <>
                     <p className={styles.p}>
-                      <strong>제 {currentUnitIndex + 1}단원</strong>을 생성한 뒤 아래에서 구조에 맞게 수정하고, 필요하면 「임시 저장」으로 Firestore에 초안만
-                      남긴 뒤 이어서 편집하세요. 검수가 끝나면 「확정하고 다음 단원」으로 확정합니다.
+                      <strong>제 {currentUnitIndex + 1}단원</strong>: 위에서 섹션·문항 수를 고른 뒤 「이 단원 AI 생성」으로 초안을 만듭니다. 편집이 끝나면{" "}
+                      <strong>화면 맨 아래</strong>에서 임시 저장·확정·PDF를 진행하세요.
                     </p>
                     <div className={styles.field}>
                       <span className={styles.label}>AI 생성·교재에 포함할 섹션</span>
@@ -989,41 +1004,11 @@ export function TextbookAutoBuilderPage() {
                       >
                         {busy ? "생성 중…" : "이 단원 AI 생성"}
                       </button>
-                      <button
-                        type="button"
-                        className={styles.btnSecondary}
-                        disabled={busy || !draftUnit}
-                        onClick={() => void saveDraftOnly()}
-                      >
-                        임시 저장
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.btnSecondary}
-                        disabled={busy || !draftUnit}
-                        onClick={() => void confirmUnit()}
-                      >
-                        확정하고 다음 단원
-                      </button>
                     </div>
                   </>
                 ) : (
                   <p className={styles.p}>모든 단원이 확정되었습니다.</p>
                 )}
-
-                <div className={styles.row}>
-                  <button
-                    type="button"
-                    className={styles.btnSecondary}
-                    disabled={confirmedUnits.length === 0}
-                    onClick={() => printBook()}
-                  >
-                    학생용 PDF (인쇄)
-                  </button>
-                  <button type="button" className={styles.btnGhost} onClick={() => void refreshConfirmedForPrint()}>
-                    확정 단원 새로고침
-                  </button>
-                </div>
 
                 {draftUnit ? (
                   <div className={styles.preview}>
@@ -1048,6 +1033,47 @@ export function TextbookAutoBuilderPage() {
                     />
                   </div>
                 ) : null}
+
+                <div className={styles.step2BottomActions} aria-label="저장·확정·인쇄">
+                  <p className={styles.step2BottomHint}>
+                    {isComplete
+                      ? "확정된 단원으로 학생용 PDF를 만들거나 Firestore에서 최신 정보를 다시 불러올 수 있습니다."
+                      : "편집을 마친 뒤 임시 저장(초안만) 또는 확정(다음 단원으로)을 누르세요."}
+                  </p>
+                  <div className={styles.row}>
+                    {!isComplete ? (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          disabled={busy || !draftUnit}
+                          onClick={() => void saveDraftOnly()}
+                        >
+                          임시 저장
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          disabled={busy || !draftUnit}
+                          onClick={() => void confirmUnit()}
+                        >
+                          확정하고 다음 단원
+                        </button>
+                      </>
+                    ) : null}
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      disabled={confirmedUnits.length === 0}
+                      onClick={() => printBook()}
+                    >
+                      학생용 PDF (인쇄)
+                    </button>
+                    <button type="button" className={styles.btnGhost} onClick={() => void refreshConfirmedForPrint()}>
+                      확정 단원 새로고침
+                    </button>
+                  </div>
+                </div>
               </section>
 
               {isComplete ? (
