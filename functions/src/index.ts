@@ -619,7 +619,7 @@ export const mirrorClassroomPublicListing = onDocumentWritten(
 
 /**
  * 기존 DB 일괄 반영용(배포 직후 1회 등). 슈퍼관리자만.
- * 랜딩「강의신청」목록은 classroom_public_listings 전체를 읽습니다.
+ * 랜딩 목록은 `getPublicClassroomCatalog` 로 직접 제공되며, 본 함수는 다른 용도·레거시 동기화용으로 유지합니다.
  */
 export const backfillClassroomPublicListings = onCall(
   { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
@@ -646,6 +646,48 @@ export const backfillClassroomPublicListings = onCall(
     }
     if (batchCount > 0) await batch.commit();
     return { synced };
+  },
+);
+
+/** 비로그인 랜딩「강의신청」— `classroom_public_listings` 동기화와 무관하게 전체 강의실(제목·요약·요금만) */
+export const getPublicClassroomCatalog = onCall(
+  { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
+  async () => {
+    const snap = await db.collection("classrooms").get();
+    type Item = { sortMs: number; row: Record<string, unknown> };
+    const items: Item[] = [];
+    for (const docSnap of snap.docs) {
+      const d = docSnap.data();
+      const rawTitle = String(d.title ?? "").trim();
+      const title = rawTitle.slice(0, 200) || "강의실";
+      const description = String(d.description ?? "").trim().slice(0, 2000);
+      const pricingType = d.pricingType === "paid" ? "paid" : "free";
+      const row: Record<string, unknown> = {
+        id: docSnap.id,
+        classroomId: docSnap.id,
+        title,
+        description,
+        pricingType,
+      };
+      if (pricingType === "paid") {
+        const fee = d.tuitionFeeKrw;
+        if (typeof fee === "number" && Number.isFinite(fee) && fee > 0) {
+          row.tuitionFeeKrw = Math.round(fee);
+        }
+      }
+      let sortMs = 0;
+      const cr = d.createdAt as { toMillis?: () => number } | undefined;
+      if (cr && typeof cr.toMillis === "function") {
+        try {
+          sortMs = cr.toMillis();
+        } catch {
+          sortMs = 0;
+        }
+      }
+      items.push({ sortMs, row });
+    }
+    items.sort((a, b) => b.sortMs - a.sortMs);
+    return { classrooms: items.map((x) => x.row) };
   },
 );
 

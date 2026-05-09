@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
-import { collection, onSnapshot, query } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/firebase/config";
+import { functions } from "@/firebase/functionsClient";
 import { setPendingEnrollClassroomId } from "@/lib/classroom/classroomPublicListing";
 import { formatTuitionKrwWon } from "@/lib/formatTuitionKrw";
 import type { ClassroomPublicListingDocument } from "@/types/classroom";
@@ -372,23 +372,6 @@ function IconTileEnroll() {
 
 type PublicListingRow = ClassroomPublicListingDocument & { id: string };
 
-function publicListingSortMillis(r: PublicListingRow): number {
-  const x = r.listedAt;
-  if (
-    x != null &&
-    typeof x === "object" &&
-    "toMillis" in x &&
-    typeof (x as { toMillis: () => number }).toMillis === "function"
-  ) {
-    try {
-      return (x as { toMillis: () => number }).toMillis();
-    } catch {
-      return 0;
-    }
-  }
-  return 0;
-}
-
 function IconTileClassroom() {
   return (
     <svg {...tileIconProps}>
@@ -596,27 +579,44 @@ function IntroHeroPublicEnroll() {
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     setLoading(true);
     setErr(null);
-    /** orderBy("listedAt") 는 해당 필드가 없는 문서를 결과에서 빼므로 전체 컬렉션 스냅샷 후 클라이언트 정렬 */
-    const q = query(collection(db, "classroom_public_listings"));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
+    void (async () => {
+      try {
+        const fn = httpsCallable(functions, "getPublicClassroomCatalog");
+        const res = await fn({});
+        if (cancelled) return;
+        const raw = (res.data as { classrooms?: unknown })?.classrooms;
         const list: PublicListingRow[] = [];
-        snap.forEach((d) => {
-          list.push({ id: d.id, ...(d.data() as ClassroomPublicListingDocument) });
-        });
-        list.sort((a, b) => publicListingSortMillis(b) - publicListingSortMillis(a));
+        if (Array.isArray(raw)) {
+          for (const item of raw) {
+            if (!item || typeof item !== "object") continue;
+            const o = item as Record<string, unknown>;
+            const id = typeof o.id === "string" ? o.id : typeof o.classroomId === "string" ? o.classroomId : "";
+            if (!id) continue;
+            list.push({
+              id,
+              ...(o as unknown as ClassroomPublicListingDocument),
+            });
+          }
+        }
         setRows(list);
-        setLoading(false);
-      },
-      (e) => {
-        setErr(e.message || "목록을 불러오지 못했습니다.");
-        setLoading(false);
-      },
-    );
-    return () => unsub();
+      } catch (e: unknown) {
+        if (cancelled) return;
+        setRows([]);
+        const msg =
+          e && typeof e === "object" && "message" in e
+            ? String((e as { message: unknown }).message)
+            : "목록을 불러오지 못했습니다.";
+        setErr(msg);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   useEffect(() => {
