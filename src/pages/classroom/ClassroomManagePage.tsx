@@ -534,8 +534,8 @@ function Inner() {
     }
   }
 
-  async function saveStudentChatLink(e: React.FormEvent) {
-    e.preventDefault();
+  async function saveStudentChatLink(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!id || !room) return;
     const raw = normalizeExternalUrl(studentChatUrlDraft);
     setStudentChatBusy(true);
@@ -823,7 +823,7 @@ function Inner() {
                       학생 강의실 상단에 <strong>「1:1 채팅」</strong>버튼으로만 보입니다. 비워 두고 저장하면 링크를
                       제거합니다.
                     </p>
-                    <form className="classroom-hub__form" onSubmit={(e) => void saveStudentChatLink(e)}>
+                    <div className="classroom-hub__form">
                       <label className="auth-field">
                         <span className="classroom-hub__field-label">오픈채팅 URL</span>
                         <input
@@ -833,13 +833,23 @@ function Inner() {
                           autoComplete="off"
                           value={studentChatUrlDraft}
                           onChange={(e) => setStudentChatUrlDraft(e.target.value)}
+                          onKeyDown={(ke) => {
+                            if (ke.key !== "Enter") return;
+                            ke.preventDefault();
+                            void saveStudentChatLink();
+                          }}
                           placeholder="https://open.kakao.com/..."
                         />
                       </label>
                       {studentChatErr ? <p className="auth-error">{studentChatErr}</p> : null}
                       {studentChatOk ? <p className="classroom-hub__save-feedback--ok">{studentChatOk}</p> : null}
                       <div className="classroom-hub__cta-row">
-                        <button type="submit" className="btn btn--primary btn--stack" disabled={studentChatBusy}>
+                        <button
+                          type="button"
+                          className="btn btn--primary btn--stack"
+                          disabled={studentChatBusy}
+                          onClick={() => void saveStudentChatLink()}
+                        >
                           {studentChatBusy ? "저장 중…" : "링크 저장"}
                         </button>
                         <button
@@ -855,7 +865,7 @@ function Inner() {
                           새 창에서 열기
                         </button>
                       </div>
-                    </form>
+                    </div>
                   </div>
                   <div className="classroom-hub__card classroom-hub__card--soft">
                     <h3 className="classroom-hub__card-title">강의 소개 본문</h3>
