@@ -23,6 +23,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { RichHtmlView } from "@/components/RichHtmlView";
 import { db } from "@/firebase/config";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
+import { isHttpUrl } from "@/lib/isHttpUrl";
 import type { ClassroomDocument, ClassroomNoticeDocument } from "@/types/classroom";
 import type { ClassroomLessonDocument } from "@/types/classroomLesson";
 import type { ClassroomExamAssignmentDocument } from "@/types/classroomExamAssignment";
@@ -121,34 +122,27 @@ export function ClassroomDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    let cancelled = false;
-    (async () => {
-      setRoomLoading(true);
-      setErr(null);
-      try {
-        const rs = await getDoc(doc(db, "classrooms", id));
-        if (!rs.exists()) {
-          if (!cancelled) {
-            setErr("강의실을 찾을 수 없습니다.");
-            setRoom(null);
-            setRoomLoading(false);
-          }
-          return;
-        }
-        const rdata = rs.data() as ClassroomDocument;
-        if (!cancelled) setRoom({ id: rs.id, ...rdata });
-      } catch (e) {
-        if (!cancelled) {
-          setErr(e instanceof Error ? e.message : "강의실을 불러오지 못했습니다.");
+    setRoomLoading(true);
+    setErr(null);
+    const unsub = onSnapshot(
+      doc(db, "classrooms", id),
+      (snap) => {
+        if (!snap.exists()) {
+          setErr("강의실을 찾을 수 없습니다.");
           setRoom(null);
+        } else {
+          setRoom({ id: snap.id, ...(snap.data() as ClassroomDocument) });
+          setErr(null);
         }
-      } finally {
-        if (!cancelled) setRoomLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+        setRoomLoading(false);
+      },
+      (e) => {
+        setErr(e instanceof Error ? e.message : "강의실을 불러오지 못했습니다.");
+        setRoom(null);
+        setRoomLoading(false);
+      },
+    );
+    return () => unsub();
   }, [id]);
 
   useEffect(() => {
@@ -280,6 +274,14 @@ export function ClassroomDetailPage() {
   const fileItems = useMemo(() => visibleContents.filter((c) => !hasVideoLink(c.data)), [visibleContents]);
 
   const introBody = room ? getClassroomIntroBody(room) : "";
+
+  const studentChatHref = useMemo(() => {
+    const u = room?.studentChatUrl?.trim() ?? "";
+    return u && isHttpUrl(u) ? u : "";
+  }, [room?.studentChatUrl]);
+
+  const showStudentChatBtn = !isOwner && !!studentChatHref;
+  const showTeacherChatPreview = isOwner && !!studentChatHref;
 
   const tabs: { id: TabId; label: string; sub: string }[] = [
     { id: "intro", label: "강의 소개", sub: "목표·안내" },
@@ -581,14 +583,36 @@ export function ClassroomDetailPage() {
                       <p className="classroom-room-hero__lede">{room.description.trim()}</p>
                     ) : null}
                   </div>
-                  {isOwner ? (
-                    <Link
-                      to={`/classroom/${room.id}/manage`}
-                      className="btn btn--primary classroom-room-hero__manage"
-                    >
-                      강의실 관리
-                    </Link>
-                  ) : null}
+                  <div className="classroom-room-hero__actions">
+                    {showStudentChatBtn ? (
+                      <a
+                        href={studentChatHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn--primary classroom-room-hero__manage classroom-room-hero__student-chat"
+                      >
+                        1:1 채팅
+                      </a>
+                    ) : null}
+                    {showTeacherChatPreview ? (
+                      <a
+                        href={studentChatHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn--ghost classroom-room-hero__manage classroom-room-hero__teacher-chat-preview"
+                      >
+                        오픈채팅 링크 열기
+                      </a>
+                    ) : null}
+                    {isOwner ? (
+                      <Link
+                        to={`/classroom/${room.id}/manage`}
+                        className="btn btn--primary classroom-room-hero__manage"
+                      >
+                        강의실 관리
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
                 <ul className="classroom-room-hero__stats" aria-label="강의실 콘텐츠 요약">
                   <li>

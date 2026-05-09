@@ -3223,6 +3223,31 @@ button.intro-landing-tile {
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
 }
 
+.classroom-room-hero__actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.classroom-room-view .classroom-room-hero__student-chat.btn--primary {
+  box-shadow: 0 4px 14px rgba(234, 179, 8, 0.35);
+  background: linear-gradient(135deg, #fde047 0%, #facc15 100%);
+  border: 1px solid rgba(161, 98, 7, 0.35);
+  color: #422006;
+}
+
+.classroom-room-view .classroom-room-hero__student-chat.btn--primary:hover {
+  filter: brightness(1.03);
+  color: #422006;
+}
+
+.classroom-room-hero__teacher-chat-preview {
+  box-shadow: none;
+}
+
 .classroom-room-hero__stats {
   position: relative;
   list-style: none;

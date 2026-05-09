@@ -28,6 +28,7 @@ import { db } from "@/firebase/config";
 import { deleteClassroomCascade } from "@/lib/classroom/deleteClassroomCascade";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
+import { isHttpUrl } from "@/lib/isHttpUrl";
 import type { ClassroomDocument, ClassroomMemberEnrollmentDocument, ClassroomNoticeDocument } from "@/types/classroom";
 import type { ClassroomLessonDocument } from "@/types/classroomLesson";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
@@ -101,6 +102,11 @@ function Inner() {
   const [newVideoUrl, setNewVideoUrl] = useState("");
   const [newContentId, setNewContentId] = useState("");
 
+  const [studentChatUrlDraft, setStudentChatUrlDraft] = useState("");
+  const [studentChatBusy, setStudentChatBusy] = useState(false);
+  const [studentChatErr, setStudentChatErr] = useState<string | null>(null);
+  const [studentChatOk, setStudentChatOk] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id || !firebaseUser) return;
     let cancelled = false;
@@ -127,6 +133,7 @@ function Inner() {
           setTuitionFeeInput(
             typeof fee === "number" && Number.isFinite(fee) && fee > 0 ? String(Math.round(fee)) : "",
           );
+          setStudentChatUrlDraft((d.studentChatUrl ?? "").trim());
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -263,6 +270,12 @@ function Inner() {
     const t = window.setTimeout(() => setIntroSaveOk(null), 6000);
     return () => window.clearTimeout(t);
   }, [introSaveOk]);
+
+  useEffect(() => {
+    if (!studentChatOk) return;
+    const t = window.setTimeout(() => setStudentChatOk(null), 6000);
+    return () => window.clearTimeout(t);
+  }, [studentChatOk]);
 
   useEffect(() => {
     if (!introErr && !introSaveOk) return;
@@ -498,6 +511,40 @@ function Inner() {
       setIntroErr(introSaveErrorMessage(err));
     } finally {
       setSavingIntro(false);
+    }
+  }
+
+  async function saveStudentChatLink(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !room) return;
+    const raw = studentChatUrlDraft.trim();
+    setStudentChatBusy(true);
+    setStudentChatErr(null);
+    setStudentChatOk(null);
+    try {
+      if (!raw) {
+        await updateDoc(doc(db, "classrooms", id), { studentChatUrl: deleteField() });
+        setRoom((prev) => {
+          if (!prev) return prev;
+          const next = { ...prev };
+          delete next.studentChatUrl;
+          return next;
+        });
+        setStudentChatOk("저장했습니다. 학생 화면의 「1:1 채팅」버튼을 숨깁니다.");
+      } else {
+        if (!isHttpUrl(raw)) {
+          setStudentChatErr("http(s):// 로 시작하는 전체 주소를 입력해 주세요.");
+          return;
+        }
+        const v = raw.slice(0, 2048);
+        await updateDoc(doc(db, "classrooms", id), { studentChatUrl: v });
+        setRoom((prev) => (prev ? { ...prev, studentChatUrl: v } : prev));
+        setStudentChatOk("저장했습니다. 학생에게 「1:1 채팅」버튼으로 표시됩니다.");
+      }
+    } catch (err) {
+      setStudentChatErr(introSaveErrorMessage(err));
+    } finally {
+      setStudentChatBusy(false);
     }
   }
 
@@ -746,6 +793,48 @@ function Inner() {
                         />
                       </label>
                     ) : null}
+                  </div>
+                  <div className="classroom-hub__card classroom-hub__card--soft">
+                    <h3 className="classroom-hub__card-title">학생 화면 · 1:1 채팅 (카카오 오픈채팅)</h3>
+                    <p className="classroom-hub__hint">
+                      카카오톡에서 발급한 <strong>오픈채팅 참여 링크</strong>(예:{" "}
+                      <code className="classroom-hub__callout-code">https://open.kakao.com/o/…</code>)를 넣으면,
+                      학생 강의실 상단에 <strong>「1:1 채팅」</strong>버튼으로만 보입니다. 비워 두고 저장하면 링크를
+                      제거합니다.
+                    </p>
+                    <form className="classroom-hub__form" onSubmit={(e) => void saveStudentChatLink(e)}>
+                      <label className="auth-field">
+                        <span className="classroom-hub__field-label">오픈채팅 URL</span>
+                        <input
+                          className="add-passage__control"
+                          type="url"
+                          inputMode="url"
+                          autoComplete="off"
+                          value={studentChatUrlDraft}
+                          onChange={(e) => setStudentChatUrlDraft(e.target.value)}
+                          placeholder="https://open.kakao.com/..."
+                        />
+                      </label>
+                      {studentChatErr ? <p className="auth-error">{studentChatErr}</p> : null}
+                      {studentChatOk ? <p className="classroom-hub__save-feedback--ok">{studentChatOk}</p> : null}
+                      <div className="classroom-hub__cta-row">
+                        <button type="submit" className="btn btn--primary btn--stack" disabled={studentChatBusy}>
+                          {studentChatBusy ? "저장 중…" : "링크 저장"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--stack"
+                          disabled={studentChatBusy || !isHttpUrl(studentChatUrlDraft.trim())}
+                          onClick={() => {
+                            const u = studentChatUrlDraft.trim();
+                            if (!isHttpUrl(u)) return;
+                            window.open(u, "_blank", "noopener,noreferrer");
+                          }}
+                        >
+                          새 창에서 열기
+                        </button>
+                      </div>
+                    </form>
                   </div>
                   <div className="classroom-hub__card classroom-hub__card--soft">
                     <h3 className="classroom-hub__card-title">강의 소개 본문</h3>

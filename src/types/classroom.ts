@@ -17,6 +17,10 @@ export interface ClassroomDocument {
   memberStudentIds?: string[];
   /** 마스터 지식 큐레이션에서 생성한 학습자료 문서 ID (선택) */
   knowledgeMaterialId?: string;
+  /**
+   * 학생 강의실에 「1:1 채팅」으로 노출할 외부 채팅 링크 (보통 카카오 오픈채팅 `https://open.kakao.com/...`).
+   */
+  studentChatUrl?: string | null;
   createdAt: unknown;
 }
 
