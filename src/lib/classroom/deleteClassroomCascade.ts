@@ -6,6 +6,7 @@ import {
   writeBatch,
   type Firestore,
 } from "firebase/firestore";
+import { deleteClassroomPublicListing } from "@/lib/classroom/classroomPublicListing";
 
 const BATCH_SIZE = 450;
 
@@ -38,6 +39,11 @@ async function deleteAllInCollection(
  * Firestore 규칙상 멤버 0명일 때만 교사 삭제가 허용된다.
  */
 export async function deleteClassroomCascade(db: Firestore, classroomId: string): Promise<void> {
+  try {
+    await deleteClassroomPublicListing(db, classroomId);
+  } catch {
+    /* 문서가 없거나 규칙 오류 시에도 본편 삭제는 진행 */
+  }
   const base = ["classrooms", classroomId] as const;
   await deleteAllInCollection(db, [...base, "member_enrollments"]);
   await deleteAllInCollection(db, [...base, "enrollment_requests"]);

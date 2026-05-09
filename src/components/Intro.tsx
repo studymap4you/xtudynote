@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
+import { db } from "@/firebase/config";
+import { setPendingEnrollClassroomId } from "@/lib/classroom/classroomPublicListing";
+import { formatTuitionKrwWon } from "@/lib/formatTuitionKrw";
+import type { ClassroomPublicListingDocument } from "@/types/classroom";
 import {
   BRAND_HERO_SUBLINE_1,
   BRAND_HERO_SUBLINE_2,
@@ -350,6 +355,22 @@ const tileIconProps = {
   "aria-hidden": true as const,
 };
 
+function IconTileEnroll() {
+  return (
+    <svg {...tileIconProps}>
+      <path
+        d="M9 11H5a2 2 0 0 0-2 2v7h18v-7a2 2 0 0 0-2-2h-4M9 11V9a3 3 0 1 1 6 0v2M12 4v1"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+type PublicListingRow = ClassroomPublicListingDocument & { id: string };
+
 function IconTileClassroom() {
   return (
     <svg {...tileIconProps}>
@@ -547,6 +568,172 @@ function IconShortcutTextbook() {
   );
 }
 
+function IntroHeroPublicEnroll() {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<PublicListingRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [pick, setPick] = useState<PublicListingRow | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    setErr(null);
+    const q = query(collection(db, "classroom_public_listings"), orderBy("listedAt", "desc"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list: PublicListingRow[] = [];
+        snap.forEach((d) => {
+          list.push({ id: d.id, ...(d.data() as ClassroomPublicListingDocument) });
+        });
+        setRows(list);
+        setLoading(false);
+      },
+      (e) => {
+        setErr(e.message || "목록을 불러오지 못했습니다.");
+        setLoading(false);
+      },
+    );
+    return () => unsub();
+  }, [open]);
+
+  const goLogin = useCallback(() => {
+    if (!pick) return;
+    setPendingEnrollClassroomId(pick.id);
+    setOpen(false);
+    setPick(null);
+    void navigate("/login?audience=learner&next=/classrooms");
+  }, [navigate, pick]);
+
+  const goRegister = useCallback(() => {
+    if (!pick) return;
+    setPendingEnrollClassroomId(pick.id);
+    setOpen(false);
+    setPick(null);
+    void navigate("/register?role=student");
+  }, [navigate, pick]);
+
+  function pricingLabel(r: PublicListingRow) {
+    const paid = r.pricingType === "paid";
+    const fee =
+      paid && typeof r.tuitionFeeKrw === "number" && Number.isFinite(r.tuitionFeeKrw) && r.tuitionFeeKrw > 0
+        ? formatTuitionKrwWon(r.tuitionFeeKrw)
+        : null;
+    return paid ? (fee ? `유료 · ${fee}` : "유료") : "무료";
+  }
+
+  return (
+    <>
+      <p className="intro-hero__action-stack__heading intro-hero__action-stack__heading--follow">강의 신청</p>
+      <button
+        type="button"
+        className="intro-landing-tile intro-landing-tile--enroll"
+        onClick={() => {
+          setPick(null);
+          setOpen(true);
+        }}
+      >
+        <span className="intro-landing-tile__inner">
+          <span className="intro-landing-tile__badge">
+            <IconTileEnroll />
+          </span>
+          <span className="intro-landing-tile__title">강의신청</span>
+        </span>
+      </button>
+      <p className="intro-hero__classroom-hint intro-hero__classroom-hint--enroll">
+        로그인 없이 공개 강의실을 둘러본 뒤, 강의실을 고르면 로그인 또는 학생 회원가입으로 이어집니다.
+      </p>
+
+      {open ? (
+        <div
+          className="crm-modal-root intro-enroll-modal-root"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="intro-enroll-modal-title"
+        >
+          <div
+            className="crm-modal-backdrop"
+            onClick={() => {
+              setOpen(false);
+              setPick(null);
+            }}
+            aria-hidden
+          />
+          <div className="crm-modal crm-modal--send intro-enroll-modal-panel">
+            <button
+              type="button"
+              className="crm-modal__close"
+              aria-label="닫기"
+              onClick={() => {
+                setOpen(false);
+                setPick(null);
+              }}
+            />
+            <h3 id="intro-enroll-modal-title" className="crm-modal__title">
+              <span className="crm-modal__title-ko">{pick ? "계정이 필요합니다" : "강의실 선택"}</span>
+              <span className="crm-modal__title-en">{pick ? "Sign in" : "Choose a class"}</span>
+            </h3>
+
+            {pick ? (
+              <div className="intro-enroll-auth-gate">
+                <p className="intro-enroll-auth-gate__class">
+                  <strong>{pick.title}</strong>
+                </p>
+                <p className="crm-modal__hint ui-ko">
+                  이 강의실에 수강 신청하려면 로그인하거나 학생으로 회원가입해 주세요. 이후「전체 강의실」목록에서 수강
+                  신청을 완료합니다.
+                </p>
+                <div className="crm-modal__actions intro-enroll-auth-gate__actions">
+                  <button type="button" className="btn btn--ghost btn--stack" onClick={() => setPick(null)}>
+                    뒤로
+                  </button>
+                  <button type="button" className="btn btn--primary btn--stack" onClick={() => void goLogin()}>
+                    <span className="ui-ko">로그인</span>
+                    <span className="ui-en">Log in</span>
+                  </button>
+                  <button type="button" className="btn btn--primary btn--stack" onClick={() => void goRegister()}>
+                    <span className="ui-ko">회원가입</span>
+                    <span className="ui-en">Sign up</span>
+                  </button>
+                </div>
+              </div>
+            ) : loading ? (
+              <div className="route-loading route-loading--light intro-enroll-loading">
+                <div className="route-loading__spinner" />
+                <p className="ui-ko">불러오는 중…</p>
+              </div>
+            ) : err ? (
+              <p className="auth-error">{err}</p>
+            ) : rows.length === 0 ? (
+              <p className="crm-modal__hint ui-ko">
+                아직 공개된 강의실이 없습니다. 선생님께서 강의실을 개설·저장하면 여기에 표시됩니다.
+              </p>
+            ) : (
+              <ul className="intro-enroll-modal__list" role="list">
+                {rows.map((r) => (
+                  <li key={r.id}>
+                    <button type="button" className="intro-enroll-modal__row" onClick={() => setPick(r)}>
+                      <span className="intro-enroll-modal__row-title">{r.title}</span>
+                      <span className="intro-enroll-modal__row-meta">
+                        <span className="intro-enroll-modal__row-price">{pricingLabel(r)}</span>
+                        {r.description ? (
+                          <span className="intro-enroll-modal__row-desc">{r.description}</span>
+                        ) : null}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 function ShortcutOrbIcon({ tone }: { tone: ShortcutTone }) {
   switch (tone) {
     case "a":
@@ -705,6 +892,7 @@ export function Intro() {
             <p className="intro-hero__classroom-hint">
               내 강의실은 로그인 후 이용합니다. 강의실 개설은 <strong>승인된 선생님</strong> 계정에서만 표시됩니다.
             </p>
+            {!firebaseUser ? <IntroHeroPublicEnroll /> : null}
             {firebaseUser ? (
               <>
                 <p className="intro-hero__action-stack__heading intro-hero__action-stack__heading--follow">

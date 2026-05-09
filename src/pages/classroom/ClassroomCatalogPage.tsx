@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   arrayRemove,
@@ -19,6 +19,7 @@ import {
   ensureTeacherRosterForStudent,
   syncTeacherRosterForClassroomMemberDelta,
 } from "@/lib/worksheet/teacherRosterApi";
+import { PENDING_ENROLL_STORAGE_KEY } from "@/lib/classroom/classroomPublicListing";
 import { formatTuitionKrwWon } from "@/lib/formatTuitionKrw";
 import type { ClassroomDocument, ClassroomMemberEnrollmentDocument } from "@/types/classroom";
 import "@/pages/pages.css";
@@ -70,6 +71,7 @@ export function ClassroomCatalogPage() {
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [busyClassId, setBusyClassId] = useState<string | null>(null);
   const [enrollModal, setEnrollModal] = useState<EnrollModalState>(null);
+  const pendingEnrollHandled = useRef(false);
 
   const showCatalogLearnerNotice =
     !!firebaseUser?.uid && !isStudent && (isTeacherApproved || isPendingTeacher || isSuperAdmin);
@@ -101,6 +103,39 @@ export function ClassroomCatalogPage() {
     );
     return () => unsub();
   }, [uid]);
+
+  useEffect(() => {
+    if (pendingEnrollHandled.current || !uid || loading) return;
+    try {
+      const raw = sessionStorage.getItem(PENDING_ENROLL_STORAGE_KEY)?.trim();
+      if (!raw) return;
+      sessionStorage.removeItem(PENDING_ENROLL_STORAGE_KEY);
+      pendingEnrollHandled.current = true;
+      if (rows.length === 0) {
+        setActionErr("선택한 강의실을 전체 강의실 목록에서 찾지 못했습니다. 목록이 아직 비어 있거나 동기화 중일 수 있습니다.");
+        return;
+      }
+      const row = rows.find((r) => r.id === raw);
+      if (!row) {
+        setActionErr("선택한 강의실을 전체 강의실 목록에서 찾지 못했습니다.");
+        return;
+      }
+      if (!isStudent) {
+        setActionErr("강의 신청은 학생 계정으로 로그인한 뒤 이용해 주세요.");
+        return;
+      }
+      setActionErr(null);
+      setEnrollModal({ room: row, step: "contact", phone: "" });
+    } catch {
+      pendingEnrollHandled.current = false;
+    }
+  }, [uid, isStudent, loading, rows]);
+
+  useEffect(() => {
+    return () => {
+      pendingEnrollHandled.current = false;
+    };
+  }, []);
 
   const scrollToEnrollSection = useCallback(() => {
     window.requestAnimationFrame(() => {

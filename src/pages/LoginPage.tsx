@@ -51,15 +51,19 @@ export function LoginPage() {
   const [googleBusy, setGoogleBusy] = useState(false);
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
   const nextFromQuery = searchParams.get("next");
+  const fromState = (location.state as { from?: { pathname: string; search?: string } } | null)?.from;
+  const fromPath =
+    fromState?.pathname && fromState.pathname !== "/login"
+      ? `${fromState.pathname}${fromState.search ?? ""}`
+      : null;
 
   const redirectAfterLogin = useMemo(() => {
-    if (from && from !== "/login") return from;
+    if (fromPath) return fromPath;
     const next = nextFromQuery?.trim();
     if (next && next.startsWith("/") && !next.startsWith("//")) return next;
     return "/dashboard";
-  }, [from, nextFromQuery]);
+  }, [fromPath, nextFromQuery]);
 
   const audienceHint = useMemo(() => {
     const a = searchParams.get("audience");

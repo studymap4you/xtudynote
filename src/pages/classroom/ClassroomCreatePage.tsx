@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { syncClassroomPublicListing } from "@/lib/classroom/classroomPublicListing";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -123,6 +124,17 @@ function Inner() {
       }
 
       const ref = await addDoc(collection(db, "classrooms"), payload);
+      try {
+        await syncClassroomPublicListing(db, ref.id, {
+          title: t,
+          description: description.trim(),
+          pricingType,
+          tuitionFeeKrw:
+            pricingType === "paid" ? parseTuitionKrwInput(tuitionFeeInput) ?? undefined : undefined,
+        });
+      } catch {
+        /* 공개 강의 목록 동기화 실패 시에도 개설은 유지 */
+      }
       nav(`/classroom/${ref.id}/manage`, { replace: true });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "저장에 실패했습니다.");

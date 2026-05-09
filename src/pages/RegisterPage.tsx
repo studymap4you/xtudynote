@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
+import { PENDING_ENROLL_STORAGE_KEY } from "@/lib/classroom/classroomPublicListing";
 import "@/pages/pages.css";
 
 type RoleParam = "teacher" | "student";
@@ -22,7 +23,14 @@ export function RegisterPage() {
   }, [roleParam]);
 
   if (!loading && firebaseUser && profile) {
-    return <Navigate to="/dashboard" replace />;
+    let dest = "/dashboard";
+    try {
+      const pending = sessionStorage.getItem(PENDING_ENROLL_STORAGE_KEY)?.trim();
+      if (profile.role === "student" && pending) dest = "/classrooms";
+    } catch {
+      /* ignore */
+    }
+    return <Navigate to={dest} replace />;
   }
 
   if (!choice) {
@@ -116,7 +124,14 @@ export function RegisterPage() {
     setBusy(true);
     try {
       await signUp(email, password, choice as RoleParam);
-      navigate("/dashboard", { replace: true });
+      let dest = "/dashboard";
+      try {
+        const pending = sessionStorage.getItem(PENDING_ENROLL_STORAGE_KEY)?.trim();
+        if (choice === "student" && pending) dest = "/classrooms";
+      } catch {
+        /* ignore */
+      }
+      navigate(dest, { replace: true });
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Registration failed. 가입에 실패했습니다.";

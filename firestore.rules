@@ -1211,6 +1211,69 @@ service cloud.firestore {
       allow delete: if isActiveSuperAdmin() && resource.data.ownerId == request.auth.uid;
     }
 
+    // ——— classroom_public_listings (비로그인 강의신청용 요약 — memberStudentIds 미포함) ———
+    match /classroom_public_listings/{classroomId} {
+      function listingOwnerTeacherId() {
+        return get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId;
+      }
+      allow read: if true;
+      allow create: if request.resource.data.classroomId == classroomId
+        && exists(/databases/$(database)/documents/classrooms/$(classroomId))
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 2000
+        && request.resource.data.listedAt != null
+        && request.resource.data.pricingType is string
+        && request.resource.data.pricingType in ['free', 'paid']
+        && (
+          (isActiveTeacher() && listingOwnerTeacherId() == request.auth.uid)
+          || (isActiveSuperAdmin() && listingOwnerTeacherId() == request.auth.uid)
+        )
+        && (
+          request.resource.data.pricingType != 'paid'
+          || (
+            'tuitionFeeKrw' in request.resource.data
+            && request.resource.data.tuitionFeeKrw is number
+            && request.resource.data.tuitionFeeKrw > 0
+            && request.resource.data.tuitionFeeKrw <= 99999999
+          )
+        );
+
+      allow update: if request.resource.data.classroomId == classroomId
+        && request.resource.data.classroomId == resource.data.classroomId
+        && exists(/databases/$(database)/documents/classrooms/$(classroomId))
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 2000
+        && request.resource.data.listedAt != null
+        && request.resource.data.pricingType is string
+        && request.resource.data.pricingType in ['free', 'paid']
+        && (
+          (isActiveTeacher() && listingOwnerTeacherId() == request.auth.uid)
+          || (isActiveSuperAdmin() && listingOwnerTeacherId() == request.auth.uid)
+        )
+        && (
+          request.resource.data.pricingType != 'paid'
+          || (
+            'tuitionFeeKrw' in request.resource.data
+            && request.resource.data.tuitionFeeKrw is number
+            && request.resource.data.tuitionFeeKrw > 0
+            && request.resource.data.tuitionFeeKrw <= 99999999
+          )
+        );
+
+      allow delete: if isActiveSuperAdmin()
+        || (
+          exists(/databases/$(database)/documents/classrooms/$(classroomId))
+          && isActiveTeacher()
+          && listingOwnerTeacherId() == request.auth.uid
+        );
+    }
+
     // ——— classrooms (강의실 개설·입장) ———
     match /classrooms/{classroomId} {
       /**

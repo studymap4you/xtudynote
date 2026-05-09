@@ -1,6 +1,19 @@
 /** 강의 요금 구분 — 유료는 목록·상세에 안내 가격 표시용(실제 결제·수강 정책은 별도) */
 export type ClassroomPricingType = "free" | "paid";
 
+/**
+ * 홈 비로그인 「강의신청」목록용 — classrooms 본문과 별도(멤버 UID 미포함).
+ * 문서 ID = classroomId.
+ */
+export interface ClassroomPublicListingDocument {
+  classroomId: string;
+  title: string;
+  description: string;
+  pricingType?: ClassroomPricingType;
+  tuitionFeeKrw?: number;
+  listedAt: unknown;
+}
+
 /** 강의실 — 선생님이 개설, 학생은 목록에서 입장 */
 export interface ClassroomDocument {
   teacherId: string;

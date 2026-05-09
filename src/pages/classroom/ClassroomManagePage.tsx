@@ -26,6 +26,7 @@ import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
 import { ClassroomSectionModal } from "@/components/classroom/ClassroomSectionModal";
 import { db } from "@/firebase/config";
 import { deleteClassroomCascade } from "@/lib/classroom/deleteClassroomCascade";
+import { syncClassroomPublicListing } from "@/lib/classroom/classroomPublicListing";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
 import { isHttpUrl, normalizeExternalUrl } from "@/lib/isHttpUrl";
@@ -144,6 +145,16 @@ function Inner() {
       cancelled = true;
     };
   }, [id, firebaseUser]);
+
+  useEffect(() => {
+    if (!id || !room || !firebaseUser || room.teacherId !== firebaseUser.uid) return;
+    void syncClassroomPublicListing(db, id, {
+      title: room.title,
+      description: room.description ?? "",
+      pricingType: room.pricingType === "paid" ? "paid" : "free",
+      tuitionFeeKrw: room.tuitionFeeKrw,
+    }).catch(() => {});
+  }, [id, firebaseUser, room?.teacherId, room?.title, room?.description, room?.pricingType, room?.tuitionFeeKrw]);
 
   const studentChatFocusIntent = searchParams.get("focus") === "studentChat";
 
