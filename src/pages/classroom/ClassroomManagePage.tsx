@@ -28,7 +28,7 @@ import { db } from "@/firebase/config";
 import { deleteClassroomCascade } from "@/lib/classroom/deleteClassroomCascade";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
-import { isHttpUrl } from "@/lib/isHttpUrl";
+import { isHttpUrl, normalizeExternalUrl } from "@/lib/isHttpUrl";
 import type { ClassroomDocument, ClassroomMemberEnrollmentDocument, ClassroomNoticeDocument } from "@/types/classroom";
 import type { ClassroomLessonDocument } from "@/types/classroomLesson";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
@@ -134,7 +134,7 @@ function Inner() {
           setTuitionFeeInput(
             typeof fee === "number" && Number.isFinite(fee) && fee > 0 ? String(Math.round(fee)) : "",
           );
-          setStudentChatUrlDraft((d.studentChatUrl ?? "").trim());
+          setStudentChatUrlDraft(normalizeExternalUrl(d.studentChatUrl));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -537,7 +537,7 @@ function Inner() {
   async function saveStudentChatLink(e: React.FormEvent) {
     e.preventDefault();
     if (!id || !room) return;
-    const raw = studentChatUrlDraft.trim();
+    const raw = normalizeExternalUrl(studentChatUrlDraft);
     setStudentChatBusy(true);
     setStudentChatErr(null);
     setStudentChatOk(null);
@@ -559,6 +559,7 @@ function Inner() {
         const v = raw.slice(0, 2048);
         await updateDoc(doc(db, "classrooms", id), { studentChatUrl: v });
         setRoom((prev) => (prev ? { ...prev, studentChatUrl: v } : prev));
+        setStudentChatUrlDraft(v);
         setStudentChatOk("저장했습니다. 학생에게 「1:1 채팅」버튼으로 표시됩니다.");
       }
     } catch (err) {
@@ -844,9 +845,9 @@ function Inner() {
                         <button
                           type="button"
                           className="btn btn--ghost btn--stack"
-                          disabled={studentChatBusy || !isHttpUrl(studentChatUrlDraft.trim())}
+                          disabled={studentChatBusy || !isHttpUrl(normalizeExternalUrl(studentChatUrlDraft))}
                           onClick={() => {
-                            const u = studentChatUrlDraft.trim();
+                            const u = normalizeExternalUrl(studentChatUrlDraft);
                             if (!isHttpUrl(u)) return;
                             window.open(u, "_blank", "noopener,noreferrer");
                           }}

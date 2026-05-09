@@ -23,7 +23,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { RichHtmlView } from "@/components/RichHtmlView";
 import { db } from "@/firebase/config";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
-import { isHttpUrl } from "@/lib/isHttpUrl";
+import { isHttpUrl, normalizeExternalUrl } from "@/lib/isHttpUrl";
 import type { ClassroomDocument, ClassroomNoticeDocument } from "@/types/classroom";
 import type { ClassroomLessonDocument } from "@/types/classroomLesson";
 import type { ClassroomExamAssignmentDocument } from "@/types/classroomExamAssignment";
@@ -276,12 +276,15 @@ export function ClassroomDetailPage() {
   const introBody = room ? getClassroomIntroBody(room) : "";
 
   const studentChatHref = useMemo(() => {
-    const u = room?.studentChatUrl?.trim() ?? "";
+    const u = normalizeExternalUrl(room?.studentChatUrl);
     return u && isHttpUrl(u) ? u : "";
   }, [room?.studentChatUrl]);
 
-  const showStudentChatBtn = !isOwner && !!studentChatHref;
-  const showTeacherChatPreview = isOwner && !!studentChatHref;
+  /** 링크가 있으면 학생·개설자 모두 같은 「1:1 채팅」 진입 버튼을 봅니다. */
+  const showOneToOneChatBtn = !!studentChatHref;
+  const showOwnerChatLinkEditor = isOwner;
+  const ownerChatEditorLabel = studentChatHref ? "채팅 링크 수정" : "오픈채팅 연결";
+
   const showNonOwnerTeacherHint =
     !!profile &&
     profile.role === "teacher" &&
@@ -599,7 +602,7 @@ export function ClassroomDetailPage() {
                     ) : null}
                   </div>
                   <div className="classroom-room-hero__actions">
-                    {showStudentChatBtn ? (
+                    {showOneToOneChatBtn ? (
                       <a
                         href={studentChatHref}
                         target="_blank"
@@ -609,23 +612,13 @@ export function ClassroomDetailPage() {
                         1:1 채팅
                       </a>
                     ) : null}
-                    {showTeacherChatPreview ? (
-                      <a
-                        href={studentChatHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn--ghost classroom-room-hero__manage classroom-room-hero__teacher-chat-preview"
-                      >
-                        오픈채팅 링크 열기
-                      </a>
-                    ) : null}
-                    {isOwner ? (
+                    {showOwnerChatLinkEditor ? (
                       <>
                         <Link
                           to={`/classroom/${room.id}/manage?focus=studentChat`}
                           className="btn btn--ghost classroom-room-hero__manage classroom-room-hero__chat-setup"
                         >
-                          오픈채팅 연결
+                          {ownerChatEditorLabel}
                         </Link>
                         <Link
                           to={`/classroom/${room.id}/manage`}
