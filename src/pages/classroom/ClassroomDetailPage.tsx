@@ -90,7 +90,7 @@ function noticeTsLabel(raw: unknown): string {
 
 export function ClassroomDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { firebaseUser, isTeacherApproved, isSuperAdmin } = useAuth();
+  const { firebaseUser, isTeacherApproved, isSuperAdmin, profile } = useAuth();
   const [room, setRoom] = useState<(ClassroomDocument & { id: string }) | null>(null);
   const [contents, setContents] = useState<ContentRow[]>([]);
   const [roomLoading, setRoomLoading] = useState(true);
@@ -282,6 +282,21 @@ export function ClassroomDetailPage() {
 
   const showStudentChatBtn = !isOwner && !!studentChatHref;
   const showTeacherChatPreview = isOwner && !!studentChatHref;
+  const showNonOwnerTeacherHint =
+    !!profile &&
+    profile.role === "teacher" &&
+    profile.accountStatus === "active" &&
+    canAccessRoom &&
+    !isOwner &&
+    !!room;
+  const showStudentNoChatHint =
+    !!profile &&
+    profile.role === "student" &&
+    profile.accountStatus === "active" &&
+    canAccessRoom &&
+    !isOwner &&
+    !studentChatHref &&
+    !!room;
 
   const tabs: { id: TabId; label: string; sub: string }[] = [
     { id: "intro", label: "강의 소개", sub: "목표·안내" },
@@ -605,12 +620,20 @@ export function ClassroomDetailPage() {
                       </a>
                     ) : null}
                     {isOwner ? (
-                      <Link
-                        to={`/classroom/${room.id}/manage`}
-                        className="btn btn--primary classroom-room-hero__manage"
-                      >
-                        강의실 관리
-                      </Link>
+                      <>
+                        <Link
+                          to={`/classroom/${room.id}/manage?focus=studentChat`}
+                          className="btn btn--ghost classroom-room-hero__manage classroom-room-hero__chat-setup"
+                        >
+                          오픈채팅 연결
+                        </Link>
+                        <Link
+                          to={`/classroom/${room.id}/manage`}
+                          className="btn btn--primary classroom-room-hero__manage"
+                        >
+                          강의실 관리
+                        </Link>
+                      </>
                     ) : null}
                   </div>
                 </div>
@@ -629,6 +652,25 @@ export function ClassroomDetailPage() {
                   </li>
                 </ul>
               </header>
+
+              {showNonOwnerTeacherHint ? (
+                <div className="classroom-room-context-hint" role="status">
+                  <p className="classroom-room-context-hint__text">
+                    이 강의실은 <strong>다른 선생님 계정</strong>으로 개설된 클래스입니다.{" "}
+                    <strong>오픈채팅·자료 등록</strong>은 개설 선생님이 로그인했을 때만 할 수 있으며, 지금 계정으로는
+                    수강생 화면만 보입니다. 직접 만든 강의실은「내 강의실」목록에서 들어가거나, 개설에 쓴 계정으로 로그인해
+                    주세요.
+                  </p>
+                </div>
+              ) : null}
+
+              {showStudentNoChatHint ? (
+                <div className="classroom-room-context-hint classroom-room-context-hint--muted" role="status">
+                  <p className="classroom-room-context-hint__text">
+                    선생님이 아직 <strong>채팅 링크</strong>를 연결하지 않았습니다. 필요하면 질의응답 게시판을 이용해 주세요.
+                  </p>
+                </div>
+              ) : null}
 
               <div className="classroom-room-nav classroom-hub__tabs" role="tablist" aria-label="강의실 보기">
                 {tabs.map((t) => (

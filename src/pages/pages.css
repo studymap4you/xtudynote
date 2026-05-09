@@ -3248,6 +3248,10 @@ button.intro-landing-tile {
   box-shadow: none;
 }
 
+.classroom-room-hero__chat-setup {
+  box-shadow: none;
+}
+
 .classroom-room-hero__stats {
   position: relative;
   list-style: none;
@@ -3290,6 +3294,26 @@ button.intro-landing-tile {
     grid-template-columns: 1fr;
     max-width: none;
   }
+}
+
+.classroom-room-context-hint {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(239, 246, 255, 0.92);
+}
+
+.classroom-room-context-hint--muted {
+  border-color: rgba(148, 163, 184, 0.45);
+  background: rgba(248, 250, 252, 0.96);
+}
+
+.classroom-room-context-hint__text {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #334155;
 }
 
 /* 카테고리 네비게이션 — 큰 카드 그리드 */

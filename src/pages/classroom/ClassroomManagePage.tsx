@@ -1,6 +1,6 @@
 import { FirebaseError } from "firebase/app";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   addDoc,
   collection,
@@ -52,6 +52,7 @@ function tsLabel(t: unknown): string {
 function Inner() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { firebaseUser } = useAuth();
   const [room, setRoom] = useState<(ClassroomDocument & { id: string }) | null>(null);
   const [forbidden, setForbidden] = useState(false);
@@ -143,6 +144,25 @@ function Inner() {
       cancelled = true;
     };
   }, [id, firebaseUser]);
+
+  const studentChatFocusIntent = searchParams.get("focus") === "studentChat";
+
+  useEffect(() => {
+    if (!room || !studentChatFocusIntent) return;
+    setOpenModal("intro");
+    const tid = window.setTimeout(() => {
+      document.getElementById("hub-student-chat")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 250);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("focus");
+        return next;
+      },
+      { replace: true },
+    );
+    return () => window.clearTimeout(tid);
+  }, [room, studentChatFocusIntent, setSearchParams]);
 
   useEffect(() => {
     if (room) setBulkMemberText((room.memberStudentIds ?? []).join("\n"));
@@ -794,7 +814,7 @@ function Inner() {
                       </label>
                     ) : null}
                   </div>
-                  <div className="classroom-hub__card classroom-hub__card--soft">
+                  <div className="classroom-hub__card classroom-hub__card--soft" id="hub-student-chat">
                     <h3 className="classroom-hub__card-title">학생 화면 · 1:1 채팅 (카카오 오픈채팅)</h3>
                     <p className="classroom-hub__hint">
                       카카오톡에서 발급한 <strong>오픈채팅 참여 링크</strong>(예:{" "}
