@@ -47,25 +47,20 @@ const REGION = "asia-northeast3";
  * 브라우저에 "No Access-Control-Allow-Origin"처럼 보입니다. 공개 호출 허용 후
  * 함수 본문에서 request.auth 로 보호합니다.
  * @see https://cloud.google.com/run/docs/securing/managing-access
+ *
+ * 배포 분석 단계에서 모듈 최상위의 `defineString().value()` 호출은 타임아웃·경고를 유발할 수 있어
+ * CORS 허용 목록은 고정합니다. 링크용 공개 origin 은 런타임에 `appPublicOrigin` 으로 읽습니다.
  */
-const HTTPS_CALLABLE_CORS: (string | RegExp)[] = (() => {
-  const fromParam = appPublicOrigin.value().replace(/\/$/, "").trim();
-  const list: (string | RegExp)[] = [];
-  if (fromParam.startsWith("http://") || fromParam.startsWith("https://")) {
-    list.push(fromParam);
-  }
-  list.push(
-    "https://xtudynote.vercel.app",
-    "https://xtudynote.web.app",
-    "https://xtudynote.firebaseapp.com",
-    /^https:\/\/.+\.vercel\.app$/,
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
-  );
-  return list;
-})();
+const HTTPS_CALLABLE_CORS: (string | RegExp)[] = [
+  "https://xtudynote.vercel.app",
+  "https://xtudynote.web.app",
+  "https://xtudynote.firebaseapp.com",
+  /^https:\/\/.+\.vercel\.app$/,
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5173",
+];
 
 function assertTeacherOrSuper(profile: DocumentData | undefined): void {
   const role = profile?.role;
