@@ -2712,6 +2712,13 @@ button.intro-landing-tile {
   word-break: break-all;
 }
 
+.classroom-hub__inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
 /* 전체 강의실 — 수강 진행/완료 모달 */
 .classroom-catalog__enroll-modal-root {
   z-index: 120;
@@ -2771,6 +2778,21 @@ button.intro-landing-tile {
 
 .teacher-enrollment-notice__course {
   margin-bottom: 0.2rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+}
+
+.teacher-enrollment-notice__badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.22);
+  color: #fef3c7;
+  border: 1px solid rgba(251, 191, 36, 0.35);
 }
 
 .teacher-enrollment-notice__meta {

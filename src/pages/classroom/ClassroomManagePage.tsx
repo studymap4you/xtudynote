@@ -30,15 +30,17 @@ import { syncClassroomPublicListing } from "@/lib/classroom/classroomPublicListi
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
 import { parseTuitionKrwInput } from "@/lib/formatTuitionKrw";
 import { isHttpUrl, normalizeExternalUrl } from "@/lib/isHttpUrl";
-import type { ClassroomDocument, ClassroomMemberEnrollmentDocument, ClassroomNoticeDocument } from "@/types/classroom";
+import type {
+  ClassroomDocument,
+  ClassroomEnrollmentRequestDocument,
+  ClassroomMemberEnrollmentDocument,
+  ClassroomNoticeDocument,
+} from "@/types/classroom";
 import type { ClassroomLessonDocument } from "@/types/classroomLesson";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
-import {
-  listWorksheetRoster,
-  syncTeacherRosterForClassroomMemberDelta,
-} from "@/lib/worksheet/teacherRosterApi";
+import { ensureTeacherRosterForStudent, listWorksheetRoster, syncTeacherRosterForClassroomMemberDelta } from "@/lib/worksheet/teacherRosterApi";
 import "@/pages/pages.css";
 
 type TabId = "intro" | "notices" | "materials" | "video" | "qa" | "members";
@@ -87,6 +89,11 @@ function Inner() {
     Record<string, ClassroomMemberEnrollmentDocument>
   >({});
 
+  const [paidEnrollmentRows, setPaidEnrollmentRows] = useState<
+    { id: string; data: ClassroomEnrollmentRequestDocument }[]
+  >([]);
+  const [paidEnrollmentBusyId, setPaidEnrollmentBusyId] = useState<string | null>(null);
+
   const [noticeRows, setNoticeRows] = useState<{ id: string; data: ClassroomNoticeDocument }[]>([]);
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [newNoticeBody, setNewNoticeBody] = useState("");
@@ -105,6 +112,7 @@ function Inner() {
   const [newContentId, setNewContentId] = useState("");
 
   const [studentChatUrlDraft, setStudentChatUrlDraft] = useState("");
+  const [tuitionPaymentUrlDraft, setTuitionPaymentUrlDraft] = useState("");
   const [studentChatBusy, setStudentChatBusy] = useState(false);
   const [studentChatErr, setStudentChatErr] = useState<string | null>(null);
   const [studentChatOk, setStudentChatOk] = useState<string | null>(null);
@@ -136,6 +144,7 @@ function Inner() {
             typeof fee === "number" && Number.isFinite(fee) && fee > 0 ? String(Math.round(fee)) : "",
           );
           setStudentChatUrlDraft(normalizeExternalUrl(d.studentChatUrl));
+          setTuitionPaymentUrlDraft(normalizeExternalUrl(d.tuitionPaymentUrl));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -155,6 +164,29 @@ function Inner() {
       tuitionFeeKrw: room.tuitionFeeKrw,
     }).catch(() => {});
   }, [id, firebaseUser, room?.teacherId, room?.title, room?.description, room?.pricingType, room?.tuitionFeeKrw]);
+
+  useEffect(() => {
+    if (!id || room?.pricingType !== "paid") {
+      setPaidEnrollmentRows([]);
+      return;
+    }
+    const col = collection(db, "classrooms", id, "enrollment_requests");
+    const unsub = onSnapshot(
+      col,
+      (snap) => {
+        const list: { id: string; data: ClassroomEnrollmentRequestDocument }[] = [];
+        snap.forEach((d) => list.push({ id: d.id, data: d.data() as ClassroomEnrollmentRequestDocument }));
+        list.sort((a, b) => {
+          const ta = a.data.requestedAt as { toMillis?: () => number } | undefined;
+          const tb = b.data.requestedAt as { toMillis?: () => number } | undefined;
+          return (tb?.toMillis?.() ?? 0) - (ta?.toMillis?.() ?? 0);
+        });
+        setPaidEnrollmentRows(list);
+      },
+      () => setPaidEnrollmentRows([]),
+    );
+    return () => unsub();
+  }, [id, room?.pricingType]);
 
   const studentChatFocusIntent = searchParams.get("focus") === "studentChat";
 
@@ -425,6 +457,72 @@ function Inner() {
     }
   }
 
+  async function approvePaidEnrollment(studentUid: string) {
+    if (!id || !room || !firebaseUser || room.teacherId !== firebaseUser.uid) return;
+    const suid = studentUid.trim();
+    if (paidEnrollmentBusyId) return;
+    setPaidEnrollmentBusyId(suid);
+    setMembersErr(null);
+    try {
+      const reqRef = doc(db, "classrooms", id, "enrollment_requests", suid);
+      const reqSs = await getDoc(reqRef);
+      if (!reqSs.exists()) {
+        setMembersErr("이미 처리되었거나 신청을 찾을 수 없습니다.");
+        return;
+      }
+      const reqData = reqSs.data() as ClassroomEnrollmentRequestDocument;
+      const enPayload: ClassroomMemberEnrollmentDocument = {
+        studentId: suid,
+        email: reqData.email,
+        phone: reqData.phone,
+        classroomId: id,
+        teacherId: room.teacherId,
+        classroomTitle: reqData.classroomTitle,
+        enrolledAt: serverTimestamp(),
+      };
+      const batch = writeBatch(db);
+      batch.delete(reqRef);
+      batch.set(doc(db, "classrooms", id, "member_enrollments", suid), enPayload);
+      const prev = room.memberStudentIds ?? [];
+      const prevStr = prev.map(String);
+      if (!prevStr.includes(suid)) {
+        batch.update(doc(db, "classrooms", id), { memberStudentIds: [...prevStr, suid] });
+      }
+      await batch.commit();
+      setRoom((prevRoom) => {
+        if (!prevRoom) return prevRoom;
+        const ids = prevRoom.memberStudentIds ?? [];
+        if (ids.map(String).includes(suid)) return prevRoom;
+        return { ...prevRoom, memberStudentIds: [...ids.map(String), suid] };
+      });
+      try {
+        await ensureTeacherRosterForStudent(room.teacherId, suid, { classroomId: id });
+      } catch {
+        /* 멤버 등록은 완료 */
+      }
+    } catch (err) {
+      setMembersErr(err instanceof Error ? err.message : "승인하지 못했습니다.");
+    } finally {
+      setPaidEnrollmentBusyId(null);
+    }
+  }
+
+  async function rejectPaidEnrollment(studentUid: string) {
+    if (!id || !firebaseUser || room?.teacherId !== firebaseUser.uid) return;
+    const suid = studentUid.trim();
+    if (paidEnrollmentBusyId) return;
+    if (!window.confirm(`「${suid}」학생의 유료 수강 신청을 거절하고 대기 목록에서 제거할까요?`)) return;
+    setPaidEnrollmentBusyId(suid);
+    setMembersErr(null);
+    try {
+      await deleteDoc(doc(db, "classrooms", id, "enrollment_requests", suid));
+    } catch (err) {
+      setMembersErr(err instanceof Error ? err.message : "거절 처리에 실패했습니다.");
+    } finally {
+      setPaidEnrollmentBusyId(null);
+    }
+  }
+
   function introSaveErrorMessage(err: unknown): string {
     if (err instanceof FirebaseError && err.code === "permission-denied") {
       return "저장 권한이 없습니다. 계정 역할·강의실 소유를 확인해 주세요.";
@@ -514,12 +612,24 @@ function Inner() {
       }
     }
     try {
+      const payPatch: Record<string, unknown> = {};
+      if (pricingType === "paid") {
+        const raw = normalizeExternalUrl(tuitionPaymentUrlDraft);
+        if (raw && isHttpUrl(raw)) {
+          payPatch.tuitionPaymentUrl = raw.slice(0, 2048);
+        } else {
+          payPatch.tuitionPaymentUrl = deleteField();
+        }
+      } else {
+        payPatch.tuitionPaymentUrl = deleteField();
+      }
       await updateDoc(doc(db, "classrooms", id), {
         title: t,
         description: description.trim(),
         introduction: introduction.trim(),
         pricingType,
         ...(pricingType === "paid" ? { tuitionFeeKrw } : { tuitionFeeKrw: deleteField() }),
+        ...payPatch,
       });
       setRoom((prev) => {
         if (!prev) return prev;
@@ -534,6 +644,12 @@ function Inner() {
           next.tuitionFeeKrw = tuitionFeeKrw;
         } else {
           delete next.tuitionFeeKrw;
+        }
+        const pr = normalizeExternalUrl(tuitionPaymentUrlDraft);
+        if (pricingType === "paid" && pr && isHttpUrl(pr)) {
+          next.tuitionPaymentUrl = pr.slice(0, 2048);
+        } else {
+          delete next.tuitionPaymentUrl;
         }
         return next;
       });
@@ -805,25 +921,43 @@ function Inner() {
                         value={pricingType}
                         onChange={(e) => setPricingType(e.target.value === "paid" ? "paid" : "free")}
                       >
-                        <option value="free">무료 — 학생이 전체 강의실에서 바로 수강(멤버 등록)</option>
-                        <option value="paid">유료 — 목록에 안내 가격 표시(PG 결제·수강 조건은 추후)</option>
+                        <option value="free">무료 — 학생이 전체 강의실에서 신청 즉시 수강(멤버 등록)</option>
+                        <option value="paid">유료 — 결제 안내 링크·선생님 승인 후 수강</option>
                       </select>
                     </label>
                     {pricingType === "paid" ? (
-                      <label className="auth-field">
-                        <span className="classroom-hub__field-label">수강 가격 (원)</span>
-                        <span className="classroom-hub__field-hint">
-                          학생의「전체 강의실」목록에 안내 가격으로 표시됩니다.
-                        </span>
-                        <input
-                          className="add-passage__control"
-                          inputMode="numeric"
-                          autoComplete="off"
-                          value={tuitionFeeInput}
-                          onChange={(e) => setTuitionFeeInput(e.target.value)}
-                          placeholder="예: 150000"
-                        />
-                      </label>
+                      <>
+                        <label className="auth-field">
+                          <span className="classroom-hub__field-label">수강 가격 (원)</span>
+                          <span className="classroom-hub__field-hint">
+                            학생의「전체 강의실」목록에 안내 가격으로 표시됩니다.
+                          </span>
+                          <input
+                            className="add-passage__control"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            value={tuitionFeeInput}
+                            onChange={(e) => setTuitionFeeInput(e.target.value)}
+                            placeholder="예: 150000"
+                          />
+                        </label>
+                        <label className="auth-field">
+                          <span className="classroom-hub__field-label">결제·수강 안내 URL</span>
+                          <span className="classroom-hub__field-hint">
+                            학생이「수강 신청」을 완료하면 새 창에서 열립니다. 결제 여부와 관계없이 아래「유료 수강
+                            신청」에서 승인하면 수강이 열립니다. 비우면 링크 없이 신청만 접수됩니다.
+                          </span>
+                          <input
+                            className="add-passage__control"
+                            type="url"
+                            inputMode="url"
+                            autoComplete="off"
+                            value={tuitionPaymentUrlDraft}
+                            onChange={(e) => setTuitionPaymentUrlDraft(e.target.value)}
+                            placeholder="https://… (PG·폼·안내 페이지)"
+                          />
+                        </label>
+                      </>
                     ) : null}
                   </div>
                   <div className="classroom-hub__card classroom-hub__card--soft" id="hub-student-chat">
@@ -1130,10 +1264,63 @@ function Inner() {
                 학습지 배포용 멤버 UID
               </h2>
               <p className="classroom-hub__hint">
-                멤버는 <strong>강좌 수강 등록</strong> 시 담당 선생님 학습지 주소록에도 자동으로 올라갑니다. 아래에서
-                UID를 직접 추가·제거할 수 있습니다. 학습지 배포 시 이 강의실 링크로 들어오면 해당 멤버가 자동으로
-                선택됩니다. (최대 120명)
+                멤버는 <strong>강좌 수강 등록</strong> 시 담당 선생님 학습지 주소록에도 자동으로 올라갑니다.{" "}
+                <strong>유료</strong> 강의는 학생이 신청하면「유료 수강 신청」대기 목록에 쌓이며, 승인 후 멤버로
+                반영됩니다. 아래에서 UID를 직접 추가·제거할 수도 있습니다. (최대 120명)
               </p>
+              {room.pricingType === "paid" && paidEnrollmentRows.length > 0 ? (
+                <div className="classroom-hub__card classroom-hub__card--flush-top">
+                  <h3 className="classroom-hub__card-title">유료 수강 신청 (승인 대기)</h3>
+                  <p className="classroom-hub__hint">
+                    결제 완료 여부를 확인하지 않아도 승인할 수 있습니다. 승인 시 멤버·연락처 명단에 반영됩니다.
+                  </p>
+                  <div className="classroom-hub__roster-scroll">
+                    <table className="classroom-hub__roster-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">학생 UID</th>
+                          <th scope="col">이메일</th>
+                          <th scope="col">전화</th>
+                          <th scope="col">신청 시각</th>
+                          <th scope="col">처리</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paidEnrollmentRows.map((row) => (
+                          <tr key={row.id}>
+                            <td>
+                              <code className="classroom-hub__roster-uid">{row.data.studentId}</code>
+                            </td>
+                            <td>{row.data.email}</td>
+                            <td>{row.data.phone}</td>
+                            <td>{tsLabel(row.data.requestedAt)}</td>
+                            <td>
+                              <div className="classroom-hub__inline-actions">
+                                <button
+                                  type="button"
+                                  className="btn btn--primary btn--stack"
+                                  disabled={paidEnrollmentBusyId !== null}
+                                  onClick={() => void approvePaidEnrollment(row.data.studentId)}
+                                >
+                                  승인
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn--ghost btn--stack"
+                                  disabled={paidEnrollmentBusyId !== null}
+                                  onClick={() => void rejectPaidEnrollment(row.data.studentId)}
+                                >
+                                  거절
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
               {membersErr ? <p className="auth-error">{membersErr}</p> : null}
               {(room.memberStudentIds ?? []).length > 0 ? (
                 <div className="classroom-hub__card classroom-hub__card--flush-top">

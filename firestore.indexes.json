@@ -165,6 +165,13 @@
         { "fieldPath": "classroomId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "enrollment_requests",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "studentId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

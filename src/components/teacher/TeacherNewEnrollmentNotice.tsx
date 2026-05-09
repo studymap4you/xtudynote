@@ -1,16 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/firebase/config";
-import type { ClassroomMemberEnrollmentDocument } from "@/types/classroom";
+import type { ClassroomEnrollmentRequestDocument, ClassroomMemberEnrollmentDocument } from "@/types/classroom";
 
 const ACK_KEY = "xtudy_teacher_new_enrollment_ack_ms_v1";
 
-export type TeacherEnrollmentNoticeRow = {
-  classroomId: string;
-  classroomTitle: string;
-  data: ClassroomMemberEnrollmentDocument;
-  enrolledMs: number;
-};
+export type TeacherEnrollmentNoticeRow =
+  | {
+      kind: "member";
+      classroomId: string;
+      classroomTitle: string;
+      data: ClassroomMemberEnrollmentDocument;
+      enrolledMs: number;
+    }
+  | {
+      kind: "paid_request";
+      classroomId: string;
+      classroomTitle: string;
+      data: ClassroomEnrollmentRequestDocument;
+      enrolledMs: number;
+    };
 
 function readAckMs(): number {
   try {
@@ -27,7 +36,7 @@ function writeAckMs(ms: number): void {
   localStorage.setItem(ACK_KEY, String(ms));
 }
 
-function enrolledAtMs(raw: unknown): number {
+function tsMs(raw: unknown): number {
   if (raw && typeof raw === "object" && "toMillis" in raw && typeof (raw as { toMillis: () => number }).toMillis === "function") {
     try {
       return (raw as { toMillis: () => number }).toMillis();
@@ -38,7 +47,7 @@ function enrolledAtMs(raw: unknown): number {
   return 0;
 }
 
-/** 승인된 교사 대시보드 — 마지막 확인 이후 새 member_enrollments 알림 */
+/** 승인된 교사 대시보드 — 마지막 확인 이후 새 member_enrollments·유료 수강 신청 알림 */
 export function TeacherNewEnrollmentNotice({ teacherUid }: { teacherUid: string }) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<TeacherEnrollmentNoticeRow[]>([]);
@@ -59,14 +68,25 @@ export function TeacherNewEnrollmentNotice({ teacherUid }: { teacherUid: string 
       await Promise.all(
         cs.docs.map(async (c) => {
           const title = (c.data().title as string) || "제목 없음";
+          const pricingType = c.data().pricingType as string | undefined;
           const es = await getDocs(collection(db, "classrooms", c.id, "member_enrollments"));
           es.forEach((d) => {
             const data = d.data() as ClassroomMemberEnrollmentDocument;
-            const ms = enrolledAtMs(data.enrolledAt);
+            const ms = tsMs(data.enrolledAt);
             if (ms > ack) {
-              out.push({ classroomId: c.id, classroomTitle: title, data, enrolledMs: ms });
+              out.push({ kind: "member", classroomId: c.id, classroomTitle: title, data, enrolledMs: ms });
             }
           });
+          if (pricingType === "paid") {
+            const rs = await getDocs(collection(db, "classrooms", c.id, "enrollment_requests"));
+            rs.forEach((d) => {
+              const data = d.data() as ClassroomEnrollmentRequestDocument;
+              const ms = tsMs(data.requestedAt);
+              if (ms > ack) {
+                out.push({ kind: "paid_request", classroomId: c.id, classroomTitle: title, data, enrolledMs: ms });
+              }
+            });
+          }
         }),
       );
       out.sort((a, b) => b.enrolledMs - a.enrolledMs);
@@ -94,18 +114,24 @@ export function TeacherNewEnrollmentNotice({ teacherUid }: { teacherUid: string 
       <div className="crm-modal-backdrop" aria-hidden />
       <div className="crm-modal crm-modal--send teacher-enrollment-notice">
         <h3 id="teacher-new-enroll-title" className="crm-modal__title">
-          <span className="crm-modal__title-ko">신규 수강생 안내</span>
+          <span className="crm-modal__title-ko">신규 수강 알림</span>
           <span className="crm-modal__title-en">New enrollments</span>
         </h3>
         <p className="crm-modal__hint ui-ko">
-          전체 강의실에서 수강 신청이 들어왔습니다. 확인 후 각 강의실 <strong>관리 → 학습지 멤버</strong>에서 연락처
-          명단을 보실 수 있습니다.
+          무료 강의는 바로 멤버로 등록됩니다. <strong>유료</strong> 강의는「승인 대기」신청이 들어오면 강의실{" "}
+          <strong>관리 → 학습지 멤버</strong>에서 승인할 수 있습니다.
         </p>
         <ul className="teacher-enrollment-notice__list">
           {rows.slice(0, 40).map((r) => (
-            <li key={`${r.classroomId}-${r.data.studentId}`} className="teacher-enrollment-notice__item">
+            <li
+              key={`${r.kind}-${r.classroomId}-${r.data.studentId}`}
+              className="teacher-enrollment-notice__item"
+            >
               <div className="teacher-enrollment-notice__course">
                 <strong>{r.classroomTitle}</strong>
+                {r.kind === "paid_request" ? (
+                  <span className="teacher-enrollment-notice__badge ui-ko">유료 · 승인 대기</span>
+                ) : null}
               </div>
               <div className="teacher-enrollment-notice__meta">
                 <span className="ui-ko">학생 UID {r.data.studentId}</span>

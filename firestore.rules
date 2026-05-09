@@ -148,6 +148,8 @@ service cloud.firestore {
         && classroomCatalogEnrollStudentOnly()
         && request.auth.uid != resource.data.teacherId
         && (!('pricingType' in resource.data) || resource.data.pricingType in ['free', 'paid'])
+        /** 유료 강의는 선생님 승인 전까지 학생이 멤버로 arrayUnion 할 수 없음 */
+        && (!('pricingType' in resource.data) || resource.data.pricingType != 'paid')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberStudentIds'])
         && request.resource.data.memberStudentIds is list
         && request.resource.data.memberStudentIds.size() <= 200
@@ -1361,12 +1363,14 @@ service cloud.firestore {
             && request.auth.uid == enrollmentStudentId
           );
 
-        allow create: if userEffectiveAccountNotBanned()
+        allow create: if (
+          userEffectiveAccountNotBanned()
           && classroomCatalogEnrollStudentOnly()
           && enrollmentStudentId == request.auth.uid
           && exists(/databases/$(database)/documents/classrooms/$(classroomId))
           && request.auth.uid != memClassroomData().teacherId
           && (!('pricingType' in memClassroomData()) || memClassroomData().pricingType in ['free', 'paid'])
+          && (!('pricingType' in memClassroomData()) || memClassroomData().pricingType != 'paid')
           && !(request.auth.uid in memClassroomMemberIds())
           && !exists(/databases/$(database)/documents/classrooms/$(classroomId)/member_enrollments/$(enrollmentStudentId))
           && request.resource.data.studentId == enrollmentStudentId
@@ -1399,7 +1403,47 @@ service cloud.firestore {
           && request.resource.data.classroomTitle is string
           && request.resource.data.classroomTitle.size() > 0
           && request.resource.data.classroomTitle.size() <= 200
-          && request.resource.data.enrolledAt != null;
+          && request.resource.data.enrolledAt != null
+        )
+        || (
+          isActiveTeacher()
+          && memClassroomData().teacherId == request.auth.uid
+          && memClassroomData().pricingType == 'paid'
+          && enrollmentStudentId == request.resource.data.studentId
+          && !(enrollmentStudentId in memClassroomMemberIds())
+          && exists(/databases/$(database)/documents/classrooms/$(classroomId)/enrollment_requests/$(enrollmentStudentId))
+          && request.resource.data.studentId == enrollmentStudentId
+          && request.resource.data.classroomId == classroomId
+          && request.resource.data.teacherId == memClassroomData().teacherId
+          && request.resource.data.keys().hasAll([
+            'studentId',
+            'email',
+            'phone',
+            'classroomId',
+            'teacherId',
+            'classroomTitle',
+            'enrolledAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'studentId',
+            'email',
+            'phone',
+            'classroomId',
+            'teacherId',
+            'classroomTitle',
+            'enrolledAt'
+          ])
+          && request.resource.data.email is string
+          && request.resource.data.email.size() >= 3
+          && request.resource.data.email.size() <= 200
+          && request.resource.data.phone is string
+          && request.resource.data.phone.size() >= 5
+          && request.resource.data.phone.size() <= 40
+          && request.resource.data.classroomTitle is string
+          && request.resource.data.classroomTitle.size() > 0
+          && request.resource.data.classroomTitle.size() <= 200
+          && request.resource.data.enrolledAt != null
+        );
 
         allow update: if false;
 
@@ -1415,25 +1459,81 @@ service cloud.firestore {
       }
 
       /**
-       * 레거시 수강 신청 서브컬렉션 — 규칙 누락 시 getDocs/삭제가 전부 permission-denied 로 실패함.
-       * 강의실 영소 삭제(cascade)에서 비우기 전용으로 교사·슈퍼관리자 접근 허용.
+       * 유료 강의 수강 신청 대기열 — 문서 ID = 학생 UID. 승인 시 삭제 후 member_enrollments + 멤버 등록.
        */
       match /enrollment_requests/{requestDocId} {
         function enrollmentReqClassroom() {
           return get(/databases/$(database)/documents/classrooms/$(classroomId)).data;
         }
+        function enrollmentReqMemberIds() {
+          return (
+            'memberStudentIds' in enrollmentReqClassroom()
+            && enrollmentReqClassroom().memberStudentIds is list
+          )
+            ? enrollmentReqClassroom().memberStudentIds
+            : [];
+        }
         allow read: if isActiveSuperAdmin()
           || (
             isActiveTeacher()
             && enrollmentReqClassroom().teacherId == request.auth.uid
+          )
+          || (
+            userEffectiveAccountNotBanned()
+            && request.auth.uid == requestDocId
           );
 
-        allow create, update: if false;
+        allow create: if userEffectiveAccountNotBanned()
+          && classroomCatalogEnrollStudentOnly()
+          && requestDocId == request.auth.uid
+          && request.resource.data.studentId == requestDocId
+          && exists(/databases/$(database)/documents/classrooms/$(classroomId))
+          && enrollmentReqClassroom().pricingType == 'paid'
+          && request.auth.uid != enrollmentReqClassroom().teacherId
+          && !(request.auth.uid in enrollmentReqMemberIds())
+          && !exists(/databases/$(database)/documents/classrooms/$(classroomId)/member_enrollments/$(requestDocId))
+          && !exists(/databases/$(database)/documents/classrooms/$(classroomId)/enrollment_requests/$(requestDocId))
+          && request.resource.data.classroomId == classroomId
+          && request.resource.data.teacherId == enrollmentReqClassroom().teacherId
+          && request.resource.data.keys().hasAll([
+            'studentId',
+            'email',
+            'phone',
+            'classroomId',
+            'teacherId',
+            'classroomTitle',
+            'requestedAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'studentId',
+            'email',
+            'phone',
+            'classroomId',
+            'teacherId',
+            'classroomTitle',
+            'requestedAt'
+          ])
+          && request.resource.data.email is string
+          && request.resource.data.email.size() >= 3
+          && request.resource.data.email.size() <= 200
+          && request.resource.data.phone is string
+          && request.resource.data.phone.size() >= 5
+          && request.resource.data.phone.size() <= 40
+          && request.resource.data.classroomTitle is string
+          && request.resource.data.classroomTitle.size() > 0
+          && request.resource.data.classroomTitle.size() <= 200
+          && request.resource.data.requestedAt != null;
+
+        allow update: if false;
 
         allow delete: if isActiveSuperAdmin()
           || (
             isActiveTeacher()
             && enrollmentReqClassroom().teacherId == request.auth.uid
+          )
+          || (
+            userEffectiveAccountNotBanned()
+            && request.auth.uid == requestDocId
           );
       }
 

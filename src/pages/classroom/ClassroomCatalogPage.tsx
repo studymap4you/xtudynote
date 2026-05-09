@@ -4,11 +4,13 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
+  collectionGroup,
   doc,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  where,
   writeBatch,
   type Timestamp,
 } from "firebase/firestore";
@@ -21,7 +23,12 @@ import {
 } from "@/lib/worksheet/teacherRosterApi";
 import { PENDING_ENROLL_STORAGE_KEY } from "@/lib/classroom/classroomPublicListing";
 import { formatTuitionKrwWon } from "@/lib/formatTuitionKrw";
-import type { ClassroomDocument, ClassroomMemberEnrollmentDocument } from "@/types/classroom";
+import { isHttpUrl, normalizeExternalUrl } from "@/lib/isHttpUrl";
+import type {
+  ClassroomDocument,
+  ClassroomEnrollmentRequestDocument,
+  ClassroomMemberEnrollmentDocument,
+} from "@/types/classroom";
 import "@/pages/pages.css";
 
 type Row = ClassroomDocument & { id: string };
@@ -33,6 +40,8 @@ type EnrollModalState =
       step: "contact" | "progress" | "success" | "error";
       phone: string;
       errorMessage?: string;
+      /** 유료: 신청만 접수·승인 대기 (즉시 멤버 아님) */
+      enrollKind?: "free" | "paid_pending";
     };
 
 function formatAt(raw: unknown): string {
@@ -72,6 +81,7 @@ export function ClassroomCatalogPage() {
   const [busyClassId, setBusyClassId] = useState<string | null>(null);
   const [enrollModal, setEnrollModal] = useState<EnrollModalState>(null);
   const pendingEnrollHandled = useRef(false);
+  const [pendingPaidByClassroomId, setPendingPaidByClassroomId] = useState<Record<string, boolean>>({});
 
   const showCatalogLearnerNotice =
     !!firebaseUser?.uid && !isStudent && (isTeacherApproved || isPendingTeacher || isSuperAdmin);
@@ -103,6 +113,27 @@ export function ClassroomCatalogPage() {
     );
     return () => unsub();
   }, [uid]);
+
+  useEffect(() => {
+    if (!uid || !isStudent) {
+      setPendingPaidByClassroomId({});
+      return;
+    }
+    const q = query(collectionGroup(db, "enrollment_requests"), where("studentId", "==", uid));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const m: Record<string, boolean> = {};
+        snap.forEach((d) => {
+          const data = d.data() as ClassroomEnrollmentRequestDocument;
+          if (data.classroomId) m[data.classroomId] = true;
+        });
+        setPendingPaidByClassroomId(m);
+      },
+      () => setPendingPaidByClassroomId({}),
+    );
+    return () => unsub();
+  }, [uid, isStudent]);
 
   useEffect(() => {
     if (pendingEnrollHandled.current || !uid || loading) return;
@@ -180,34 +211,85 @@ export function ClassroomCatalogPage() {
     if (!uid || !isStudent) return;
     setEnrollModal((m) => (m && m.room.id === room.id ? { ...m, step: "progress" } : m));
     try {
-      const enRef = doc(db, "classrooms", room.id, "member_enrollments", uid);
-      const cRef = doc(db, "classrooms", room.id);
-      const payload: ClassroomMemberEnrollmentDocument = {
-        studentId: uid,
-        email: emailPrefill || "—",
-        phone: phoneDigits,
-        classroomId: room.id,
-        teacherId: room.teacherId,
-        classroomTitle: room.title.slice(0, 200),
-        enrolledAt: serverTimestamp(),
-      };
-      const batch = writeBatch(db);
-      batch.set(enRef, payload);
-      batch.update(cRef, { memberStudentIds: arrayUnion(uid) });
-      await batch.commit();
-      try {
-        await ensureTeacherRosterForStudent(room.teacherId, uid, { classroomId: room.id });
-      } catch {
-        /* 강의실 멤버 등록은 완료됨. 주소록(worksheet_roster)만 실패한 경우 — 규칙 미배포 등 */
+      if (isPaidClassroom(room)) {
+        const reqRef = doc(db, "classrooms", room.id, "enrollment_requests", uid);
+        const payload: ClassroomEnrollmentRequestDocument = {
+          studentId: uid,
+          email: emailPrefill || "—",
+          phone: phoneDigits,
+          classroomId: room.id,
+          teacherId: room.teacherId,
+          classroomTitle: room.title.slice(0, 200),
+          requestedAt: serverTimestamp(),
+        };
+        const b = writeBatch(db);
+        b.set(reqRef, payload);
+        await b.commit();
+        const payRaw = normalizeExternalUrl(room.tuitionPaymentUrl);
+        if (payRaw && isHttpUrl(payRaw)) {
+          window.open(payRaw.slice(0, 2048), "_blank", "noopener,noreferrer");
+        }
+        setEnrollModal({ room, step: "success", phone: phoneDigits, enrollKind: "paid_pending" });
+        setActionMsg(null);
+      } else {
+        const enRef = doc(db, "classrooms", room.id, "member_enrollments", uid);
+        const cRef = doc(db, "classrooms", room.id);
+        const payload: ClassroomMemberEnrollmentDocument = {
+          studentId: uid,
+          email: emailPrefill || "—",
+          phone: phoneDigits,
+          classroomId: room.id,
+          teacherId: room.teacherId,
+          classroomTitle: room.title.slice(0, 200),
+          enrolledAt: serverTimestamp(),
+        };
+        const batch = writeBatch(db);
+        batch.set(enRef, payload);
+        batch.update(cRef, { memberStudentIds: arrayUnion(uid) });
+        await batch.commit();
+        try {
+          await ensureTeacherRosterForStudent(room.teacherId, uid, { classroomId: room.id });
+        } catch {
+          /* 강의실 멤버 등록은 완료됨. 주소록(worksheet_roster)만 실패한 경우 — 규칙 미배포 등 */
+        }
+        setEnrollModal({ room, step: "success", phone: phoneDigits, enrollKind: "free" });
+        setActionMsg(null);
       }
-      setEnrollModal({ room, step: "success", phone: phoneDigits });
-      setActionMsg(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "수강 처리에 실패했습니다.";
       setEnrollModal({ room, step: "error", phone: phoneDigits, errorMessage: msg });
     } finally {
       setBusyClassId(null);
     }
+  }
+
+  async function cancelPaidRequest(r: Row) {
+    if (!uid || busyClassId) return;
+    if (
+      !window.confirm(
+        `「${r.title}」유료 수강 신청을 취소할까요? (선생님 승인 전이면 대기 목록에서만 제거됩니다.)`,
+      )
+    ) {
+      return;
+    }
+    setBusyClassId(r.id);
+    setActionErr(null);
+    try {
+      const b = writeBatch(db);
+      b.delete(doc(db, "classrooms", r.id, "enrollment_requests", uid));
+      await b.commit();
+      setActionMsg(`「${r.title}」수강 신청을 취소했습니다.`);
+    } catch (e) {
+      setActionErr(e instanceof Error ? e.message : "신청 취소에 실패했습니다.");
+    } finally {
+      setBusyClassId(null);
+    }
+  }
+
+  function openPaymentLink(r: Row) {
+    const payRaw = normalizeExternalUrl(r.tuitionPaymentUrl);
+    if (!payRaw || !isHttpUrl(payRaw)) return;
+    window.open(payRaw.slice(0, 2048), "_blank", "noopener,noreferrer");
   }
 
   function startEnrollFromModal() {
@@ -243,9 +325,12 @@ export function ClassroomCatalogPage() {
         </h2>
         <p className="classroom-catalog-enroll__lede ui-ko">
           <span className="ui-en" style={{ display: "block", marginBottom: "0.35rem" }}>
-            Enroll registers you as a member immediately. Enter a reachable phone so your teacher can contact you.
+            Free courses add you as a member immediately. Paid courses collect your contact, open the teacher&apos;s payment
+            link, then wait for the teacher to approve (approval does not require proof of payment).
           </span>
-          <strong>수강신청</strong>을 누르면 연락처 확인 창이 열린 뒤, 진행 상황과 완료 안내가 화면 중앙 팝업으로 표시됩니다.
+          <strong>무료</strong> 강의는 신청 즉시 멤버로 등록됩니다. <strong>유료</strong> 강의는 연락처를 남긴 뒤 선생님이
+          설정한 <strong>결제 안내 링크</strong>로 이동할 수 있으며, 실제 결제 여부와 관계없이 선생님이 승인하면
+          수강이 열립니다.
         </p>
       </section>
     ),
@@ -279,6 +364,41 @@ export function ClassroomCatalogPage() {
     }
 
     if (!isStudent) return null;
+
+    const pendingPaid = !!pendingPaidByClassroomId[r.id];
+
+    if (pendingPaid) {
+      const payRaw = normalizeExternalUrl(r.tuitionPaymentUrl);
+      const canOpenPay = isPaidClassroom(r) && !!payRaw && isHttpUrl(payRaw);
+      return (
+        <div className="classroom-catalog__enroll-stack">
+          <button type="button" className="btn btn--ghost btn--stack" disabled>
+            <span className="ui-ko">승인 대기</span>
+            <span className="ui-en">Awaiting approval</span>
+          </button>
+          {canOpenPay ? (
+            <button
+              type="button"
+              className="btn btn--primary btn--stack"
+              disabled={!!busyClassId}
+              onClick={() => openPaymentLink(r)}
+            >
+              <span className="ui-ko">결제 안내 링크</span>
+              <span className="ui-en">Payment page</span>
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn--ghost btn--stack"
+            disabled={!!busyClassId}
+            onClick={() => void cancelPaidRequest(r)}
+          >
+            <span className="ui-ko">신청 취소</span>
+            <span className="ui-en">Cancel request</span>
+          </button>
+        </div>
+      );
+    }
 
     return (
       <button
@@ -414,7 +534,9 @@ export function ClassroomCatalogPage() {
                     : enrollModal.step === "progress"
                       ? "처리 중"
                       : enrollModal.step === "success"
-                        ? "수강신청 완료"
+                        ? enrollModal.enrollKind === "paid_pending"
+                          ? "신청이 접수되었습니다"
+                          : "수강신청 완료"
                         : "안내"}
                 </span>
                 <span className="crm-modal__title-en">
@@ -423,7 +545,9 @@ export function ClassroomCatalogPage() {
                     : enrollModal.step === "progress"
                       ? "Please wait"
                       : enrollModal.step === "success"
-                        ? "Complete"
+                        ? enrollModal.enrollKind === "paid_pending"
+                          ? "Submitted"
+                          : "Complete"
                         : "Notice"}
                 </span>
               </h3>
@@ -434,6 +558,13 @@ export function ClassroomCatalogPage() {
                   </p>
                   <p className="crm-modal__hint ui-ko">
                     담당 선생님 연락용입니다. 이메일은 로그인 계정 기준으로 저장됩니다.
+                    {isPaidClassroom(enrollModal.room) ? (
+                      <>
+                        {" "}
+                        유료 강의는 신청 후 안내에 따라 <strong>결제 페이지</strong>가 열립니다. 결제를 완료하지 않아도
+                        선생님이 승인하면 수강이 가능합니다.
+                      </>
+                    ) : null}
                   </p>
                   <div className="classroom-catalog__modal-fields">
                     <label className="auth-field">
@@ -480,10 +611,17 @@ export function ClassroomCatalogPage() {
                   <p className="classroom-catalog__modal-class">
                     <strong>{enrollModal.room.title}</strong>
                   </p>
-                  <p className="classroom-catalog__enroll-success-msg ui-ko">
-                    수강신청이 완료되었습니다. 아래 목록에서 이 강의실 버튼이「수강중」으로 바뀌었는지 확인해 주세요.
-                    내 강의실에서도 입장할 수 있습니다.
-                  </p>
+                  {enrollModal.enrollKind === "paid_pending" ? (
+                    <p className="classroom-catalog__enroll-success-msg ui-ko">
+                      신청이 접수되었습니다. 결제 안내 페이지를 새 창에서 열었을 수 있습니다 — 창을 닫았어도 괜찮습니다.
+                      선생님이 승인하면 아래 목록에서「승인 대기」가「수강중」으로 바뀝니다.
+                    </p>
+                  ) : (
+                    <p className="classroom-catalog__enroll-success-msg ui-ko">
+                      수강신청이 완료되었습니다. 아래 목록에서 이 강의실 버튼이「수강중」으로 바뀌었는지 확인해 주세요.
+                      내 강의실에서도 입장할 수 있습니다.
+                    </p>
+                  )}
                   <div className="crm-modal__actions">
                     <button
                       type="button"

@@ -34,6 +34,11 @@ export interface ClassroomDocument {
    * 학생 강의실에 「1:1 채팅」으로 노출할 외부 채팅 링크 (보통 카카오 오픈채팅 `https://open.kakao.com/...`).
    */
   studentChatUrl?: string | null;
+  /**
+   * 유료 강의 — 학생이「수강신청」완료 후 새 창으로 열 결제·안내 페이지 URL(선생님 설정).
+   * 결제 여부와 무관하게 선생님이 승인하면 멤버로 등록됩니다.
+   */
+  tuitionPaymentUrl?: string | null;
   createdAt: unknown;
 }
 
@@ -46,6 +51,17 @@ export interface ClassroomMemberEnrollmentDocument {
   teacherId: string;
   classroomTitle: string;
   enrolledAt: unknown;
+}
+
+/** 유료 강의 — 전체 강의실에서 수강 신청 시 대기열 (classrooms/{id}/enrollment_requests/{studentId}) */
+export interface ClassroomEnrollmentRequestDocument {
+  studentId: string;
+  email: string;
+  phone: string;
+  classroomId: string;
+  teacherId: string;
+  classroomTitle: string;
+  requestedAt: unknown;
 }
 
 /** 강의실 질의응답 (스레드: parentPostId 가 null 이면 질문, 아니면 답글) */
