@@ -229,6 +229,7 @@ export function ClassroomCatalogPage() {
         if (payRaw && isHttpUrl(payRaw)) {
           window.open(payRaw.slice(0, 2048), "_blank", "noopener,noreferrer");
         }
+        setPendingPaidByClassroomId((prev) => ({ ...prev, [room.id]: true }));
         setEnrollModal({ room, step: "success", phone: phoneDigits, enrollKind: "paid_pending" });
         setActionMsg(null);
       } else {
@@ -278,6 +279,11 @@ export function ClassroomCatalogPage() {
       const b = writeBatch(db);
       b.delete(doc(db, "classrooms", r.id, "enrollment_requests", uid));
       await b.commit();
+      setPendingPaidByClassroomId((prev) => {
+        const next = { ...prev };
+        delete next[r.id];
+        return next;
+      });
       setActionMsg(`「${r.title}」수강 신청을 취소했습니다.`);
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : "신청 취소에 실패했습니다.");
@@ -372,8 +378,8 @@ export function ClassroomCatalogPage() {
       const canOpenPay = isPaidClassroom(r) && !!payRaw && isHttpUrl(payRaw);
       return (
         <div className="classroom-catalog__enroll-stack">
-          <button type="button" className="btn btn--ghost btn--stack" disabled>
-            <span className="ui-ko">승인 대기</span>
+          <button type="button" className="btn btn--primary btn--stack" disabled>
+            <span className="ui-ko">승인대기중</span>
             <span className="ui-en">Awaiting approval</span>
           </button>
           {canOpenPay ? (
@@ -614,7 +620,7 @@ export function ClassroomCatalogPage() {
                   {enrollModal.enrollKind === "paid_pending" ? (
                     <p className="classroom-catalog__enroll-success-msg ui-ko">
                       신청이 접수되었습니다. 결제 안내 페이지를 새 창에서 열었을 수 있습니다 — 창을 닫았어도 괜찮습니다.
-                      선생님이 승인하면 아래 목록에서「승인 대기」가「수강중」으로 바뀝니다.
+                      선생님이 승인하면 아래 목록에서「승인대기중」이「수강중」으로 바뀝니다.
                     </p>
                   ) : (
                     <p className="classroom-catalog__enroll-success-msg ui-ko">
