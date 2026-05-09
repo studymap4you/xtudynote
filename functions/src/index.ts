@@ -22,6 +22,8 @@ import {
   buildWorksheetPdfFilename,
   type WorksheetPdfInput,
 } from "./worksheetPdfGenerator.js";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { buildClassroomPublicListingFields } from "./classroomPublicListingMirror.js";
 
 initializeApp();
 const db = getFirestore();
@@ -597,6 +599,58 @@ export const downloadWorksheetAttachment = onRequest(
         res.status(500).send(msg.slice(0, 400));
       }
     }
+  },
+);
+
+/** 강의실 문서 생성·수정 시 공개 강의 목록 동기화 (클라이언트는 관리/개설 시에만 쓰므로 기존 강의실은 누락되기 쉬움) */
+export const mirrorClassroomPublicListing = onDocumentWritten(
+  {
+    document: "classrooms/{classroomId}",
+    region: REGION,
+  },
+  async (event) => {
+    const classroomId = event.params.classroomId;
+    const after = event.data?.after;
+    if (!after?.exists) {
+      await db.doc(`classroom_public_listings/${classroomId}`).delete().catch(() => {});
+      return;
+    }
+    const room = after.data();
+    if (!room) return;
+    const payload = buildClassroomPublicListingFields(classroomId, room);
+    await db.doc(`classroom_public_listings/${classroomId}`).set(payload, { merge: true });
+  },
+);
+
+/**
+ * 기존 DB 일괄 반영용(배포 직후 1회 등). 슈퍼관리자만.
+ * 랜딩「강의신청」목록은 classroom_public_listings 전체를 읽습니다.
+ */
+export const backfillClassroomPublicListings = onCall(
+  { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+    const prof = (await db.doc(`users/${request.auth.uid}`).get()).data();
+    if (!isActiveSuperAdminProfile(prof)) {
+      throw new HttpsError("permission-denied", "슈퍼관리자만 실행할 수 있습니다.");
+    }
+    const snap = await db.collection("classrooms").get();
+    let batch = db.batch();
+    let batchCount = 0;
+    let synced = 0;
+    for (const docSnap of snap.docs) {
+      const payload = buildClassroomPublicListingFields(docSnap.id, docSnap.data());
+      batch.set(db.doc(`classroom_public_listings/${docSnap.id}`), payload, { merge: true });
+      batchCount++;
+      synced++;
+      if (batchCount >= 400) {
+        await batch.commit();
+        batch = db.batch();
+        batchCount = 0;
+      }
+    }
+    if (batchCount > 0) await batch.commit();
+    return { synced };
   },
 );
 

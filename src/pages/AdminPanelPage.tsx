@@ -7,8 +7,10 @@ import {
   query,
   orderBy,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
+import { functions } from "@/firebase/functionsClient";
 import type { UserProfile, UserRole } from "@/types/user";
 import type { ClassroomDocument } from "@/types/classroom";
 import { AdminTopNav } from "@/components/AdminTopNav";
@@ -73,13 +75,15 @@ function parseUserRow(d: { id: string; data: () => Record<string, unknown> }): R
 }
 
 export function AdminPanelPage() {
-  const { firebaseUser, refreshProfile } = useAuth();
+  const { firebaseUser, refreshProfile, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState<Row[]>([]);
   const [classrooms, setClassrooms] = useState<ClassroomMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [backfillPublicBusy, setBackfillPublicBusy] = useState(false);
+  const [backfillPublicMsg, setBackfillPublicMsg] = useState<string | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
 
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
@@ -238,6 +242,32 @@ export function AdminPanelPage() {
     }
   }
 
+  async function backfillPublicClassroomListings() {
+    if (!isSuperAdmin) return;
+    const ok = window.confirm(
+      "모든 강의실을 비로그인「강의신청」목록(classroom_public_listings)에 반영합니다. 배포 후 최초 1회 또는 데이터 복구 시 사용하세요.\n\n" +
+        "Sync all classrooms to the public enrollment listing?",
+    );
+    if (!ok) return;
+    setBackfillPublicBusy(true);
+    setBackfillPublicMsg(null);
+    setError(null);
+    try {
+      const fn = httpsCallable(functions, "backfillClassroomPublicListings");
+      const res = await fn({});
+      const synced = (res.data as { synced?: number })?.synced ?? 0;
+      setBackfillPublicMsg(`공개 강의 목록 동기화 완료: ${synced}개 강의실`);
+    } catch (e: unknown) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "공개 목록 동기화에 실패했습니다. Functions 배포 여부를 확인해 주세요.",
+      );
+    } finally {
+      setBackfillPublicBusy(false);
+    }
+  }
+
   const totalCount = users.length;
 
   return (
@@ -274,6 +304,11 @@ export function AdminPanelPage() {
         </p>
 
         {error ? <p className="auth-error">{error}</p> : null}
+        {backfillPublicMsg ? (
+          <p className="admin-members-page__lede" role="status">
+            <span className="ui-ko">{backfillPublicMsg}</span>
+          </p>
+        ) : null}
 
         <div className="admin-members-page__toolbar admin-members-page__toolbar--split">
           <div className="admin-members-page__bulk">
@@ -305,6 +340,17 @@ export function AdminPanelPage() {
             <span className="ui-en">Refresh</span>
             <span className="ui-ko">새로고침</span>
           </button>
+          {isSuperAdmin ? (
+            <button
+              type="button"
+              className="btn btn--primary btn--stack admin-members-page__refresh"
+              onClick={() => void backfillPublicClassroomListings()}
+              disabled={loading || bulkBusy || backfillPublicBusy}
+            >
+              <span className="ui-en">Sync public course list</span>
+              <span className="ui-ko">비로그인 강의신청 목록 동기화</span>
+            </button>
+          ) : null}
         </div>
 
         {loading ? (

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, onSnapshot, query } from "firebase/firestore";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebase/config";
@@ -372,6 +372,23 @@ function IconTileEnroll() {
 
 type PublicListingRow = ClassroomPublicListingDocument & { id: string };
 
+function publicListingSortMillis(r: PublicListingRow): number {
+  const x = r.listedAt;
+  if (
+    x != null &&
+    typeof x === "object" &&
+    "toMillis" in x &&
+    typeof (x as { toMillis: () => number }).toMillis === "function"
+  ) {
+    try {
+      return (x as { toMillis: () => number }).toMillis();
+    } catch {
+      return 0;
+    }
+  }
+  return 0;
+}
+
 function IconTileClassroom() {
   return (
     <svg {...tileIconProps}>
@@ -581,7 +598,8 @@ function IntroHeroPublicEnroll() {
     if (!open) return;
     setLoading(true);
     setErr(null);
-    const q = query(collection(db, "classroom_public_listings"), orderBy("listedAt", "desc"));
+    /** orderBy("listedAt") 는 해당 필드가 없는 문서를 결과에서 빼므로 전체 컬렉션 스냅샷 후 클라이언트 정렬 */
+    const q = query(collection(db, "classroom_public_listings"));
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -589,6 +607,7 @@ function IntroHeroPublicEnroll() {
         snap.forEach((d) => {
           list.push({ id: d.id, ...(d.data() as ClassroomPublicListingDocument) });
         });
+        list.sort((a, b) => publicListingSortMillis(b) - publicListingSortMillis(a));
         setRows(list);
         setLoading(false);
       },
