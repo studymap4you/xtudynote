@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { BrandLockup } from "@/components/BrandLockup";
@@ -599,6 +600,15 @@ function IntroHeroPublicEnroll() {
     return () => unsub();
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   const goLogin = useCallback(() => {
     if (!pick) return;
     setPendingEnrollClassroomId(pick.id);
@@ -646,90 +656,93 @@ function IntroHeroPublicEnroll() {
         로그인 없이 공개 강의실을 둘러본 뒤, 강의실을 고르면 로그인 또는 학생 회원가입으로 이어집니다.
       </p>
 
-      {open ? (
-        <div
-          className="crm-modal-root intro-enroll-modal-root"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="intro-enroll-modal-title"
-        >
-          <div
-            className="crm-modal-backdrop"
-            onClick={() => {
-              setOpen(false);
-              setPick(null);
-            }}
-            aria-hidden
-          />
-          <div className="crm-modal crm-modal--send intro-enroll-modal-panel">
-            <button
-              type="button"
-              className="crm-modal__close"
-              aria-label="닫기"
-              onClick={() => {
-                setOpen(false);
-                setPick(null);
-              }}
-            />
-            <h3 id="intro-enroll-modal-title" className="crm-modal__title">
-              <span className="crm-modal__title-ko">{pick ? "계정이 필요합니다" : "강의실 선택"}</span>
-              <span className="crm-modal__title-en">{pick ? "Sign in" : "Choose a class"}</span>
-            </h3>
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="crm-modal-root intro-enroll-modal-root"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="intro-enroll-modal-title"
+            >
+              <div
+                className="crm-modal-backdrop"
+                onClick={() => {
+                  setOpen(false);
+                  setPick(null);
+                }}
+                aria-hidden
+              />
+              <div className="crm-modal crm-modal--send intro-enroll-modal-panel">
+                <button
+                  type="button"
+                  className="crm-modal__close"
+                  aria-label="닫기"
+                  onClick={() => {
+                    setOpen(false);
+                    setPick(null);
+                  }}
+                />
+                <h3 id="intro-enroll-modal-title" className="crm-modal__title">
+                  <span className="crm-modal__title-ko">{pick ? "로그인 또는 회원가입" : "강의실 선택"}</span>
+                  <span className="crm-modal__title-en">{pick ? "Account" : "Choose a course"}</span>
+                </h3>
 
-            {pick ? (
-              <div className="intro-enroll-auth-gate">
-                <p className="intro-enroll-auth-gate__class">
-                  <strong>{pick.title}</strong>
-                </p>
-                <p className="crm-modal__hint ui-ko">
-                  이 강의실에 수강 신청하려면 로그인하거나 학생으로 회원가입해 주세요. 이후「전체 강의실」목록에서 수강
-                  신청을 완료합니다.
-                </p>
-                <div className="crm-modal__actions intro-enroll-auth-gate__actions">
-                  <button type="button" className="btn btn--ghost btn--stack" onClick={() => setPick(null)}>
-                    뒤로
-                  </button>
-                  <button type="button" className="btn btn--primary btn--stack" onClick={() => void goLogin()}>
-                    <span className="ui-ko">로그인</span>
-                    <span className="ui-en">Log in</span>
-                  </button>
-                  <button type="button" className="btn btn--primary btn--stack" onClick={() => void goRegister()}>
-                    <span className="ui-ko">회원가입</span>
-                    <span className="ui-en">Sign up</span>
-                  </button>
-                </div>
+                {pick ? (
+                  <div className="intro-enroll-auth-gate">
+                    <p className="intro-enroll-auth-gate__class">
+                      <strong>{pick.title}</strong>
+                    </p>
+                    <p className="crm-modal__hint ui-ko">
+                      선택한 강의실에 수강 신청하려면 로그인하거나 학생으로 회원가입해 주세요. 이후「전체 강의실」목록에서
+                      수강 신청을 완료합니다.
+                    </p>
+                    <div className="crm-modal__actions intro-enroll-auth-gate__actions">
+                      <button type="button" className="btn btn--ghost btn--stack" onClick={() => setPick(null)}>
+                        뒤로
+                      </button>
+                      <button type="button" className="btn btn--primary btn--stack" onClick={() => void goLogin()}>
+                        <span className="ui-ko">로그인</span>
+                        <span className="ui-en">Log in</span>
+                      </button>
+                      <button type="button" className="btn btn--primary btn--stack" onClick={() => void goRegister()}>
+                        <span className="ui-ko">회원가입</span>
+                        <span className="ui-en">Sign up</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : loading ? (
+                  <div className="route-loading route-loading--light intro-enroll-loading">
+                    <div className="route-loading__spinner" />
+                    <p className="ui-ko">불러오는 중…</p>
+                  </div>
+                ) : err ? (
+                  <p className="auth-error">{err}</p>
+                ) : rows.length === 0 ? (
+                  <p className="crm-modal__hint ui-ko">
+                    아직 공개된 강의실이 없습니다. 선생님께서 강의실을 개설·저장하면 여기에 표시됩니다.
+                  </p>
+                ) : (
+                  <ul className="intro-enroll-modal__list" role="list">
+                    {rows.map((r) => (
+                      <li key={r.id}>
+                        <button type="button" className="intro-enroll-modal__row" onClick={() => setPick(r)}>
+                          <span className="intro-enroll-modal__row-title">{r.title}</span>
+                          <span className="intro-enroll-modal__row-meta">
+                            <span className="intro-enroll-modal__row-price">{pricingLabel(r)}</span>
+                            {r.description ? (
+                              <span className="intro-enroll-modal__row-desc">{r.description}</span>
+                            ) : null}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            ) : loading ? (
-              <div className="route-loading route-loading--light intro-enroll-loading">
-                <div className="route-loading__spinner" />
-                <p className="ui-ko">불러오는 중…</p>
-              </div>
-            ) : err ? (
-              <p className="auth-error">{err}</p>
-            ) : rows.length === 0 ? (
-              <p className="crm-modal__hint ui-ko">
-                아직 공개된 강의실이 없습니다. 선생님께서 강의실을 개설·저장하면 여기에 표시됩니다.
-              </p>
-            ) : (
-              <ul className="intro-enroll-modal__list" role="list">
-                {rows.map((r) => (
-                  <li key={r.id}>
-                    <button type="button" className="intro-enroll-modal__row" onClick={() => setPick(r)}>
-                      <span className="intro-enroll-modal__row-title">{r.title}</span>
-                      <span className="intro-enroll-modal__row-meta">
-                        <span className="intro-enroll-modal__row-price">{pricingLabel(r)}</span>
-                        {r.description ? (
-                          <span className="intro-enroll-modal__row-desc">{r.description}</span>
-                        ) : null}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

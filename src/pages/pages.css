@@ -1075,7 +1075,7 @@ button.intro-landing-tile {
   margin-top: 0.35rem;
 }
 .intro-enroll-modal-root {
-  z-index: 60;
+  z-index: 10050;
 }
 .intro-enroll-modal-panel {
   max-width: min(520px, calc(100vw - 2rem));
