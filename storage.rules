@@ -187,6 +187,30 @@ service firebase.storage {
       allow delete: if isActiveSuperAdmin() && request.auth.uid == uid;
     }
 
+    /**
+     * 강의실 홈 홍보 썸네일 — 해당 강의실 소유 선생님만 업로드, 공개 읽기
+     * (Firestore classrooms/{id}.teacherId 와 일치해야 함)
+     */
+    match /classroom_landing_promo/{classroomId}/{fileName} {
+      function classroomTeacherId() {
+        return get(/databases/(default)/documents/classrooms/$(classroomId)).data.teacherId;
+      }
+      function isOwnerTeacher() {
+        return request.auth != null
+          && exists(/databases/(default)/documents/classrooms/$(classroomId))
+          && classroomTeacherId() == request.auth.uid;
+      }
+
+      allow create, update: if isActiveTeacher()
+        && isOwnerTeacher()
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow read: if true;
+
+      allow delete: if isActiveTeacher() && isOwnerTeacher();
+    }
+
     /** 디지털마켓 상품 이미지 — 마스터만 업로드, 공개 읽기 */
     match /digital_market_images/{uid}/{allPaths=**} {
       allow create, update: if isActiveSuperAdmin()

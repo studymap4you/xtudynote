@@ -1,6 +1,7 @@
 import { FirebaseError } from "firebase/app";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   addDoc,
   collection,
@@ -24,7 +25,7 @@ import { RichHtmlView } from "@/components/RichHtmlView";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ClassroomQaBoard } from "@/components/classroom/ClassroomQaBoard";
 import { ClassroomSectionModal } from "@/components/classroom/ClassroomSectionModal";
-import { db } from "@/firebase/config";
+import { db, storage } from "@/firebase/config";
 import { deleteClassroomCascade } from "@/lib/classroom/deleteClassroomCascade";
 import { syncClassroomPublicListing } from "@/lib/classroom/classroomPublicListing";
 import { getClassroomIntroBody } from "@/lib/classroomDisplay";
@@ -116,6 +117,8 @@ function Inner() {
   const [studentChatBusy, setStudentChatBusy] = useState(false);
   const [studentChatErr, setStudentChatErr] = useState<string | null>(null);
   const [studentChatOk, setStudentChatOk] = useState<string | null>(null);
+  const [landingThumbBusy, setLandingThumbBusy] = useState(false);
+  const [landingThumbErr, setLandingThumbErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -588,6 +591,56 @@ function Inner() {
     }
   }
 
+  async function uploadLandingPromoThumbnail(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !id || !firebaseUser || !room) return;
+    setLandingThumbErr(null);
+    if (!file.type.startsWith("image/")) {
+      setLandingThumbErr("이미지 파일만 올려 주세요.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setLandingThumbErr("파일 크기는 2MB 이하여야 합니다.");
+      e.target.value = "";
+      return;
+    }
+    setLandingThumbBusy(true);
+    try {
+      const safe = `${Date.now()}_${file.name.replace(/[^\w.-]/g, "_")}`;
+      const sref = ref(storage, `classroom_landing_promo/${id}/${safe}`);
+      await uploadBytes(sref, file);
+      const url = await getDownloadURL(sref);
+      await updateDoc(doc(db, "classrooms", id), { landingPromoThumbnailUrl: url });
+      setRoom((prev) => (prev ? { ...prev, landingPromoThumbnailUrl: url } : prev));
+    } catch (err) {
+      setLandingThumbErr(err instanceof Error ? err.message : "업로드에 실패했습니다.");
+    } finally {
+      setLandingThumbBusy(false);
+      e.target.value = "";
+    }
+  }
+
+  async function removeLandingPromoThumbnail() {
+    if (!id || !room?.landingPromoThumbnailUrl) return;
+    if (!window.confirm("홈 화면 강의 카드에서 이 강의가 사라집니다. 썸네일을 제거할까요?")) return;
+    setLandingThumbErr(null);
+    setLandingThumbBusy(true);
+    try {
+      await updateDoc(doc(db, "classrooms", id), { landingPromoThumbnailUrl: deleteField() });
+      setRoom((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev };
+        delete next.landingPromoThumbnailUrl;
+        return next;
+      });
+    } catch (err) {
+      setLandingThumbErr(err instanceof Error ? err.message : "제거에 실패했습니다.");
+    } finally {
+      setLandingThumbBusy(false);
+    }
+  }
+
   async function saveIntro(e: React.FormEvent) {
     e.preventDefault();
     if (!id || !firebaseUser || !room) return;
@@ -1010,6 +1063,46 @@ function Inner() {
                           새 창에서 열기
                         </button>
                       </div>
+                    </div>
+                  </div>
+                  <div className="classroom-hub__card classroom-hub__card--soft">
+                    <h3 className="classroom-hub__card-title">홈 화면 강의 홍보 카드</h3>
+                    <p className="classroom-hub__hint">
+                      썸네일을 올리면 사이트 <strong>홈</strong>에 디지털마켓과 비슷한 카드가 나타납니다.{" "}
+                      <strong>강의 소개 본문</strong>(아래 에디터)이 상세 팝업에 표시되고, 방문자는{" "}
+                      <strong>강의 신청</strong>으로 전체 강의실 흐름으로 이어집니다. 이미지는 2MB 이하 JPG·PNG 등을
+                      권장합니다.
+                    </p>
+                    {landingThumbErr ? <p className="auth-error">{landingThumbErr}</p> : null}
+                    {room.landingPromoThumbnailUrl ? (
+                      <div style={{ marginBottom: "0.75rem" }}>
+                        <img
+                          src={room.landingPromoThumbnailUrl}
+                          alt=""
+                          style={{ maxWidth: "min(100%, 320px)", borderRadius: 12, border: "1px solid #e2e8f0" }}
+                        />
+                      </div>
+                    ) : null}
+                    <div className="auth-field" style={{ marginBottom: "0.75rem" }}>
+                      <span className="classroom-hub__field-label">썸네일 파일</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={landingThumbBusy}
+                        onChange={(ev) => void uploadLandingPromoThumbnail(ev)}
+                      />
+                    </div>
+                    <div className="classroom-hub__cta-row" style={{ flexWrap: "wrap" }}>
+                      {room.landingPromoThumbnailUrl ? (
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--stack"
+                          disabled={landingThumbBusy}
+                          onClick={() => void removeLandingPromoThumbnail()}
+                        >
+                          홈에서 내리기
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                   <div className="classroom-hub__card classroom-hub__card--soft">

@@ -39,6 +39,11 @@ export interface ClassroomDocument {
    * 결제 여부와 무관하게 선생님이 승인하면 멤버로 등록됩니다.
    */
   tuitionPaymentUrl?: string | null;
+  /**
+   * 강의 관리에서 올린 홈 화면 홍보 카드 썸네일(공개 URL).
+   * 값이 있으면 랜딩에 디지털마켓 스타일 카드로 노출됩니다.
+   */
+  landingPromoThumbnailUrl?: string | null;
   createdAt: unknown;
 }
 

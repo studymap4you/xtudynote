@@ -2,6 +2,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
 import { Intro } from "@/components/Intro";
+import { LandingClassroomPromoSection } from "@/components/landing/LandingClassroomPromoSection";
 import { LandingPageBackground } from "@/components/landing/LandingPageBackground";
 import "@/pages/pages.css";
 
@@ -71,6 +72,7 @@ export function LandingPage() {
       </header>
       <main className="landing">
         <Intro />
+        <LandingClassroomPromoSection />
         <ul
           id="landing-features"
           className="landing__features"

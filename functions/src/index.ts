@@ -691,6 +691,61 @@ export const getPublicClassroomCatalog = onCall(
   },
 );
 
+/** 랜딩 홈 — 홍보 썸네일이 있는 강의실만(카드·상세 HTML·공개 안내용) */
+export const getLandingClassroomPromos = onCall(
+  { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
+  async () => {
+    const snap = await db.collection("classrooms").get();
+    type Item = { sortMs: number; row: Record<string, unknown> };
+    const items: Item[] = [];
+    for (const docSnap of snap.docs) {
+      const d = docSnap.data();
+      const thumbRaw = d.landingPromoThumbnailUrl;
+      const thumb = typeof thumbRaw === "string" ? thumbRaw.trim() : "";
+      if (!thumb || !/^https?:\/\//i.test(thumb)) continue;
+
+      const rawTitle = String(d.title ?? "").trim();
+      const title = rawTitle.slice(0, 200) || "강의실";
+      const description = String(d.description ?? "").trim().slice(0, 2000);
+      const introRaw = typeof d.introduction === "string" ? d.introduction.trim() : "";
+      const introBody = introRaw || description;
+      const introductionHtml = introBody.slice(0, 120000);
+
+      const pricingType = d.pricingType === "paid" ? "paid" : "free";
+      const row: Record<string, unknown> = {
+        id: docSnap.id,
+        title,
+        description,
+        introductionHtml,
+        thumbnailUrl: thumb.slice(0, 2048),
+        pricingType,
+        createdAtLabel: "",
+      };
+      let sortMs = 0;
+      const cr = d.createdAt as { toMillis?: () => number } | undefined;
+      if (cr && typeof cr.toMillis === "function") {
+        try {
+          sortMs = cr.toMillis();
+          (row as { createdAtLabel: string }).createdAtLabel = new Date(sortMs).toLocaleDateString("ko-KR", {
+            dateStyle: "medium",
+          });
+        } catch {
+          sortMs = 0;
+        }
+      }
+      if (pricingType === "paid") {
+        const fee = d.tuitionFeeKrw;
+        if (typeof fee === "number" && Number.isFinite(fee) && fee > 0) {
+          row.tuitionFeeKrw = Math.round(fee);
+        }
+      }
+      items.push({ sortMs, row });
+    }
+    items.sort((a, b) => b.sortMs - a.sortMs);
+    return { classrooms: items.map((x) => x.row) };
+  },
+);
+
 export const lookupStudentByEmail = onCall(
   { region: REGION, cors: HTTPS_CALLABLE_CORS, invoker: "public" },
   async (request) => {
