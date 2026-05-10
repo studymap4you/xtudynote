@@ -5498,6 +5498,15 @@ button.top-nav__auth-link--logout:hover {
   background: var(--premium-accent-hover);
   color: var(--btn-on-accent, #0a0f1a);
 }
+/* <Link class="btn btn--primary"> — a:any-link(0,1,1)가 단일 .btn--primary(0,1,0)보다 커서 글자가 accent색으로 남고
+   .ui-en inherit이 배경과 겹침; 요소 선택자로 특이도 상승 */
+a.btn.btn--primary:any-link,
+a.btn.btn--primary:any-link:visited {
+  color: var(--btn-on-accent, #0a0f1a);
+}
+a.btn.btn--primary:hover {
+  color: var(--btn-on-accent, #0a0f1a);
+}
 .btn--primary .ui-en,
 .btn--primary .ui-ko {
   color: inherit;
