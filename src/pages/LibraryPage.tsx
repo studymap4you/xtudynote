@@ -248,6 +248,13 @@ export function LibraryPage() {
 
         <div className="library-toolbar">
           <div className="library-toolbar__views">
+            <Link
+              to="/library/themes"
+              className="btn btn--stack btn--ghost"
+            >
+              <span className="ui-en">By theme</span>
+              <span className="ui-ko">테마별 보기</span>
+            </Link>
             <button
               type="button"
               className={`btn btn--stack ${view === "card" ? "btn--primary" : "btn--ghost"}`}

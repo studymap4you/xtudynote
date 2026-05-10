@@ -13,6 +13,7 @@ import { KnowledgeCurationPage } from "@/pages/admin/KnowledgeCurationPage";
 import { AdminClassroomsPage } from "@/pages/admin/AdminClassroomsPage";
 import { AdminMaterialsHubPage } from "@/pages/admin/AdminMaterialsHubPage";
 import { LibraryPage } from "@/pages/LibraryPage";
+import { LibraryThemesPage } from "@/pages/LibraryThemesPage";
 import { LogicDashboardPage } from "@/pages/LogicDashboardPage";
 import { ContentDetailPage } from "@/pages/ContentDetailPage";
 import { HomeworkSearchPage } from "@/pages/HomeworkSearchPage";
@@ -61,6 +62,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/library" element={<LibraryPage />} />
+      <Route path="/library/themes" element={<LibraryThemesPage />} />
       <Route path="/content/:id" element={<ContentDetailPage />} />
       <Route path="/homework" element={<HomeworkSearchPage />} />
       <Route

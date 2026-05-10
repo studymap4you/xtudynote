@@ -82,14 +82,25 @@ function IconCategory({ name }: { name: "k" | "g" | "p" | "a" }) {
   );
 }
 
-/** Xtudy-Universe — 랜딩 테마별 카테고리 그리드 */
+/** 라이브러리 테마(K-Entrance 등) — 홈 랜딩 또는 /library/themes 에서 사용 */
 
-export function CategoryGridSection() {
+export function LearningThemeMaterialsSection({
+  id = "library-theme-categories",
+  title = "테마별 학습 자료",
+  lead = "카테고리를 선택해 라이브러리로 이동합니다.",
+}: {
+  id?: string;
+  title?: string;
+  lead?: string;
+}) {
+  const headingId = `${id}-heading`;
   return (
-    <section id="marketplace-categories" className="mp-categories">
+    <section id={id} className="mp-categories" aria-labelledby={headingId}>
       <div className="mp-section-head">
-        <h2 className="mp-section-title">테마별 학습 자료</h2>
-        <p className="mp-section-lead">카테고리를 선택해 라이브러리로 이동합니다.</p>
+        <h2 id={headingId} className="mp-section-title">
+          {title}
+        </h2>
+        <p className="mp-section-lead">{lead}</p>
       </div>
       <div className="mp-categories__grid">
         {CATEGORIES.map((c) => (
