@@ -188,27 +188,26 @@ service firebase.storage {
     }
 
     /**
-     * 강의실 홈 홍보 썸네일 — 해당 강의실 소유 선생님만 업로드, 공개 읽기
-     * (Firestore classrooms/{id}.teacherId 와 일치해야 함)
+     * 강의실 홈 홍보 썸네일 — 해당 강의실 소유 선생님(또는 동일 UID 마스터)만 업로드, 공개 읽기
      */
     match /classroom_landing_promo/{classroomId}/{fileName} {
-      function classroomTeacherId() {
-        return get(/databases/(default)/documents/classrooms/$(classroomId)).data.teacherId;
+      function classroomDoc() {
+        return firestore.get(/databases/(default)/documents/classrooms/$(classroomId));
       }
       function isOwnerTeacher() {
         return request.auth != null
-          && exists(/databases/(default)/documents/classrooms/$(classroomId))
-          && classroomTeacherId() == request.auth.uid;
+          && firestore.exists(/databases/(default)/documents/classrooms/$(classroomId))
+          && classroomDoc().data.teacherId == request.auth.uid;
       }
 
-      allow create, update: if isActiveTeacher()
+      allow create, update: if (isActiveTeacher() || isActiveSuperAdmin())
         && isOwnerTeacher()
         && request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
 
       allow read: if true;
 
-      allow delete: if isActiveTeacher() && isOwnerTeacher();
+      allow delete: if (isActiveTeacher() || isActiveSuperAdmin()) && isOwnerTeacher();
     }
 
     /** 디지털마켓 상품 이미지 — 마스터만 업로드, 공개 읽기 */

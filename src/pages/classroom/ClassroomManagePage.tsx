@@ -119,6 +119,8 @@ function Inner() {
   const [studentChatOk, setStudentChatOk] = useState<string | null>(null);
   const [landingThumbBusy, setLandingThumbBusy] = useState(false);
   const [landingThumbErr, setLandingThumbErr] = useState<string | null>(null);
+  const [landingThumbLocalPreview, setLandingThumbLocalPreview] = useState<string | null>(null);
+  const landingThumbPreviewRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -192,6 +194,24 @@ function Inner() {
   }, [id, room?.pricingType]);
 
   const studentChatFocusIntent = searchParams.get("focus") === "studentChat";
+
+  useEffect(() => {
+    return () => {
+      if (landingThumbPreviewRef.current) {
+        URL.revokeObjectURL(landingThumbPreviewRef.current);
+        landingThumbPreviewRef.current = null;
+      }
+    };
+  }, []);
+
+  function setLandingThumbPreviewUrl(next: string | null) {
+    if (landingThumbPreviewRef.current) {
+      URL.revokeObjectURL(landingThumbPreviewRef.current);
+      landingThumbPreviewRef.current = null;
+    }
+    if (next) landingThumbPreviewRef.current = next;
+    setLandingThumbLocalPreview(next);
+  }
 
   useEffect(() => {
     if (!room || !studentChatFocusIntent) return;
@@ -605,6 +625,7 @@ function Inner() {
       e.target.value = "";
       return;
     }
+    setLandingThumbPreviewUrl(URL.createObjectURL(file));
     setLandingThumbBusy(true);
     try {
       const safe = `${Date.now()}_${file.name.replace(/[^\w.-]/g, "_")}`;
@@ -613,6 +634,7 @@ function Inner() {
       const url = await getDownloadURL(sref);
       await updateDoc(doc(db, "classrooms", id), { landingPromoThumbnailUrl: url });
       setRoom((prev) => (prev ? { ...prev, landingPromoThumbnailUrl: url } : prev));
+      setLandingThumbPreviewUrl(null);
     } catch (err) {
       setLandingThumbErr(err instanceof Error ? err.message : "업로드에 실패했습니다.");
     } finally {
@@ -625,6 +647,7 @@ function Inner() {
     if (!id || !room?.landingPromoThumbnailUrl) return;
     if (!window.confirm("홈 화면 강의 카드에서 이 강의가 사라집니다. 썸네일을 제거할까요?")) return;
     setLandingThumbErr(null);
+    setLandingThumbPreviewUrl(null);
     setLandingThumbBusy(true);
     try {
       await updateDoc(doc(db, "classrooms", id), { landingPromoThumbnailUrl: deleteField() });
@@ -1074,15 +1097,23 @@ function Inner() {
                       권장합니다.
                     </p>
                     {landingThumbErr ? <p className="auth-error">{landingThumbErr}</p> : null}
-                    {room.landingPromoThumbnailUrl ? (
+                    {(() => {
+                      const thumbSrc = landingThumbLocalPreview ?? room.landingPromoThumbnailUrl;
+                      return thumbSrc ? (
                       <div style={{ marginBottom: "0.75rem" }}>
                         <img
-                          src={room.landingPromoThumbnailUrl}
+                          src={thumbSrc}
                           alt=""
                           style={{ maxWidth: "min(100%, 320px)", borderRadius: 12, border: "1px solid #e2e8f0" }}
                         />
+                        {landingThumbLocalPreview && landingThumbBusy ? (
+                          <p className="classroom-hub__hint" style={{ marginTop: "0.35rem" }}>
+                            업로드 중…
+                          </p>
+                        ) : null}
                       </div>
-                    ) : null}
+                      ) : null;
+                    })()}
                     <div className="auth-field" style={{ marginBottom: "0.75rem" }}>
                       <span className="classroom-hub__field-label">썸네일 파일</span>
                       <input
