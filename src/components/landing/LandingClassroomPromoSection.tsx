@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { httpsCallable } from "firebase/functions";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ClassroomPromoDetailModal, type ClassroomPromoDetailModel } from "@/components/landing/ClassroomPromoDetailModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { setPendingEnrollClassroomId } from "@/lib/classroom/classroomPublicListing";
@@ -73,6 +73,8 @@ function badgeLabel(row: PromoRow): string {
   return row.pricingType === "paid" ? "유료 강의" : "강의";
 }
 
+const PROMO_PREVIEW_LIMIT = 4;
+
 function modalBodyHtml(row: PromoRow): string {
   const intro = row.introductionHtml.trim();
   if (intro) return intro;
@@ -87,6 +89,7 @@ export function LandingClassroomPromoSection() {
   const [rows, setRows] = useState<PromoRow[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [detailModal, setDetailModal] = useState<ClassroomPromoDetailModel | null>(null);
+  const [showAllPromos, setShowAllPromos] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +129,9 @@ export function LandingClassroomPromoSection() {
     return null;
   }
 
+  const visibleRows = showAllPromos ? rows : rows.slice(0, PROMO_PREVIEW_LIMIT);
+  const hasMoreThanPreview = rows.length > PROMO_PREVIEW_LIMIT;
+
   return (
     <div className="landing-classroom-promo-shell">
       <div className="landing-classroom-promo-panel">
@@ -140,12 +146,19 @@ export function LandingClassroomPromoSection() {
                 <strong>강의 신청</strong>으로 이어갈 수 있습니다.
               </p>
             </div>
+            <Link
+              to="/classrooms"
+              className={`btn btn--primary btn--stack landing-classroom-promo__all-catalog`}
+            >
+              <span className="ui-ko">전체강의보기</span>
+              <span className="ui-en">All courses</span>
+            </Link>
           </header>
 
           {loadErr ? <p className={styles.err}>{loadErr}</p> : null}
 
           <ul className={styles.cardGrid}>
-            {rows.map((row) => {
+            {visibleRows.map((row) => {
               const price = pricingLine(row);
               const descPreview =
                 row.description.trim() ||
@@ -221,6 +234,28 @@ export function LandingClassroomPromoSection() {
               );
             })}
           </ul>
+
+          {hasMoreThanPreview ? (
+            <div className="landing-classroom-promo__expand-row">
+              <button
+                type="button"
+                className="btn btn--ghost btn--stack landing-classroom-promo__expand-btn"
+                onClick={() => setShowAllPromos(!showAllPromos)}
+              >
+                {!showAllPromos ? (
+                  <>
+                    <span className="ui-ko">전체보기</span>
+                    <span className="ui-en">Show all ({rows.length})</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="ui-ko">접기</span>
+                    <span className="ui-en">Show less</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : null}
         </section>
 
         <ClassroomPromoDetailModal
