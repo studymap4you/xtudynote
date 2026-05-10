@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { httpsCallable } from "firebase/functions";
 import {
   arrayRemove,
   arrayUnion,
@@ -16,22 +17,30 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardShell } from "@/components/DashboardShell";
+import { PublicShell } from "@/components/PublicShell";
 import { db } from "@/firebase/config";
+import { functions } from "@/firebase/functionsClient";
 import {
   ensureTeacherRosterForStudent,
   syncTeacherRosterForClassroomMemberDelta,
 } from "@/lib/worksheet/teacherRosterApi";
-import { PENDING_ENROLL_STORAGE_KEY } from "@/lib/classroom/classroomPublicListing";
+import {
+  PENDING_ENROLL_STORAGE_KEY,
+  setPendingEnrollClassroomId,
+} from "@/lib/classroom/classroomPublicListing";
 import { formatTuitionKrwWon } from "@/lib/formatTuitionKrw";
 import { isHttpUrl, normalizeExternalUrl } from "@/lib/isHttpUrl";
 import type {
   ClassroomDocument,
   ClassroomEnrollmentRequestDocument,
   ClassroomMemberEnrollmentDocument,
+  ClassroomPublicListingDocument,
 } from "@/types/classroom";
 import "@/pages/pages.css";
 
 type Row = ClassroomDocument & { id: string };
+
+type PublicListingRow = ClassroomPublicListingDocument & { id: string };
 
 type EnrollModalState =
   | null
@@ -71,9 +80,11 @@ function paidTuitionOk(r: Row): boolean {
 }
 
 export function ClassroomCatalogPage() {
+  const navigate = useNavigate();
   const { firebaseUser, profile, canManageMaterials, isStudent, isPendingTeacher, isTeacherApproved, isSuperAdmin } =
     useAuth();
   const [rows, setRows] = useState<Row[]>([]);
+  const [publicRows, setPublicRows] = useState<PublicListingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
@@ -92,9 +103,9 @@ export function ClassroomCatalogPage() {
   useEffect(() => {
     if (!uid) {
       setRows([]);
-      setLoading(false);
       return;
     }
+    setPublicRows([]);
     setLoading(true);
     setErr(null);
     const q = query(collection(db, "classrooms"), orderBy("createdAt", "desc"));
@@ -112,6 +123,48 @@ export function ClassroomCatalogPage() {
       },
     );
     return () => unsub();
+  }, [uid]);
+
+  useEffect(() => {
+    if (uid) return;
+    let cancelled = false;
+    setLoading(true);
+    setErr(null);
+    void (async () => {
+      try {
+        const fn = httpsCallable(functions, "getPublicClassroomCatalog");
+        const res = await fn({});
+        if (cancelled) return;
+        const raw = (res.data as { classrooms?: unknown })?.classrooms;
+        const list: PublicListingRow[] = [];
+        if (Array.isArray(raw)) {
+          for (const item of raw) {
+            if (!item || typeof item !== "object") continue;
+            const o = item as Record<string, unknown>;
+            const id = typeof o.id === "string" ? o.id : typeof o.classroomId === "string" ? o.classroomId : "";
+            if (!id) continue;
+            list.push({
+              id,
+              ...(o as unknown as ClassroomPublicListingDocument),
+            });
+          }
+        }
+        setPublicRows(list);
+      } catch (e: unknown) {
+        if (cancelled) return;
+        setPublicRows([]);
+        const msg =
+          e && typeof e === "object" && "message" in e
+            ? String((e as { message: unknown }).message)
+            : "목록을 불러오지 못했습니다.";
+        setErr(msg);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [uid]);
 
   useEffect(() => {
@@ -178,6 +231,36 @@ export function ClassroomCatalogPage() {
     setActionErr(null);
     setEnrollModal({ room: r, step: "contact", phone: "" });
   }
+
+  const renderGuestEnrollmentActions = useCallback(
+    (r: PublicListingRow) => (
+      <div className="classroom-catalog__enroll-stack">
+        <button
+          type="button"
+          className="btn btn--primary btn--stack"
+          onClick={() => {
+            setPendingEnrollClassroomId(r.id);
+            void navigate("/login?audience=learner&next=/classrooms");
+          }}
+        >
+          <span className="ui-ko">로그인하고 신청</span>
+          <span className="ui-en">Log in to enroll</span>
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost btn--stack"
+          onClick={() => {
+            setPendingEnrollClassroomId(r.id);
+            void navigate("/register?role=student");
+          }}
+        >
+          <span className="ui-ko">학생 회원가입</span>
+          <span className="ui-en">Sign up</span>
+        </button>
+      </div>
+    ),
+    [navigate],
+  );
 
   async function cancelMembership(r: Row) {
     if (!uid || busyClassId) return;
@@ -428,7 +511,7 @@ export function ClassroomCatalogPage() {
     );
   }
 
-  function pricingBadge(r: Row) {
+  function pricingBadge(r: Row | PublicListingRow) {
     const paid = r.pricingType === "paid";
     const fee =
       paid && typeof r.tuitionFeeKrw === "number" && Number.isFinite(r.tuitionFeeKrw) && r.tuitionFeeKrw > 0
@@ -441,11 +524,13 @@ export function ClassroomCatalogPage() {
     );
   }
 
-  return (
-    <DashboardShell light>
-      <main className="admin-layout classroom-page admin-layout--light">
+  const catalogList: (Row | PublicListingRow)[] = uid ? rows : publicRows;
+  const catalogEmpty = !loading && catalogList.length === 0;
+
+  const main = (
+    <main className="admin-layout classroom-page admin-layout--light">
         <nav className="classroom-page__breadcrumb" style={{ marginBottom: "var(--space-3)" }}>
-          <Link to="/classroom">← 내 강의실</Link>
+          {firebaseUser ? <Link to="/classroom">← 내 강의실</Link> : <Link to="/">← 홈</Link>}
         </nav>
         <div className="admin-layout__title-row">
           <h1>전체 강의실</h1>
@@ -465,7 +550,7 @@ export function ClassroomCatalogPage() {
           </p>
         ) : null}
 
-        {isStudent ? enrollmentSection : null}
+        {isStudent || !firebaseUser ? enrollmentSection : null}
 
         {actionMsg ? (
           <p className="classroom-catalog__feedback classroom-catalog__feedback--ok" role="status">
@@ -479,11 +564,11 @@ export function ClassroomCatalogPage() {
             <div className="route-loading__spinner" />
             <p className="ui-ko">불러오는 중…</p>
           </div>
-        ) : rows.length === 0 ? (
+        ) : catalogEmpty ? (
           <p style={{ color: "var(--light-text-muted, #6b7280)" }}>등록된 강의실이 없습니다.</p>
         ) : (
           <ul className="classroom-page__list">
-            {rows.map((r) => (
+            {catalogList.map((r) => (
               <li key={r.id} className="classroom-page__card classroom-catalog__card">
                 <div>
                   <div className="classroom-catalog__card-title-row">
@@ -491,19 +576,22 @@ export function ClassroomCatalogPage() {
                     {pricingBadge(r)}
                   </div>
                   <p className="classroom-page__card-desc">{r.description || "설명 없음"}</p>
-                  <p className="classroom-page__card-meta">개설 {formatAt(r.createdAt)}</p>
+                  <p className="classroom-page__card-meta">
+                    개설{" "}
+                    {"createdAt" in r && r.createdAt ? formatAt(r.createdAt) : "—"}
+                  </p>
                 </div>
                 <div className="classroom-page__card-actions classroom-catalog__card-actions">
-                  {renderStudentActions(r)}
+                  {uid ? renderStudentActions(r as Row) : renderGuestEnrollmentActions(r as PublicListingRow)}
                   <Link to={`/classroom/${r.id}`} className="btn btn--ghost btn--stack">
                     <span className="ui-ko">상세 보기</span>
                     <span className="ui-en">Details</span>
                   </Link>
-                  {canManageMaterials && firebaseUser?.uid === r.teacherId && (
+                  {uid && canManageMaterials && firebaseUser?.uid === (r as Row).teacherId ? (
                     <Link to={`/classroom/${r.id}/manage`} className="btn btn--ghost btn--stack">
                       관리
                     </Link>
-                  )}
+                  ) : null}
                 </div>
               </li>
             ))}
@@ -660,6 +748,10 @@ export function ClassroomCatalogPage() {
           </div>
         ) : null}
       </main>
-    </DashboardShell>
   );
+
+  if (!firebaseUser) {
+    return <PublicShell>{main}</PublicShell>;
+  }
+  return <DashboardShell light>{main}</DashboardShell>;
 }

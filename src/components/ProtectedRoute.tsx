@@ -64,6 +64,31 @@ export function ContentDbManageRoute({ children }: { children: React.ReactNode }
 }
 
 /**
+ * `/classrooms` 전체 강의실 — 비로그인 목록 열람 허용. 로그인한 밴 계정만 홈으로 차단.
+ */
+export function ClassroomCatalogGate({ children }: { children: React.ReactNode }) {
+  const { loading, firebaseUser, profile } = useAuth();
+
+  if (loading || (firebaseUser && !profile)) {
+    return (
+      <div className="route-loading" aria-busy="true">
+        <div className="route-loading__spinner" />
+        <p>
+          <span className="ui-en">Connecting…</span>
+          <span className="ui-ko" style={{ display: "block", marginTop: "0.25rem" }}>
+            연결 중…
+          </span>
+        </p>
+      </div>
+    );
+  }
+  if (firebaseUser && profile && profile.accountStatus === "banned") {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
+/**
  * `/logic-dashboard` — 비회원 공개. 로그인 시 차단 계정만 홈으로 보냄 (시그널 로직은 홈 박스·직접 URL 등).
  */
 export function LogicDashboardGate({ children }: { children: React.ReactNode }) {

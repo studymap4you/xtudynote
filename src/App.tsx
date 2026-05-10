@@ -33,6 +33,7 @@ import { XtudyMarketPage } from "@/pages/XtudyMarketPage";
 import { XtudyMarketProductPage } from "@/pages/XtudyMarketProductPage";
 import { XtudyMarketRegisterPage } from "@/pages/XtudyMarketRegisterPage";
 import {
+  ClassroomCatalogGate,
   ContentDbManageRoute,
   LogicDashboardGate,
   ProtectedRoute,
@@ -330,9 +331,9 @@ export default function App() {
       <Route
         path="/classrooms"
         element={
-          <ProtectedRoute>
+          <ClassroomCatalogGate>
             <ClassroomCatalogPage />
-          </ProtectedRoute>
+          </ClassroomCatalogGate>
         }
       />
       <Route
