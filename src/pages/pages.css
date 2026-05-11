@@ -192,7 +192,7 @@
     grid-template-columns: 1fr;
   }
 }
-.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile--enroll {
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile {
   width: 100%;
   max-width: none;
 }

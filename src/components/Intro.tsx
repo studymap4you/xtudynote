@@ -737,7 +737,7 @@ export function Intro() {
                   </span>
                 </Link>
               ) : (
-                <Link to="/classrooms" className="intro-landing-tile intro-landing-tile--enroll">
+                <Link to="/classrooms" className="intro-landing-tile intro-landing-tile--catalog">
                   <span className="intro-landing-tile__inner">
                     <span className="intro-landing-tile__badge">
                       <IconTileEnroll />
