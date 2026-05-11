@@ -73,7 +73,7 @@ function badgeLabel(row: PromoRow): string {
   return row.pricingType === "paid" ? "유료 강의" : "강의";
 }
 
-const PROMO_PREVIEW_LIMIT = 4;
+const PROMO_PREVIEW_LIMIT = 6;
 
 function modalBodyHtml(row: PromoRow): string {
   const intro = row.introductionHtml.trim();
