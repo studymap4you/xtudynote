@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -416,6 +416,34 @@ function IconTileLogout() {
   );
 }
 
+function IconTileLogin() {
+  return (
+    <svg {...tileIconProps}>
+      <path
+        d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconTileRegister() {
+  return (
+    <svg {...tileIconProps}>
+      <path
+        d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12.5 7.5a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM20 8v6M23 11h-6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const shortcutIconProps = {
   className: "intro-shortcut__icon",
   width: 32,
@@ -561,30 +589,6 @@ function IconShortcutTextbook() {
   );
 }
 
-function IntroHeroPublicEnroll() {
-  const navigate = useNavigate();
-  return (
-    <>
-      <p className="intro-hero__action-stack__heading intro-hero__action-stack__heading--follow">강의 신청</p>
-      <button
-        type="button"
-        className="intro-landing-tile intro-landing-tile--enroll"
-        onClick={() => void navigate("/classrooms")}
-      >
-        <span className="intro-landing-tile__inner">
-          <span className="intro-landing-tile__badge">
-            <IconTileEnroll />
-          </span>
-          <span className="intro-landing-tile__title">강의신청</span>
-        </span>
-      </button>
-      <p className="intro-hero__classroom-hint intro-hero__classroom-hint--enroll">
-        전체 강의실 페이지에서 강의를 둘러본 뒤, 로그인 또는 학생 회원가입으로 수강 신청을 이어갈 수 있습니다.
-      </p>
-    </>
-  );
-}
-
 function ShortcutOrbIcon({ tone }: { tone: ShortcutTone }) {
   switch (tone) {
     case "a":
@@ -713,14 +717,8 @@ export function Intro() {
           </div>
           <IntroHeroShare />
           <div className="intro-hero__action-stack">
-            <p className="intro-hero__action-stack__heading">내 강의실</p>
-            <div
-              className={
-                isTeacherApproved
-                  ? "intro-hero__action-grid"
-                  : "intro-hero__action-grid intro-hero__action-grid--single"
-              }
-            >
+            <p className="intro-hero__action-stack__heading">바로 가기</p>
+            <div className="intro-hero__action-grid intro-hero__action-grid--landing">
               <Link to="/classroom" className="intro-landing-tile intro-landing-tile--classroom-enter">
                 <span className="intro-landing-tile__inner">
                   <span className="intro-landing-tile__badge">
@@ -738,41 +736,73 @@ export function Intro() {
                     <span className="intro-landing-tile__title">강의실 개설</span>
                   </span>
                 </Link>
-              ) : null}
+              ) : (
+                <Link to="/classrooms" className="intro-landing-tile intro-landing-tile--enroll">
+                  <span className="intro-landing-tile__inner">
+                    <span className="intro-landing-tile__badge">
+                      <IconTileEnroll />
+                    </span>
+                    <span className="intro-landing-tile__title">강의 신청</span>
+                  </span>
+                </Link>
+              )}
+              {firebaseUser ? (
+                <Link to="/dashboard" className="intro-landing-tile intro-landing-tile--dashboard">
+                  <span className="intro-landing-tile__inner">
+                    <span className="intro-landing-tile__badge">
+                      <IconTileDashboard />
+                    </span>
+                    <span className="intro-landing-tile__title">대시보드</span>
+                  </span>
+                </Link>
+              ) : (
+                <Link to="/login" className="intro-landing-tile intro-landing-tile--login">
+                  <span className="intro-landing-tile__inner">
+                    <span className="intro-landing-tile__badge">
+                      <IconTileLogin />
+                    </span>
+                    <span className="intro-landing-tile__title">로그인</span>
+                  </span>
+                </Link>
+              )}
+              {firebaseUser ? (
+                <button
+                  type="button"
+                  className="intro-landing-tile intro-landing-tile--logout"
+                  onClick={() => void logOut()}
+                >
+                  <span className="intro-landing-tile__inner">
+                    <span className="intro-landing-tile__badge">
+                      <IconTileLogout />
+                    </span>
+                    <span className="intro-landing-tile__title">로그아웃</span>
+                  </span>
+                </button>
+              ) : (
+                <Link to="/register" className="intro-landing-tile intro-landing-tile--register">
+                  <span className="intro-landing-tile__inner">
+                    <span className="intro-landing-tile__badge">
+                      <IconTileRegister />
+                    </span>
+                    <span className="intro-landing-tile__title">회원가입</span>
+                  </span>
+                </Link>
+              )}
             </div>
             <p className="intro-hero__classroom-hint">
-              내 강의실은 로그인 후 이용합니다. 강의실 개설은 <strong>승인된 선생님</strong> 계정에서만 표시됩니다.
+              내 강의실은 로그인 후 이용합니다.
+              {isTeacherApproved ? (
+                <>
+                  {" "}
+                  승인된 선생님 계정은 <strong>강의실 개설</strong>이 가능합니다.
+                </>
+              ) : (
+                <>
+                  {" "}
+                  <strong>강의 신청</strong>은 전체 강의 목록에서 이어갈 수 있습니다.
+                </>
+              )}
             </p>
-            {!firebaseUser ? <IntroHeroPublicEnroll /> : null}
-            {firebaseUser ? (
-              <>
-                <p className="intro-hero__action-stack__heading intro-hero__action-stack__heading--follow">
-                  서비스 이용 안내
-                </p>
-                <div className="intro-hero__action-grid">
-                  <Link to="/dashboard" className="intro-landing-tile intro-landing-tile--dashboard">
-                    <span className="intro-landing-tile__inner">
-                      <span className="intro-landing-tile__badge">
-                        <IconTileDashboard />
-                      </span>
-                      <span className="intro-landing-tile__title">대시보드</span>
-                    </span>
-                  </Link>
-                  <button
-                    type="button"
-                    className="intro-landing-tile intro-landing-tile--logout"
-                    onClick={() => void logOut()}
-                  >
-                    <span className="intro-landing-tile__inner">
-                      <span className="intro-landing-tile__badge">
-                        <IconTileLogout />
-                      </span>
-                      <span className="intro-landing-tile__title">로그아웃</span>
-                    </span>
-                  </button>
-                </div>
-              </>
-            ) : null}
           </div>
         </div>
 

@@ -85,66 +85,21 @@
   --brand-rest-gradient-hover: linear-gradient(115deg, #5cadff 0%, #007aff 40%, #0066db 100%);
   min-height: 100%;
   position: relative;
-  /* 고정 배경 레이어(`LandingPageBackground`)가 비치도록 본문 배경은 투명 */
-  background: transparent;
+  background: linear-gradient(168deg, #e2f0fb 0%, #eef6ff 38%, #f7fafc 72%, #f8fafb 100%);
   color: var(--premium-ink);
   color-scheme: light;
 }
 
-/* 홈 전체 배경 — 선명한 이미지·동영상 + 얕은 밝기 레이어만 (본문 카드 글래스는 .intro-hero 유지) */
+/* 고정 레이어: 페이지와 동일 톤의 밝은 단색 그라데이션(이미지·영상 없음) */
 .landing-page-bg {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  overflow: hidden;
-}
-.landing-page-bg__scene {
-  position: absolute;
-  /* 블러 테두리 하얀 줄 제거용 살짝 확장 */
-  inset: -20px;
-}
-/*
- * 이미지는 <img> + object-fit: cover (배포·캐시 안정).
- * 부모 `.landing-page-bg`가 이미 position:fixed 이므로 스크롤 시 배경은 고정됩니다.
- * (같은 요소에 background-attachment:fixed + filter + transform 조합 시
- *  Chrome/Safari에서 배경이 안 그려지는 경우가 있어 사용하지 않습니다.)
- */
-.landing-page-bg__img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  display: block;
-  filter: none;
-  opacity: 1;
-  transform: scale(1);
-  transform-origin: center center;
-}
-.landing-page-bg__video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  display: block;
-  filter: none;
-  opacity: 0.98;
-  transform: scale(1);
-  transform-origin: center center;
-  will-change: transform;
-}
-.landing-page-bg__veil {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  /* 배경은 선명하게 두고, 살짝만 밝게 깔아 글래스 카드와 대비만 유지 */
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  background:
+    radial-gradient(120% 70% at 15% 0%, rgba(186, 230, 253, 0.45), transparent 55%),
+    radial-gradient(90% 55% at 100% 15%, rgba(224, 231, 255, 0.35), transparent 50%),
+    linear-gradient(168deg, #daf0fc 0%, #edf5ff 42%, #f7fafc 100%);
 }
 .app-shell--landing > .top-nav.top-nav--landing,
 .app-shell--landing > main.landing {
@@ -152,6 +107,29 @@
   z-index: 2;
 }
 
+/* 랜딩 상단 메뉴: 본문 카드와 같은 max-width·패딩 트랙 */
+.landing-shell-inner {
+  width: 100%;
+  max-width: min(var(--mp-landing-max), 100%);
+  margin: 0 auto;
+  padding: 0 var(--space-2);
+  box-sizing: border-box;
+}
+.landing-nav-head {
+  margin-bottom: 0.65rem;
+}
+.landing-top-nav__actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  align-items: stretch;
+}
+@media (max-width: 720px) {
+  .landing-top-nav__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 /* —— 랜딩: 섹션 글래스(70% 흰색)로 배경 비침 —— */
 .app-shell--landing main.landing {
   background: transparent;
@@ -198,9 +176,29 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
+.app-shell--landing .intro-hero__action-stack {
+  max-width: 100%;
+}
+.app-shell--landing .intro-hero__action-grid--landing {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 900px) {
+  .app-shell--landing .intro-hero__action-grid--landing {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  .app-shell--landing .intro-hero__action-grid--landing {
+    grid-template-columns: 1fr;
+  }
+}
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile--enroll {
+  width: 100%;
+  max-width: none;
+}
 .app-shell--landing .landing-classroom-promo-shell {
   width: 100%;
-  max-width: var(--mp-landing-max, 56rem);
+  max-width: min(var(--mp-landing-max), 100%);
   margin: 0.35rem auto 0;
   padding: 0 var(--space-2);
   box-sizing: border-box;
@@ -501,6 +499,45 @@
 .app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--cta.nav-pill--active .nav-pill__title,
 .app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill--cta.nav-pill--active .nav-pill__sub {
   color: #ffffff;
+}
+/* 홈 4열 상단 메뉴: compact 네비 필 스타일보다 우선(밝은 균일 버튼) */
+.app-shell--landing .top-nav.top-nav--landing .landing-top-nav__actions .nav-pill {
+  min-width: 0;
+  width: 100%;
+  min-height: 2.85rem;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 2px 6px rgba(15, 23, 42, 0.04);
+}
+.app-shell--landing .top-nav.top-nav--landing .landing-top-nav__actions .nav-pill:hover {
+  background: #ffffff;
+  border-color: rgba(14, 165, 233, 0.35);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 4px 14px -4px rgba(14, 165, 233, 0.18);
+}
+.app-shell--landing .top-nav.top-nav--landing .landing-top-nav__actions .nav-pill.nav-pill--active {
+  border-color: rgba(14, 165, 233, 0.55);
+  background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 2px 8px rgba(14, 165, 233, 0.12);
+}
+.app-shell--landing .top-nav.top-nav--landing .landing-top-nav__actions .nav-pill .nav-pill__title {
+  color: #0f172a;
+}
+.app-shell--landing .top-nav.top-nav--landing .landing-top-nav__actions .nav-pill .nav-pill__sub {
+  color: #64748b;
+}
+.app-shell--landing .top-nav.top-nav--landing .landing-top-nav__actions .nav-pill.nav-pill--active .nav-pill__title {
+  color: #0c4a6e;
+}
+.app-shell--landing .top-nav.top-nav--landing .landing-top-nav__actions .nav-pill.nav-pill--active .nav-pill__sub {
+  color: #0369a1;
 }
 .app-shell--landing
   a:not(.btn):not(.landing__choice):not(.top-nav__auth-link):not(.nav-pill):not(.intro-login-card__btn):not(.mp-btn):not(
@@ -1084,6 +1121,30 @@ button.intro-landing-tile {
   color: #0f172a;
 }
 .intro-landing-tile--logout:hover {
+  filter: brightness(1.025);
+  border-color: transparent;
+}
+.intro-landing-tile--login,
+.intro-landing-tile--register {
+  background: linear-gradient(165deg, #fefefe 0%, #f5f5f7 38%, #ebecef 100%);
+  border-color: transparent;
+  color: #1e293b;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 8px 26px -14px rgba(15, 23, 42, 0.07);
+}
+.intro-landing-tile--login .intro-landing-tile__badge,
+.intro-landing-tile--register .intro-landing-tile__badge {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: transparent;
+  color: #334155;
+}
+.intro-landing-tile--login .intro-landing-tile__title,
+.intro-landing-tile--register .intro-landing-tile__title {
+  color: #0f172a;
+}
+.intro-landing-tile--login:hover,
+.intro-landing-tile--register:hover {
   filter: brightness(1.025);
   border-color: transparent;
 }
@@ -4890,10 +4951,8 @@ button.top-nav__auth-link--logout:hover {
   justify-self: start;
 }
 .top-nav.top-nav--landing.top-nav--landing-compact {
-  display: grid;
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
-  align-items: center;
-  gap: 0.75rem 1rem;
+  display: block;
+  padding: 0.85rem 0 0.95rem;
 }
 .top-nav.top-nav--landing.top-nav--landing-compact .top-nav__brand {
   justify-self: start;
@@ -5575,7 +5634,7 @@ a.btn.btn--primary:hover {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-2);
   width: 100%;
-  max-width: 56rem;
+  max-width: min(var(--mp-landing-max, 76rem), 100%);
   margin: 0 0 var(--space-3);
   padding: 0;
   list-style: none;
@@ -9980,7 +10039,7 @@ a.btn.btn--primary:hover {
   --light-text-muted: #4b5563;
   --light-accent-ok: #047857;
   /* 랜딩 마켓플레이스 블록 공통 가로 (유료자료 등) */
-  --mp-landing-max: 56rem;
+  --mp-landing-max: 76rem;
 }
 
 .app-shell--light.app-shell--admin {
