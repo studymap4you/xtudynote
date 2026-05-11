@@ -203,9 +203,64 @@
     grid-template-columns: 1fr;
   }
 }
-.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile {
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile,
+.app-shell--landing .intro-hero__action-grid--landing a.intro-landing-tile:any-link {
   width: 100%;
   max-width: none;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(186, 230, 253, 0.48);
+  background: linear-gradient(165deg, #ffffff 0%, #fbfdff 46%, #f2f8fc 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.98) inset,
+    0 8px 28px -14px rgba(15, 23, 42, 0.07);
+}
+
+/* 타일별 상단 액센트 — 카드 배경은 위 한 벌로 통일(대시보드만 어둡게 보이던 현상 방지) */
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: 1.15rem 1.15rem 0 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 1;
+}
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile--classroom-enter::before {
+  background: linear-gradient(90deg, #bae6fd, #38bdf8, #0ea5e9);
+}
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile--classroom-new::before {
+  background: linear-gradient(90deg, #e9d5ff, #c084fc, #9333ea);
+}
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile--catalog::before {
+  background: linear-gradient(90deg, #99f6e4, #2dd4bf, #14b8a6);
+}
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile--dashboard::before {
+  background: linear-gradient(90deg, #ddd6fe, #a78bfa, #7c3aeb);
+}
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile--login::before,
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile--register::before {
+  background: linear-gradient(90deg, #bae6fd, #7dd3fc, #38bdf8);
+}
+
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile .intro-landing-tile__inner {
+  position: relative;
+  z-index: 1;
+}
+
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile .intro-landing-tile__badge {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgba(226, 232, 240, 0.75);
+  color: #475569;
+}
+
+.app-shell--landing .intro-hero__action-grid--landing .intro-landing-tile:hover {
+  filter: none;
+  border-color: rgba(56, 189, 248, 0.42);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 12px 36px -16px rgba(14, 165, 233, 0.14);
 }
 .app-shell--landing .landing-classroom-promo-shell {
   width: 100%;
