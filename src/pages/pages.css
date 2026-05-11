@@ -148,16 +148,45 @@
 .app-shell--landing .intro-hero__main-card {
   width: 100%;
   box-sizing: border-box;
-  background:
-    radial-gradient(120% 55% at 50% -8%, rgba(191, 219, 254, 0.4), transparent 52%),
-    linear-gradient(180deg, #ffffff 0%, #fbfdff 46%, #f3f8fc 100%);
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 52%, #f5f9fc 100%);
   border: 1px solid rgba(186, 230, 253, 0.42);
   border-radius: 1.35rem;
-  padding: 1.35rem var(--space-2) 1.5rem;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.98) inset,
     0 10px 40px -22px rgba(15, 23, 42, 0.12),
     0 2px 14px -4px rgba(125, 211, 252, 0.12);
+}
+
+/* 브랜드·슬로건 — 살짝 다른 톤의 캡(기존 파란 구분선 영역까지) */
+.app-shell--landing .intro-hero__main-card-cap {
+  text-align: center;
+  padding: 1.2rem var(--space-2) 1.1rem;
+  background:
+    radial-gradient(95% 100% at 50% 0%, rgba(186, 230, 253, 0.42), transparent 58%),
+    linear-gradient(180deg, #dff2fc 0%, #e8f4fc 32%, #f0f7ff 72%, #f8fbff 100%);
+  border-bottom: 1px solid rgba(147, 197, 253, 0.35);
+}
+.app-shell--landing .intro-hero__main-card-cap .intro-hero__brand {
+  margin: 0 0 0.75rem;
+}
+.app-shell--landing .intro-hero__main-card-cap .intro-hero__brand .brand-lockup {
+  justify-content: center;
+}
+.app-shell--landing .intro-hero__main-card-cap .intro-hero__slogan {
+  margin: 0;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  align-items: center;
+}
+.app-shell--landing .intro-hero__slogan--universe::after {
+  display: none;
+}
+
+.app-shell--landing .intro-hero__main-card-body {
+  padding: 1.1rem var(--space-2) 1.5rem;
 }
 .app-shell--landing .intro-hero__copy {
   padding-top: 0;
