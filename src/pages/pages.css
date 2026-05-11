@@ -3296,8 +3296,8 @@ button.intro-landing-tile {
 
 .classroom-room-view .classroom-room-nav__card.classroom-hub__tab--active {
   box-shadow:
-    0 0 0 1px rgba(79, 70, 229, 0.15),
-    0 12px 32px rgba(79, 70, 229, 0.18);
+    0 0 0 1px rgba(14, 165, 233, 0.16),
+    0 12px 32px rgba(14, 165, 233, 0.12);
 }
 
 .classroom-room-view .classroom-room-qa {
@@ -3581,9 +3581,11 @@ button.intro-landing-tile {
   min-height: 5.25rem;
   padding: 0.85rem 1rem;
   border-radius: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: linear-gradient(165deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(186, 230, 253, 0.5);
+  background: linear-gradient(165deg, #ffffff 0%, #fbfdff 48%, #f4f9fc 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 2px 10px rgba(15, 23, 42, 0.05);
   text-align: left;
   overflow: hidden;
 }
@@ -3592,45 +3594,63 @@ button.intro-landing-tile {
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
-  height: 3px;
+  height: 4px;
   border-radius: 1rem 1rem 0 0;
-  opacity: 0.55;
-  background: var(--room-tab-accent, var(--room-accent));
+  opacity: 1;
+  /* 기본값 — 아래 모디파이어에서 탭별 그라데이션으로 덮음 */
+  background: linear-gradient(90deg, #cbd5e1, #94a3b8);
 }
 
 .classroom-room-nav__card.classroom-hub__tab:hover {
-  border-color: rgba(37, 99, 235, 0.35);
+  border-color: rgba(56, 189, 248, 0.42);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
   transform: translateY(-1px);
 }
 
 .classroom-room-nav__card.classroom-hub__tab--active {
-  border-color: rgba(37, 99, 235, 0.45);
-  background: linear-gradient(165deg, #eff6ff 0%, #ffffff 55%);
+  border-color: rgba(14, 165, 233, 0.38);
+  background: linear-gradient(165deg, #ffffff 0%, #f0f9ff 52%, #fafcff 100%);
   box-shadow:
-    0 0 0 1px rgba(37, 99, 235, 0.12),
-    0 12px 32px rgba(37, 99, 235, 0.12);
+    0 0 0 1px rgba(14, 165, 233, 0.14),
+    0 12px 32px rgba(14, 165, 233, 0.1);
 }
 
 .classroom-room-nav__card.classroom-hub__tab--active::after {
-  opacity: 1;
-  height: 4px;
+  height: 5px;
+  filter: saturate(1.05);
+}
+
+/* 탭별 상단 라인 + 아이콘 — 밝고 통일된 팔레트 */
+.classroom-room-nav__card--intro.classroom-hub__tab::after {
+  background: linear-gradient(90deg, #bae6fd, #38bdf8, #0ea5e9);
+}
+.classroom-room-nav__card--todayExam.classroom-hub__tab::after {
+  background: linear-gradient(90deg, #e9d5ff, #c084fc, #9333ea);
+}
+.classroom-room-nav__card--materials.classroom-hub__tab::after {
+  background: linear-gradient(90deg, #99f6e4, #2dd4bf, #0d9488);
+}
+.classroom-room-nav__card--video.classroom-hub__tab::after {
+  background: linear-gradient(90deg, #fde68a, #fb923c, #ea580c);
+}
+.classroom-room-nav__card--qa.classroom-hub__tab::after {
+  background: linear-gradient(90deg, #fce7f3, #f472b6, #db2777);
 }
 
 .classroom-room-nav__card--intro {
-  --room-tab-accent: #2563eb;
+  --room-tab-accent: #38bdf8;
 }
 .classroom-room-nav__card--todayExam {
-  --room-tab-accent: #7c3aed;
+  --room-tab-accent: #a855f7;
 }
 .classroom-room-nav__card--materials {
-  --room-tab-accent: #0d9488;
+  --room-tab-accent: #14b8a6;
 }
 .classroom-room-nav__card--video {
-  --room-tab-accent: #ea580c;
+  --room-tab-accent: #fb923c;
 }
 .classroom-room-nav__card--qa {
-  --room-tab-accent: #db2777;
+  --room-tab-accent: #f472b6;
 }
 
 .classroom-room-nav__icon {
@@ -3639,24 +3659,26 @@ button.intro-landing-tile {
   height: 2.65rem;
   border-radius: 0.85rem;
   background: var(--room-tab-accent, var(--room-accent));
-  opacity: 0.92;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  opacity: 1;
+  box-shadow:
+    0 2px 8px rgba(255, 255, 255, 0.55) inset,
+    0 6px 16px rgba(15, 23, 42, 0.12);
 }
 
 .classroom-room-nav__icon--intro {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  background: linear-gradient(145deg, #e0f2fe 0%, #7dd3fc 45%, #38bdf8 100%);
 }
 .classroom-room-nav__icon--todayExam {
-  background: linear-gradient(135deg, #a78bfa, #6d28d9);
+  background: linear-gradient(145deg, #f3e8ff 0%, #d8b4fe 40%, #a855f7 100%);
 }
 .classroom-room-nav__icon--materials {
-  background: linear-gradient(135deg, #2dd4bf, #0f766e);
+  background: linear-gradient(145deg, #ccfbf1 0%, #5eead4 42%, #14b8a6 100%);
 }
 .classroom-room-nav__icon--video {
-  background: linear-gradient(135deg, #fb923c, #c2410c);
+  background: linear-gradient(145deg, #fff7ed 0%, #fdba74 38%, #fb923c 100%);
 }
 .classroom-room-nav__icon--qa {
-  background: linear-gradient(135deg, #f472b6, #be185d);
+  background: linear-gradient(145deg, #fdf2f8 0%, #f9a8d4 40%, #ec4899 100%);
 }
 
 .classroom-room-nav__text {
