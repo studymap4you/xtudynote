@@ -1104,6 +1104,26 @@ button.intro-landing-tile {
   filter: brightness(1.025);
   border-color: transparent;
 }
+.intro-landing-tile--catalog {
+  background: linear-gradient(165deg, #fefefe 0%, #f5f5f7 38%, #ebecef 100%);
+  border-color: transparent;
+  color: #1e293b;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 8px 26px -14px rgba(15, 23, 42, 0.07);
+}
+.intro-landing-tile--catalog .intro-landing-tile__badge {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: transparent;
+  color: #334155;
+}
+.intro-landing-tile--catalog .intro-landing-tile__title {
+  color: #0f172a;
+}
+.intro-landing-tile--catalog:hover {
+  filter: brightness(1.025);
+  border-color: transparent;
+}
 .intro-landing-tile--logout {
   background: linear-gradient(165deg, #fefefe 0%, #f5f5f7 38%, #ebecef 100%);
   border-color: transparent;

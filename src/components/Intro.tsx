@@ -402,20 +402,6 @@ function IconTileDashboard() {
   );
 }
 
-function IconTileLogout() {
-  return (
-    <svg {...tileIconProps}>
-      <path
-        d="M10 17H5V7h5M14 12H3M11 8l4 4-4 4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function IconTileLogin() {
   return (
     <svg {...tileIconProps}>
@@ -440,6 +426,20 @@ function IconTileRegister() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function IconTileAllClassrooms() {
+  return (
+    <svg {...tileIconProps}>
+      <path
+        d="M4 21V9l8-4.5L20 9v12M4 21h16M9 21v-5h6v5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M12 11.5h2M12 14.5h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
@@ -697,7 +697,7 @@ function IntroLandingPanel() {
  * 랜딩 히어로 — Xtudy-Universe 브라이트 마켓 톤
  */
 export function Intro() {
-  const { isTeacherApproved, firebaseUser, logOut } = useAuth();
+  const { isTeacherApproved, firebaseUser } = useAuth();
 
   return (
     <section className="intro-hero" aria-labelledby="intro-slogan">
@@ -766,18 +766,14 @@ export function Intro() {
                 </Link>
               )}
               {firebaseUser ? (
-                <button
-                  type="button"
-                  className="intro-landing-tile intro-landing-tile--logout"
-                  onClick={() => void logOut()}
-                >
+                <Link to="/classrooms" className="intro-landing-tile intro-landing-tile--catalog">
                   <span className="intro-landing-tile__inner">
                     <span className="intro-landing-tile__badge">
-                      <IconTileLogout />
+                      <IconTileAllClassrooms />
                     </span>
-                    <span className="intro-landing-tile__title">로그아웃</span>
+                    <span className="intro-landing-tile__title">전체 강의실</span>
                   </span>
-                </button>
+                </Link>
               ) : (
                 <Link to="/register" className="intro-landing-tile intro-landing-tile--register">
                   <span className="intro-landing-tile__inner">
