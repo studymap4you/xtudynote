@@ -703,22 +703,23 @@ export function Intro() {
     <section className="intro-hero" aria-labelledby="intro-slogan">
       <div className="intro-hero__grid">
         <div className="intro-hero__copy intro-hero__copy--fade">
-          <p className="intro-hero__brand">
-            <BrandLockup />
-          </p>
-          <h1 id="intro-slogan" className="intro-hero__slogan intro-hero__slogan--universe">
-            <span className="intro-hero__slogan-line intro-hero__slogan-line--final">{BRAND_HERO_TITLE}</span>
-          </h1>
-          <div className="intro-hero__subdeck">
-            <p className="intro-hero__lede intro-hero__lede--universe">{BRAND_HERO_SUBLINE_1}</p>
-            <p className="intro-hero__lede intro-hero__lede--universe intro-hero__lede--second">
-              {BRAND_HERO_SUBLINE_2}
+          <div className="intro-hero__main-card">
+            <p className="intro-hero__brand">
+              <BrandLockup />
             </p>
-          </div>
-          <IntroHeroShare />
-          <div className="intro-hero__action-stack">
-            <p className="intro-hero__action-stack__heading">바로 가기</p>
-            <div className="intro-hero__action-grid intro-hero__action-grid--landing">
+            <h1 id="intro-slogan" className="intro-hero__slogan intro-hero__slogan--universe">
+              <span className="intro-hero__slogan-line intro-hero__slogan-line--final">{BRAND_HERO_TITLE}</span>
+            </h1>
+            <div className="intro-hero__subdeck">
+              <p className="intro-hero__lede intro-hero__lede--universe">{BRAND_HERO_SUBLINE_1}</p>
+              <p className="intro-hero__lede intro-hero__lede--universe intro-hero__lede--second">
+                {BRAND_HERO_SUBLINE_2}
+              </p>
+            </div>
+            <IntroHeroShare />
+            <div className="intro-hero__action-stack">
+              <p className="intro-hero__action-stack__heading">바로 가기</p>
+              <div className="intro-hero__action-grid intro-hero__action-grid--landing">
               <Link to="/classroom" className="intro-landing-tile intro-landing-tile--classroom-enter">
                 <span className="intro-landing-tile__inner">
                   <span className="intro-landing-tile__badge">
@@ -784,21 +785,22 @@ export function Intro() {
                   </span>
                 </Link>
               )}
+              </div>
+              <p className="intro-hero__classroom-hint">
+                내 강의실은 로그인 후 이용합니다.
+                {isTeacherApproved ? (
+                  <>
+                    {" "}
+                    승인된 선생님 계정은 <strong>강의실 개설</strong>이 가능합니다.
+                  </>
+                ) : (
+                  <>
+                    {" "}
+                    <strong>강의 신청</strong>은 전체 강의 목록에서 이어갈 수 있습니다.
+                  </>
+                )}
+              </p>
             </div>
-            <p className="intro-hero__classroom-hint">
-              내 강의실은 로그인 후 이용합니다.
-              {isTeacherApproved ? (
-                <>
-                  {" "}
-                  승인된 선생님 계정은 <strong>강의실 개설</strong>이 가능합니다.
-                </>
-              ) : (
-                <>
-                  {" "}
-                  <strong>강의 신청</strong>은 전체 강의 목록에서 이어갈 수 있습니다.
-                </>
-              )}
-            </p>
           </div>
         </div>
 
