@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { createPortal } from "react-dom";
 import { useReactToPrint } from "react-to-print";
 import { getDownloadURL, ref as storageRef } from "firebase/storage";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -7,6 +8,10 @@ import { TextbookAutoMasterBookPanel } from "@/components/textbookAuto/TextbookA
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
 import { TextbookUnitDraftEditor } from "@/components/textbookAuto/TextbookUnitDraftEditor";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
+import { parseManuscript } from "@/lib/localDocumentAuto/parseManuscript";
+import { buildLocalDocPrintRoot } from "@/lib/localDocumentAuto/buildPrintDom";
+import { renderHtmlToA4PdfBlob } from "@/lib/localDocumentAuto/renderClientPdf";
 import { storage } from "@/firebase/config";
 import { BRAND_APP_NAME } from "@/lib/brand";
 import { combineUnitPassage, emptyUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
@@ -1385,6 +1390,7 @@ function localDocDownloadTextFile(filename: string, content: string, mime: strin
 }
 
 function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluation" }) {
+  const { showToast } = useToast();
   const title = kind === "worksheet" ? "학습지 (로컬 PDF)" : "평가문제지 (로컬 PDF)";
   const outName =
     kind === "worksheet"
@@ -1399,6 +1405,7 @@ function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluatio
   const [docStem, setDocStem] = useState(kind === "worksheet" ? "worksheet_manuscript" : "evaluation_manuscript");
   const [manuscript, setManuscript] = useState("");
   const [localMsg, setLocalMsg] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const onUploadTxt = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -1439,22 +1446,98 @@ function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluatio
     );
   }, [headerTitle, footerLeft, footerRight, koreanFont, englishFont]);
 
+  const canAutoGenerate = useMemo(() => {
+    if (generating) return false;
+    if (!headerTitle.trim() || !footerLeft.trim() || !footerRight.trim()) return false;
+    if (!koreanFont.trim() || !englishFont.trim()) return false;
+    const stem = localDocSafeBasename(docStem);
+    if (!stem) return false;
+    if (!manuscript.trim()) return false;
+    const parsed = parseManuscript(stem, manuscript);
+    if (kind === "evaluation") {
+      if (!parsed.evaluation.trim()) return false;
+    } else {
+      const hasWorksheetBody = !!(
+        parsed.preamble.trim() ||
+        parsed.problem_passage.trim() ||
+        parsed.answer_explanation.trim() ||
+        parsed.topic_gist.trim() ||
+        parsed.literal_translation.trim()
+      );
+      if (!hasWorksheetBody) return false;
+    }
+    return true;
+  }, [generating, headerTitle, footerLeft, footerRight, koreanFont, englishFont, docStem, manuscript, kind]);
+
+  const onAutoGeneratePdf = useCallback(async () => {
+    if (!canAutoGenerate) {
+      showToast(
+        "warn",
+        kind === "evaluation"
+          ? "[평가문제] 블록이 있는 원고와 모든 입력 칸을 채워 주세요."
+          : "학습지에 들어갈 블록(또는 도입 원고)과 모든 입력 칸을 채워 주세요.",
+      );
+      return;
+    }
+    const stem = localDocSafeBasename(docStem);
+    setGenerating(true);
+    try {
+      const parsed = parseManuscript(stem, manuscript);
+      const root = buildLocalDocPrintRoot({
+        kind,
+        headerTitle: headerTitle.trim(),
+        footerLeft: footerLeft.trim(),
+        footerRight: footerRight.trim(),
+        docTitle: stem,
+        parsed,
+      });
+      const blob = await renderHtmlToA4PdfBlob(root);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${stem}_${kind === "worksheet" ? "worksheet" : "evaluation"}_web.pdf`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("ok", "PDF 생성이 완료되어 다운로드를 시작했습니다.");
+    } catch (e) {
+      showToast("err", e instanceof Error ? e.message : "PDF 생성에 실패했습니다.");
+    } finally {
+      setGenerating(false);
+    }
+  }, [canAutoGenerate, docStem, manuscript, kind, headerTitle, footerLeft, footerRight, showToast]);
+
+  const overlay =
+    generating &&
+    createPortal(
+      <div className={styles.localPdfOverlay} role="status" aria-live="polite" aria-busy="true">
+        <div className={styles.localPdfOverlayCard}>
+          <div className={styles.localPdfSpinner} aria-hidden />
+          <p className={styles.localPdfOverlayTitle}>PDF 생성 중…</p>        
+          <p className={styles.localPdfOverlayHint}>잠시만 기다려 주세요. 완료되면 PDF 다운로드가 시작됩니다.</p>
+        </div>
+      </div>,
+      document.body,
+    );
+
   return (
     <section className={`${styles.card} ${styles.localPanel}`} aria-labelledby="local-doc-h">
+      {overlay}
       <h2 id="local-doc-h" className={styles.cardTitle}>
         {title}
       </h2>
       <p className={styles.localPanelLead}>
-        웹에서 머릿말·꼬리말·원고를 입력하거나 .txt를 올린 다음, 파일을 내려받아 로컬{" "}
-        <span className={styles.pathChip}>document-automation/</span>에 넣고{" "}
-        <span className={styles.pathChip}>python document-automation/src/main.py</span> 를 실행하면 PDF(
-        {outName})가 <span className={styles.pathChip}>output/</span>에 생성됩니다. Vercel에서는 WeasyPrint를 돌리지 않으므로 반드시 본인 PC에서 스크립트를 실행해야 합니다.
+        입력 후 <strong>「PDF 자동 제작」</strong>으로 브라우저에서 바로 PDF를 받을 수 있습니다(맑은 고딕 등 시스템 글꼴). WeasyPrint로 동일 서식을 맞추려면 내려받은 원고·YAML 로{" "}
+        <span className={styles.pathChip}>document-automation/src/main.py</span> 를 로컬에서 실행하면{" "}
+        <span className={styles.pathChip}>output/</span>에 {outName} 가 만들어집니다.
       </p>
 
       <h3 className={styles.localSectionTitle}>머릿말 · 꼬리말 · 폰트 경로</h3>
       <p className={`${styles.hint} ${styles.localHintTight}`}>
-        아래 값은 «config.yaml 내보내기」에 반영됩니다. 폰트 파일은 로컬{" "}
-        <span className={styles.pathChip}>document-automation/assets/fonts/</span>에 두고 경로를 맞춥니다.
+        웹 PDF에는 폰트 경로가 쓰이지 않습니다. 값은 <strong>config.yaml 내려받기</strong>·로컬{" "}
+        <span className={styles.pathChip}>document-automation/assets/fonts/</span> 용입니다.
       </p>
       <label className={styles.field}>
         <span className={styles.label}>머릿말 (PDF 상단 러닝 헤더)</span>
@@ -1505,7 +1588,7 @@ function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluatio
 
       <h3 className={styles.localSectionTitle}>원고 (.txt)</h3>
       <label className={styles.field}>
-        <span className={styles.label}>저장 파일 이름 (확장자 제외)</span>
+        <span className={styles.label}>저장 파일 이름 (확장자 제외 · 자동 제작 PDF 파일명에 사용)</span>
         <input
           className={styles.input}
           value={docStem}
@@ -1541,7 +1624,26 @@ function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluatio
         <button type="button" className={styles.btnSecondary} onClick={() => setManuscript(LOCAL_DOC_SAMPLE_MANUSCRIPT)}>
           예시 원고 넣기
         </button>
-        <button type="button" className={styles.btnPrimary} onClick={downloadManuscript}>
+        <button
+          type="button"
+          className={styles.btnPrimary}
+          disabled={!canAutoGenerate}
+          onClick={() => void onAutoGeneratePdf()}
+        >
+          PDF 자동 제작 · 다운로드
+        </button>
+      </div>
+      {!canAutoGenerate && !generating ? (
+        <p className={styles.hint}>
+          자동 제작을 쓰려면 머릿말·양쪽 꼬리말·폰트 경로·파일 이름·원고를 모두 채워 주세요.
+          {kind === "evaluation"
+            ? " 평가 탭은 [평가문제] 본문이 있어야 합니다."
+            : " 학습지 탭은 [평가문제]를 제외한 블록이나 도입 원고가 한 곳 이상 있어야 합니다."}
+        </p>
+      ) : null}
+
+      <div className={styles.localActionRow}>
+        <button type="button" className={styles.btnSecondary} onClick={downloadManuscript}>
           원고 .txt 내려받기
         </button>
         <button type="button" className={styles.btnSecondary} onClick={downloadConfig}>
@@ -1555,10 +1657,10 @@ function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluatio
 
       <ol className={styles.localPanelSteps}>
         <li>
-          내려받은 <strong>.txt</strong>를 <span className={styles.pathChip}>document-automation/input/</span>에 넣습니다.
+          (선택) <strong>.txt</strong>를 <span className={styles.pathChip}>document-automation/input/</span>에 넣습니다.
         </li>
         <li>
-          필요하면 <strong>config.yaml</strong>을 내보낸 파일로 맞춥니다.
+          (선택) <strong>config.yaml</strong>을 내보낸 파일로 맞춥니다.
         </li>
         <li>
           저장소 루트에서 <span className={styles.pathChip}>python document-automation/src/main.py</span> 실행 → {outName}

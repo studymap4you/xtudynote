@@ -153,6 +153,56 @@
   margin-top: 0 !important;
 }
 
+.localPdfOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.localPdfOverlayCard {
+  text-align: center;
+  padding: 2rem 2.25rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
+  max-width: min(360px, calc(100vw - 2rem));
+}
+
+.localPdfSpinner {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 1rem;
+  border: 3px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: localPdfSpin 0.75s linear infinite;
+}
+
+@keyframes localPdfSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.localPdfOverlayTitle {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.localPdfOverlayHint {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
 .card {
   background: #fff;
   border: 1px solid #e2e8f0;
