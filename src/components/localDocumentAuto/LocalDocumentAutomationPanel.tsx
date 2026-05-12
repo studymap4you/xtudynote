@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { useToast } from "@/contexts/ToastContext";
-import { buildLocalDocPrintRootFromModules } from "@/lib/localDocumentAuto/buildPrintDom";
+import { buildLocalDocPrintChunksFromModules, buildLocalDocPrintRootFromModules } from "@/lib/localDocumentAuto/buildPrintDom";
+import { downloadLocalDocModulesDocx } from "@/lib/localDocumentAuto/exportLocalDocModulesDocx";
 import {
   ALL_LOCAL_DOC_MODULE_FIELDS,
   buildAiContextFromModules,
@@ -16,7 +17,7 @@ import {
   type ModuleInputMode,
 } from "@/lib/localDocumentAuto/manuscriptModules";
 import { requestLiteralTranslationModuleAi, requestTopicGistModuleAi } from "@/lib/localDocumentAuto/localDocModuleAi";
-import { renderHtmlToA4PdfBlob } from "@/lib/localDocumentAuto/renderClientPdf";
+import { renderHtmlChunksToA4PdfBlob } from "@/lib/localDocumentAuto/renderClientPdf";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
 const LOCAL_DOC_SAMPLE_MANUSCRIPT = `[문제+지문]
@@ -108,6 +109,7 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
   const [modules, setModules] = useState<LocalDocModule[] | null>(null);
   const [localMsg, setLocalMsg] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [wordBusy, setWordBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const dragSourceRef = useRef<number | null>(null);
   const [dragRowIndex, setDragRowIndex] = useState<number | null>(null);
@@ -323,18 +325,28 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
     );
   }, [headerTitle, footerLeft, footerRight, koreanFont, englishFont]);
 
-  const canAutoGenerate = useMemo(() => {
-    if (generating) return false;
+  const canExportDocuments = useMemo(() => {
     if (!modules?.length) return false;
     if (!headerTitle.trim() || !footerLeft.trim() || !footerRight.trim()) return false;
-    if (!koreanFont.trim() || !englishFont.trim()) return false;
     const stem = localDocSafeBasename(docStem);
     if (!stem) return false;
     if (kind === "evaluation") {
       return modules.some((m) => m.field === "evaluation" && (m.body ?? "").trim());
     }
     return modules.some((m) => m.field !== "evaluation" && (m.body ?? "").trim());
-  }, [generating, modules, headerTitle, footerLeft, footerRight, koreanFont, englishFont, docStem, kind]);
+  }, [modules, headerTitle, footerLeft, footerRight, docStem, kind]);
+
+  const canAutoGenerate = useMemo(() => {
+    if (generating) return false;
+    if (!canExportDocuments) return false;
+    if (!koreanFont.trim() || !englishFont.trim()) return false;
+    return true;
+  }, [generating, canExportDocuments, koreanFont, englishFont]);
+
+  const canExportWord = useMemo(() => {
+    if (wordBusy) return false;
+    return canExportDocuments;
+  }, [wordBusy, canExportDocuments]);
 
   const previewHtml = useMemo(() => {
     if (!modules?.length) return "";
@@ -367,7 +379,7 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
     const stem = localDocSafeBasename(docStem);
     setGenerating(true);
     try {
-      const root = buildLocalDocPrintRootFromModules({
+      const chunks = buildLocalDocPrintChunksFromModules({
         kind,
         headerTitle: headerTitle.trim(),
         footerLeft: footerLeft.trim(),
@@ -375,7 +387,7 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
         docTitle: stem,
         modules,
       });
-      const blob = await renderHtmlToA4PdfBlob(root);
+      const blob = await renderHtmlChunksToA4PdfBlob(chunks);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -393,14 +405,48 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
     }
   }, [canAutoGenerate, docStem, modules, kind, headerTitle, footerLeft, footerRight, showToast]);
 
+  const onExportWord = useCallback(async () => {
+    if (!canExportWord || !modules?.length) {
+      showToast(
+        "warn",
+        kind === "evaluation"
+          ? "[평가문제] 모듈에 본문이 있고, 머릿말·양쪽 꼬리말·파일 이름을 채워 주세요."
+          : "학습지에 포함될 모듈(평가문제 제외)과 머릿말·양쪽 꼬리말·파일 이름을 채워 주세요.",
+      );
+      return;
+    }
+    const stem = localDocSafeBasename(docStem);
+    setWordBusy(true);
+    try {
+      await downloadLocalDocModulesDocx({
+        kind,
+        modules,
+        headerTitle: headerTitle.trim(),
+        footerLeft: footerLeft.trim(),
+        footerRight: footerRight.trim(),
+        docTitle: stem,
+        fileStem: stem,
+      });
+      showToast("ok", "Word(.docx) 파일 저장을 시작했습니다.");
+    } catch (e) {
+      showToast("err", e instanceof Error ? e.message : "Word 내보내기에 실패했습니다.");
+    } finally {
+      setWordBusy(false);
+    }
+  }, [canExportWord, docStem, modules, kind, headerTitle, footerLeft, footerRight, showToast]);
+
   const overlay =
-    generating &&
+    (generating || wordBusy) &&
     createPortal(
       <div className={styles.localPdfOverlay} role="status" aria-live="polite" aria-busy="true">
         <div className={styles.localPdfOverlayCard}>
           <div className={styles.localPdfSpinner} aria-hidden />
-          <p className={styles.localPdfOverlayTitle}>PDF 생성 중…</p>
-          <p className={styles.localPdfOverlayHint}>잠시만 기다려 주세요. 완료되면 PDF 다운로드가 시작됩니다.</p>
+          <p className={styles.localPdfOverlayTitle}>{generating ? "PDF 생성 중…" : "Word 생성 중…"}</p>
+          <p className={styles.localPdfOverlayHint}>
+            {generating
+              ? "잠시만 기다려 주세요. 완료되면 PDF 다운로드가 시작됩니다."
+              : "잠시만 기다려 주세요. 완료되면 Word 파일 다운로드가 시작됩니다."}
+          </p>
         </div>
       </div>,
       document.body,
@@ -431,7 +477,7 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
         {title}
       </h2>
       <p className={styles.localPanelLead}>
-        원고를 <strong>모듈 단위</strong>로 나눈 뒤 순서 변경·편집·추가·삭제할 수 있습니다. 완성 단계에서 PDF·원고·YAML을 내려받을 수 있으며, 동일 서식은{" "}
+        원고를 <strong>모듈 단위</strong>로 나눈 뒤 순서 변경·편집·추가·삭제할 수 있습니다. 완성 단계에서 <strong>PDF·Word(.docx)</strong>·원고·YAML을 내려받을 수 있으며, 동일 서식은{" "}
         <span className={styles.pathChip}>document-automation/src/main.py</span> 로 로컬 생성 시{" "}
         <span className={styles.pathChip}>output/</span>에 {outName} 가 만들어집니다.
       </p>
@@ -801,7 +847,7 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
           {step === 3 ? (
             <>
               <h3 className={styles.localSectionTitle}>3. 디자인 프리뷰</h3>
-              <p className={styles.hint}>PDF와 동일한 흐름으로 브라우저에서 미리 봅니다. 내용을 바꿨다면 2단계에서 저장 후 다시 오세요.</p>
+              <p className={styles.hint}>PDF·Word와 동일한 <strong>모듈 박스</strong> 레이아웃으로 미리 봅니다. 내용을 바꿨다면 2단계에서 저장 후 다시 오세요.</p>
               <div className={styles.passagePreviewBox}>
                 <iframe title="학습지·평가 미리보기" className={styles.passagePreviewIframe} srcDoc={previewHtml} sandbox="allow-same-origin" />
               </div>
@@ -819,7 +865,10 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
           {step === 4 ? (
             <>
               <h3 className={styles.localSectionTitle}>4. 생성 · 내보내기</h3>
-              <p className={styles.localPanelLead}>머릿말·꼬리말을 확인한 뒤 PDF를 받거나, 로컬 파이프라인용 파일을 저장하세요.</p>
+              <p className={styles.localPanelLead}>
+                머릿말·꼬리말을 확인한 뒤 <strong>PDF</strong> 또는 <strong>Word(.docx)</strong>를 받거나, 로컬 파이프라인용 파일을 저장하세요. PDF는 모듈마다 박스 단위로 페이지를
+                나누며, 한 박스가 페이지 끝에 걸리면 통째로 다음 페이지에서 시작합니다.
+              </p>
 
               <h4 className={styles.phase3Sub}>머릿말 · 꼬리말 · 폰트 경로</h4>
               <p className={`${styles.hint} ${styles.localHintTight}`}>
@@ -854,19 +903,27 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
               </label>
 
               <label className={styles.field}>
-                <span className={styles.label}>저장 파일 이름 (확장자 제외 · 자동 제작 PDF 파일명에 사용)</span>
+                <span className={styles.label}>저장 파일 이름 (확장자 제외 · PDF·Word 파일명)</span>
                 <input className={styles.input} value={docStem} onChange={(e) => setDocStem(e.target.value)} maxLength={96} placeholder="예: unit3_worksheet" />
               </label>
 
               <div className={styles.localActionRow}>
                 <button type="button" className={styles.btnPrimary} disabled={!canAutoGenerate} onClick={() => void onAutoGeneratePdf()}>
-                  PDF 자동 제작 · 다운로드
+                  {generating ? "PDF 생성 중…" : "PDF 자동 제작 · 다운로드"}
+                </button>
+                <button type="button" className={styles.btnPrimary} disabled={!canExportWord} onClick={() => void onExportWord()}>
+                  {wordBusy ? "Word 생성 중…" : "Word(.docx) 내보내기"}
                 </button>
               </div>
-              {!canAutoGenerate && !generating ? (
+              {!canExportDocuments && !generating && !wordBusy ? (
                 <p className={styles.hint}>
-                  자동 제작을 쓰려면 머릿말·양쪽 꼬리말·폰트 경로·파일 이름을 채우고,{" "}
+                  내보내려면 머릿말·양쪽 꼬리말·파일 이름을 채우고,{" "}
                   {kind === "evaluation" ? "[평가문제] 모듈 본문" : "학습지에 쓸 모듈(내용 있음)"}이 있어야 합니다.
+                </p>
+              ) : null}
+              {canExportDocuments && !canAutoGenerate && !generating ? (
+                <p className={styles.hint}>
+                  <strong>PDF</strong> 버튼을 쓰려면 로컬 파이프라인과 맞추기 위한 한글·영문 폰트 경로까지 채워 주세요. Word만 받을 때는 폰트 칸이 비어 있어도 됩니다.
                 </p>
               ) : null}
 
