@@ -1,5 +1,5 @@
 import type { ParsedManuscript } from "@/lib/localDocumentAuto/parseManuscript";
-import type { LocalDocModule } from "@/lib/localDocumentAuto/manuscriptModules";
+import type { LocalDocModule, LocalDocModuleField } from "@/lib/localDocumentAuto/manuscriptModules";
 import { LOCAL_DOC_FIELD_LABEL } from "@/lib/localDocumentAuto/manuscriptModules";
 
 const LABELS: Record<string, string> = {
@@ -9,6 +9,10 @@ const LABELS: Record<string, string> = {
   literal_translation: "직독직해",
   evaluation: "평가문제",
 };
+
+function modulePrintTitle(field: LocalDocModuleField): string {
+  return LOCAL_DOC_FIELD_LABEL[field];
+}
 
 const ROOT_W = 794;
 
@@ -235,7 +239,7 @@ export function buildLocalDocPrintRootFromModules(params: {
     for (const m of modules) {
       if (m.field === "evaluation") continue;
       if (!(m.body ?? "").trim()) continue;
-      const displayTitle = m.field === "preamble" ? "도입 (구획 전)" : (LABELS[m.field] ?? LOCAL_DOC_FIELD_LABEL[m.field]);
+      const displayTitle = m.field === "preamble" ? "도입 (구획 전)" : modulePrintTitle(m.field);
       const extra =
         m.field === "literal_translation"
           ? ({ fontFamily: '"Segoe UI", "Noto Sans", sans-serif' } satisfies Partial<CSSStyleDeclaration>)

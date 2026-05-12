@@ -3,13 +3,17 @@ import { createPortal } from "react-dom";
 import { useToast } from "@/contexts/ToastContext";
 import { buildLocalDocPrintRootFromModules } from "@/lib/localDocumentAuto/buildPrintDom";
 import {
+  ALL_LOCAL_DOC_MODULE_FIELDS,
+  buildAiContextFromModules,
   emptyLocalDocModule,
   LOCAL_DOC_FIELD_LABEL,
   modulesToManuscriptText,
   parseManuscriptToModules,
   type LocalDocModule,
-  type LocalDocSectionKey,
+  type LocalDocModuleField,
+  type ModuleInputMode,
 } from "@/lib/localDocumentAuto/manuscriptModules";
+import { requestLiteralTranslationModuleAi, requestTopicGistModuleAi } from "@/lib/localDocumentAuto/localDocModuleAi";
 import { renderHtmlToA4PdfBlob } from "@/lib/localDocumentAuto/renderClientPdf";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
@@ -28,7 +32,6 @@ const LOCAL_DOC_SAMPLE_MANUSCRIPT = `[문제+지문]
 [평가문제]
 객관식 / 서술형 문항만 모음…`;
 
-const ALL_SECTION_KEYS = Object.keys(LOCAL_DOC_FIELD_LABEL) as LocalDocSectionKey[];
 
 function localDocSafeBasename(name: string): string {
   const t = name.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 96);
@@ -109,9 +112,10 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null);
   const [editRowIndex, setEditRowIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<LocalDocModule | null>(null);
+  const [aiBusyRow, setAiBusyRow] = useState<number | null>(null);
 
-  const defaultAddField = useCallback((): LocalDocSectionKey => {
-    return kind === "evaluation" ? "evaluation" : "problem_passage";
+  const defaultAddField = useCallback((): LocalDocModuleField => {
+    return kind === "evaluation" ? "evaluation" : "problem";
   }, [kind]);
 
   const runAnalyze = useCallback(() => {
@@ -148,7 +152,11 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
     (rowIndex: number) => {
       if (!modules) return;
       setEditRowIndex(rowIndex);
-      setDraft(structuredClone(modules[rowIndex]!));
+      const m = structuredClone(modules[rowIndex]!);
+      if ((m.field === "topic_gist" || m.field === "literal_translation") && !m.inputMode) {
+        m.inputMode = "manual";
+      }
+      setDraft(m);
     },
     [modules],
   );
@@ -160,15 +168,41 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
 
   const saveEditor = useCallback(() => {
     if (editRowIndex === null || !draft || !modules) return;
+    const toSave = structuredClone(draft);
+    if (toSave.field === "topic_gist" || toSave.field === "literal_translation") {
+      if (!toSave.inputMode) toSave.inputMode = "manual";
+    } else {
+      delete toSave.inputMode;
+    }
     setModules((prev) => {
       if (!prev) return prev;
       const next = [...prev];
-      next[editRowIndex] = draft;
+      next[editRowIndex] = toSave;
       return next;
     });
     closeEditor();
     setLocalMsg("모듈을 저장했습니다.");
   }, [editRowIndex, draft, modules, closeEditor]);
+
+  const runAiForDraft = useCallback(async () => {
+    if (editRowIndex === null || !draft || !modules) return;
+    if (draft.field !== "topic_gist" && draft.field !== "literal_translation") return;
+    const ctx = buildAiContextFromModules(modules, editRowIndex);
+    setAiBusyRow(editRowIndex);
+    setLocalMsg(null);
+    try {
+      const text =
+        draft.field === "topic_gist"
+          ? await requestTopicGistModuleAi(ctx)
+          : await requestLiteralTranslationModuleAi(ctx);
+      setDraft({ ...draft, body: text, inputMode: "ai" });
+      setLocalMsg("AI가 본문을 채웠습니다. 확인 후 저장하세요.");
+    } catch (e) {
+      setLocalMsg(e instanceof Error ? e.message : "AI 요청에 실패했습니다.");
+    } finally {
+      setAiBusyRow(null);
+    }
+  }, [editRowIndex, draft, modules]);
 
   const addRow = useCallback(() => {
     setModules((prev) => [...(prev ?? []), emptyLocalDocModule(defaultAddField())]);
@@ -449,6 +483,7 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                     <th scope="col" style={{ width: "2rem" }} aria-label="이동" />
                     <th scope="col">#</th>
                     <th scope="col">구역</th>
+                    <th scope="col">입력</th>
                     <th scope="col">미리보기</th>
                     <th scope="col">PDF</th>
                     <th scope="col">조작</th>
@@ -495,6 +530,13 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                         </td>
                         <td>{rowIndex + 1}</td>
                         <td>{LOCAL_DOC_FIELD_LABEL[m.field]}</td>
+                        <td>
+                          {m.field === "topic_gist" || m.field === "literal_translation"
+                            ? m.inputMode === "ai"
+                              ? "AI"
+                              : "직접"
+                            : "—"}
+                        </td>
                         <td>{modulePreviewLine(m)}</td>
                         <td>
                           {kind === "worksheet"
@@ -539,23 +581,70 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                       </tr>
                       {editRowIndex === rowIndex && draft ? (
                         <tr>
-                          <td colSpan={6}>
+                          <td colSpan={7}>
                             <label className={styles.field}>
                               <span className={styles.label}>구역 종류</span>
                               <select
                                 className={styles.select}
                                 value={draft.field}
-                                onChange={(e) =>
-                                  setDraft({ ...draft, field: e.target.value as LocalDocSectionKey })
-                                }
+                                onChange={(e) => {
+                                  const f = e.target.value as LocalDocModuleField;
+                                  const next: LocalDocModule = { ...draft, field: f };
+                                  if (f === "topic_gist" || f === "literal_translation") {
+                                    next.inputMode = next.inputMode ?? "manual";
+                                  } else {
+                                    delete next.inputMode;
+                                  }
+                                  setDraft(next);
+                                }}
                               >
-                                {ALL_SECTION_KEYS.map((k) => (
+                                {ALL_LOCAL_DOC_MODULE_FIELDS.map((k) => (
                                   <option key={k} value={k}>
                                     {LOCAL_DOC_FIELD_LABEL[k]}
                                   </option>
                                 ))}
                               </select>
                             </label>
+                            {draft.field === "topic_gist" || draft.field === "literal_translation" ? (
+                              <div className={styles.field}>
+                                <span className={styles.label}>입력 방식</span>
+                                <div className={styles.row} style={{ gap: "1rem", flexWrap: "wrap" }}>
+                                  <label className={styles.radioLabel}>
+                                    <input
+                                      type="radio"
+                                      name={`inp-${draft.id}`}
+                                      checked={(draft.inputMode ?? "manual") === "manual"}
+                                      onChange={() => setDraft({ ...draft, inputMode: "manual" as ModuleInputMode })}
+                                    />
+                                    직접 입력
+                                  </label>
+                                  <label className={styles.radioLabel}>
+                                    <input
+                                      type="radio"
+                                      name={`inp-${draft.id}`}
+                                      checked={(draft.inputMode ?? "manual") === "ai"}
+                                      onChange={() => setDraft({ ...draft, inputMode: "ai" as ModuleInputMode })}
+                                    />
+                                    AI 자동분석
+                                  </label>
+                                  <button
+                                    type="button"
+                                    className={styles.btnSecondary}
+                                    disabled={aiBusyRow !== null}
+                                    onClick={() => void runAiForDraft()}
+                                  >
+                                    {aiBusyRow === editRowIndex
+                                      ? "AI 생성 중…"
+                                      : draft.field === "topic_gist"
+                                        ? "AI로 주제·제목·요지 채우기"
+                                        : "AI로 직독직해 채우기"}
+                                  </button>
+                                </div>
+                                <p className={styles.hint}>
+                                  AI는 위쪽에 있는 「문제 · 정답 · 해설」 모듈 본문을 참고합니다. 키가 없으면 .env.local의 VITE_OPENAI_API_KEY를 설정하세요.
+                                </p>
+                              </div>
+                            ) : null}
                             <label className={styles.field}>
                               <span className={styles.label}>본문</span>
                               <textarea
