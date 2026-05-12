@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block body %}
+  <h1 class="doc-title">{{ doc_title }} — 학습지</h1>
+  {% if preamble %}
+  <section class="section">
+    <h2 class="section-title">도입 원고 (구획 전)</h2>
+    <p class="preserve">{{ preamble }}</p>
+  </section>
+  {% endif %}
+
+  {% if problem_passage %}
+  <section class="section">
+    <h2 class="section-title">{{ labels.problem_passage }}</h2>
+    <p class="preserve">{{ problem_passage }}</p>
+  </section>
+  {% endif %}
+
+  {% if answer_explanation %}
+  <section class="section">
+    <h2 class="section-title">{{ labels.answer_explanation }}</h2>
+    <p class="preserve">{{ answer_explanation }}</p>
+  </section>
+  {% endif %}
+
+  {% if topic_gist %}
+  <section class="section">
+    <h2 class="section-title">{{ labels.topic_gist }}</h2>
+    <p class="preserve">{{ topic_gist }}</p>
+  </section>
+  {% endif %}
+
+  {% if literal_translation %}
+  <section class="section">
+    <h2 class="section-title">{{ labels.literal_translation }}</h2>
+    <p class="preserve preserve--latin">{{ literal_translation }}</p>
+  </section>
+  {% endif %}
+{% endblock %}

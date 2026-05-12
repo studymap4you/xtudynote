@@ -50,6 +50,8 @@ import type {
 import { DEFAULT_SECTION_INCLUSION } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
+type BuilderWorkspaceTab = "unitBook" | "worksheet" | "evaluation";
+
 const DEFAULT_TOTAL_UNITS = 3;
 const MAX_UNITS = 30;
 const MIN_PRACTICE_QUESTIONS = 10;
@@ -68,6 +70,7 @@ function sliceForAi(full: string): string {
 export function TextbookAutoBuilderPage() {
   const { firebaseUser } = useAuth();
   const uid = firebaseUser?.uid ?? "";
+  const [workspaceTab, setWorkspaceTab] = useState<BuilderWorkspaceTab>("unitBook");
   const printRef = useRef<HTMLDivElement>(null);
   const answerKeyPrintRef = useRef<HTMLDivElement>(null);
   /** loadUnitDraft 완료가 AI 생성보다 늦게 도착해 초안을 덮어쓰지 않도록 */
@@ -724,14 +727,55 @@ export function TextbookAutoBuilderPage() {
         <div className={styles.wrap}>
           <header className={styles.hero}>
             <p className={styles.eyebrow}>{BRAND_APP_NAME}</p>
-            <h1 className={styles.title}>교재 자동 생성 · 1–5단계</h1>
-            <p className={styles.lead}>
-              단원 수만큼 지문 칸이 열립니다. 각 단원에 직접 붙여넣거나 파일을 여러 개 올린 뒤 PDF는 페이지 범위·개별 페이지를 지정해 추출할 수 있습니다. 세션을 시작한 뒤 단원별 AI
-              초안을 확정하고, 3–4단계에서 정답·해설·클라우드를 다룬 뒤, 5단계에서 표지·목차·본문·추가 페이지를 합친 완성본 Word를 내려받을 수 있습니다.
-            </p>
+            <h1 className={styles.title}>교재 자동 생성 · 통합 작업실</h1>
+            {workspaceTab === "unitBook" ? (
+              <p className={styles.lead}>
+                단원 수만큼 지문 칸이 열립니다. 각 단원에 직접 붙여넣거나 파일을 여러 개 올린 뒤 PDF는 페이지 범위·개별 페이지를 지정해 추출할 수 있습니다. 세션을 시작한 뒤 단원별 AI
+                초안을 확정하고, 3–4단계에서 정답·해설·클라우드를 다룬 뒤, 5단계에서 표지·목차·본문·추가 페이지를 합친 완성본 Word를 내려받을 수 있습니다.
+              </p>
+            ) : (
+              <p className={styles.lead}>
+                대용량 원고(.txt)를 구획 헤더로 나눈 뒤, 로컬 Python(Jinja2 · WeasyPrint)으로 전용 PDF를 만듭니다. 외부 API 없이 오프라인에서만 동작합니다. 프로젝트 폴더는 저장소
+                루트의 <span className={styles.pathChip}>document-automation/</span> 입니다.
+              </p>
+            )}
           </header>
 
-          {!sessionId ? (
+          <div className={styles.tabBar} role="tablist" aria-label="문서 작업 유형">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={workspaceTab === "unitBook"}
+              className={`${styles.tab}${workspaceTab === "unitBook" ? ` ${styles.tabActive}` : ""}`}
+              onClick={() => setWorkspaceTab("unitBook")}
+            >
+              단원별 교재제작
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={workspaceTab === "worksheet"}
+              className={`${styles.tab}${workspaceTab === "worksheet" ? ` ${styles.tabActive}` : ""}`}
+              onClick={() => setWorkspaceTab("worksheet")}
+            >
+              학습지
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={workspaceTab === "evaluation"}
+              className={`${styles.tab}${workspaceTab === "evaluation" ? ` ${styles.tabActive}` : ""}`}
+              onClick={() => setWorkspaceTab("evaluation")}
+            >
+              평가문제지
+            </button>
+          </div>
+
+          {workspaceTab === "worksheet" ? (
+            <LocalDocumentAutomationPanel kind="worksheet" />
+          ) : workspaceTab === "evaluation" ? (
+            <LocalDocumentAutomationPanel kind="evaluation" />
+          ) : !sessionId ? (
             <section className={styles.card} aria-labelledby="setup-h">
               <h2 id="setup-h" className={styles.cardTitle}>
                 1. 세션 시작 — 단원별 지문
@@ -1243,8 +1287,8 @@ export function TextbookAutoBuilderPage() {
             </>
           )}
 
-          {msg ? <p className={styles.ok}>{msg}</p> : null}
-          {err ? <p className={styles.bad}>{err}</p> : null}
+          {workspaceTab === "unitBook" && msg ? <p className={styles.ok}>{msg}</p> : null}
+          {workspaceTab === "unitBook" && err ? <p className={styles.bad}>{err}</p> : null}
         </div>
 
         <div className={styles.printPortal} aria-hidden={confirmedUnits.length ? undefined : true}>
@@ -1274,6 +1318,64 @@ export function TextbookAutoBuilderPage() {
         </div>
       </main>
     </DashboardShell>
+  );
+}
+
+function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluation" }) {
+  const title = kind === "worksheet" ? "학습지 (로컬 PDF)" : "평가문제지 (로컬 PDF)";
+  const outName =
+    kind === "worksheet"
+      ? "동일 베이스 이름에 «_worksheet.pdf»"
+      : "동일 베이스 이름에 «_evaluation.pdf» (평가문제 블록만, 2단 구성)";
+
+  return (
+    <section className={`${styles.card} ${styles.localPanel}`} aria-labelledby="local-doc-h">
+      <h2 id="local-doc-h" className={styles.cardTitle}>
+        {title}
+      </h2>
+      <p className={styles.localPanelLead}>
+        이 탭은 웹 서버가 아니라 내 PC에서 돌리는 배치 도구입니다. 아래 마커로 원고를 나눈 뒤{" "}
+        <span className={styles.pathChip}>document-automation/src/main.py</span> 를 실행하면{" "}
+        <span className={styles.pathChip}>document-automation/output/</span> 에 PDF가 쌓입니다. 의존성은{" "}
+        <span className={styles.pathChip}>pip install -r document-automation/requirements.txt</span> 로 설치합니다. Windows에서는 WeasyPrint가 GTK 런타임(Pango 등)을
+        추가로 요구할 수 있으며, 안내 메시지의 공식 문서 링크를 따르면 됩니다.
+      </p>
+      <ol className={styles.localPanelSteps}>
+        <li>
+          <span className={styles.pathChip}>document-automation/config.yaml</span> 에서 머릿말·꼬리말 문구와 폰트 경로를 수정합니다.
+        </li>
+        <li>
+          원고를 <span className={styles.pathChip}>document-automation/input/*.txt</span> 로 저장합니다.
+        </li>
+        <li>
+          프로젝트 루트에서 <span className={styles.pathChip}>python document-automation/src/main.py</span> 를 실행합니다 ({outName}).
+        </li>
+        {kind === "evaluation" ? (
+          <li>
+            평가문 PDF는 <strong>[평가문제]</strong> 블록만 넣고, CSS <code style={{ fontSize: "0.85em" }}>column-count: 2</code> 로 2단으로 흘려 보냅니다.
+          </li>
+        ) : (
+          <li>
+            학습지 PDF에는 <strong>[평가문제]</strong>를 제외한 블록(문제·지문, 정답·해설, 주제·요지, 직독직해)이 한 문서로 들어갑니다.
+          </li>
+        )}
+      </ol>
+      <p className={styles.label}>원고 구획 예시 (줄 단위 헤더는 정확히 일치해야 합니다)</p>
+      <pre className={styles.samplePre}>{`[문제+지문]
+지문과 함께 붙어 있는 발문…
+
+[정답+해설]
+1) …
+
+[주제+요지]
+핵심 논지 요약…
+
+[직독직해]
+단락 단위 해석…
+
+[평가문제]
+객관식 / 서술형 문항만 모음…`}</pre>
+    </section>
   );
 }
 

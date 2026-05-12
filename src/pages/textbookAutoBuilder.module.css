@@ -38,6 +38,85 @@
   color: #475569;
 }
 
+.tabBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.tab {
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 0.5rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.tab:hover {
+  border-color: #94a3b8;
+  color: #1e293b;
+}
+
+.tabActive {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  border-color: transparent;
+  color: #fff;
+}
+
+.localPanel {
+  margin-top: 0.25rem;
+}
+
+.localPanelLead {
+  margin: 0 0 1rem;
+  line-height: 1.65;
+  color: #334155;
+  font-size: 0.92rem;
+}
+
+.localPanelSteps {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+  color: #334155;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.localPanelSteps li {
+  margin-bottom: 0.4rem;
+}
+
+.samplePre {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+.pathChip {
+  display: inline-block;
+  margin: 0.15rem 0;
+  padding: 0.15rem 0.45rem;
+  background: #e0e7ff;
+  color: #312e81;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-family: ui-monospace, monospace;
+}
+
 .card {
   background: #fff;
   border: 1px solid #e2e8f0;

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ doc_title }}</title>
+  <style>
+{{ font_face_css | safe }}
+{% include "print_core.css" %}
+  </style>
+</head>
+<body>
+  <header class="run-head">{{ header_title }}</header>
+  <footer class="run-foot run-foot--left">{{ footer_left }}</footer>
+  <footer class="run-foot run-foot--right">{{ footer_right }}</footer>
+  <main class="doc-main">
+    {% block body %}{% endblock %}
+  </main>
+</body>
+</html>

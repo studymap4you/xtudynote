@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+  <h1 class="doc-title">{{ doc_title }} — 평가문제지</h1>
+  {% if not evaluation %}
+  <p class="meta-note">[평가문제] 구역이 비어 있습니다. 입력 txt에 헤더와 본문을 추가하세요.</p>
+  {% else %}
+  <section class="section">
+    <h2 class="section-title">{{ labels.evaluation }}</h2>
+    <div class="dual-col">
+      <p class="preserve">{{ evaluation }}</p>
+    </div>
+  </section>
+  {% endif %}
+{% endblock %}

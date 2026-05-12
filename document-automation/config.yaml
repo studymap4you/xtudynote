@@ -1,0 +1,19 @@
+# Paths are relative to the document-automation/ folder (parent of src/).
+paths:
+  input: input
+  output: output
+  templates: templates
+  assets: assets
+
+document:
+  # Shown in @page header (running header)
+  header_title: "Xtudy · 학습 자료"
+  # Footer corners (page numbers are centered automatically)
+  footer_left: "Xtudy-Universe"
+  footer_right: "내부용"
+
+fonts:
+  # Place .ttf files under assets/fonts/ and list relative paths here.
+  # Leave empty or remove files to fall back to WeasyPrint defaults (not ideal for mixed KR/EN).
+  korean_ttf: "assets/fonts/NotoSansKR-Regular.ttf"
+  english_ttf: "assets/fonts/NotoSans-Regular.ttf"
