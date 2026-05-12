@@ -12,7 +12,8 @@ import { LocalDocModulesEditor } from "@/components/localDocumentAuto/LocalDocMo
 import { useAuth } from "@/contexts/AuthContext";
 import { storage } from "@/firebase/config";
 import { BRAND_APP_NAME } from "@/lib/brand";
-import { combineUnitPassage, emptyModule, emptyUnitSetup, normalizeUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
+import { combineUnitPassage, emptyModule, emptyUnitSetup, getSourceModuleFieldValue, normalizeUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
+import { requestSourceModuleFieldAi } from "@/lib/textbookAuto/requestSourceModuleFieldAi";
 import { parseManuscriptToModules } from "@/lib/localDocumentAuto/manuscriptModules";
 import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
@@ -51,8 +52,9 @@ import type {
   TextbookUnitContent,
   TextbookUnitSetupState,
   TextbookUnitSourceModule,
+  SourceModuleFieldKey,
 } from "@/types/textbookAuto";
-import { DEFAULT_SECTION_INCLUSION } from "@/types/textbookAuto";
+import { DEFAULT_SECTION_INCLUSION, SOURCE_MODULE_FIELD_KEYS, SOURCE_MODULE_FIELD_LABELS } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
 type BuilderWorkspaceTab = "unitBook" | "worksheet" | "evaluation" | "passageClassify";
@@ -66,6 +68,23 @@ const DEFAULT_UNIT_TEST_SHORT = 8;
 /** Firestore·AI 안정용 단원당 상한 */
 const MAX_UNIT_PASSAGE_CHARS = 38_000;
 const AI_SOURCE_SLICE = 24_000;
+
+const SOURCE_MODULE_FIELD_UI: readonly {
+  key: SourceModuleFieldKey;
+  label: string;
+  placeholder?: string;
+  rows: number;
+  multiline: boolean;
+  maxLength?: number;
+}[] = [
+  { key: "passageNo", label: "지문번호", placeholder: "예: 01, A독해-3", rows: 1, multiline: false, maxLength: 80 },
+  { key: "passage", label: "지문", placeholder: "본 지문 전체", rows: 4, multiline: true },
+  { key: "question", label: "문제", placeholder: "발문", rows: 2, multiline: true },
+  { key: "options", label: "선택지", placeholder: "① … ② … (복수 입력)", rows: 3, multiline: true },
+  { key: "passageAnalysis", label: "지문분석", rows: 2, multiline: true },
+  { key: "keySummary", label: "핵심정리", rows: 2, multiline: true },
+  { key: "reviewStudy", label: "확인학습", rows: 2, multiline: true },
+];
 
 function sliceForAi(full: string): string {
   if (full.length <= AI_SOURCE_SLICE) return full;
@@ -97,6 +116,8 @@ export function TextbookAutoBuilderPage() {
   const [draftModel, setDraftModel] = useState("");
   const [busy, setBusy] = useState(false);
   const [extractBusyId, setExtractBusyId] = useState<string | null>(null);
+  /** 모듈 칸별 AI 생성 중 — `${unitIndex}|${moduleId}|${field}` */
+  const [sourceFieldAiBusyKey, setSourceFieldAiBusyKey] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [answerKeyItems, setAnswerKeyItems] = useState<TextbookAnswerKeyItem[]>([]);
@@ -235,6 +256,13 @@ export function TextbookAutoBuilderPage() {
       const u = normalizeUnitSetup(slice[unitIndex]);
       if (u.pendingFiles.length > 0) {
         return `제 ${unitIndex + 1}단원: 추출하지 않은 파일이 있습니다. 먼저 「추출」을 누르거나 대기 목록에서 제거하세요.`;
+      }
+      for (const mod of u.modules) {
+        for (const key of SOURCE_MODULE_FIELD_KEYS) {
+          if (mod.fieldModes[key] === "ai" && !getSourceModuleFieldValue(mod, key).trim()) {
+            return `제 ${unitIndex + 1}단원: 「${SOURCE_MODULE_FIELD_LABELS[key]}」이(가) AI 생성으로 선택되었습니다. 「AI 생성」을 실행하거나 「직접 입력」으로 바꿔 주세요.`;
+          }
+        }
       }
       const t = combineUnitPassage(u).trim();
       if (!t) {
@@ -571,6 +599,48 @@ export function TextbookAutoBuilderPage() {
       });
     },
     [],
+  );
+
+  const patchModuleFieldMode = useCallback(
+    (unitIndex: number, moduleId: string, field: SourceModuleFieldKey, mode: "manual" | "ai") => {
+      setUnitInputs((prev) => {
+        const next = [...prev];
+        const row = normalizeUnitSetup(next[unitIndex]);
+        row.modules = row.modules.map((m) =>
+          m.id === moduleId ? { ...m, fieldModes: { ...m.fieldModes, [field]: mode } } : m,
+        );
+        next[unitIndex] = row;
+        return next;
+      });
+    },
+    [],
+  );
+
+  const runSourceFieldAi = useCallback(
+    async (ui: number, mod: TextbookUnitSourceModule, field: SourceModuleFieldKey, moduleOrdinal: number) => {
+      setErr(null);
+      const busyKey = `${ui}|${mod.id}|${field}`;
+      setSourceFieldAiBusyKey(busyKey);
+      try {
+        const title = bookTitle.trim() || "교재";
+        const text = await requestSourceModuleFieldAi({
+          bookTitle: title,
+          unitIndex: ui,
+          moduleOrdinal,
+          field,
+          module: mod,
+        });
+        patchSourceModule(ui, mod.id, { [field]: text } as Partial<Omit<TextbookUnitSourceModule, "id">>);
+        setMsg(
+          `제 ${ui + 1}단원 · 모듈 ${moduleOrdinal} · ${SOURCE_MODULE_FIELD_LABELS[field]}: AI 결과를 넣었습니다. 필요하면 바로 고칠 수 있습니다.`,
+        );
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "AI 생성에 실패했습니다.");
+      } finally {
+        setSourceFieldAiBusyKey(null);
+      }
+    },
+    [bookTitle, patchSourceModule],
   );
 
   const addSourceModule = useCallback((unitIndex: number) => {
@@ -969,10 +1039,15 @@ export function TextbookAutoBuilderPage() {
                       const unitState = normalizeUnitSetup(unitInputs[ui]);
                       return (
                   <div className={styles.unitCard}>
-                    <h3 className={styles.unitCardTitle}>제 {ui + 1}단원 — 모듈 구성</h3>
+                    <div className={styles.unitCardHead}>
+                      <h3 className={styles.unitCardTitle}>제 {ui + 1}단원 — 모듈 구성</h3>
+                      <button type="button" className={styles.btnSecondary} onClick={() => addSourceModule(ui)}>
+                        모듈 추가
+                      </button>
+                    </div>
                     <p className={styles.hint}>
-                      각 모듈에 지문번호·지문·문제·선택지·지문분석·핵심정리·확인학습을 입력합니다. 한 단원에 여러 지문 세트가 있으면 「모듈 추가」를
-                      사용하세요.
+                      카테고리마다 「직접 입력」과 「AI 생성」을 고를 수 있습니다. AI는 같은 모듈의 다른 칸·교재 제목을 참고합니다. 여러 지문 세트는
+                      「모듈 추가」·모듈 카드의 「모듈 삭제」로 나눕니다.
                     </p>
                     {unitState.modules.map((mod, mi) => (
                       <div key={mod.id} className={styles.sourceModuleCard}>
@@ -988,73 +1063,72 @@ export function TextbookAutoBuilderPage() {
                             </button>
                           ) : null}
                         </div>
-                        <label className={styles.field}>
-                          <span className={styles.label}>지문번호</span>
-                          <input
-                            className={styles.input}
-                            value={mod.passageNo}
-                            onChange={(e) => patchSourceModule(ui, mod.id, { passageNo: e.target.value })}
-                            placeholder="예: 01, A독해-3"
-                            maxLength={80}
-                          />
-                        </label>
-                        <label className={styles.field}>
-                          <span className={styles.label}>지문</span>
-                          <textarea
-                            className={styles.textarea}
-                            rows={4}
-                            value={mod.passage}
-                            onChange={(e) => patchSourceModule(ui, mod.id, { passage: e.target.value })}
-                            placeholder="본 지문 전체"
-                          />
-                        </label>
-                        <label className={styles.field}>
-                          <span className={styles.label}>문제</span>
-                          <textarea
-                            className={styles.textarea}
-                            rows={2}
-                            value={mod.question}
-                            onChange={(e) => patchSourceModule(ui, mod.id, { question: e.target.value })}
-                            placeholder="발문"
-                          />
-                        </label>
-                        <label className={styles.field}>
-                          <span className={styles.label}>선택지</span>
-                          <textarea
-                            className={styles.textarea}
-                            rows={3}
-                            value={mod.options}
-                            onChange={(e) => patchSourceModule(ui, mod.id, { options: e.target.value })}
-                            placeholder="① … ② … (복수 입력)"
-                          />
-                        </label>
-                        <label className={styles.field}>
-                          <span className={styles.label}>지문분석</span>
-                          <textarea
-                            className={styles.textarea}
-                            rows={2}
-                            value={mod.passageAnalysis}
-                            onChange={(e) => patchSourceModule(ui, mod.id, { passageAnalysis: e.target.value })}
-                          />
-                        </label>
-                        <label className={styles.field}>
-                          <span className={styles.label}>핵심정리</span>
-                          <textarea
-                            className={styles.textarea}
-                            rows={2}
-                            value={mod.keySummary}
-                            onChange={(e) => patchSourceModule(ui, mod.id, { keySummary: e.target.value })}
-                          />
-                        </label>
-                        <label className={styles.field}>
-                          <span className={styles.label}>확인학습</span>
-                          <textarea
-                            className={styles.textarea}
-                            rows={2}
-                            value={mod.reviewStudy}
-                            onChange={(e) => patchSourceModule(ui, mod.id, { reviewStudy: e.target.value })}
-                          />
-                        </label>
+                        {SOURCE_MODULE_FIELD_UI.map((spec) => {
+                          const mode = mod.fieldModes[spec.key];
+                          const val = getSourceModuleFieldValue(mod, spec.key);
+                          const bk = `${ui}|${mod.id}|${spec.key}`;
+                          const isThisBusy = sourceFieldAiBusyKey === bk;
+                          const aiBlocked = sourceFieldAiBusyKey !== null;
+                          const onPatchVal = (next: string) =>
+                            patchSourceModule(ui, mod.id, {
+                              [spec.key]: next,
+                            } as Partial<Omit<TextbookUnitSourceModule, "id">>);
+                          return (
+                            <div key={spec.key} className={styles.sourceModuleField}>
+                              <div className={styles.fieldHeadRow}>
+                                <span className={styles.fieldHeadLabel}>{spec.label}</span>
+                                <div className={styles.fieldModeToggle} role="group" aria-label={`${spec.label} 입력 방식`}>
+                                  <button
+                                    type="button"
+                                    className={`${styles.fieldModeBtn}${mode === "manual" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                    onClick={() => patchModuleFieldMode(ui, mod.id, spec.key, "manual")}
+                                  >
+                                    직접 입력
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`${styles.fieldModeBtn}${mode === "ai" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                    onClick={() => patchModuleFieldMode(ui, mod.id, spec.key, "ai")}
+                                  >
+                                    AI 생성
+                                  </button>
+                                </div>
+                              </div>
+                              {mode === "ai" ? (
+                                <div className={styles.fieldAiRow}>
+                                  <button
+                                    type="button"
+                                    className={styles.btnMini}
+                                    disabled={aiBlocked}
+                                    onClick={() => void runSourceFieldAi(ui, mod, spec.key, mi + 1)}
+                                  >
+                                    {isThisBusy ? "생성 중…" : "AI 생성"}
+                                  </button>
+                                  <span className={styles.fieldAiHint}>
+                                    OpenAI로 이 칸만 채웁니다. 결과는 아래에서 수정할 수 있습니다.
+                                  </span>
+                                </div>
+                              ) : null}
+                              {spec.multiline ? (
+                                <textarea
+                                  className={styles.textarea}
+                                  rows={spec.rows}
+                                  value={val}
+                                  onChange={(e) => onPatchVal(e.target.value)}
+                                  placeholder={spec.placeholder}
+                                />
+                              ) : (
+                                <input
+                                  className={styles.input}
+                                  value={val}
+                                  onChange={(e) => onPatchVal(e.target.value)}
+                                  placeholder={spec.placeholder}
+                                  maxLength={spec.maxLength}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     ))}
                     <div className={styles.sourceModuleActions}>

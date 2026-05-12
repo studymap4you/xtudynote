@@ -107,9 +107,53 @@ export type TextbookSetupFileSegment = {
   text: string;
 };
 
+/** 모듈 내 각 입력 칸의 소스 종류 */
+export type SourceModuleFieldKey =
+  | "passageNo"
+  | "passage"
+  | "question"
+  | "options"
+  | "passageAnalysis"
+  | "keySummary"
+  | "reviewStudy";
+
+export const SOURCE_MODULE_FIELD_KEYS: SourceModuleFieldKey[] = [
+  "passageNo",
+  "passage",
+  "question",
+  "options",
+  "passageAnalysis",
+  "keySummary",
+  "reviewStudy",
+];
+
+export const SOURCE_MODULE_FIELD_LABELS: Record<SourceModuleFieldKey, string> = {
+  passageNo: "지문번호",
+  passage: "지문",
+  question: "문제",
+  options: "선택지",
+  passageAnalysis: "지문분석",
+  keySummary: "핵심정리",
+  reviewStudy: "확인학습",
+};
+
+export function defaultSourceModuleFieldModes(): Record<SourceModuleFieldKey, "manual" | "ai"> {
+  return {
+    passageNo: "manual",
+    passage: "manual",
+    question: "manual",
+    options: "manual",
+    passageAnalysis: "manual",
+    keySummary: "manual",
+    reviewStudy: "manual",
+  };
+}
+
 /** 세션 시작 전 단원 원고 — 지문 세트(모듈) 단위 입력 */
 export type TextbookUnitSourceModule = {
   id: string;
+  /** 항목별 입력 방식 (누락 시 normalize 시 manual 로 보정) */
+  fieldModes: Record<SourceModuleFieldKey, "manual" | "ai">;
   passageNo: string;
   passage: string;
   question: string;

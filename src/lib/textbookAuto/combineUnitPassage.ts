@@ -1,4 +1,28 @@
-import type { TextbookUnitSetupState, TextbookUnitSourceModule } from "@/types/textbookAuto";
+import type { TextbookUnitSetupState, TextbookUnitSourceModule, SourceModuleFieldKey } from "@/types/textbookAuto";
+import { defaultSourceModuleFieldModes } from "@/types/textbookAuto";
+
+export function getSourceModuleFieldValue(mod: TextbookUnitSourceModule, key: SourceModuleFieldKey): string {
+  switch (key) {
+    case "passageNo":
+      return mod.passageNo;
+    case "passage":
+      return mod.passage;
+    case "question":
+      return mod.question;
+    case "options":
+      return mod.options;
+    case "passageAnalysis":
+      return mod.passageAnalysis;
+    case "keySummary":
+      return mod.keySummary;
+    case "reviewStudy":
+      return mod.reviewStudy;
+    default: {
+      const _x: never = key;
+      return _x;
+    }
+  }
+}
 
 function moduleIsTotallyEmpty(mod: TextbookUnitSourceModule): boolean {
   return [
@@ -22,6 +46,7 @@ function pushField(parts: string[], label: string, body: string) {
 export function emptyModule(): TextbookUnitSourceModule {
   return {
     id: crypto.randomUUID(),
+    fieldModes: defaultSourceModuleFieldModes(),
     passageNo: "",
     passage: "",
     question: "",
@@ -39,7 +64,11 @@ export function emptyUnitSetup(): TextbookUnitSetupState {
 /** 누락된 `modules` 등 구형·부분 상태를 단원 폼에 맞게 보정 */
 export function normalizeUnitSetup(u: TextbookUnitSetupState | undefined): TextbookUnitSetupState {
   if (!u) return emptyUnitSetup();
-  const modules = Array.isArray(u.modules) && u.modules.length > 0 ? u.modules : [emptyModule()];
+  const rawMods = Array.isArray(u.modules) && u.modules.length > 0 ? u.modules : [emptyModule()];
+  const modules = rawMods.map((m) => ({
+    ...m,
+    fieldModes: { ...defaultSourceModuleFieldModes(), ...(m.fieldModes ?? {}) },
+  }));
   return {
     manualText: u.manualText ?? "",
     modules,

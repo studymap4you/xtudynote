@@ -448,6 +448,93 @@
   color: #1e40af;
 }
 
+.unitCardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin: 0 0 0.5rem;
+}
+
+.unitCardHead .unitCardTitle {
+  margin: 0;
+  flex: 1 1 200px;
+}
+
+.sourceModuleField {
+  margin-bottom: 0.85rem;
+}
+
+.sourceModuleField:last-child {
+  margin-bottom: 0.15rem;
+}
+
+.fieldHeadRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.fieldHeadLabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.fieldModeToggle {
+  display: inline-flex;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  overflow: hidden;
+  background: #fff;
+}
+
+.fieldModeBtn {
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.35rem 0.65rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.fieldModeBtn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.fieldModeBtnActive {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  color: #fff;
+}
+
+.fieldModeBtnActive:hover {
+  color: #fff;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+}
+
+.fieldAiRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.fieldAiHint {
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.45;
+  flex: 1 1 160px;
+}
+
 .sourceModuleCard {
   margin-bottom: 1rem;
   padding: 0.85rem 1rem;
