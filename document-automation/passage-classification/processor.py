@@ -279,6 +279,40 @@ def unit_to_dict(u: PassageUnit) -> dict[str, Any]:
     }
 
 
+def unit_from_dict(d: dict[str, Any]) -> PassageUnit:
+    """JSON·세션 복원용 (병합 루프 재실행 시 사용)."""
+    p1 = d["phase1"]
+    phase1 = Phase1Block(
+        number=int(p1["number"]),
+        stem=p1.get("stem") or "",
+        passage=p1.get("passage") or "",
+        choices=dict(p1.get("choices") or {}),
+    )
+    p2 = None
+    if d.get("phase2"):
+        x = d["phase2"]
+        p2 = Phase2Block(answer=int(x["answer"]), explanation=x.get("explanation") or "")
+    p3 = None
+    if d.get("phase3"):
+        x = d["phase3"]
+        p3 = Phase3Block(
+            topic=x.get("topic"),
+            gist=x.get("gist"),
+            key_sentence=x.get("key_sentence"),
+            literal=x.get("literal"),
+        )
+        p3 = phase3_effective(p3)
+    p4 = None
+    if d.get("phase4"):
+        x = d["phase4"]
+        p4 = phase4_effective(Phase4Block(body=x.get("body") or ""))
+    return PassageUnit(number=int(d["number"]), phase1=phase1, phase2=p2, phase3=p3, phase4=p4)
+
+
+def units_from_dicts(rows: list[dict[str, Any]]) -> list[PassageUnit]:
+    return [unit_from_dict(x) for x in rows]
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="지문 분류 → JSON")
     ap.add_argument("--in", dest="in_path", type=Path, required=True)

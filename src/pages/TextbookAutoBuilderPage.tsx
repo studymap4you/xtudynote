@@ -1460,6 +1460,24 @@ Second passage text.
       <h2 id="passage-class-h" className={styles.cardTitle}>
         지문 분류 · 4단계 구조
       </h2>
+      <h3 className={styles.localSectionTitle}>모듈형 대시보드 (Streamlit · 로컬)</h3>
+      <p className={styles.localPanelLead}>
+        터미널 없이 드래그 앤 드롭·단계 표시줄·Phase 토글·머릿말/꼬리말 즉시 반영·2단 미리보기까지 한 화면에서 쓰려면, 저장소에서 아래를 실행하세요.
+      </p>
+      <ol className={styles.localPanelSteps}>
+        <li>
+          <span className={styles.pathChip}>document-automation/passage-classification/</span>로 이동한 뒤{" "}
+          <span className={styles.pathChip}>pip install -r requirements-streamlit.txt</span>
+        </li>
+        <li>
+          <pre className={styles.samplePre}>
+            {`streamlit run streamlit_app.py`}
+          </pre>
+          브라우저가 열리면 <strong>1. 원고 업로드 → 2. 모듈 구성 → 3. 디자인 프리뷰 → 4. 생성</strong> 순으로 진행합니다. 외부 API는 사용하지 않습니다.
+        </li>
+      </ol>
+
+      <h3 className={styles.localSectionTitle}>형식 요약 (CLI)</h3>
       <p className={styles.localPanelLead}>
         <strong>Phase 1</strong> 문제·지문(번호로 시작하는 줄 + ①~⑤), <strong>Phase 2</strong>{" "}
         <span className={styles.pathChip}>[정답 및 해설]</span> 또는 <span className={styles.pathChip}>[정답]</span>,{" "}
