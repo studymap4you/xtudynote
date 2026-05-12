@@ -196,9 +196,59 @@ function parseTrailing(text: string): [Phase2Block | null, Phase3Block | null, P
   return [phase2, p3, p4];
 }
 
+/** 선택지 없는 블록을 해설(phase2)로 올릴지 — [출제의도], 기존 해설 앵커류, 한글이 실린 비어 있지 않은 줄 3줄 이상 */
+function shouldPromoteNoChoiceBlob(blob: string): boolean {
+  const t = blob.trim();
+  if (!t) return false;
+  if (
+    /\[\s*정답|정답\s*및\s*해설|\[\s*해설|^\s*해설\s*[:：]?|\[\s*출제의도\s*\]/im.test(t)
+  ) {
+    return true;
+  }
+  const hangul = /[\uAC00-\uD7A3]/;
+  const hangulLines = norm(t)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && hangul.test(l)).length;
+  return hangulLines >= 3;
+}
+
 function looksLikeExplanationOnlyUnit(u: PassageUnit): boolean {
   const blob = `${u.phase1.stem}\n${u.phase1.passage}`.trim();
-  return /\[\s*정답|정답\s*및\s*해설|\[\s*해설|^\s*해설\s*[:：]?/im.test(blob);
+  if (!blob) return false;
+  return shouldPromoteNoChoiceBlob(blob);
+}
+
+function maybePromoteNoChoiceExplanation(u: PassageUnit): PassageUnit {
+  if (Object.keys(u.phase1.choices).length > 0) return u;
+  const stem = u.phase1.stem ?? "";
+  const passage = u.phase1.passage ?? "";
+  const blob = `${stem}\n${passage}`.trim();
+  if (!blob || !shouldPromoteNoChoiceBlob(blob)) return u;
+
+  const explanation = blob;
+  const phase2: Phase2Block = u.phase2
+    ? {
+        answer: u.phase2.answer,
+        explanation: `${explanation}\n\n${u.phase2.explanation}`.trim(),
+      }
+    : { answer: 1, explanation };
+
+  return {
+    ...u,
+    phase1: { ...u.phase1, stem: "", passage: "" },
+    phase2,
+  };
+}
+
+function isNonEmptyUnit(u: PassageUnit): boolean {
+  const p1 = u.phase1;
+  const hasP1 =
+    (p1.stem ?? "").trim() !== "" ||
+    (p1.passage ?? "").trim() !== "" ||
+    Object.keys(p1.choices).length > 0;
+  const hasRest = Boolean(u.phase2 ?? u.phase3 ?? u.phase4);
+  return hasP1 || hasRest;
 }
 
 function mergeDetachedExplanations(units: PassageUnit[]): PassageUnit[] {
@@ -220,6 +270,18 @@ function mergeDetachedExplanations(units: PassageUnit[]): PassageUnit[] {
             answer: prev.phase2.answer,
             explanation: `${prev.phase2.explanation}\n\n${u.phase2.explanation}`.trim(),
           };
+        }
+      } else {
+        const blob = `${u.phase1.stem}\n${u.phase1.passage}`.trim();
+        if (blob) {
+          const block: Phase2Block = { answer: 1, explanation: blob };
+          if (!prev.phase2) prev.phase2 = block;
+          else {
+            prev.phase2 = {
+              answer: prev.phase2.answer,
+              explanation: `${prev.phase2.explanation}\n\n${block.explanation}`.trim(),
+            };
+          }
         }
       }
       if (u.phase3) prev.phase3 = mergePhase3(prev.phase3, u.phase3);
@@ -263,6 +325,7 @@ function parseUnitBody(number: number, body: string): PassageUnit {
       break;
     }
   }
+  let unit: PassageUnit;
   if (choiceIdx === null) {
     const fullText = lines.join("\n").trim();
     const anchorAt = findFirstAnchorStart(fullText);
@@ -272,7 +335,17 @@ function parseUnitBody(number: number, body: string): PassageUnit {
       const [stem, passage] = splitStemPassage(preambleLines);
       const fromAnchor = fullText.slice(anchorAt);
       const [ph2, ph3, ph4] = parseTrailing(fromAnchor);
-      return {
+      unit = {
+        number,
+        phase1: { number, stem, passage, choices: {} },
+        phase2: ph2,
+        phase3: ph3,
+        phase4: ph4,
+      };
+    } else {
+      const [stem, passage] = splitStemPassage(lines);
+      const [ph2, ph3, ph4] = parseTrailing(fullText);
+      unit = {
         number,
         phase1: { number, stem, passage, choices: {} },
         phase2: ph2,
@@ -280,29 +353,21 @@ function parseUnitBody(number: number, body: string): PassageUnit {
         phase4: ph4,
       };
     }
-    const [stem, passage] = splitStemPassage(lines);
-    const [ph2, ph3, ph4] = parseTrailing(fullText);
-    return {
+  } else {
+    const preamble = lines.slice(0, choiceIdx);
+    const [stem, passage] = splitStemPassage(preamble);
+    const [choices, endCi] = parseChoices(lines, choiceIdx);
+    const trailing = lines.slice(endCi).join("\n").trim();
+    const [ph2, ph3, ph4] = parseTrailing(trailing);
+    unit = {
       number,
-      phase1: { number, stem, passage, choices: {} },
+      phase1: { number, stem, passage, choices },
       phase2: ph2,
       phase3: ph3,
       phase4: ph4,
     };
   }
-
-  const preamble = lines.slice(0, choiceIdx);
-  const [stem, passage] = splitStemPassage(preamble);
-  const [choices, endCi] = parseChoices(lines, choiceIdx);
-  const trailing = lines.slice(endCi).join("\n").trim();
-  const [ph2, ph3, ph4] = parseTrailing(trailing);
-  return {
-    number,
-    phase1: { number, stem, passage, choices },
-    phase2: ph2,
-    phase3: ph3,
-    phase4: ph4,
-  };
+  return maybePromoteNoChoiceExplanation(unit);
 }
 
 export function splitUnitChunks(text: string): [number, string][] {
@@ -334,8 +399,11 @@ export function splitUnitChunks(text: string): [number, string][] {
 }
 
 export function parseDocument(raw: string): PassageUnit[] {
-  let units = splitUnitChunks(raw).map(([n, body]) => parseUnitBody(n, body));
+  let units = splitUnitChunks(raw)
+    .filter(([, body]) => body.trim().length > 0)
+    .map(([n, body]) => parseUnitBody(n, body));
   units = mergeDetachedExplanations(units);
+  units = units.filter(isNonEmptyUnit);
   units = renumberUnits(units);
   return units;
 }

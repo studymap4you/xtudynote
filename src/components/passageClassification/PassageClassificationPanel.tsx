@@ -80,6 +80,15 @@ const MERGE_SAMPLE = `[문제 1]
 
 const CH_MARK = ["①", "②", "③", "④", "⑤"];
 
+function passageUnitRowPreviewLabel(u: PassageUnit): string {
+  return (
+    (u.phase1.stem || "").trim() ||
+    (u.phase1.passage || "").trim() ||
+    (u.phase2?.explanation || "").trim() ||
+    ""
+  );
+}
+
 function normalizeEditedUnit(u: PassageUnit): PassageUnit {
   const out = structuredClone(u);
   const ch: Record<string, string> = {};
@@ -810,8 +819,16 @@ export function PassageClassificationPanel() {
                             </td>
                             <td>{rowIndex + 1}</td>
                             <td>
-                              {(u.phase1.stem || "").slice(0, 72)}
-                              {(u.phase1.stem || "").length > 72 ? "…" : ""}
+                              {(() => {
+                                const label = passageUnitRowPreviewLabel(u);
+                                const short = label.slice(0, 72);
+                                return (
+                                  <>
+                                    {short}
+                                    {label.length > 72 ? "…" : ""}
+                                  </>
+                                );
+                              })()}
                             </td>
                             <td>{u.phase2 ? "✓" : "—"}</td>
                             <td>{u.phase3 ? "✓" : "—"}</td>

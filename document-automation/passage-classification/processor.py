@@ -208,9 +208,56 @@ def _parse_trailing(text: str) -> tuple[Phase2Block | None, Phase3Block | None, 
     return phase2, p3, p4
 
 
+def _should_promote_no_choice_blob(blob: str) -> bool:
+    t = blob.strip()
+    if not t:
+        return False
+    if re.search(
+        r"\[\s*정답|정답\s*및\s*해설|\[\s*해설|^\s*해설\s*[:：]?|\[\s*출제의도\s*\]",
+        t,
+        re.I | re.M,
+    ):
+        return True
+    hangul = re.compile(r"[\uac00-\ud7a3]")
+    n = sum(1 for line in _norm(t).split("\n") if line.strip() and hangul.search(line))
+    return n >= 3
+
+
 def _looks_like_explanation_only(u: PassageUnit) -> bool:
     blob = f"{u.phase1.stem}\n{u.phase1.passage}".strip()
-    return bool(re.search(r"\[\s*정답|정답\s*및\s*해설|\[\s*해설|^\s*해설\s*[:：]?", blob, re.I))
+    if not blob:
+        return False
+    return _should_promote_no_choice_blob(blob)
+
+
+def _maybe_promote_no_choice_explanation(u: PassageUnit) -> PassageUnit:
+    if len(u.phase1.choices) > 0:
+        return u
+    stem, passage = u.phase1.stem or "", u.phase1.passage or ""
+    blob = f"{stem}\n{passage}".strip()
+    if not blob or not _should_promote_no_choice_blob(blob):
+        return u
+    explanation = blob
+    if u.phase2:
+        p2 = Phase2Block(
+            answer=u.phase2.answer,
+            explanation=f"{explanation}\n\n{u.phase2.explanation}".strip(),
+        )
+    else:
+        p2 = Phase2Block(answer=1, explanation=explanation)
+    return PassageUnit(
+        number=u.number,
+        phase1=Phase1Block(number=u.phase1.number, stem="", passage="", choices={}),
+        phase2=p2,
+        phase3=u.phase3,
+        phase4=u.phase4,
+    )
+
+
+def _is_nonempty_unit(u: PassageUnit) -> bool:
+    p1 = u.phase1
+    has_p1 = bool((p1.stem or "").strip() or (p1.passage or "").strip() or p1.choices)
+    return has_p1 or bool(u.phase2 or u.phase3 or u.phase4)
 
 
 def _parse_unit_body(number: int, body: str) -> PassageUnit:
@@ -229,35 +276,37 @@ def _parse_unit_body(number: int, body: str) -> PassageUnit:
             preamble_lines = preamble.split("\n") if preamble else []
             stem, passage = _split_stem_passage(preamble_lines)
             ph2, ph3, ph4 = _parse_trailing(full_text[anchor_at:])
-            return PassageUnit(
+            u = PassageUnit(
                 number=number,
                 phase1=Phase1Block(number=number, stem=stem, passage=passage, choices={}),
                 phase2=ph2,
                 phase3=ph3,
                 phase4=ph4,
             )
-        stem, passage = _split_stem_passage(lines)
-        ph2, ph3, ph4 = _parse_trailing(full_text)
-        return PassageUnit(
+        else:
+            stem, passage = _split_stem_passage(lines)
+            ph2, ph3, ph4 = _parse_trailing(full_text)
+            u = PassageUnit(
+                number=number,
+                phase1=Phase1Block(number=number, stem=stem, passage=passage, choices={}),
+                phase2=ph2,
+                phase3=ph3,
+                phase4=ph4,
+            )
+    else:
+        preamble = lines[:choice_idx]
+        stem, passage = _split_stem_passage(preamble)
+        choices, end_ci = _parse_choices(lines, choice_idx)
+        trailing = "\n".join(lines[end_ci:]).strip()
+        ph2, ph3, ph4 = _parse_trailing(trailing)
+        u = PassageUnit(
             number=number,
-            phase1=Phase1Block(number=number, stem=stem, passage=passage, choices={}),
+            phase1=Phase1Block(number=number, stem=stem, passage=passage, choices=choices),
             phase2=ph2,
             phase3=ph3,
             phase4=ph4,
         )
-
-    preamble = lines[:choice_idx]
-    stem, passage = _split_stem_passage(preamble)
-    choices, end_ci = _parse_choices(lines, choice_idx)
-    trailing = "\n".join(lines[end_ci:]).strip()
-    ph2, ph3, ph4 = _parse_trailing(trailing)
-    return PassageUnit(
-        number=number,
-        phase1=Phase1Block(number=number, stem=stem, passage=passage, choices=choices),
-        phase2=ph2,
-        phase3=ph3,
-        phase4=ph4,
-    )
+    return _maybe_promote_no_choice_explanation(u)
 
 
 def split_unit_chunks(text: str) -> list[tuple[int, str]]:
@@ -320,6 +369,17 @@ def _merge_detached_explanations(units: list[PassageUnit]) -> list[PassageUnit]:
                         answer=prev.phase2.answer,
                         explanation=f"{prev.phase2.explanation}\n\n{u.phase2.explanation}".strip(),
                     )
+            else:
+                blob = f"{u.phase1.stem}\n{u.phase1.passage}".strip()
+                if blob:
+                    block = Phase2Block(answer=1, explanation=blob)
+                    if prev.phase2 is None:
+                        prev.phase2 = block
+                    else:
+                        prev.phase2 = Phase2Block(
+                            answer=prev.phase2.answer,
+                            explanation=f"{prev.phase2.explanation}\n\n{block.explanation}".strip(),
+                        )
             if u.phase3:
                 prev.phase3 = _merge_phase3(prev.phase3, u.phase3)
             if u.phase4:
@@ -330,8 +390,10 @@ def _merge_detached_explanations(units: list[PassageUnit]) -> list[PassageUnit]:
 
 
 def parse_document(raw: str) -> list[PassageUnit]:
-    units = [_parse_unit_body(n, body) for n, body in split_unit_chunks(raw)]
+    chunks = [(n, b) for n, b in split_unit_chunks(raw) if b.strip()]
+    units = [_parse_unit_body(n, body) for n, body in chunks]
     units = _merge_detached_explanations(units)
+    units = [u for u in units if _is_nonempty_unit(u)]
     return _renumber_units(units)
 
 
