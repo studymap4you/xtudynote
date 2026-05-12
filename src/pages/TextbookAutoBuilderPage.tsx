@@ -71,6 +71,8 @@ function sliceForAi(full: string): string {
   return full.slice(0, AI_SOURCE_SLICE);
 }
 
+type PreSessionPhase = "meta" | "passage" | "review";
+
 export function TextbookAutoBuilderPage() {
   const { firebaseUser } = useAuth();
   const uid = firebaseUser?.uid ?? "";
@@ -105,6 +107,9 @@ export function TextbookAutoBuilderPage() {
   const [unitTestMcqCount, setUnitTestMcqCount] = useState(DEFAULT_UNIT_TEST_MCQ);
   const [unitTestShortCount, setUnitTestShortCount] = useState(DEFAULT_UNIT_TEST_SHORT);
   const [sectionInclusion, setSectionInclusion] = useState<TextbookSectionInclusion>(DEFAULT_SECTION_INCLUSION);
+  /** 세션 시작 전: 교재 정보 → 단원별 지문(한 화면씩) → 확인·단원 추가·교재 생성 */
+  const [preSessionPhase, setPreSessionPhase] = useState<PreSessionPhase>("meta");
+  const [setupPassageIndex, setSetupPassageIndex] = useState(0);
 
   const isComplete = sessionId !== null && currentUnitIndex >= totalUnits;
   const unitTestTotalOk =
@@ -158,6 +163,8 @@ export function TextbookAutoBuilderPage() {
     setExportPackage(null);
     setMsg(null);
     setErr(null);
+    setPreSessionPhase("meta");
+    setSetupPassageIndex(0);
   }, []);
 
   /** 2단계 → 1단계(지문 설정). 세션 UI만 끊음 — Firestore 데이터는 유지됨 */
@@ -219,6 +226,88 @@ export function TextbookAutoBuilderPage() {
       cancelled = true;
     };
   }, [uid, sessionId, currentUnitIndex, isComplete]);
+
+  const validateSetupUnit = useCallback(
+    (unitIndex: number): string | null => {
+      const n = Math.min(MAX_UNITS, Math.max(1, Math.floor(totalUnits)));
+      const slice = unitInputs.slice(0, n);
+      const u = slice[unitIndex] ?? emptyUnitSetup();
+      if (u.pendingFiles.length > 0) {
+        return `제 ${unitIndex + 1}단원: 추출하지 않은 파일이 있습니다. 먼저 「추출」을 누르거나 대기 목록에서 제거하세요.`;
+      }
+      const t = combineUnitPassage(u).trim();
+      if (!t) {
+        return `제 ${unitIndex + 1}단원 지문이 비었습니다. 직접 입력하거나 파일을 추출해 주세요.`;
+      }
+      if (t.length > MAX_UNIT_PASSAGE_CHARS) {
+        return `제 ${unitIndex + 1}단원 지문이 너무 깁니다 (${t.length.toLocaleString()}자). 단원당 약 ${MAX_UNIT_PASSAGE_CHARS.toLocaleString()}자 이내로 나눠 주세요.`;
+      }
+      return null;
+    },
+    [unitInputs, totalUnits],
+  );
+
+  const goSetupMetaToFirstPassage = useCallback(() => {
+    setErr(null);
+    setMsg(null);
+    if (!bookTitle.trim()) {
+      setErr("교재 제목을 입력하세요.");
+      return;
+    }
+    const n = Math.min(MAX_UNITS, Math.max(1, Math.floor(totalUnits)));
+    setTotalUnits(n);
+    setSetupPassageIndex(0);
+    setPreSessionPhase("passage");
+  }, [bookTitle, totalUnits]);
+
+  const goSetupPassageNext = useCallback(() => {
+    setErr(null);
+    const n = Math.min(MAX_UNITS, Math.max(1, Math.floor(totalUnits)));
+    const v = validateSetupUnit(setupPassageIndex);
+    if (v) {
+      setErr(v);
+      return;
+    }
+    if (setupPassageIndex < n - 1) {
+      const next = setupPassageIndex + 1;
+      setSetupPassageIndex(next);
+      setMsg(`제 ${next + 1}단원 지문을 입력하세요.`);
+    } else {
+      setPreSessionPhase("review");
+      setMsg("각 단원 지문을 확인한 뒤 「교재 생성」으로 세션을 시작하세요.");
+    }
+  }, [validateSetupUnit, setupPassageIndex, totalUnits]);
+
+  const goSetupPassagePrev = useCallback(() => {
+    setErr(null);
+    if (setupPassageIndex > 0) {
+      setSetupPassageIndex((i) => i - 1);
+    } else {
+      setPreSessionPhase("meta");
+      setMsg(null);
+    }
+  }, [setupPassageIndex]);
+
+  const goSetupReviewPrevToLastPassage = useCallback(() => {
+    setErr(null);
+    const n = Math.min(MAX_UNITS, Math.max(1, Math.floor(totalUnits)));
+    setPreSessionPhase("passage");
+    setSetupPassageIndex(Math.max(0, n - 1));
+  }, [totalUnits]);
+
+  const goSetupAddUnit = useCallback(() => {
+    setErr(null);
+    const n = Math.min(MAX_UNITS, Math.max(1, Math.floor(totalUnits)));
+    if (n >= MAX_UNITS) {
+      setErr(`단원은 최대 ${MAX_UNITS}개까지입니다.`);
+      return;
+    }
+    const nextN = n + 1;
+    setTotalUnits(nextN);
+    setSetupPassageIndex(nextN - 1);
+    setPreSessionPhase("passage");
+    setMsg(`제 ${nextN}단원 지문을 입력하세요.`);
+  }, [totalUnits]);
 
   const startSession = useCallback(async () => {
     setErr(null);
@@ -730,6 +819,8 @@ export function TextbookAutoBuilderPage() {
     }
   }, []);
 
+  const setupUnitCount = Math.min(MAX_UNITS, Math.max(1, Math.floor(totalUnits)));
+
   return (
     <DashboardShell light>
       <main className={styles.main}>
@@ -739,8 +830,7 @@ export function TextbookAutoBuilderPage() {
             <h1 className={styles.title}>교재 자동 생성 · 통합 작업실</h1>
             {workspaceTab === "unitBook" ? (
               <p className={styles.lead}>
-                단원 수만큼 지문 칸이 열립니다. 각 단원에 직접 붙여넣거나 파일을 여러 개 올린 뒤 PDF는 페이지 범위·개별 페이지를 지정해 추출할 수 있습니다. 세션을 시작한 뒤 단원별 AI
-                초안을 확정하고, 3–4단계에서 정답·해설·클라우드를 다룬 뒤, 5단계에서 표지·목차·본문·추가 페이지를 합친 완성본 Word를 내려받을 수 있습니다.
+                먼저 <strong>교재 제목·단원 수</strong>를 정한 뒤, <strong>1단원부터 한 화면씩</strong> 지문을 입력합니다. 마지막 확인 화면에서 단원을 더하거나 「교재 생성」으로 세션을 시작하고, 단원별 AI 초안 확정 후 3–5단계에서 정답·해설·완성본 Word를 다룹니다.
               </p>
             ) : workspaceTab === "passageClassify" ? (
               <p className={styles.lead}>
@@ -803,33 +893,57 @@ export function TextbookAutoBuilderPage() {
           ) : !sessionId ? (
             <section className={styles.card} aria-labelledby="setup-h">
               <h2 id="setup-h" className={styles.cardTitle}>
-                1. 세션 시작 — 단원별 지문
+                1. 세션 시작 —{" "}
+                {preSessionPhase === "meta"
+                  ? "교재 정보"
+                  : preSessionPhase === "passage"
+                    ? `제 ${setupPassageIndex + 1}단원 지문`
+                    : "확인 및 교재 생성"}
               </h2>
-              <label className={styles.field}>
-                <span className={styles.label}>교재 제목</span>
-                <input
-                  className={styles.input}
-                  value={bookTitle}
-                  onChange={(e) => setBookTitle(e.target.value)}
-                  placeholder="예: 독해 논리 마스터 1단계"
-                  maxLength={200}
-                />
-              </label>
-              <label className={styles.field}>
-                <span className={styles.label}>총 단원 수 (1–{MAX_UNITS})</span>
-                <input
-                  className={styles.input}
-                  type="number"
-                  min={1}
-                  max={MAX_UNITS}
-                  value={totalUnits}
-                  onChange={(e) => setTotalUnits(Number(e.target.value) || 1)}
-                />
-              </label>
 
-              <div className={styles.unitGrid}>
-                {unitInputs.slice(0, totalUnits).map((unitState, ui) => (
-                  <div key={ui} className={styles.unitCard}>
+              {preSessionPhase === "meta" ? (
+                <>
+                  <label className={styles.field}>
+                    <span className={styles.label}>교재 제목</span>
+                    <input
+                      className={styles.input}
+                      value={bookTitle}
+                      onChange={(e) => setBookTitle(e.target.value)}
+                      placeholder="예: 독해 논리 마스터 1단계"
+                      maxLength={200}
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.label}>총 단원 수 (1–{MAX_UNITS})</span>
+                    <input
+                      className={styles.input}
+                      type="number"
+                      min={1}
+                      max={MAX_UNITS}
+                      value={totalUnits}
+                      onChange={(e) => setTotalUnits(Number(e.target.value) || 1)}
+                    />
+                  </label>
+                  <p className={styles.hint}>
+                    「제 1단원 지문 입력」부터 한 화면에 하나씩 입력합니다. 마지막에 단원을 더하거나 교재 생성할 수 있습니다.
+                  </p>
+                  <button type="button" className={styles.btnPrimary} onClick={goSetupMetaToFirstPassage}>
+                    제 1단원 지문 입력
+                  </button>
+                </>
+              ) : null}
+
+              {preSessionPhase === "passage" ? (
+                <>
+                  <p className={styles.hint}>
+                    진행 {setupPassageIndex + 1} / {setupUnitCount}단원. 파일은 「추출」까지 완료해야 다음으로 넘어갈 수 있습니다.
+                  </p>
+                  <div className={styles.unitGrid} style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
+                    {(() => {
+                      const ui = setupPassageIndex;
+                      const unitState = unitInputs[ui] ?? emptyUnitSetup();
+                      return (
+                  <div className={styles.unitCard}>
                     <h3 className={styles.unitCardTitle}>제 {ui + 1}단원 지문</h3>
                     <label className={styles.field}>
                       <span className={styles.label}>직접 입력</span>
@@ -957,12 +1071,65 @@ export function TextbookAutoBuilderPage() {
                       {MAX_UNIT_PASSAGE_CHARS.toLocaleString()}자
                     </p>
                   </div>
-                ))}
-              </div>
+                      );
+                    })()}
+                  </div>
+                  <div className={styles.row}>
+                    <button type="button" className={styles.btnGhost} onClick={goSetupPassagePrev}>
+                      이전
+                    </button>
+                    <button type="button" className={styles.btnPrimary} onClick={goSetupPassageNext}>
+                      {setupPassageIndex >= setupUnitCount - 1 ? "확인 화면으로" : "다음 단원"}
+                    </button>
+                  </div>
+                </>
+              ) : null}
 
-              <button type="button" className={styles.btnPrimary} disabled={busy} onClick={() => void startSession()}>
-                {busy ? "처리 중…" : "세션 시작"}
-              </button>
+              {preSessionPhase === "review" ? (
+                <>
+                  <p className={styles.p}>
+                    <strong>{bookTitle.trim() || "(제목 없음)"}</strong> · 총 <strong>{setupUnitCount}</strong>단원
+                  </p>
+                  <ul className={styles.segmentList}>
+                    {Array.from({ length: setupUnitCount }, (_, ui) => {
+                      const st = unitInputs[ui] ?? emptyUnitSetup();
+                      const merged = combineUnitPassage(st).trim();
+                      const len = merged.length;
+                      const prev =
+                        (merged.replace(/\s+/g, " ").slice(0, 120) + (merged.length > 120 ? "…" : "")) || "(비어 있음)";
+                      return (
+                        <li key={ui} className={styles.segmentItem}>
+                          <div className={styles.segmentHead}>
+                            <span className={styles.segmentNote}>
+                              제 {ui + 1}단원 · 약 {len.toLocaleString()}자
+                            </span>
+                          </div>
+                          <p className={styles.segmentPreview}>{prev}</p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <p className={styles.hint}>
+                    「교재 생성」으로 AI 단원 작업(2단계)을 시작합니다. 단원을 더하려면 「단원 추가」를 누른 뒤 새 지문을 입력하세요.
+                  </p>
+                  <div className={styles.row}>
+                    <button type="button" className={styles.btnGhost} onClick={goSetupReviewPrevToLastPassage}>
+                      이전 (마지막 단원)
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      onClick={goSetupAddUnit}
+                      disabled={setupUnitCount >= MAX_UNITS}
+                    >
+                      단원 추가
+                    </button>
+                    <button type="button" className={styles.btnPrimary} disabled={busy} onClick={() => void startSession()}>
+                      {busy ? "처리 중…" : "교재 생성 (세션 시작)"}
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </section>
           ) : (
             <>
