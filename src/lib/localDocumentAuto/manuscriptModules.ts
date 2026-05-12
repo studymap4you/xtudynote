@@ -302,21 +302,20 @@ export function emptyLocalDocModule(field: LocalDocModuleField): LocalDocModule 
   return base;
 }
 
+/** AI 등: beforeIndex 직전까지 스캔해 가장 가까운 「문제·지문·선택지」 블록만 사용. 없으면 모든 문제 블록을 이어붙임. */
 export function buildAiContextFromModules(modules: LocalDocModule[], beforeIndex: number): string {
-  const parts: string[] = [];
-  for (let i = 0; i < beforeIndex && i < modules.length; i++) {
+  for (let i = Math.min(beforeIndex, modules.length) - 1; i >= 0; i--) {
     const m = modules[i]!;
-    if (m.field === "problem" || m.field === "answer" || m.field === "explanation") {
+    if (m.field === "problem") {
       const t = (m.body ?? "").trim();
-      if (t) parts.push(t);
+      if (t) return t;
     }
   }
-  if (parts.length === 0) {
-    for (const m of modules) {
-      if (m.field === "problem") {
-        const t = (m.body ?? "").trim();
-        if (t) parts.push(t);
-      }
+  const parts: string[] = [];
+  for (const m of modules) {
+    if (m.field === "problem") {
+      const t = (m.body ?? "").trim();
+      if (t) parts.push(t);
     }
   }
   return parts.join("\n\n---\n\n");

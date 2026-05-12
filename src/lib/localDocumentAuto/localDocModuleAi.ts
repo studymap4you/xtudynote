@@ -90,7 +90,10 @@ export async function requestTopicGistModuleAi(passageContext: string): Promise<
     model,
     apiKey,
     TOPIC_GIST_SYSTEM,
-    buildContext("아래 지문·문항 맥락을 바탕으로 JSON만 출력하세요.", passageContext),
+    buildContext(
+      "아래는 한 문항의 「문제·지문·선택지」 블록 전체입니다. 이 지문·문항만 근거로 JSON만 출력하세요.",
+      passageContext,
+    ),
   );
   let o: { topic?: string; title?: string; gist?: string };
   try {
@@ -121,7 +124,10 @@ export async function requestLiteralTranslationModuleAi(passageContext: string):
     model,
     apiKey,
     LITERAL_SYSTEM,
-    buildContext("아래를 바탕으로 직독직해 본문만 출력하세요.", passageContext),
+    buildContext(
+      "아래는 한 문항의 「문제·지문·선택지」 블록입니다. 이 영어 지문을 중심으로 직독직해 본문만 출력하세요.",
+      passageContext,
+    ),
   );
   if (!text.trim()) throw new Error("AI가 직독직해를 비우고 반환했습니다.");
   return text.trim();

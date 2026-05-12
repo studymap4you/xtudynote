@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { useToast } from "@/contexts/ToastContext";
 import { buildLocalDocPrintRootFromModules } from "@/lib/localDocumentAuto/buildPrintDom";
@@ -113,6 +113,11 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
   const [editRowIndex, setEditRowIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<LocalDocModule | null>(null);
   const [aiBusyRow, setAiBusyRow] = useState<number | null>(null);
+  const [insertField, setInsertField] = useState<LocalDocModuleField>(() => (kind === "evaluation" ? "evaluation" : "problem"));
+
+  useEffect(() => {
+    setInsertField(kind === "evaluation" ? "evaluation" : "problem");
+  }, [kind]);
 
   const defaultAddField = useCallback((): LocalDocModuleField => {
     return kind === "evaluation" ? "evaluation" : "problem";
@@ -203,6 +208,24 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
       setAiBusyRow(null);
     }
   }, [editRowIndex, draft, modules]);
+
+  const insertModuleAt = useCallback(
+    (at: number, field: LocalDocModuleField) => {
+      let insertedIdx = 0;
+      setModules((prev) => {
+        if (!prev) return prev;
+        const row = [...prev];
+        insertedIdx = Math.max(0, Math.min(at, row.length));
+        row.splice(insertedIdx, 0, emptyLocalDocModule(field));
+        return row;
+      });
+      closeEditor();
+      setLocalMsg(
+        `「${LOCAL_DOC_FIELD_LABEL[field]}」모듈을 ${insertedIdx + 1}번 위치에 넣었습니다. 편집에서 내용을 조정하세요.`,
+      );
+    },
+    [closeEditor],
+  );
 
   const addRow = useCallback(() => {
     setModules((prev) => [...(prev ?? []), emptyLocalDocModule(defaultAddField())]);
@@ -472,10 +495,27 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                   ? "학습지 PDF에는 [평가문제] 모듈이 포함되지 않습니다(목록에는 그대로 둘 수 있습니다)."
                   : "평가 PDF에는 [평가문제] 모듈만 2단으로 묶여 들어갑니다. 다른 구역은 참고용으로만 표시됩니다."}
               </p>
-              <div className={styles.passageModuleToolbar}>
+              <div className={styles.passageModuleToolbar} style={{ flexWrap: "wrap", gap: "0.75rem", alignItems: "flex-end" }}>
                 <button type="button" className={styles.btnSecondary} onClick={addRow}>
-                  + 모듈 추가
+                  + 맨 끝에 모듈 추가
                 </button>
+                <label className={styles.field} style={{ marginBottom: 0, minWidth: "200px" }}>
+                  <span className={styles.label}>행 「위에/아래에」삽입 시 구역</span>
+                  <select
+                    className={styles.select}
+                    value={insertField}
+                    onChange={(e) => setInsertField(e.target.value as LocalDocModuleField)}
+                  >
+                    {ALL_LOCAL_DOC_MODULE_FIELDS.map((k) => (
+                      <option key={k} value={k}>
+                        {LOCAL_DOC_FIELD_LABEL[k]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className={styles.hint} style={{ flex: "1 1 200px", marginBottom: 0 }}>
+                  각 행 조작 칸의 「위에」「아래에」로 현재 선택한 구역의 빈 모듈을 끼워 넣습니다. AI(주제·직독직해)는 해당 행보다 위에 있는 가장 가까운 「문제·지문」블록만 참고합니다.
+                </p>
               </div>
               <table className={styles.passageTable}>
                 <thead>
@@ -548,35 +588,53 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                               : "—"}
                         </td>
                         <td className={styles.passageRowActions}>
-                          <button
-                            type="button"
-                            className={styles.btnMini}
-                            onClick={() => moveRow(rowIndex, -1)}
-                            disabled={rowIndex === 0}
-                            aria-label="한 칸 위로"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.btnMini}
-                            onClick={() => moveRow(rowIndex, 1)}
-                            disabled={rowIndex === modules.length - 1}
-                            aria-label="한 칸 아래로"
-                          >
-                            ↓
-                          </button>
-                          <button type="button" className={styles.btnMiniGhost} onClick={() => openEditor(rowIndex)}>
-                            편집
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.btnMiniGhost}
-                            onClick={() => deleteRow(rowIndex)}
-                            disabled={modules.length <= 1}
-                          >
-                            삭제
-                          </button>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", justifyContent: "flex-end" }}>
+                            <button
+                              type="button"
+                              className={styles.btnMini}
+                              onClick={() => insertModuleAt(rowIndex, insertField)}
+                              title="선택한 구역으로 이 행 위에 삽입"
+                            >
+                              위에
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.btnMini}
+                              onClick={() => insertModuleAt(rowIndex + 1, insertField)}
+                              title="선택한 구역으로 이 행 아래에 삽입"
+                            >
+                              아래에
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.btnMini}
+                              onClick={() => moveRow(rowIndex, -1)}
+                              disabled={rowIndex === 0}
+                              aria-label="한 칸 위로"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.btnMini}
+                              onClick={() => moveRow(rowIndex, 1)}
+                              disabled={rowIndex === modules.length - 1}
+                              aria-label="한 칸 아래로"
+                            >
+                              ↓
+                            </button>
+                            <button type="button" className={styles.btnMiniGhost} onClick={() => openEditor(rowIndex)}>
+                              편집
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.btnMiniGhost}
+                              onClick={() => deleteRow(rowIndex)}
+                              disabled={modules.length <= 1}
+                            >
+                              삭제
+                            </button>
+                          </div>
                         </td>
                       </tr>
                       {editRowIndex === rowIndex && draft ? (
@@ -641,7 +699,7 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                                   </button>
                                 </div>
                                 <p className={styles.hint}>
-                                  AI는 위쪽에 있는 「문제 · 정답 · 해설」 모듈 본문을 참고합니다. 키가 없으면 .env.local의 VITE_OPENAI_API_KEY를 설정하세요.
+                                  AI는 이 행보다 <strong>위에 있는 가장 가까운</strong>「문제 · 지문 · 선택지」모듈 한 덩어리(해당 문항 지문)만 참고합니다. 위에 문제 블록이 없으면 목록에 있는 모든 문제 블록을 이어 붙입니다. 키는 .env.local의 VITE_OPENAI_API_KEY.
                                 </p>
                               </div>
                             ) : null}
