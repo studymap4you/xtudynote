@@ -338,6 +338,32 @@ export function TextbookAutoBuilderPage() {
     setMsg(`제 ${nextN}단원 지문을 입력하세요.`);
   }, [totalUnits]);
 
+  const removeSetupUnit = useCallback((unitIndexToRemove: number) => {
+    setErr(null);
+    const n = Math.min(MAX_UNITS, Math.max(1, Math.floor(totalUnits)));
+    if (n <= 1) {
+      setErr("단원은 최소 1개가 필요합니다.");
+      return;
+    }
+    if (unitIndexToRemove < 0 || unitIndexToRemove >= n) return;
+    if (
+      !window.confirm(
+        `제 ${unitIndexToRemove + 1}단원을 삭제할까요? 이 단원에 입력·추출한 내용이 모두 사라집니다.`,
+      )
+    ) {
+      return;
+    }
+    const newN = n - 1;
+    setUnitInputs((prev) => prev.filter((_, i) => i !== unitIndexToRemove));
+    setTotalUnits(newN);
+    setSetupPassageIndex((prevIdx) => {
+      if (unitIndexToRemove === prevIdx) return Math.min(unitIndexToRemove, newN - 1);
+      if (unitIndexToRemove < prevIdx) return prevIdx - 1;
+      return prevIdx;
+    });
+    setMsg(`단원을 삭제했습니다. 현재 총 ${newN}단원입니다.`);
+  }, [totalUnits]);
+
   const startSession = useCallback(async () => {
     setErr(null);
     setMsg(null);
@@ -1020,7 +1046,8 @@ export function TextbookAutoBuilderPage() {
                     />
                   </label>
                   <p className={styles.hint}>
-                    「제 1단원 지문 입력」부터 한 화면에 하나씩 입력합니다. 마지막에 단원을 더하거나 교재 생성할 수 있습니다.
+                    「제 1단원 지문 입력」부터 한 화면에 하나씩 입력합니다. 총 단원 수는 첫 화면 값으로 시작해도, 지문·확인 단계에서 언제든지 단원을 더하거나
+                    지울 수 있습니다.
                   </p>
                   <button type="button" className={styles.btnPrimary} onClick={goSetupMetaToFirstPassage}>
                     제 1단원 지문 입력
@@ -1031,8 +1058,27 @@ export function TextbookAutoBuilderPage() {
               {preSessionPhase === "passage" ? (
                 <>
                   <p className={styles.hint}>
-                    진행 {setupPassageIndex + 1} / {setupUnitCount}단원. 파일은 「추출」까지 완료해야 다음으로 넘어갈 수 있습니다.
+                    진행 {setupPassageIndex + 1} / {setupUnitCount}단원. 파일은 「추출」까지 완료해야 다음으로 넘어갈 수 있습니다. 첫 화면에서 정한 단원 수와
+                    달라도, 여기서 단원을 추가·삭제할 수 있습니다.
                   </p>
+                  <div className={styles.setupUnitToolbar}>
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      onClick={goSetupAddUnit}
+                      disabled={setupUnitCount >= MAX_UNITS}
+                    >
+                      단원 추가
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.btnGhost}
+                      onClick={() => removeSetupUnit(setupPassageIndex)}
+                      disabled={setupUnitCount <= 1}
+                    >
+                      이 단원 삭제
+                    </button>
+                  </div>
                   <div className={styles.unitGrid} style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
                     {(() => {
                       const ui = setupPassageIndex;
@@ -1283,6 +1329,14 @@ export function TextbookAutoBuilderPage() {
                             <span className={styles.segmentNote}>
                               제 {ui + 1}단원 · 약 {len.toLocaleString()}자
                             </span>
+                            <button
+                              type="button"
+                              className={styles.btnMiniGhost}
+                              onClick={() => removeSetupUnit(ui)}
+                              disabled={setupUnitCount <= 1}
+                            >
+                              단원 삭제
+                            </button>
                           </div>
                           <p className={styles.segmentPreview}>{prev}</p>
                         </li>
@@ -1290,7 +1344,7 @@ export function TextbookAutoBuilderPage() {
                     })}
                   </ul>
                   <p className={styles.hint}>
-                    「교재 생성」으로 AI 단원 작업(2단계)을 시작합니다. 단원을 더하려면 「단원 추가」를 누른 뒤 새 지문을 입력하세요.
+                    「교재 생성」으로 AI 단원 작업(2단계)을 시작합니다. 단원 수는 아래 「단원 추가」·목록의 「단원 삭제」로 바꿀 수 있습니다.
                   </p>
                   <div className={styles.row}>
                     <button type="button" className={styles.btnGhost} onClick={goSetupReviewPrevToLastPassage}>
