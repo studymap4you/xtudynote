@@ -67,13 +67,14 @@ def phase4_effective(p: Phase4Block | None) -> Phase4Block | None:
 
 
 PROBLEM_START = re.compile(r"^\s*(\d+)\.\s*(.*)$")
-CHOICE_LINE = re.compile(r"^\s*([①②③④⑤])\s*(.*)$")
+CHOICE_LINE = re.compile(r"^\s*([①②③④⑤])\s*[.．]?\s*(.*)$")
 CIRCLE_TO_NUM = {"①": "1", "②": "2", "③": "3", "④": "4", "⑤": "5"}
 MERGE_UNIT_HEAD = re.compile(r"\[\s*문제\s*(\d+)\s*\]", re.I)
 
 ANCHOR_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("phase2_se", re.compile(r"\[\s*정답\s*및\s*해설\s*\]", re.I)),
     ("phase2_short", re.compile(r"\[\s*정답\s*\]", re.I)),
+    ("phase2_expl", re.compile(r"\[\s*해설\s*\]", re.I)),
     ("phase3_topic", re.compile(r"\[\s*주제\s*\]", re.I)),
     ("phase3_gist", re.compile(r"\[\s*요지\s*\]", re.I)),
     ("phase3_keysent", re.compile(r"\[\s*주제문\s*\]", re.I)),
@@ -85,6 +86,10 @@ ANCHOR_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 
 def _norm(s: str) -> str:
     return s.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _normalize_bracket_anchors(s: str) -> str:
+    return s.replace("\uff3b", "[").replace("\uff3d", "]").replace("【", "[").replace("】", "]")
 
 
 def _split_stem_passage(preamble_lines: list[str]) -> tuple[str, str]:
@@ -116,27 +121,59 @@ def _parse_choices(lines: list[str], start: int) -> tuple[dict[str, str], int]:
     return choices, i
 
 
+def _find_first_anchor_start(text: str) -> int:
+    min_i = -1
+    for _kind, pat in ANCHOR_PATTERNS:
+        m = pat.search(text)
+        if m and (min_i < 0 or m.start() < min_i):
+            min_i = m.start()
+    return min_i
+
+
+def _fallback_phase2(text: str) -> Phase2Block | None:
+    t = text.strip()
+    if not t:
+        return None
+    ans_m = re.search(r"(?:정답|답)\s*[:：]?\s*([①②③④⑤1-5])", t)
+    if ans_m:
+        token = ans_m.group(1)
+        ans = int(CIRCLE_TO_NUM.get(token, token))
+        tail = t[ans_m.end() :].strip()
+        tail = re.sub(r"^\s*(?:해설|설명)\s*[:：]?\s*", "", tail, count=1, flags=re.M).strip() or t[ans_m.start() :].strip()
+        return Phase2Block(answer=ans, explanation=tail or t)
+    em = re.search(r"^\s*해설\s*[:：]?\s*([\s\S]*)$", t, re.M)
+    if em and em.group(1).strip():
+        return Phase2Block(answer=1, explanation=em.group(1).strip())
+    return None
+
+
 def _parse_trailing(text: str) -> tuple[Phase2Block | None, Phase3Block | None, Phase4Block | None]:
-    if not text.strip():
+    normalized = _normalize_bracket_anchors(text)
+    if not normalized.strip():
         return None, None, None
 
     matches: list[tuple[int, int, str]] = []
     for kind, pat in ANCHOR_PATTERNS:
-        for m in pat.finditer(text):
+        for m in pat.finditer(normalized):
             matches.append((m.start(), m.end(), kind))
     matches.sort(key=lambda x: x[0])
 
     segs: dict[str, str] = {}
-    for idx, (start, end, kind) in enumerate(matches):
+    p2_parts: list[str] = []
+    for idx, (_start, end, kind) in enumerate(matches):
         content_start = end
-        content_end = matches[idx + 1][0] if idx + 1 < len(matches) else len(text)
-        chunk = text[content_start:content_end].strip()
+        content_end = matches[idx + 1][0] if idx + 1 < len(matches) else len(normalized)
+        chunk = normalized[content_start:content_end].strip()
+        if kind.startswith("phase2_"):
+            if chunk:
+                p2_parts.append(chunk)
+            continue
         if kind in segs:
             segs[kind] = f"{segs[kind]}\n{chunk}".strip()
         else:
             segs[kind] = chunk
 
-    p2_raw = (segs.get("phase2_se") or segs.get("phase2_short") or "").strip()
+    p2_raw = "\n\n".join(p2_parts).strip()
     phase2: Phase2Block | None = None
     if p2_raw:
         ans_m = re.search(r"(?:정답|답)\s*[:：]?\s*([①②③④⑤1-5])", p2_raw)
@@ -152,6 +189,8 @@ def _parse_trailing(text: str) -> tuple[Phase2Block | None, Phase3Block | None, 
             flags=re.M,
         ).strip()
         phase2 = Phase2Block(answer=ans, explanation=expl or p2_raw)
+    if phase2 is None:
+        phase2 = _fallback_phase2(normalized)
 
     p3 = Phase3Block(
         topic=(segs.get("phase3_topic") or "").strip() or None,
@@ -167,7 +206,13 @@ def _parse_trailing(text: str) -> tuple[Phase2Block | None, Phase3Block | None, 
     return phase2, p3, p4
 
 
+def _looks_like_explanation_only(u: PassageUnit) -> bool:
+    blob = f"{u.phase1.stem}\n{u.phase1.passage}".strip()
+    return bool(re.search(r"\[\s*정답|정답\s*및\s*해설|\[\s*해설|^\s*해설\s*[:：]?", blob, re.I))
+
+
 def _parse_unit_body(number: int, body: str) -> PassageUnit:
+    body = _normalize_bracket_anchors(_norm(body))
     lines = body.split("\n")
     choice_idx = None
     for i, line in enumerate(lines):
@@ -175,10 +220,28 @@ def _parse_unit_body(number: int, body: str) -> PassageUnit:
             choice_idx = i
             break
     if choice_idx is None:
+        full_text = "\n".join(lines).strip()
+        anchor_at = _find_first_anchor_start(full_text)
+        if anchor_at >= 0:
+            preamble = full_text[:anchor_at].strip()
+            preamble_lines = preamble.split("\n") if preamble else []
+            stem, passage = _split_stem_passage(preamble_lines)
+            ph2, ph3, ph4 = _parse_trailing(full_text[anchor_at:])
+            return PassageUnit(
+                number=number,
+                phase1=Phase1Block(number=number, stem=stem, passage=passage, choices={}),
+                phase2=ph2,
+                phase3=ph3,
+                phase4=ph4,
+            )
         stem, passage = _split_stem_passage(lines)
+        ph2, ph3, ph4 = _parse_trailing(full_text)
         return PassageUnit(
             number=number,
             phase1=Phase1Block(number=number, stem=stem, passage=passage, choices={}),
+            phase2=ph2,
+            phase3=ph3,
+            phase4=ph4,
         )
 
     preamble = lines[:choice_idx]
@@ -196,7 +259,7 @@ def _parse_unit_body(number: int, body: str) -> PassageUnit:
 
 
 def split_unit_chunks(text: str) -> list[tuple[int, str]]:
-    text = _norm(text)
+    text = _normalize_bracket_anchors(_norm(text))
     lines = text.split("\n")
     heads: list[tuple[int, int, str]] = []
     for i, line in enumerate(lines):
@@ -217,8 +280,53 @@ def split_unit_chunks(text: str) -> list[tuple[int, str]]:
     return chunks
 
 
+def _renumber_units(units: list[PassageUnit]) -> list[PassageUnit]:
+    out: list[PassageUnit] = []
+    for i, u in enumerate(units, start=1):
+        p1 = u.phase1
+        out.append(
+            PassageUnit(
+                number=i,
+                phase1=Phase1Block(number=i, stem=p1.stem, passage=p1.passage, choices=dict(p1.choices)),
+                phase2=u.phase2,
+                phase3=u.phase3,
+                phase4=u.phase4,
+            )
+        )
+    return out
+
+
+def _merge_detached_explanations(units: list[PassageUnit]) -> list[PassageUnit]:
+    out: list[PassageUnit] = []
+    for u in units:
+        if not out:
+            out.append(u)
+            continue
+        prev = out[-1]
+        no_choices = len(u.phase1.choices) == 0
+        prev_has = len(prev.phase1.choices) > 0
+        if no_choices and prev_has and (u.phase2 is not None or _looks_like_explanation_only(u)):
+            if u.phase2:
+                if prev.phase2 is None:
+                    prev.phase2 = u.phase2
+                else:
+                    prev.phase2 = Phase2Block(
+                        answer=prev.phase2.answer,
+                        explanation=f"{prev.phase2.explanation}\n\n{u.phase2.explanation}".strip(),
+                    )
+            if u.phase3:
+                prev.phase3 = _merge_phase3(prev.phase3, u.phase3)
+            if u.phase4:
+                prev.phase4 = u.phase4
+            continue
+        out.append(u)
+    return out
+
+
 def parse_document(raw: str) -> list[PassageUnit]:
-    return [_parse_unit_body(n, body) for n, body in split_unit_chunks(raw)]
+    units = [_parse_unit_body(n, body) for n, body in split_unit_chunks(raw)]
+    units = _merge_detached_explanations(units)
+    return _renumber_units(units)
 
 
 def _merge_phase3(a: Phase3Block | None, b: Phase3Block | None) -> Phase3Block | None:

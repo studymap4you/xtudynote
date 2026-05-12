@@ -35,13 +35,23 @@ export interface PassageUnit {
 }
 
 const PROBLEM_START = /^\s*(\d+)\.\s*(.*)$/;
-const CHOICE_LINE = /^\s*([①②③④⑤])\s*(.*)$/;
+const CHOICE_LINE = /^\s*([①②③④⑤])\s*[.．]?\s*(.*)$/;
+
 const CIRCLE_TO_NUM: Record<string, string> = { "①": "1", "②": "2", "③": "3", "④": "4", "⑤": "5" };
 const MERGE_UNIT_HEAD = /\[\s*문제\s*(\d+)\s*\]/gi;
+
+function normalizeBracketAnchors(s: string): string {
+  return s
+    .replace(/\uff3b/g, "[")
+    .replace(/\uff3d/g, "]")
+    .replace(/【/g, "[")
+    .replace(/】/g, "]");
+}
 
 const ANCHOR_PATTERNS: [string, RegExp][] = [
   ["phase2_se", /\[\s*정답\s*및\s*해설\s*\]/gi],
   ["phase2_short", /\[\s*정답\s*\]/gi],
+  ["phase2_expl", /\[\s*해설\s*\]/gi],
   ["phase3_topic", /\[\s*주제\s*\]/gi],
   ["phase3_gist", /\[\s*요지\s*\]/gi],
   ["phase3_keysent", /\[\s*주제문\s*\]/gi],
@@ -94,32 +104,68 @@ function parseChoices(lines: string[], start: number): [Record<string, string>, 
   return [choices, i];
 }
 
+function findFirstAnchorStart(text: string): number {
+  let min = -1;
+  for (const [, pat] of ANCHOR_PATTERNS) {
+    const p = new RegExp(pat.source, pat.flags);
+    const m = p.exec(text);
+    if (m && (min < 0 || m.index < min)) min = m.index;
+  }
+  return min;
+}
+
+function fallbackPhase2(text: string): Phase2Block | null {
+  const t = text.trim();
+  if (!t) return null;
+  const ansM = t.match(/(?:정답|답)\s*[:：]?\s*([①②③④⑤1-5])/);
+  if (ansM?.[1]) {
+    const token = ansM[1];
+    let ans = parseInt(CIRCLE_TO_NUM[token] ?? token, 10);
+    if (Number.isNaN(ans)) ans = 1;
+    const idx = ansM.index ?? 0;
+    let expl = t.slice(idx + ansM[0].length).trim();
+    expl = expl.replace(/^\s*(?:해설|설명)\s*[:：]?\s*/m, "").trim() || t.slice(idx).trim();
+    return { answer: ans, explanation: expl || t };
+  }
+  const explOnly = t.match(/^\s*해설\s*[:：]?\s*([\s\S]*)$/m);
+  if (explOnly?.[1]?.trim()) {
+    return { answer: 1, explanation: explOnly[1].trim() };
+  }
+  return null;
+}
+
 function parseTrailing(text: string): [Phase2Block | null, Phase3Block | null, Phase4Block | null] {
-  if (!text.trim()) return [null, null, null];
+  const normalized = normalizeBracketAnchors(text);
+  if (!normalized.trim()) return [null, null, null];
 
   const matches: { start: number; end: number; kind: string }[] = [];
   for (const [kind, pat] of ANCHOR_PATTERNS) {
-    pat.lastIndex = 0;
-    let m: RegExpExecArray | null;
     const p = new RegExp(pat.source, pat.flags);
-    while ((m = p.exec(text)) !== null) {
+    let m: RegExpExecArray | null;
+    while ((m = p.exec(normalized)) !== null) {
       matches.push({ start: m.index, end: m.index + m[0].length, kind });
     }
   }
   matches.sort((a, b) => a.start - b.start);
 
   const segs: Record<string, string> = {};
+  const p2Parts: string[] = [];
+
   for (let idx = 0; idx < matches.length; idx++) {
     const { end, kind } = matches[idx]!;
     const contentStart = end;
-    const contentEnd = idx + 1 < matches.length ? matches[idx + 1]!.start : text.length;
-    let chunk = text.slice(contentStart, contentEnd).trim();
+    const contentEnd = idx + 1 < matches.length ? matches[idx + 1]!.start : normalized.length;
+    let chunk = normalized.slice(contentStart, contentEnd).trim();
+    if (kind.startsWith("phase2_")) {
+      if (chunk) p2Parts.push(chunk);
+      continue;
+    }
     if (segs[kind] !== undefined) segs[kind] = `${segs[kind]}\n${chunk}`.trim();
     else segs[kind] = chunk;
   }
 
+  let p2Raw = p2Parts.join("\n\n").trim();
   let phase2: Phase2Block | null = null;
-  const p2Raw = (segs.phase2_se ?? segs.phase2_short ?? "").trim();
   if (p2Raw) {
     const ansM = p2Raw.match(/(?:정답|답)\s*[:：]?\s*([①②③④⑤1-5])/);
     let ans = 1;
@@ -132,6 +178,7 @@ function parseTrailing(text: string): [Phase2Block | null, Phase3Block | null, P
     if (!expl) expl = p2Raw;
     phase2 = { answer: ans, explanation: expl };
   }
+  if (!phase2) phase2 = fallbackPhase2(normalized);
 
   let p3: Phase3Block | null = {
     topic: (segs.phase3_topic ?? "").trim() || null,
@@ -147,8 +194,55 @@ function parseTrailing(text: string): [Phase2Block | null, Phase3Block | null, P
   return [phase2, p3, p4];
 }
 
+function looksLikeExplanationOnlyUnit(u: PassageUnit): boolean {
+  const blob = `${u.phase1.stem}\n${u.phase1.passage}`.trim();
+  return /\[\s*정답|정답\s*및\s*해설|\[\s*해설|^\s*해설\s*[:：]?/im.test(blob);
+}
+
+function mergeDetachedExplanations(units: PassageUnit[]): PassageUnit[] {
+  const out: PassageUnit[] = [];
+  for (const u of units) {
+    if (!out.length) {
+      out.push(u);
+      continue;
+    }
+    const prev = out[out.length - 1]!;
+    const noChoices = Object.keys(u.phase1.choices).length === 0;
+    const prevHasChoices = Object.keys(prev.phase1.choices).length > 0;
+    const attach = noChoices && prevHasChoices && (u.phase2 != null || looksLikeExplanationOnlyUnit(u));
+    if (attach) {
+      if (u.phase2) {
+        if (!prev.phase2) prev.phase2 = structuredClone(u.phase2);
+        else {
+          prev.phase2 = {
+            answer: prev.phase2.answer,
+            explanation: `${prev.phase2.explanation}\n\n${u.phase2.explanation}`.trim(),
+          };
+        }
+      }
+      if (u.phase3) prev.phase3 = mergePhase3(prev.phase3, u.phase3);
+      if (u.phase4) prev.phase4 = u.phase4;
+      continue;
+    }
+    out.push(u);
+  }
+  return out;
+}
+
+function renumberUnits(units: PassageUnit[]): PassageUnit[] {
+  return units.map((u, i) => {
+    const n = i + 1;
+    return {
+      ...u,
+      number: n,
+      phase1: { ...u.phase1, number: n },
+    };
+  });
+}
+
 function parseUnitBody(number: number, body: string): PassageUnit {
-  const lines = body.split("\n");
+  const normBody = normalizeBracketAnchors(norm(body));
+  const lines = normBody.split("\n");
   let choiceIdx: number | null = null;
   for (let i = 0; i < lines.length; i++) {
     if (CHOICE_LINE.test(lines[i])) {
@@ -157,13 +251,30 @@ function parseUnitBody(number: number, body: string): PassageUnit {
     }
   }
   if (choiceIdx === null) {
+    const fullText = lines.join("\n").trim();
+    const anchorAt = findFirstAnchorStart(fullText);
+    if (anchorAt >= 0) {
+      const preamble = fullText.slice(0, anchorAt).trim();
+      const preambleLines = preamble ? preamble.split("\n") : [];
+      const [stem, passage] = splitStemPassage(preambleLines);
+      const fromAnchor = fullText.slice(anchorAt);
+      const [ph2, ph3, ph4] = parseTrailing(fromAnchor);
+      return {
+        number,
+        phase1: { number, stem, passage, choices: {} },
+        phase2: ph2,
+        phase3: ph3,
+        phase4: ph4,
+      };
+    }
     const [stem, passage] = splitStemPassage(lines);
+    const [ph2, ph3, ph4] = parseTrailing(fullText);
     return {
       number,
       phase1: { number, stem, passage, choices: {} },
-      phase2: null,
-      phase3: null,
-      phase4: null,
+      phase2: ph2,
+      phase3: ph3,
+      phase4: ph4,
     };
   }
 
@@ -182,7 +293,7 @@ function parseUnitBody(number: number, body: string): PassageUnit {
 }
 
 export function splitUnitChunks(text: string): [number, string][] {
-  text = norm(text);
+  text = normalizeBracketAnchors(norm(text));
   const lines = text.split("\n");
   const heads: [number, number, string][] = [];
   for (let i = 0; i < lines.length; i++) {
@@ -204,7 +315,10 @@ export function splitUnitChunks(text: string): [number, string][] {
 }
 
 export function parseDocument(raw: string): PassageUnit[] {
-  return splitUnitChunks(raw).map(([n, body]) => parseUnitBody(n, body));
+  let units = splitUnitChunks(raw).map(([n, body]) => parseUnitBody(n, body));
+  units = mergeDetachedExplanations(units);
+  units = renumberUnits(units);
+  return units;
 }
 
 function mergePhase3(a: Phase3Block | null, b: Phase3Block | null): Phase3Block | null {

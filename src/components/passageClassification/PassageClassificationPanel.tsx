@@ -86,6 +86,7 @@ export function PassageClassificationPanel() {
   const [footerRight, setFooterRight] = useState("내부용");
   const [includeP3, setIncludeP3] = useState(true);
   const [includeP4, setIncludeP4] = useState(true);
+  const [pastedManuscript, setPastedManuscript] = useState("");
 
   const ingestText = useCallback((text: string, label: string) => {
     const parsed = parseDocument(text);
@@ -99,6 +100,7 @@ export function PassageClassificationPanel() {
     setIncludeP3(p3 > 0);
     setIncludeP4(p4 > 0);
     setMsg(`「${label}」을(를) 불러왔습니다.`);
+    setPastedManuscript(text);
   }, []);
 
   const onFileChosen = useCallback(
@@ -193,6 +195,7 @@ export function PassageClassificationPanel() {
     setStep(1);
     setUnits(null);
     setMsg(null);
+    setPastedManuscript("");
     setDocTitle("지문 분류 결과");
     setHeaderTitle("Xtudy · 교재");
     setFooterLeft("Xtudy-Universe");
@@ -246,6 +249,44 @@ export function PassageClassificationPanel() {
             onChange={onUploadMain}
             aria-label="원고 txt 선택"
           />
+
+          <label className={styles.field}>
+            <span className={styles.label}>원고 직접 입력 (붙여넣기 · 수정 가능)</span>
+            <textarea
+              className={styles.localManuscript}
+              rows={10}
+              value={pastedManuscript}
+              onChange={(e) => setPastedManuscript(e.target.value)}
+              placeholder={
+                "1. 문제 줄…\n\n지문…\n\n① 보기…\n…\n\n[정답 및 해설] 또는 정답: ③ 처럼 괄호 없이 적어도 인식합니다."
+              }
+              spellCheck={false}
+            />
+          </label>
+          <div className={styles.localActionRow}>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={() => ingestText(pastedManuscript, "직접 입력")}
+              disabled={!pastedManuscript.trim()}
+            >
+              입력 내용으로 분석
+            </button>
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={() => {
+                setPastedManuscript(SAMPLE_MANUSCRIPT);
+                ingestText(SAMPLE_MANUSCRIPT, "예시 원고");
+              }}
+            >
+              예시 원고 넣기
+            </button>
+          </div>
+          <p className={styles.hint}>
+            선택지 줄은 ①~⑤로 시작하면 되며 ①. 처럼 마침표가 있어도 됩니다. 「정답:」「[해설]」「【정답 및 해설】」 등도 인식합니다. 번호만 매긴 해설 블록(선택지 없음)은 자동으로 앞 문항의 해설에 붙입니다.
+          </p>
+
           <div
             className={`${styles.passageDrop} ${dragOver ? styles.passageDropActive : ""}`}
             onDragOver={onDragOver}
