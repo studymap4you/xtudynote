@@ -12,7 +12,7 @@ import { LocalDocModulesEditor } from "@/components/localDocumentAuto/LocalDocMo
 import { useAuth } from "@/contexts/AuthContext";
 import { storage } from "@/firebase/config";
 import { BRAND_APP_NAME } from "@/lib/brand";
-import { combineUnitPassage, emptyUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
+import { combineUnitPassage, emptyModule, emptyUnitSetup, normalizeUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
 import { parseManuscriptToModules } from "@/lib/localDocumentAuto/manuscriptModules";
 import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
@@ -50,6 +50,7 @@ import type {
   TextbookSetupPendingMode,
   TextbookUnitContent,
   TextbookUnitSetupState,
+  TextbookUnitSourceModule,
 } from "@/types/textbookAuto";
 import { DEFAULT_SECTION_INCLUSION } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoBuilder.module.css";
@@ -231,13 +232,13 @@ export function TextbookAutoBuilderPage() {
     (unitIndex: number): string | null => {
       const n = Math.min(MAX_UNITS, Math.max(1, Math.floor(totalUnits)));
       const slice = unitInputs.slice(0, n);
-      const u = slice[unitIndex] ?? emptyUnitSetup();
+      const u = normalizeUnitSetup(slice[unitIndex]);
       if (u.pendingFiles.length > 0) {
         return `제 ${unitIndex + 1}단원: 추출하지 않은 파일이 있습니다. 먼저 「추출」을 누르거나 대기 목록에서 제거하세요.`;
       }
       const t = combineUnitPassage(u).trim();
       if (!t) {
-        return `제 ${unitIndex + 1}단원 지문이 비었습니다. 직접 입력하거나 파일을 추출해 주세요.`;
+        return `제 ${unitIndex + 1}단원: 모듈(지문·문제 등)을 입력하거나 파일을 추출해 주세요.`;
       }
       if (t.length > MAX_UNIT_PASSAGE_CHARS) {
         return `제 ${unitIndex + 1}단원 지문이 너무 깁니다 (${t.length.toLocaleString()}자). 단원당 약 ${MAX_UNIT_PASSAGE_CHARS.toLocaleString()}자 이내로 나눠 주세요.`;
@@ -324,7 +325,7 @@ export function TextbookAutoBuilderPage() {
     }
     const slice = unitInputs.slice(0, n);
     for (let i = 0; i < n; i++) {
-      const u = slice[i] ?? emptyUnitSetup();
+      const u = normalizeUnitSetup(slice[i]);
       if (u.pendingFiles.length > 0) {
         setErr(`제 ${i + 1}단원: 추출하지 않은 파일이 있습니다. 먼저 「추출」을 누르거나 대기 목록에서 제거하세요.`);
         return;
@@ -334,7 +335,7 @@ export function TextbookAutoBuilderPage() {
     for (let i = 0; i < n; i++) {
       const t = passages[i]?.trim() ?? "";
       if (!t) {
-        setErr(`제 ${i + 1}단원 지문이 비었습니다. 직접 입력하거나 파일을 추출해 주세요.`);
+        setErr(`제 ${i + 1}단원: 모듈을 입력하거나 파일을 추출해 주세요.`);
         return;
       }
       if (t.length > MAX_UNIT_PASSAGE_CHARS) {
@@ -559,11 +560,35 @@ export function TextbookAutoBuilderPage() {
     }
   }, [uid, sessionId, confirmedUnits, bookTitle]);
 
-  const setManual = useCallback((unitIndex: number, text: string) => {
+  const patchSourceModule = useCallback(
+    (unitIndex: number, moduleId: string, patch: Partial<Omit<TextbookUnitSourceModule, "id">>) => {
+      setUnitInputs((prev) => {
+        const next = [...prev];
+        const row = normalizeUnitSetup(next[unitIndex]);
+        row.modules = row.modules.map((mod) => (mod.id === moduleId ? { ...mod, ...patch } : mod));
+        next[unitIndex] = row;
+        return next;
+      });
+    },
+    [],
+  );
+
+  const addSourceModule = useCallback((unitIndex: number) => {
     setUnitInputs((prev) => {
       const next = [...prev];
-      const row = { ...(next[unitIndex] ?? emptyUnitSetup()) };
-      row.manualText = text;
+      const row = normalizeUnitSetup(next[unitIndex]);
+      row.modules = [...row.modules, emptyModule()];
+      next[unitIndex] = row;
+      return next;
+    });
+  }, []);
+
+  const removeSourceModule = useCallback((unitIndex: number, moduleId: string) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = normalizeUnitSetup(next[unitIndex]);
+      if (row.modules.length <= 1) return prev;
+      row.modules = row.modules.filter((m) => m.id !== moduleId);
       next[unitIndex] = row;
       return next;
     });
@@ -573,7 +598,7 @@ export function TextbookAutoBuilderPage() {
     if (!files.length) return;
     setUnitInputs((prev) => {
       const next = [...prev];
-      const row = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+      const row = normalizeUnitSetup(next[unitIndex]);
       const batch = files.map((file) => ({
         id: crypto.randomUUID(),
         file,
@@ -591,7 +616,7 @@ export function TextbookAutoBuilderPage() {
   const patchPending = useCallback((unitIndex: number, pendingId: string, patch: Partial<TextbookSetupPendingFile>) => {
     setUnitInputs((prev) => {
       const next = [...prev];
-      const row = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+      const row = normalizeUnitSetup(next[unitIndex]);
       row.pendingFiles = row.pendingFiles.map((p) => (p.id === pendingId ? { ...p, ...patch } : p));
       next[unitIndex] = row;
       return next;
@@ -601,7 +626,7 @@ export function TextbookAutoBuilderPage() {
   const removePending = useCallback((unitIndex: number, pendingId: string) => {
     setUnitInputs((prev) => {
       const next = [...prev];
-      const row = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+      const row = normalizeUnitSetup(next[unitIndex]);
       row.pendingFiles = row.pendingFiles.filter((p) => p.id !== pendingId);
       next[unitIndex] = row;
       return next;
@@ -611,7 +636,7 @@ export function TextbookAutoBuilderPage() {
   const removeFileSegment = useCallback((unitIndex: number, segmentId: string) => {
     setUnitInputs((prev) => {
       const next = [...prev];
-      const row = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+      const row = normalizeUnitSetup(next[unitIndex]);
       row.fileSegments = row.fileSegments.filter((s) => s.id !== segmentId);
       next[unitIndex] = row;
       return next;
@@ -643,7 +668,7 @@ export function TextbookAutoBuilderPage() {
         const segId = crypto.randomUUID();
         setUnitInputs((prev) => {
           const next = [...prev];
-          const u = { ...(next[unitIndex] ?? emptyUnitSetup()) };
+          const u = normalizeUnitSetup(next[unitIndex]);
           u.fileSegments = [
             ...u.fileSegments,
             { id: segId, fileName: pending.file.name, extractNote, text },
@@ -941,21 +966,102 @@ export function TextbookAutoBuilderPage() {
                   <div className={styles.unitGrid} style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
                     {(() => {
                       const ui = setupPassageIndex;
-                      const unitState = unitInputs[ui] ?? emptyUnitSetup();
+                      const unitState = normalizeUnitSetup(unitInputs[ui]);
                       return (
                   <div className={styles.unitCard}>
-                    <h3 className={styles.unitCardTitle}>제 {ui + 1}단원 지문</h3>
-                    <label className={styles.field}>
-                      <span className={styles.label}>직접 입력</span>
-                      <textarea
-                        className={styles.textarea}
-                        rows={6}
-                        value={unitState.manualText}
-                        onChange={(e) => setManual(ui, e.target.value)}
-                        placeholder="이 단원에 해당하는 지문을 붙여넣으세요."
-                        maxLength={MAX_UNIT_PASSAGE_CHARS}
-                      />
-                    </label>
+                    <h3 className={styles.unitCardTitle}>제 {ui + 1}단원 — 모듈 구성</h3>
+                    <p className={styles.hint}>
+                      각 모듈에 지문번호·지문·문제·선택지·지문분석·핵심정리·확인학습을 입력합니다. 한 단원에 여러 지문 세트가 있으면 「모듈 추가」를
+                      사용하세요.
+                    </p>
+                    {unitState.modules.map((mod, mi) => (
+                      <div key={mod.id} className={styles.sourceModuleCard}>
+                        <div className={styles.sourceModuleToolbar}>
+                          <span className={styles.sourceModuleBadge}>모듈 {mi + 1}</span>
+                          {unitState.modules.length > 1 ? (
+                            <button
+                              type="button"
+                              className={styles.btnMiniGhost}
+                              onClick={() => removeSourceModule(ui, mod.id)}
+                            >
+                              모듈 삭제
+                            </button>
+                          ) : null}
+                        </div>
+                        <label className={styles.field}>
+                          <span className={styles.label}>지문번호</span>
+                          <input
+                            className={styles.input}
+                            value={mod.passageNo}
+                            onChange={(e) => patchSourceModule(ui, mod.id, { passageNo: e.target.value })}
+                            placeholder="예: 01, A독해-3"
+                            maxLength={80}
+                          />
+                        </label>
+                        <label className={styles.field}>
+                          <span className={styles.label}>지문</span>
+                          <textarea
+                            className={styles.textarea}
+                            rows={4}
+                            value={mod.passage}
+                            onChange={(e) => patchSourceModule(ui, mod.id, { passage: e.target.value })}
+                            placeholder="본 지문 전체"
+                          />
+                        </label>
+                        <label className={styles.field}>
+                          <span className={styles.label}>문제</span>
+                          <textarea
+                            className={styles.textarea}
+                            rows={2}
+                            value={mod.question}
+                            onChange={(e) => patchSourceModule(ui, mod.id, { question: e.target.value })}
+                            placeholder="발문"
+                          />
+                        </label>
+                        <label className={styles.field}>
+                          <span className={styles.label}>선택지</span>
+                          <textarea
+                            className={styles.textarea}
+                            rows={3}
+                            value={mod.options}
+                            onChange={(e) => patchSourceModule(ui, mod.id, { options: e.target.value })}
+                            placeholder="① … ② … (복수 입력)"
+                          />
+                        </label>
+                        <label className={styles.field}>
+                          <span className={styles.label}>지문분석</span>
+                          <textarea
+                            className={styles.textarea}
+                            rows={2}
+                            value={mod.passageAnalysis}
+                            onChange={(e) => patchSourceModule(ui, mod.id, { passageAnalysis: e.target.value })}
+                          />
+                        </label>
+                        <label className={styles.field}>
+                          <span className={styles.label}>핵심정리</span>
+                          <textarea
+                            className={styles.textarea}
+                            rows={2}
+                            value={mod.keySummary}
+                            onChange={(e) => patchSourceModule(ui, mod.id, { keySummary: e.target.value })}
+                          />
+                        </label>
+                        <label className={styles.field}>
+                          <span className={styles.label}>확인학습</span>
+                          <textarea
+                            className={styles.textarea}
+                            rows={2}
+                            value={mod.reviewStudy}
+                            onChange={(e) => patchSourceModule(ui, mod.id, { reviewStudy: e.target.value })}
+                          />
+                        </label>
+                      </div>
+                    ))}
+                    <div className={styles.sourceModuleActions}>
+                      <button type="button" className={styles.btnSecondary} onClick={() => addSourceModule(ui)}>
+                        모듈 추가
+                      </button>
+                    </div>
                     <label className={styles.field}>
                       <span className={styles.label}>파일 추가 (.txt · .pdf · .docx, 다중 선택 가능)</span>
                       <input
@@ -1092,7 +1198,7 @@ export function TextbookAutoBuilderPage() {
                   </p>
                   <ul className={styles.segmentList}>
                     {Array.from({ length: setupUnitCount }, (_, ui) => {
-                      const st = unitInputs[ui] ?? emptyUnitSetup();
+                      const st = normalizeUnitSetup(unitInputs[ui]);
                       const merged = combineUnitPassage(st).trim();
                       const len = merged.length;
                       const prev =

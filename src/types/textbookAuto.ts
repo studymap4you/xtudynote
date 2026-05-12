@@ -107,8 +107,22 @@ export type TextbookSetupFileSegment = {
   text: string;
 };
 
+/** 세션 시작 전 단원 원고 — 지문 세트(모듈) 단위 입력 */
+export type TextbookUnitSourceModule = {
+  id: string;
+  passageNo: string;
+  passage: string;
+  question: string;
+  options: string;
+  passageAnalysis: string;
+  keySummary: string;
+  reviewStudy: string;
+};
+
 export type TextbookUnitSetupState = {
+  /** 단원별 자유 입력(레거시·마스터북 패널 등). 모듈과 병합 시 뒤에 붙습니다. */
   manualText: string;
+  modules: TextbookUnitSourceModule[];
   fileSegments: TextbookSetupFileSegment[];
   pendingFiles: TextbookSetupPendingFile[];
 };

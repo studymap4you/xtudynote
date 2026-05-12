@@ -448,6 +448,34 @@
   color: #1e40af;
 }
 
+.sourceModuleCard {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.sourceModuleToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.sourceModuleBadge {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #334155;
+  letter-spacing: 0.02em;
+}
+
+.sourceModuleActions {
+  margin: 0.35rem 0 0.85rem;
+}
+
 .pendingList {
   margin-top: 0.5rem;
   padding: 0.65rem 0.75rem;
