@@ -784,3 +784,243 @@
 .radioLabel input {
   cursor: pointer;
 }
+
+/* 지문 분류 — 브라우저 대시보드 */
+.passageStepBar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.passageStepCell {
+  padding: 0.65rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.passageStepDone {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+.passageStepActive {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  border-color: transparent;
+  color: #fff;
+}
+
+.passageDrop {
+  margin: 0.75rem 0 1rem;
+  padding: 2rem 1.25rem;
+  border: 2px dashed #94a3b8;
+  border-radius: 14px;
+  background: #f1f5f9;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.passageDrop:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.passageDropActive {
+  border-color: #2563eb;
+  background: #dbeafe;
+}
+
+.passageDropTitle {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.passageDropHint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.passageMetricRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+}
+
+@media (max-width: 720px) {
+  .passageMetricRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.passageMetricCard {
+  padding: 0.75rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  text-align: center;
+}
+
+.passageMetricLabel {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.passageMetricValue {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #1d4ed8;
+}
+
+.passageLayout {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+@media (min-width: 920px) {
+  .passageLayout {
+    grid-template-columns: 1.4fr 1fr;
+    align-items: start;
+  }
+}
+
+.passagePreviewBox {
+  margin-top: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  min-height: 320px;
+}
+
+.passagePreviewIframe {
+  display: block;
+  width: 100%;
+  min-height: 420px;
+  border: none;
+}
+
+.passageMiniPreview {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px dashed #94a3b8;
+  border-radius: 10px;
+  background: #fff;
+  column-count: 2;
+  column-gap: 1.25rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.passageTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.passageTable th,
+.passageTable td {
+  border: 1px solid #e2e8f0;
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+}
+
+.passageTable th {
+  background: #f1f5f9;
+  font-weight: 800;
+  color: #475569;
+}
+
+.passageTable td {
+  color: #334155;
+}
+
+.passageToggleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  margin: 0.75rem 0 1rem;
+  align-items: flex-start;
+}
+
+.passageToggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.passageToggleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+}
+
+.passageToggleLabel input {
+  width: 2.5rem;
+  height: 1.35rem;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.passageMuted {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.passageLiveCard {
+  padding: 0.85rem;
+  border: 1px solid #2563eb;
+  border-radius: 10px;
+  background: #eff6ff;
+  margin-top: 0.5rem;
+}
+
+.passageLiveCard strong {
+  display: block;
+  color: #1e3a8a;
+  margin-bottom: 0.35rem;
+}
+
+.passageLiveFoot {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

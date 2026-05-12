@@ -5,6 +5,7 @@ import { getDownloadURL, ref as storageRef } from "firebase/storage";
 import { DashboardShell } from "@/components/DashboardShell";
 import { TextbookAutoAnswerKeyPrintView } from "@/components/textbookAuto/TextbookAutoAnswerKeyPrintView";
 import { TextbookAutoMasterBookPanel } from "@/components/textbookAuto/TextbookAutoMasterBookPanel";
+import { PassageClassificationPanel } from "@/components/passageClassification/PassageClassificationPanel";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
 import { TextbookUnitDraftEditor } from "@/components/textbookAuto/TextbookUnitDraftEditor";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1403,131 +1404,6 @@ function localDocDownloadTextFile(filename: string, content: string, mime: strin
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-}
-
-function PassageClassificationPanel() {
-  const sample = `1. 다음 글의 요지로 가장 적절한 것은?
-
-English passage line one.
-Line two.
-
-① 선택1
-② 선택2
-③ 선택3
-④ 선택4
-⑤ 선택5
-
-[정답 및 해설]
-정답: ③
-해설 문단…
-
-[주제]
-주제 한 줄
-
-[요지]
-요지 요약
-
-[주제문]
-Key sentence in English.
-
-[직독직해]
- word / by / word
-직역 줄
-
-[확인문제]
-복습 문항 (2단 HTML로 렌더)
-
-2. 다음 빈칸에 들어갈 말로 알맞은 것은?
-
-Second passage text.
-
-① A
-② B
-③ C
-④ D
-⑤ E
-
-[정답 및 해설]
-정답: ②
-간단 해설`;
-
-  const mergeSample = `[문제 1]
-[직독직해]
-나중에 붙인 직독직해만 보강하는 예시입니다.`;
-
-  return (
-    <section className={`${styles.card} ${styles.localPanel}`} aria-labelledby="passage-class-h">
-      <h2 id="passage-class-h" className={styles.cardTitle}>
-        지문 분류 · 4단계 구조
-      </h2>
-      <h3 className={styles.localSectionTitle}>모듈형 대시보드 (Streamlit · 로컬)</h3>
-      <p className={styles.localPanelLead}>
-        터미널 없이 드래그 앤 드롭·단계 표시줄·Phase 토글·머릿말/꼬리말 즉시 반영·2단 미리보기까지 한 화면에서 쓰려면, 저장소에서 아래를 실행하세요.
-      </p>
-      <ol className={styles.localPanelSteps}>
-        <li>
-          <span className={styles.pathChip}>document-automation/passage-classification/</span>로 이동한 뒤{" "}
-          <span className={styles.pathChip}>pip install -r requirements-streamlit.txt</span>
-        </li>
-        <li>
-          <pre className={styles.samplePre}>
-            {`streamlit run streamlit_app.py`}
-          </pre>
-          브라우저가 열리면 <strong>1. 원고 업로드 → 2. 모듈 구성 → 3. 디자인 프리뷰 → 4. 생성</strong> 순으로 진행합니다. 외부 API는 사용하지 않습니다.
-        </li>
-      </ol>
-
-      <h3 className={styles.localSectionTitle}>형식 요약 (CLI)</h3>
-      <p className={styles.localPanelLead}>
-        <strong>Phase 1</strong> 문제·지문(번호로 시작하는 줄 + ①~⑤), <strong>Phase 2</strong>{" "}
-        <span className={styles.pathChip}>[정답 및 해설]</span> 또는 <span className={styles.pathChip}>[정답]</span>,{" "}
-        <strong>Phase 3</strong> <span className={styles.pathChip}>[주제]</span>·
-        <span className={styles.pathChip}>[요지]</span>·<span className={styles.pathChip}>[주제문]</span>·
-        <span className={styles.pathChip}>[직독직해]</span> (없으면 JSON/HTML 모두 생략), <strong>Phase 4</strong>{" "}
-        <span className={styles.pathChip}>[확인문제]</span> 또는 <span className={styles.pathChip}>[Review]</span> (2단 CSS).{" "}
-        병합 파일에는 <span className={styles.pathChip}>[문제 N]</span> 블록으로 같은 번호에 Phase2~4만 덧붙일 수 있습니다.
-      </p>
-
-      <h3 className={styles.localSectionTitle}>로컬 실행 (상대 경로)</h3>
-      <ol className={styles.localPanelSteps}>
-        <li>
-          터미널에서 저장소의{" "}
-          <span className={styles.pathChip}>document-automation/passage-classification/</span> 로 이동합니다.
-        </li>
-        <li>
-          <pre className={styles.samplePre}>
-            {`python processor.py --in sample_input.txt --json out/units.json
-python processor.py --in base.txt --json out/units.json --merge patch.txt
-python renderer.py --json out/units.json --out out/report.html`}
-          </pre>
-        </li>
-        <li>
-          <span className={styles.pathChip}>renderer.py</span>는 같은 폴더의{" "}
-          <span className={styles.pathChip}>templates/document.html</span>만 사용합니다(Jinja2). 외부 API 없습니다.
-        </li>
-      </ol>
-
-      <div className={styles.localActionRow}>
-        <button
-          type="button"
-          className={styles.btnSecondary}
-          onClick={() => localDocDownloadTextFile("passage_sample.txt", sample, "text/plain;charset=utf-8")}
-        >
-          예시 원고 .txt 받기
-        </button>
-        <button
-          type="button"
-          className={styles.btnSecondary}
-          onClick={() => localDocDownloadTextFile("passage_merge_sample.txt", mergeSample, "text/plain;charset=utf-8")}
-        >
-          병합 예시 .txt 받기
-        </button>
-      </div>
-
-      <p className={styles.label}>형식 요약 (문제마다 1., 2., … 로 구분, 선택지는 줄마다 ①~⑤)</p>
-      <pre className={styles.samplePre}>{sample}</pre>
-    </section>
-  );
 }
 
 function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluation" }) {
