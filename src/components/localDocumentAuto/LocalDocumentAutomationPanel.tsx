@@ -6,9 +6,11 @@ import {
   ALL_LOCAL_DOC_MODULE_FIELDS,
   buildAiContextFromModules,
   emptyLocalDocModule,
+  fillMissingProblemNumbersOnly,
   LOCAL_DOC_FIELD_LABEL,
   modulesToManuscriptText,
   parseManuscriptToModules,
+  reassignAllProblemNumbers,
   type LocalDocModule,
   type LocalDocModuleField,
   type ModuleInputMode,
@@ -178,6 +180,13 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
       if (!toSave.inputMode) toSave.inputMode = "manual";
     } else {
       delete toSave.inputMode;
+    }
+    if (toSave.field !== "problem") {
+      delete toSave.questionNumber;
+    } else {
+      const q = (toSave.questionNumber ?? "").trim();
+      if (q) toSave.questionNumber = q;
+      else delete toSave.questionNumber;
     }
     setModules((prev) => {
       if (!prev) return prev;
@@ -516,6 +525,30 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                 <p className={styles.hint} style={{ flex: "1 1 200px", marginBottom: 0 }}>
                   각 행 조작 칸의 「위에」「아래에」로 현재 선택한 구역의 빈 모듈을 끼워 넣습니다. AI(주제·직독직해)는 해당 행보다 위에 있는 가장 가까운 「문제·지문」블록만 참고합니다.
                 </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    disabled={!modules.some((m) => m.field === "problem")}
+                    onClick={() => {
+                      setModules((prev) => (prev ? fillMissingProblemNumbersOnly(prev) : prev));
+                      setLocalMsg("비어 있는 문제 모듈만 01, 02… 순서로 채웠습니다.");
+                    }}
+                  >
+                    문제 번호: 빈 칸만
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    disabled={!modules.some((m) => m.field === "problem")}
+                    onClick={() => {
+                      setModules((prev) => (prev ? reassignAllProblemNumbers(prev) : prev));
+                      setLocalMsg("모든 문제 모듈에 01, 02…를 순서대로 다시 넣었습니다.");
+                    }}
+                  >
+                    문제 번호: 전체 01부터
+                  </button>
+                </div>
               </div>
               <table className={styles.passageTable}>
                 <thead>
@@ -523,6 +556,7 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                     <th scope="col" style={{ width: "2rem" }} aria-label="이동" />
                     <th scope="col">#</th>
                     <th scope="col">구역</th>
+                    <th scope="col">문항 표시</th>
                     <th scope="col">입력</th>
                     <th scope="col">미리보기</th>
                     <th scope="col">PDF</th>
@@ -570,6 +604,7 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                         </td>
                         <td>{rowIndex + 1}</td>
                         <td>{LOCAL_DOC_FIELD_LABEL[m.field]}</td>
+                        <td>{m.field === "problem" ? ((m.questionNumber ?? "").trim() || "자동") : "—"}</td>
                         <td>
                           {m.field === "topic_gist" || m.field === "literal_translation"
                             ? m.inputMode === "ai"
@@ -639,7 +674,7 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                       </tr>
                       {editRowIndex === rowIndex && draft ? (
                         <tr>
-                          <td colSpan={7}>
+                          <td colSpan={8}>
                             <label className={styles.field}>
                               <span className={styles.label}>구역 종류</span>
                               <select
@@ -653,6 +688,9 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                                   } else {
                                     delete next.inputMode;
                                   }
+                                  if (f !== "problem") {
+                                    delete next.questionNumber;
+                                  }
                                   setDraft(next);
                                 }}
                               >
@@ -663,6 +701,21 @@ export function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "ev
                                 ))}
                               </select>
                             </label>
+                            {draft.field === "problem" ? (
+                              <label className={styles.field}>
+                                <span className={styles.label}>문항 표시 (프리뷰·PDF 제목)</span>
+                                <input
+                                  className={styles.input}
+                                  value={draft.questionNumber ?? ""}
+                                  onChange={(e) => setDraft({ ...draft, questionNumber: e.target.value })}
+                                  placeholder="비우면 01, 02… 순서"
+                                  spellCheck={false}
+                                />
+                                <p className={styles.hint} style={{ marginTop: "6px", marginBottom: 0 }}>
+                                  예: 01, 18, Q1. 비우면 문제 블록 순서대로 두 자리 번호가 제목으로 쓰입니다. 목록 위 도구 모음의 「문제 번호: 빈 칸만」「전체 01부터」로 일괄 넣을 수 있습니다.
+                                </p>
+                              </label>
+                            ) : null}
                             {draft.field === "topic_gist" || draft.field === "literal_translation" ? (
                               <div className={styles.field}>
                                 <span className={styles.label}>입력 방식</span>

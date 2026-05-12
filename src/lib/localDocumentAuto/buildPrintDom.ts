@@ -1,6 +1,6 @@
 import type { ParsedManuscript } from "@/lib/localDocumentAuto/parseManuscript";
 import type { LocalDocModule, LocalDocModuleField } from "@/lib/localDocumentAuto/manuscriptModules";
-import { LOCAL_DOC_FIELD_LABEL } from "@/lib/localDocumentAuto/manuscriptModules";
+import { LOCAL_DOC_FIELD_LABEL, problemModulePrintTitle } from "@/lib/localDocumentAuto/manuscriptModules";
 
 const LABELS: Record<string, string> = {
   problem_passage: "문제 · 지문",
@@ -236,10 +236,17 @@ export function buildLocalDocPrintRootFromModules(params: {
   };
 
   if (kind === "worksheet") {
+    let problemOrdinal = 0;
     for (const m of modules) {
       if (m.field === "evaluation") continue;
       if (!(m.body ?? "").trim()) continue;
-      const displayTitle = m.field === "preamble" ? "도입 (구획 전)" : modulePrintTitle(m.field);
+      let displayTitle: string;
+      if (m.field === "problem") {
+        problemOrdinal += 1;
+        displayTitle = problemModulePrintTitle(m, problemOrdinal);
+      } else {
+        displayTitle = m.field === "preamble" ? "도입 (구획 전)" : modulePrintTitle(m.field);
+      }
       const extra =
         m.field === "literal_translation"
           ? ({ fontFamily: '"Segoe UI", "Noto Sans", sans-serif' } satisfies Partial<CSSStyleDeclaration>)

@@ -20,6 +20,8 @@ export type LocalDocModule = {
   body: string;
   /** 주제·요지 / 직독직해 */
   inputMode?: ModuleInputMode;
+  /** 문제 모듈만: 프리뷰·PDF 구역 제목. 비우면 목록 순서로 01, 02… */
+  questionNumber?: string;
 };
 
 const CH: string[] = ["①", "②", "③", "④", "⑤"];
@@ -131,7 +133,12 @@ export function passageDocumentToFineModules(raw: string): LocalDocModule[] {
   for (const u of units) {
     const prob = formatProblemUnit(u);
     if (!prob.trim()) continue;
-    out.push({ id: newModuleId(), field: "problem", body: prob });
+    out.push({
+      id: newModuleId(),
+      field: "problem",
+      body: prob,
+      questionNumber: String(u.number).padStart(2, "0"),
+    });
     if (u.phase2) {
       out.push({ id: newModuleId(), field: "answer", body: `정답: ${answerCircle(u.phase2.answer)}` });
       if ((u.phase2.explanation ?? "").trim()) {
@@ -294,6 +301,32 @@ export function modulesToManuscriptText(modules: LocalDocModule[]): string {
   if (p.literal_translation.trim()) chunks.push(`[직독직해]\n${p.literal_translation.trim()}`);
   if (p.evaluation.trim()) chunks.push(`[평가문제]\n${p.evaluation.trim()}`);
   return chunks.join("\n\n").trim();
+}
+
+export function reassignAllProblemNumbers(modules: LocalDocModule[]): LocalDocModule[] {
+  let n = 0;
+  return modules.map((m) => {
+    if (m.field !== "problem") return m;
+    n += 1;
+    return { ...m, questionNumber: String(n).padStart(2, "0") };
+  });
+}
+
+export function fillMissingProblemNumbersOnly(modules: LocalDocModule[]): LocalDocModule[] {
+  let n = 0;
+  return modules.map((m) => {
+    if (m.field !== "problem") return m;
+    n += 1;
+    if ((m.questionNumber ?? "").trim()) return m;
+    return { ...m, questionNumber: String(n).padStart(2, "0") };
+  });
+}
+
+/** 프리뷰·PDF용 문제 블록 제목 (ordinal: 1-based, 이미 증가된 값이 아니라 현재 문항 순번) */
+export function problemModulePrintTitle(m: LocalDocModule, ordinal: number): string {
+  const q = (m.questionNumber ?? "").trim();
+  if (q) return q;
+  return String(ordinal).padStart(2, "0");
 }
 
 export function emptyLocalDocModule(field: LocalDocModuleField): LocalDocModule {
