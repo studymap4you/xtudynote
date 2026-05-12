@@ -9,6 +9,11 @@ import {
   type PassageUnit,
 } from "@/lib/passageClassification/processor";
 import { renderPassageDocumentHtml } from "@/lib/passageClassification/renderPassageHtml";
+import {
+  buildPassageReportPdfBlob,
+  downloadPassageClassifyDocx,
+  downloadPassageReportPdfBlob,
+} from "@/lib/passageClassification/exportPassageReport";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
 function localDocDownloadTextFile(filename: string, content: string, mime: string) {
@@ -301,6 +306,7 @@ export function PassageClassificationPanel() {
   const [draft, setDraft] = useState<PassageUnit | null>(null);
   const [dragRowIndex, setDragRowIndex] = useState<number | null>(null);
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null);
+  const [exportBusy, setExportBusy] = useState<null | "pdf" | "docx">(null);
 
   const ingestText = useCallback((text: string, label: string) => {
     const parsed = parseDocument(text);
@@ -490,6 +496,48 @@ export function PassageClassificationPanel() {
     [closeEditor],
   );
 
+  const runExportPdf = useCallback(async () => {
+    if (!toggledUnits.length) return;
+    setExportBusy("pdf");
+    setMsg(null);
+    try {
+      const html = renderPassageDocumentHtml(toggledUnits, {
+        title: docTitle,
+        headerTitle,
+        footerLeft,
+        footerRight,
+      });
+      const blob = await buildPassageReportPdfBlob(html);
+      downloadPassageReportPdfBlob(blob, docTitle);
+      setMsg("PDF 파일을 내려받았습니다.");
+    } catch {
+      setMsg(
+        "PDF 생성에 실패했습니다. HTML을 받은 뒤 브라우저에서 인쇄 → PDF로 저장해 보세요.",
+      );
+    } finally {
+      setExportBusy(null);
+    }
+  }, [toggledUnits, docTitle, headerTitle, footerLeft, footerRight]);
+
+  const runExportDocx = useCallback(async () => {
+    if (!toggledUnits.length) return;
+    setExportBusy("docx");
+    setMsg(null);
+    try {
+      await downloadPassageClassifyDocx(toggledUnits, {
+        title: docTitle,
+        headerTitle,
+        footerLeft,
+        footerRight,
+      });
+      setMsg("Word(.docx) 파일을 내려받았습니다.");
+    } catch {
+      setMsg("Word 생성에 실패했습니다.");
+    } finally {
+      setExportBusy(null);
+    }
+  }, [toggledUnits, docTitle, headerTitle, footerLeft, footerRight]);
+
   const resetAll = useCallback(() => {
     setStep(1);
     setUnits(null);
@@ -513,7 +561,7 @@ export function PassageClassificationPanel() {
         지문 분류 · 모듈형 작업실
       </h2>
       <p className={styles.localPanelLead}>
-        이 탭에서는 <strong>브라우저만으로</strong> 원고를 올리고, Phase별 구성·프리뷰·HTML/JSON 내보내기까지 할 수 있습니다. 서버나 외부 API를
+        이 탭에서는 <strong>브라우저만으로</strong> 원고를 올리고, Phase별 구성·프리뷰·HTML·PDF·Word·JSON 내보내기까지 할 수 있습니다. 서버나 외부 API를
         거치지 않습니다. (로컬 전용 Streamlit은 저장소의 <span className={styles.pathChip}>streamlit_app.py</span>도 그대로 사용할 수
         있습니다.)
       </p>
@@ -970,6 +1018,22 @@ export function PassageClassificationPanel() {
                   }
                 >
                   교재 생성 — report.html 받기
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  disabled={!toggledUnits.length || exportBusy !== null}
+                  onClick={() => void runExportPdf()}
+                >
+                  {exportBusy === "pdf" ? "PDF 생성 중…" : "PDF 받기"}
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  disabled={!toggledUnits.length || exportBusy !== null}
+                  onClick={() => void runExportDocx()}
+                >
+                  {exportBusy === "docx" ? "Word 생성 중…" : "Word(.docx) 받기"}
                 </button>
                 <button
                   type="button"
