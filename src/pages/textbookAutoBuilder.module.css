@@ -464,10 +464,27 @@
 
 .sourceModuleField {
   margin-bottom: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
 }
 
 .sourceModuleField:last-child {
   margin-bottom: 0.15rem;
+}
+
+.sourceModuleField .input,
+.sourceModuleField .textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 글로벌 .textarea min-height(200px)는 모듈 소필드에 과대 — 행 수에 맞게 완화 */
+.sourceModuleField .textarea {
+  min-height: 5rem;
 }
 
 .fieldHeadRow {
@@ -477,16 +494,20 @@
   justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.35rem;
+  width: 100%;
 }
 
 .fieldHeadLabel {
   font-size: 0.8rem;
   font-weight: 700;
   color: #334155;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .fieldModeToggle {
   display: inline-flex;
+  flex-shrink: 0;
   border-radius: 8px;
   border: 1px solid #cbd5e1;
   overflow: hidden;
@@ -541,6 +562,7 @@
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
+  min-width: 0;
 }
 
 .sourceModuleToolbar {
