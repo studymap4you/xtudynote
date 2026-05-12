@@ -1,9 +1,11 @@
-import { useCallback, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { Fragment, useCallback, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import {
   applyPhaseToggles,
   countPhaseStats,
+  emptyPassageUnit,
   mergeUnits,
   parseDocument,
+  renumberUnits,
   type PassageUnit,
 } from "@/lib/passageClassification/processor";
 import { renderPassageDocumentHtml } from "@/lib/passageClassification/renderPassageHtml";
@@ -71,9 +73,217 @@ const MERGE_SAMPLE = `[문제 1]
 [직독직해]
 나중에 붙인 직독직해만 보강하는 예시입니다.`;
 
+const CH_MARK = ["①", "②", "③", "④", "⑤"];
+
+function normalizeEditedUnit(u: PassageUnit): PassageUnit {
+  const out = structuredClone(u);
+  const ch: Record<string, string> = {};
+  for (const [k, v] of Object.entries(out.phase1.choices)) {
+    const t = (v ?? "").trim();
+    if (t) ch[k] = t;
+  }
+  out.phase1.choices = ch;
+
+  if (out.phase3) {
+    const has = [out.phase3.topic, out.phase3.gist, out.phase3.key_sentence, out.phase3.literal].some((x) =>
+      (x ?? "").trim(),
+    );
+    if (!has) out.phase3 = null;
+    else {
+      out.phase3 = {
+        topic: (out.phase3.topic ?? "").trim() || null,
+        gist: (out.phase3.gist ?? "").trim() || null,
+        key_sentence: (out.phase3.key_sentence ?? "").trim() || null,
+        literal: (out.phase3.literal ?? "").trim() || null,
+      };
+    }
+  }
+  if (out.phase4) {
+    const b = (out.phase4.body ?? "").trim();
+    if (!b) out.phase4 = null;
+    else out.phase4 = { body: b };
+  }
+  return out;
+}
+
+function PassageUnitDraftForm({
+  draft,
+  onChange,
+}: {
+  draft: PassageUnit;
+  onChange: (u: PassageUnit) => void;
+}) {
+  const p1 = draft.phase1;
+  const setP1 = (patch: Partial<PassageUnit["phase1"]>) => onChange({ ...draft, phase1: { ...p1, ...patch } });
+  const setChoice = (key: string, val: string) =>
+    onChange({ ...draft, phase1: { ...p1, choices: { ...p1.choices, [key]: val } } });
+
+  return (
+    <div className={styles.passageEditPanel}>
+      <div className={`${styles.passageEditGrid} ${styles.passageEditCols2}`}>
+        <label className={styles.field}>
+          <span className={styles.label}>표제(발문)</span>
+          <textarea className={styles.textarea} rows={3} value={p1.stem} onChange={(e) => setP1({ stem: e.target.value })} />
+        </label>
+        <label className={styles.field}>
+          <span className={styles.label}>지문</span>
+          <textarea
+            className={styles.textarea}
+            rows={5}
+            value={p1.passage}
+            onChange={(e) => setP1({ passage: e.target.value })}
+          />
+        </label>
+      </div>
+      <p className={styles.label} style={{ marginTop: "0.75rem" }}>
+        선택지
+      </p>
+      <div className={`${styles.passageEditGrid} ${styles.passageEditCols2}`}>
+        {([1, 2, 3, 4, 5] as const).map((k) => (
+          <label key={k} className={styles.field}>
+            <span className={styles.label}>{CH_MARK[k - 1]}</span>
+            <input
+              className={styles.input}
+              value={p1.choices[String(k)] ?? ""}
+              onChange={(e) => setChoice(String(k), e.target.value)}
+            />
+          </label>
+        ))}
+      </div>
+
+      <label className={styles.sectionCheck} style={{ marginTop: "0.85rem" }}>
+        <input
+          type="checkbox"
+          checked={draft.phase2 != null}
+          onChange={(e) =>
+            onChange({
+              ...draft,
+              phase2: e.target.checked
+                ? { answer: draft.phase2?.answer ?? 1, explanation: draft.phase2?.explanation ?? "" }
+                : null,
+            })
+          }
+        />
+        정답·지문해설 포함
+      </label>
+      {draft.phase2 ? (
+        <div className={`${styles.passageEditGrid} ${styles.passageEditCols2}`} style={{ marginTop: "0.5rem" }}>
+          <label className={styles.field}>
+            <span className={styles.label}>정답 (1~5)</span>
+            <input
+              type="number"
+              min={1}
+              max={5}
+              className={styles.inputSmall}
+              value={draft.phase2.answer}
+              onChange={(e) => {
+                const n = Math.min(5, Math.max(1, parseInt(e.target.value, 10) || 1));
+                onChange({ ...draft, phase2: { ...draft.phase2!, answer: n } });
+              }}
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>지문해설 본문</span>
+            <textarea
+              className={styles.textarea}
+              rows={5}
+              value={draft.phase2.explanation}
+              onChange={(e) => onChange({ ...draft, phase2: { ...draft.phase2!, explanation: e.target.value } })}
+            />
+          </label>
+        </div>
+      ) : null}
+
+      <label className={styles.sectionCheck} style={{ marginTop: "0.85rem" }}>
+        <input
+          type="checkbox"
+          checked={draft.phase3 != null}
+          onChange={(e) =>
+            onChange({
+              ...draft,
+              phase3: e.target.checked
+                ? { topic: null, gist: null, key_sentence: null, literal: null }
+                : null,
+            })
+          }
+        />
+        심층 분석 ([주제]·[요지] 등)
+      </label>
+      {draft.phase3 ? (
+        <div className={styles.passageEditGrid} style={{ marginTop: "0.5rem" }}>
+          <label className={styles.field}>
+            <span className={styles.label}>[주제]</span>
+            <textarea
+              className={styles.textarea}
+              rows={2}
+              value={draft.phase3.topic ?? ""}
+              onChange={(e) => onChange({ ...draft, phase3: { ...draft.phase3!, topic: e.target.value || null } })}
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>[요지]</span>
+            <textarea
+              className={styles.textarea}
+              rows={2}
+              value={draft.phase3.gist ?? ""}
+              onChange={(e) => onChange({ ...draft, phase3: { ...draft.phase3!, gist: e.target.value || null } })}
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>[주제문]</span>
+            <textarea
+              className={styles.textarea}
+              rows={2}
+              value={draft.phase3.key_sentence ?? ""}
+              onChange={(e) =>
+                onChange({ ...draft, phase3: { ...draft.phase3!, key_sentence: e.target.value || null } })
+              }
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>[직독직해]</span>
+            <textarea
+              className={styles.textarea}
+              rows={2}
+              value={draft.phase3.literal ?? ""}
+              onChange={(e) => onChange({ ...draft, phase3: { ...draft.phase3!, literal: e.target.value || null } })}
+            />
+          </label>
+        </div>
+      ) : null}
+
+      <label className={styles.sectionCheck} style={{ marginTop: "0.85rem" }}>
+        <input
+          type="checkbox"
+          checked={draft.phase4 != null}
+          onChange={(e) =>
+            onChange({
+              ...draft,
+              phase4: e.target.checked ? { body: draft.phase4?.body ?? "" } : null,
+            })
+          }
+        />
+        [확인문제] 블록
+      </label>
+      {draft.phase4 ? (
+        <label className={styles.field} style={{ marginTop: "0.5rem" }}>
+          <span className={styles.label}>확인문제 본문</span>
+          <textarea
+            className={styles.textarea}
+            rows={4}
+            value={draft.phase4.body}
+            onChange={(e) => onChange({ ...draft, phase4: { body: e.target.value } })}
+          />
+        </label>
+      ) : null}
+    </div>
+  );
+}
+
 export function PassageClassificationPanel() {
   const fileRef = useRef<HTMLInputElement>(null);
   const mergeRef = useRef<HTMLInputElement>(null);
+  const dragSourceRef = useRef<number | null>(null);
 
   const [step, setStep] = useState(1);
   const [units, setUnits] = useState<PassageUnit[] | null>(null);
@@ -87,6 +297,10 @@ export function PassageClassificationPanel() {
   const [includeP3, setIncludeP3] = useState(true);
   const [includeP4, setIncludeP4] = useState(true);
   const [pastedManuscript, setPastedManuscript] = useState("");
+  const [editRowIndex, setEditRowIndex] = useState<number | null>(null);
+  const [draft, setDraft] = useState<PassageUnit | null>(null);
+  const [dragRowIndex, setDragRowIndex] = useState<number | null>(null);
+  const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null);
 
   const ingestText = useCallback((text: string, label: string) => {
     const parsed = parseDocument(text);
@@ -101,6 +315,8 @@ export function PassageClassificationPanel() {
     setIncludeP4(p4 > 0);
     setMsg(`「${label}」을(를) 불러왔습니다.`);
     setPastedManuscript(text);
+    setEditRowIndex(null);
+    setDraft(null);
   }, []);
 
   const onFileChosen = useCallback(
@@ -156,7 +372,7 @@ export function PassageClassificationPanel() {
       if (!f || !units?.length) return;
       try {
         const patch = await f.text();
-        setUnits(mergeUnits(units, patch));
+        setUnits(renumberUnits(mergeUnits(units, patch)));
         setMsg(`병합 파일「${f.name}」을(를) 적용했습니다.`);
       } catch {
         setMsg("병합 파일을 읽지 못했습니다.");
@@ -191,11 +407,98 @@ export function PassageClassificationPanel() {
     return u?.phase4?.body?.trim() ?? "";
   }, [units]);
 
+  const closeEditor = useCallback(() => {
+    setEditRowIndex(null);
+    setDraft(null);
+  }, []);
+
+  const openEditor = useCallback(
+    (index: number) => {
+      if (!units?.[index]) return;
+      setEditRowIndex(index);
+      setDraft(structuredClone(units[index]!));
+    },
+    [units],
+  );
+
+  const saveEditor = useCallback(() => {
+    if (editRowIndex === null || draft == null || !units) return;
+    const next = [...units];
+    next[editRowIndex] = normalizeEditedUnit(draft);
+    const numbered = renumberUnits(next);
+    setUnits(numbered);
+    const st = countPhaseStats(numbered);
+    setIncludeP3((prev) => (st.p3 > 0 ? prev : false));
+    setIncludeP4((prev) => (st.p4 > 0 ? prev : false));
+    closeEditor();
+    setMsg("문항을 저장했습니다.");
+  }, [editRowIndex, draft, units, closeEditor]);
+
+  const deleteRow = useCallback(
+    (index: number) => {
+      if (!units) return;
+      if (units.length <= 1) {
+        setMsg("마지막 문항은 삭제할 수 없습니다. 초기화를 이용하세요.");
+        return;
+      }
+      const next = units.filter((_, i) => i !== index);
+      const numbered = renumberUnits(next);
+      setUnits(numbered);
+      const st = countPhaseStats(numbered);
+      setIncludeP3((prev) => (st.p3 > 0 ? prev : false));
+      setIncludeP4((prev) => (st.p4 > 0 ? prev : false));
+      closeEditor();
+      setMsg("문항을 삭제했습니다.");
+    },
+    [units, closeEditor],
+  );
+
+  const addRow = useCallback(() => {
+    setUnits((prev) => renumberUnits([...(prev ?? []), emptyPassageUnit()]));
+    closeEditor();
+    setMsg("빈 문항을 추가했습니다. 맨 아래 행에서 편집하세요.");
+  }, [closeEditor]);
+
+  const moveRow = useCallback(
+    (index: number, delta: -1 | 1) => {
+      setUnits((prev) => {
+        if (!prev) return prev;
+        const j = index + delta;
+        if (j < 0 || j >= prev.length) return prev;
+        const next = [...prev];
+        [next[index], next[j]] = [next[j]!, next[index]!];
+        return renumberUnits(next);
+      });
+      closeEditor();
+    },
+    [closeEditor],
+  );
+
+  const reorderDrag = useCallback(
+    (from: number, to: number) => {
+      if (from === to) return;
+      setUnits((prev) => {
+        if (!prev || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev;
+        const next = [...prev];
+        const [row] = next.splice(from, 1);
+        next.splice(to, 0, row);
+        return renumberUnits(next);
+      });
+      closeEditor();
+      setMsg("문항 순서를 변경했습니다.");
+    },
+    [closeEditor],
+  );
+
   const resetAll = useCallback(() => {
     setStep(1);
     setUnits(null);
     setMsg(null);
     setPastedManuscript("");
+    setEditRowIndex(null);
+    setDraft(null);
+    setDragRowIndex(null);
+    setDragOverRowIndex(null);
     setDocTitle("지문 분류 결과");
     setHeaderTitle("Xtudy · 교재");
     setFooterLeft("Xtudy-Universe");
@@ -398,25 +701,121 @@ export function PassageClassificationPanel() {
               <h3 className={styles.localSectionTitle}>2. 모듈 구성</h3>
               <div className={styles.passageLayout}>
                 <div>
+                  <p className={styles.hint} style={{ marginBottom: "0.75rem" }}>
+                    왼쪽 ⋮⋮을 드래그하거나 ▲▼으로 순서를 바꿉니다. 편집 후「저장」하면 이후 단계에 반영됩니다.
+                  </p>
+                  <div className={styles.passageModuleToolbar}>
+                    <button type="button" className={styles.btnSecondary} onClick={addRow}>
+                      + 문항 추가
+                    </button>
+                  </div>
                   <table className={styles.passageTable}>
                     <thead>
                       <tr>
-                        <th scope="col">번호</th>
+                        <th scope="col" style={{ width: "2rem" }} aria-label="이동" />
+                        <th scope="col">#</th>
                         <th scope="col">문항 요약</th>
                         <th scope="col">해설</th>
                         <th scope="col">분석</th>
                         <th scope="col">확인</th>
+                        <th scope="col">조작</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {units.map((u) => (
-                        <tr key={u.number}>
-                          <td>{u.number}</td>
-                          <td>{(u.phase1.stem || "").slice(0, 80)}{(u.phase1.stem || "").length > 80 ? "…" : ""}</td>
-                          <td>{u.phase2 ? "✓" : "—"}</td>
-                          <td>{u.phase3 ? "✓" : "—"}</td>
-                          <td>{u.phase4 ? "✓" : "—"}</td>
-                        </tr>
+                      {units.map((u, rowIndex) => (
+                        <Fragment key={`row-${rowIndex}`}>
+                          <tr
+                            draggable
+                            className={[
+                              dragRowIndex === rowIndex ? styles.passageRowDragging : "",
+                              dragOverRowIndex === rowIndex ? styles.passageRowDrop : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            onDragStart={() => {
+                              dragSourceRef.current = rowIndex;
+                              setDragRowIndex(rowIndex);
+                            }}
+                            onDragEnd={() => {
+                              dragSourceRef.current = null;
+                              setDragRowIndex(null);
+                              setDragOverRowIndex(null);
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              setDragOverRowIndex(rowIndex);
+                            }}
+                            onDragLeave={() => setDragOverRowIndex((cur) => (cur === rowIndex ? null : cur))}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const from = dragSourceRef.current;
+                              if (from !== null && from !== rowIndex) reorderDrag(from, rowIndex);
+                              dragSourceRef.current = null;
+                              setDragRowIndex(null);
+                              setDragOverRowIndex(null);
+                            }}
+                          >
+                            <td>
+                              <span className={styles.passageRowGrip} title="드래그하여 순서 변경">
+                                ⋮⋮
+                              </span>
+                            </td>
+                            <td>{rowIndex + 1}</td>
+                            <td>
+                              {(u.phase1.stem || "").slice(0, 72)}
+                              {(u.phase1.stem || "").length > 72 ? "…" : ""}
+                            </td>
+                            <td>{u.phase2 ? "✓" : "—"}</td>
+                            <td>{u.phase3 ? "✓" : "—"}</td>
+                            <td>{u.phase4 ? "✓" : "—"}</td>
+                            <td className={styles.passageRowActions}>
+                              <button
+                                type="button"
+                                className={styles.btnMini}
+                                onClick={() => moveRow(rowIndex, -1)}
+                                disabled={rowIndex === 0}
+                                aria-label="한 칸 위로"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.btnMini}
+                                onClick={() => moveRow(rowIndex, 1)}
+                                disabled={rowIndex === units.length - 1}
+                                aria-label="한 칸 아래로"
+                              >
+                                ↓
+                              </button>
+                              <button type="button" className={styles.btnMiniGhost} onClick={() => openEditor(rowIndex)}>
+                                편집
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.btnMiniGhost}
+                                onClick={() => deleteRow(rowIndex)}
+                                disabled={units.length <= 1}
+                              >
+                                삭제
+                              </button>
+                            </td>
+                          </tr>
+                          {editRowIndex === rowIndex && draft ? (
+                            <tr>
+                              <td colSpan={7}>
+                                <PassageUnitDraftForm draft={draft} onChange={setDraft} />
+                                <div className={styles.passageEditActions}>
+                                  <button type="button" className={styles.btnPrimary} onClick={saveEditor}>
+                                    저장
+                                  </button>
+                                  <button type="button" className={styles.btnGhost} onClick={closeEditor}>
+                                    취소
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>

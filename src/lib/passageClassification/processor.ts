@@ -231,7 +231,7 @@ function mergeDetachedExplanations(units: PassageUnit[]): PassageUnit[] {
   return out;
 }
 
-function renumberUnits(units: PassageUnit[]): PassageUnit[] {
+export function renumberUnits(units: PassageUnit[]): PassageUnit[] {
   return units.map((u, i) => {
     const n = i + 1;
     return {
@@ -240,6 +240,17 @@ function renumberUnits(units: PassageUnit[]): PassageUnit[] {
       phase1: { ...u.phase1, number: n },
     };
   });
+}
+
+/** 빈 문항(모듈 단계에서 수동 추가용) */
+export function emptyPassageUnit(): PassageUnit {
+  return {
+    number: 1,
+    phase1: { number: 1, stem: "", passage: "", choices: {} },
+    phase2: null,
+    phase3: null,
+    phase4: null,
+  };
 }
 
 function parseUnitBody(number: number, body: string): PassageUnit {
