@@ -1,0 +1,77 @@
+.root {
+  background: #fff;
+  color: #0f172a;
+  font-family: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  max-width: 100%;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.coverWrap {
+  text-align: center;
+  margin: 0 0 1.25rem;
+}
+
+.coverImg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.titleCenter {
+  margin: 0 0 1.5rem;
+  font-size: 18pt;
+  font-weight: 800;
+  text-align: center;
+  color: #0c1222;
+  letter-spacing: -0.02em;
+}
+
+.phaseH {
+  margin: 1.25rem 0 0.65rem;
+  font-size: 13pt;
+  font-weight: 800;
+  color: #1e40af;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0.35rem;
+}
+
+.tocList {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.tocLi {
+  margin-bottom: 0.35rem;
+}
+
+.segmentSection {
+  margin-bottom: 1rem;
+}
+
+.preRaw {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 9.5pt;
+  line-height: 1.5;
+  color: #1e293b;
+}
+
+.meta {
+  margin: 0 0 1rem;
+  font-size: 8.5pt;
+  color: #94a3b8;
+}
+
+@media print {
+  .coverImg {
+    page-break-inside: avoid;
+  }
+}

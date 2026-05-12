@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useReactToPrint } from "react-to-print";
+import { downloadMasterBookDocx } from "@/lib/textbookAuto/buildMasterBookDocx";
 import {
-  buildSegmentBlocksParagraphs,
-  downloadMasterBookDocx,
-} from "@/lib/textbookAuto/buildMasterBookDocx";
-import {
-  buildTextbookBodyParagraphsFromPassages,
-  buildTextbookBodyParagraphsFromUnits,
-} from "@/lib/textbookAuto/downloadTextbookAutoDocx";
+  assertMasterAppendixNoPending,
+  buildMasterAppendixParagraphsForDocx,
+  buildMasterBookBodyParagraphsForDocx,
+  type MasterBookContentMode,
+} from "@/lib/textbookAuto/masterBookBodyBuild";
+import { exportMasterBookPdfFromElement } from "@/lib/textbookAuto/exportMasterBookPdf";
+import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
+import { TextbookAutoMasterBookPrintView } from "@/components/textbookAuto/TextbookAutoMasterBookPrintView";
 import { extractTableOfContentsFromText } from "@/lib/textbookAuto/extractTocFromText";
 import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
 import { combineUnitPassage, emptyUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
@@ -18,7 +21,7 @@ import type {
 } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
-export type MasterContentMode = "session_units" | "session_passages" | "upload";
+export type MasterContentMode = MasterBookContentMode;
 
 type TocMode = "auto" | "file" | "manual";
 
@@ -48,6 +51,14 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
   const [masterBusy, setMasterBusy] = useState(false);
   const [localMsg, setLocalMsg] = useState<string | null>(null);
   const [localErr, setLocalErr] = useState<string | null>(null);
+  const masterPrintRef = useRef<HTMLDivElement>(null);
+
+  const printMasterBook = useReactToPrint({
+    contentRef: masterPrintRef,
+    documentTitle: () =>
+      bookTitle.trim() ? `Xtudy_Textbook_Master_${bookTitle.trim().slice(0, 24)}` : "Xtudy_Textbook_Master",
+    pageStyle: REACT_TO_PRINT_A4_PAGE_STYLE,
+  });
 
   useEffect(() => {
     if (frontCover) {
@@ -267,48 +278,19 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
 
     let bodyParagraphs;
     try {
-      if (contentMode === "session_units") {
-        if (confirmedUnits.length === 0) {
-          throw new Error("확정된 단원이 없습니다.");
-        }
-        bodyParagraphs = buildTextbookBodyParagraphsFromUnits(confirmedUnits);
-      } else if (contentMode === "session_passages") {
-        if (!sessionUnitPassages || sessionUnitPassages.length === 0) {
-          throw new Error("세션 원문(지문)이 없습니다. 1단계 세션을 다시 시작해야 할 수 있습니다.");
-        }
-        bodyParagraphs = buildTextbookBodyParagraphsFromPassages(sessionUnitPassages);
-      } else {
-        if (contentState.pendingFiles.length > 0) {
-          throw new Error("본문: 추출 대기 중인 파일이 있습니다. 먼저 추출하거나 제거하세요.");
-        }
-        if (contentState.fileSegments.length === 0) {
-          throw new Error("본문 업로드 모드에서는 추출된 파일 블록이 하나 이상 필요합니다.");
-        }
-        bodyParagraphs = buildSegmentBlocksParagraphs(
-          contentState.fileSegments.map((s) => ({
-            fileName: `${s.fileName} · ${s.extractNote}`,
-            text: s.text,
-          })),
-        );
-      }
+      assertMasterAppendixNoPending(appendixState);
+      bodyParagraphs = buildMasterBookBodyParagraphsForDocx({
+        contentMode,
+        confirmedUnits,
+        sessionUnitPassages,
+        contentState,
+      });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
       return;
     }
 
-    if (appendixState.pendingFiles.length > 0) {
-      setLocalErr("추가 페이지: 추출 대기 중인 파일이 있습니다.");
-      return;
-    }
-    const appendixParagraphs =
-      appendixState.fileSegments.length === 0
-        ? []
-        : buildSegmentBlocksParagraphs(
-            appendixState.fileSegments.map((s) => ({
-              fileName: `${s.fileName} · ${s.extractNote}`,
-              text: s.text,
-            })),
-          );
+    const appendixParagraphs = buildMasterAppendixParagraphsForDocx(appendixState);
 
     setMasterBusy(true);
     try {
@@ -320,7 +302,9 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
         bodyParagraphs,
         appendixParagraphs,
       });
-      setLocalMsg("완성본 Word(.docx)를 받았습니다. Word에서 PDF로 내보내 전자책 형태로 쓸 수 있습니다.");
+      setLocalMsg(
+        "완성본 Word(.docx)를 받았습니다. 아래 「완성본 PDF 저장」·「완성본 인쇄」로도 같은 구성을 내보낼 수 있습니다.",
+      );
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "완성본 생성에 실패했습니다.");
     } finally {
@@ -337,6 +321,55 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
     frontCover,
     backCover,
   ]);
+
+  const runDownloadMasterPdf = useCallback(async () => {
+    setLocalErr(null);
+    setLocalMsg(null);
+    try {
+      assertMasterAppendixNoPending(appendixState);
+      buildMasterBookBodyParagraphsForDocx({
+        contentMode,
+        confirmedUnits,
+        sessionUnitPassages,
+        contentState,
+      });
+    } catch (e) {
+      setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
+      return;
+    }
+    const el = masterPrintRef.current;
+    if (!el) {
+      setLocalErr("인쇄 영역이 준비되지 않았습니다. 페이지를 새로고침한 뒤 다시 시도하세요.");
+      return;
+    }
+    setMasterBusy(true);
+    try {
+      await exportMasterBookPdfFromElement(el, bookTitle.trim() || "교재");
+      setLocalMsg("완성본 PDF를 저장했습니다.");
+    } catch (e) {
+      setLocalErr(e instanceof Error ? e.message : "PDF 저장에 실패했습니다.");
+    } finally {
+      setMasterBusy(false);
+    }
+  }, [bookTitle, contentMode, confirmedUnits, sessionUnitPassages, contentState, appendixState]);
+
+  const onPrintMasterBook = useCallback(() => {
+    setLocalErr(null);
+    setLocalMsg(null);
+    try {
+      assertMasterAppendixNoPending(appendixState);
+      buildMasterBookBodyParagraphsForDocx({
+        contentMode,
+        confirmedUnits,
+        sessionUnitPassages,
+        contentState,
+      });
+    } catch (e) {
+      setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
+      return;
+    }
+    printMasterBook();
+  }, [appendixState, contentMode, confirmedUnits, sessionUnitPassages, contentState, printMasterBook]);
 
   const pendingRow = (
     kind: "content" | "appendix",
@@ -420,7 +453,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
         5. 완성본 (앞표지 · 목차 · 본문 · 추가 · 뒷표지)
       </h2>
       <p className={styles.p}>
-        표지 이미지와 목차·본문 구성을 마친 뒤 하나의 Word(.docx)로 받습니다. 전자책 PDF는 Word에서 「다른 이름으로 저장 → PDF」로 만드시면 됩니다.
+        표지 이미지와 목차·본문 구성을 마친 뒤 Word(.docx)로 받거나, 아래 「완성본 PDF 저장」·「완성본 인쇄」로 같은 구성을 PDF·인쇄로 내보낼 수 있습니다.
       </p>
 
       <div className={styles.step5Grid}>
@@ -635,10 +668,38 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
         <button type="button" className={styles.btnPrimary} disabled={masterBusy} onClick={() => void runDownloadMaster()}>
           {masterBusy ? "만드는 중…" : "완성본 Word 다운로드"}
         </button>
+        <button
+          type="button"
+          className={styles.btnSecondary}
+          disabled={masterBusy}
+          onClick={() => void runDownloadMasterPdf()}
+        >
+          {masterBusy ? "처리 중…" : "완성본 PDF 저장"}
+        </button>
+        <button type="button" className={styles.btnGhost} disabled={masterBusy} onClick={onPrintMasterBook}>
+          완성본 인쇄
+        </button>
       </div>
 
       {localMsg ? <p className={styles.ok}>{localMsg}</p> : null}
       {localErr ? <p className={styles.bad}>{localErr}</p> : null}
+
+      <div ref={masterPrintRef} className={styles.masterBookPrintHost} aria-hidden>
+        <TextbookAutoMasterBookPrintView
+          bookTitle={bookTitle}
+          frontCoverUrl={frontPreview}
+          backCoverUrl={backPreview}
+          tocLines={tocDraft
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean)}
+          contentMode={contentMode}
+          confirmedUnits={confirmedUnits}
+          sessionUnitPassages={sessionUnitPassages}
+          contentFileSegments={contentState.fileSegments}
+          appendixFileSegments={appendixState.fileSegments}
+        />
+      </div>
     </section>
   );
 }

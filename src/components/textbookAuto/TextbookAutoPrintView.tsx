@@ -123,21 +123,14 @@ function ManuscriptModulesBlock({ modules }: { modules: TextbookUnitContent["man
   );
 }
 
-export function TextbookAutoPrintView({
-  bookTitle,
+export function TextbookAutoStudentUnitsBody({
   units,
 }: {
-  bookTitle: string;
   units: { unitIndex: number; unit: TextbookUnitContent }[];
 }) {
   const outUnits = mapUnitsForStudentOutput(units);
   return (
-    <div className={`${styles.root} textbook-auto-print-root`}>
-      <header className={styles.header}>
-        <p className={styles.brand}>{BRAND_APP_NAME} · 교재 자동 생성 · 학생용</p>
-        <h1 className={styles.h1}>{bookTitle || "제목 없음"}</h1>
-        <p className={styles.meta}>인쇄 시 브라우저 여백은 「없음」을 권장합니다.</p>
-      </header>
+    <>
       {outUnits.map(({ unitIndex, unit }) => (
         <article key={unitIndex} className={styles.unit}>
           <h2 className={styles.unitTitle}>
@@ -151,6 +144,25 @@ export function TextbookAutoPrintView({
           <UnitTestBlock items={unit.unitTest} />
         </article>
       ))}
+    </>
+  );
+}
+
+export function TextbookAutoPrintView({
+  bookTitle,
+  units,
+}: {
+  bookTitle: string;
+  units: { unitIndex: number; unit: TextbookUnitContent }[];
+}) {
+  return (
+    <div className={`${styles.root} textbook-auto-print-root`}>
+      <header className={styles.header}>
+        <p className={styles.brand}>{BRAND_APP_NAME} · 교재 자동 생성 · 학생용</p>
+        <h1 className={styles.h1}>{bookTitle || "제목 없음"}</h1>
+        <p className={styles.meta}>인쇄 시 브라우저 여백은 「없음」을 권장합니다.</p>
+      </header>
+      <TextbookAutoStudentUnitsBody units={units} />
     </div>
   );
 }

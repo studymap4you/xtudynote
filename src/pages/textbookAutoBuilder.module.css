@@ -885,7 +885,17 @@
   color: #475569;
 }
 
-/* 5단계 완성본 */
+/* 완성본 인쇄/PDF 캡처용 (화면 밖에 두되 html2canvas가 그릴 수 있게 표시 유지) */
+.masterBookPrintHost {
+  position: fixed;
+  left: -12000px;
+  top: 0;
+  width: 794px;
+  z-index: -1;
+  background: #fff;
+  box-sizing: border-box;
+  padding: 0.5rem;
+}
 .step5Grid {
   display: grid;
   gap: 1rem;
