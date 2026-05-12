@@ -67,6 +67,8 @@ def phase4_effective(p: Phase4Block | None) -> Phase4Block | None:
 
 
 PROBLEM_START = re.compile(r"^\s*(\d+)\.\s*(.*)$")
+# 단독 줄 [문제 19] 도 문항 경계 (해설 블록에 다음 문항 헤더가 붙는 것 방지)
+PROBLEM_BRACKET = re.compile(r"^\s*\[\s*문제\s*(\d+)\s*\]\s*(.*)$", re.I)
 CHOICE_LINE = re.compile(r"^\s*([①②③④⑤])\s*[.．]?\s*(.*)$")
 CIRCLE_TO_NUM = {"①": "1", "②": "2", "③": "3", "④": "4", "⑤": "5"}
 MERGE_UNIT_HEAD = re.compile(r"\[\s*문제\s*(\d+)\s*\]", re.I)
@@ -264,6 +266,10 @@ def split_unit_chunks(text: str) -> list[tuple[int, str]]:
     heads: list[tuple[int, int, str]] = []
     for i, line in enumerate(lines):
         m = PROBLEM_START.match(line)
+        if m:
+            heads.append((i, int(m.group(1)), m.group(2)))
+            continue
+        m = PROBLEM_BRACKET.match(line)
         if m:
             heads.append((i, int(m.group(1)), m.group(2)))
     if not heads:

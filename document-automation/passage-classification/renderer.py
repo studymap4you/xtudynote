@@ -24,6 +24,18 @@ def _clean_choice_display(text: str, key: str) -> str:
     return t
 
 
+def _strip_leading_problem_bracket_stem(stem: str) -> str:
+    return re.sub(r"^\s*\[\s*문제\s*\d+\s*\]\s*", "", stem or "", flags=re.I).strip()
+
+
+def _strip_trailing_problem_header_in_expl(text: str) -> str:
+    lines = (text or "").split("\n")
+    for i, line in enumerate(lines):
+        if re.match(r"^\s*\[\s*문제\s*\d+\s*\]\s*$", line, re.I):
+            return "\n".join(lines[:i]).strip()
+    return (text or "").strip()
+
+
 def _sanitize_units_for_template(units: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out = copy.deepcopy(units)
     for u in out:
@@ -31,7 +43,11 @@ def _sanitize_units_for_template(units: list[dict[str, Any]]) -> list[dict[str, 
         ch = p1.get("choices") or {}
         if isinstance(ch, dict) and ch:
             p1["choices"] = {str(k): _clean_choice_display(str(v), str(k)) for k, v in ch.items()}
+        p1["stem"] = _strip_leading_problem_bracket_stem(str(p1.get("stem") or ""))
         u["phase1"] = p1
+        p2 = u.get("phase2")
+        if isinstance(p2, dict) and p2.get("explanation"):
+            p2["explanation"] = _strip_trailing_problem_header_in_expl(str(p2["explanation"]))
     return out
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape

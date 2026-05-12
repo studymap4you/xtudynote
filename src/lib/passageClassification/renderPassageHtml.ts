@@ -21,6 +21,19 @@ function answerMark(answer: number): string {
   return `${answer}번`;
 }
 
+/** 본문에 남은 `[문제 n]` 줄은 다음 문항으로 빠져야 하나 원고 오류 시 해설 끝에 붙는 경우 제거 */
+function stripTrailingProblemHeaderLines(text: string): string {
+  const lines = text.split("\n");
+  const cut = lines.findIndex((l) => /^\s*\[\s*문제\s*\d+\s*\]\s*$/i.test(l));
+  if (cut >= 0) return lines.slice(0, cut).join("\n").trim();
+  return text.trim();
+}
+
+/** h2에 이미 [문제 N]을 쓰므로 표제 줄 앞의 동일 패턴은 한 번만 노출 */
+function stripRedundantStemProblemTag(stem: string): string {
+  return stem.replace(/^\s*\[\s*문제\s*\d+\s*\]\s*/i, "").trim();
+}
+
 /** 원고에 `1. ① …`처럼 들어간 표기 제거 — 렌더에서 ①은 한 번만 씀 */
 function cleanChoiceText(raw: string, key: string): string {
   let t = (raw ?? "").trim().replace(/^\s*\d+\.[\s\u3000]*/, "");
@@ -66,7 +79,7 @@ export function renderPassageDocumentHtml(
       ? `
   <div class="formal-section">
     <div class="formal-heading">[지문해설]</div>
-    <div class="formal-body explanation-body">${esc(u.phase2.explanation)}</div>
+    <div class="formal-body explanation-body">${esc(stripTrailingProblemHeaderLines(u.phase2.explanation))}</div>
   </div>`
       : ""
   }
@@ -103,7 +116,7 @@ export function renderPassageDocumentHtml(
       return `<article class="unit">
 <h2 class="problem-no">[문제 ${u.number}]</h2>
 <section class="block stem-section">
-${u.phase1.stem ? `<div class="stem">${esc(u.phase1.stem)}</div>` : ""}
+${u.phase1.stem ? `<div class="stem">${esc(stripRedundantStemProblemTag(u.phase1.stem))}</div>` : ""}
 ${u.phase1.passage ? `<div class="passage">${esc(u.phase1.passage)}</div>` : ""}
 ${choicesHtml}
 </section>
@@ -126,6 +139,7 @@ ${p2clean}${p3}${p4}
 body{max-width:900px;margin:2rem auto;padding:0 1rem;line-height:1.6;font-size:11pt;}
 h1{font-size:1.35rem;border-bottom:2px solid #2563eb;padding-bottom:0.5rem;}
 .unit{margin:2.5rem 0;padding:1.25rem;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;}
+.unit+.unit{margin-top:3rem;padding-top:2rem;border-top:2px solid #cbd5e1;}
 .problem-no{margin-top:0;margin-bottom:1rem;font-size:1.05rem;font-weight:800;color:#0f172a;letter-spacing:0.02em;}
 section.block{margin:1.25rem 0;padding:1rem;background:#fff;border-radius:8px;border:1px solid #e2e8f0;}
 .stem{font-weight:700;margin-bottom:0.5rem;white-space:pre-wrap;}
@@ -139,7 +153,7 @@ ul.choices li{margin:0.35rem 0;white-space:pre-wrap;padding-left:0;display:flex;
 .formal-section:first-child{margin-top:0;}
 .formal-body{white-space:pre-wrap;line-height:1.65;}
 .answer-body{font-size:1.05rem;font-weight:700;color:#1d4ed8;}
-.explanation-body{margin-top:0;}
+.answer-section{margin-bottom:0.25rem;}
 .answer-section .formal-section + .formal-section{margin-top:1.15rem;}
 .deep-section .formal-section + .formal-section{margin-top:1rem;}
 .review-two-col{column-count:2;column-gap:1.5rem;white-space:pre-wrap;}

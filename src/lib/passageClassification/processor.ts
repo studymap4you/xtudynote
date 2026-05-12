@@ -35,6 +35,8 @@ export interface PassageUnit {
 }
 
 const PROBLEM_START = /^\s*(\d+)\.\s*(.*)$/;
+/** 시험지 형식: 단독 줄 `[문제 19]` 도 문항 시작으로 인식 (해설 뒤에 붙는 것 방지) */
+const PROBLEM_BRACKET = /^\s*\[\s*문제\s*(\d+)\s*\]\s*(.*)$/i;
 const CHOICE_LINE = /^\s*([①②③④⑤])\s*[.．]?\s*(.*)$/;
 
 const CIRCLE_TO_NUM: Record<string, string> = { "①": "1", "②": "2", "③": "3", "④": "4", "⑤": "5" };
@@ -297,7 +299,13 @@ export function splitUnitChunks(text: string): [number, string][] {
   const lines = text.split("\n");
   const heads: [number, number, string][] = [];
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(PROBLEM_START);
+    const line = lines[i]!;
+    let m = line.match(PROBLEM_START);
+    if (m) {
+      heads.push([i, parseInt(m[1]!, 10), m[2] ?? ""]);
+      continue;
+    }
+    m = line.match(PROBLEM_BRACKET);
     if (m) heads.push([i, parseInt(m[1]!, 10), m[2] ?? ""]);
   }
   if (!heads.length) return [];
