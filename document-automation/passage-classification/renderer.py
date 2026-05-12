@@ -4,8 +4,35 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import re
 from pathlib import Path
 from typing import Any
+
+_CIRCLES = ("①", "②", "③", "④", "⑤")
+
+
+def _clean_choice_display(text: str, key: str) -> str:
+    """원고에 '1. ① …'처럼 들어간 중복 번호·원문자 제거."""
+    t = (text or "").strip()
+    t = re.sub(r"^\s*\d+\.[\s　]*", "", t)
+    try:
+        ki = int(key) - 1
+    except (TypeError, ValueError):
+        return t
+    if 0 <= ki < 5 and t.startswith(_CIRCLES[ki]):
+        t = t[len(_CIRCLES[ki]) :].lstrip()
+    return t
+
+
+def _sanitize_units_for_template(units: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out = copy.deepcopy(units)
+    for u in out:
+        p1 = u.get("phase1") or {}
+        ch = p1.get("choices") or {}
+        if isinstance(ch, dict) and ch:
+            p1["choices"] = {str(k): _clean_choice_display(str(v), str(k)) for k, v in ch.items()}
+        u["phase1"] = p1
+    return out
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -47,6 +74,7 @@ def render_document_html(
         include_phase3=include_phase3,
         include_phase4=include_phase4,
     )
+    data = _sanitize_units_for_template(data)
     env = Environment(
         loader=FileSystemLoader(str(tpl)),
         autoescape=select_autoescape(["html", "xml"]),

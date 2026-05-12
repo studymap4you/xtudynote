@@ -1,5 +1,6 @@
 /**
- * templates/document.html 과 동일 구조의 정적 HTML (브라우저 생성).
+ * 시험지·학습지형 정형 라벨 ([문제 N], [정답], [지문해설]).
+ * templates/document.html 과 동일 구조.
  */
 
 import type { PassageUnit } from "./processor";
@@ -13,6 +14,22 @@ function esc(s: string): string {
 }
 
 const CIRCLES = ["①", "②", "③", "④", "⑤"];
+
+function answerMark(answer: number): string {
+  const i = answer - 1;
+  if (i >= 0 && i < CIRCLES.length) return CIRCLES[i]!;
+  return `${answer}번`;
+}
+
+/** 원고에 `1. ① …`처럼 들어간 표기 제거 — 렌더에서 ①은 한 번만 씀 */
+function cleanChoiceText(raw: string, key: string): string {
+  let t = (raw ?? "").trim().replace(/^\s*\d+\.[\s\u3000]*/, "");
+  const ki = parseInt(key, 10) - 1;
+  if (ki >= 0 && ki < CIRCLES.length && t.startsWith(CIRCLES[ki]!)) {
+    t = t.slice(CIRCLES[ki]!.length).trimStart();
+  }
+  return t;
+}
 
 export function renderPassageDocumentHtml(
   units: PassageUnit[],
@@ -29,44 +46,68 @@ export function renderPassageDocumentHtml(
       const choiceKeys = Object.keys(u.phase1.choices).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
       const choicesHtml =
         choiceKeys.length > 0
-          ? `<ol class="choices">${choiceKeys
+          ? `<ul class="choices">${choiceKeys
               .map((k) => {
                 const ci = parseInt(k, 10) - 1;
                 const mark = CIRCLES[ci] ?? k;
-                return `<li>${esc(mark)} ${esc(u.phase1.choices[k] ?? "")}</li>`;
+                return `<li><span class="choice-mark">${esc(mark)}</span> <span class="choice-text">${esc(cleanChoiceText(u.phase1.choices[k] ?? "", k))}</span></li>`;
               })
-              .join("")}</ol>`
+              .join("")}</ul>`
           : "";
 
-      const p2 =
+      const p2clean =
         u.phase2 != null
-          ? `<section class="block"><h3>Phase 2 · 정답 및 해설</h3><p><strong>정답:</strong> ${u.phase2.answer}번</p><div class="passage">${esc(u.phase2.explanation)}</div></section>`
+          ? `<section class="block answer-section">
+  <div class="formal-section">
+    <div class="formal-heading">[정답]</div>
+    <div class="formal-body answer-body">${esc(answerMark(u.phase2.answer))}</div>
+  </div>${
+    (u.phase2.explanation ?? "").trim()
+      ? `
+  <div class="formal-section">
+    <div class="formal-heading">[지문해설]</div>
+    <div class="formal-body explanation-body">${esc(u.phase2.explanation)}</div>
+  </div>`
+      : ""
+  }
+</section>`
           : "";
 
       let p3 = "";
       if (u.phase3) {
-        const rows: string[] = [];
-        if (u.phase3.topic) rows.push(`<dt>주제</dt><dd>${esc(u.phase3.topic)}</dd>`);
-        if (u.phase3.gist) rows.push(`<dt>요지</dt><dd>${esc(u.phase3.gist)}</dd>`);
-        if (u.phase3.key_sentence)
-          rows.push(`<dt>핵심 주제문</dt><dd>${esc(u.phase3.key_sentence)}</dd>`);
-        if (u.phase3.literal) rows.push(`<dt>직독직해</dt><dd>${esc(u.phase3.literal)}</dd>`);
-        if (rows.length)
-          p3 = `<section class="block"><h3>Phase 3 · 심층 분석</h3><dl class="phase3-grid">${rows.join("")}</dl></section>`;
+        const parts: string[] = [];
+        if (u.phase3.topic) {
+          parts.push(`<div class="formal-section"><div class="formal-heading">[주제]</div><div class="formal-body">${esc(u.phase3.topic)}</div></div>`);
+        }
+        if (u.phase3.gist) {
+          parts.push(`<div class="formal-section"><div class="formal-heading">[요지]</div><div class="formal-body">${esc(u.phase3.gist)}</div></div>`);
+        }
+        if (u.phase3.key_sentence) {
+          parts.push(
+            `<div class="formal-section"><div class="formal-heading">[주제문]</div><div class="formal-body">${esc(u.phase3.key_sentence)}</div></div>`,
+          );
+        }
+        if (u.phase3.literal) {
+          parts.push(
+            `<div class="formal-section"><div class="formal-heading">[직독직해]</div><div class="formal-body">${esc(u.phase3.literal)}</div></div>`,
+          );
+        }
+        if (parts.length) p3 = `<section class="block deep-section">${parts.join("")}</section>`;
       }
 
       const p4 =
         u.phase4 != null && u.phase4.body.trim()
-          ? `<section class="block"><h3>Phase 4 · 확인 문제</h3><div class="review-two-col">${esc(u.phase4.body)}</div></section>`
+          ? `<section class="block"><div class="formal-heading">[확인문제]</div><div class="review-two-col formal-body">${esc(u.phase4.body)}</div></section>`
           : "";
 
-      return `<article class="unit"><h2>지문 세트 · 문제 ${u.number}</h2>
-<section class="block"><h3>Phase 1 · 문제 및 지문</h3>
+      return `<article class="unit">
+<h2 class="problem-no">[문제 ${u.number}]</h2>
+<section class="block stem-section">
 ${u.phase1.stem ? `<div class="stem">${esc(u.phase1.stem)}</div>` : ""}
 ${u.phase1.passage ? `<div class="passage">${esc(u.phase1.passage)}</div>` : ""}
 ${choicesHtml}
 </section>
-${p2}${p3}${p4}
+${p2clean}${p3}${p4}
 </article>`;
     })
     .join("\n");
@@ -85,16 +126,22 @@ ${p2}${p3}${p4}
 body{max-width:900px;margin:2rem auto;padding:0 1rem;line-height:1.6;font-size:11pt;}
 h1{font-size:1.35rem;border-bottom:2px solid #2563eb;padding-bottom:0.5rem;}
 .unit{margin:2.5rem 0;padding:1.25rem;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;}
-.unit h2{margin-top:0;font-size:1.1rem;color:#1d4ed8;}
+.problem-no{margin-top:0;margin-bottom:1rem;font-size:1.05rem;font-weight:800;color:#0f172a;letter-spacing:0.02em;}
 section.block{margin:1.25rem 0;padding:1rem;background:#fff;border-radius:8px;border:1px solid #e2e8f0;}
-section.block h3{margin-top:0;font-size:0.95rem;color:#334155;}
 .stem{font-weight:700;margin-bottom:0.5rem;white-space:pre-wrap;}
 .passage{white-space:pre-wrap;margin:0.5rem 0;}
-ol.choices{margin:0.5rem 0 0 1.2rem;padding:0;}
-ol.choices li{margin:0.25rem 0;white-space:pre-wrap;}
-.phase3-grid{display:grid;gap:0.75rem;}
-.phase3-grid dt{font-weight:700;color:#475569;font-size:0.85rem;}
-.phase3-grid dd{margin:0 0 0.5rem 0;white-space:pre-wrap;}
+ul.choices{list-style:none;margin:0.75rem 0 0;padding:0;}
+ul.choices li{margin:0.35rem 0;white-space:pre-wrap;padding-left:0;display:flex;align-items:baseline;gap:0.35rem;text-indent:0;}
+.choice-mark{flex-shrink:0;font-weight:700;}
+.choice-text{flex:1;min-width:0;}
+.formal-heading{font-weight:800;font-size:0.95rem;color:#1e293b;margin:0 0 0.4rem;}
+.formal-section{margin-top:1rem;}
+.formal-section:first-child{margin-top:0;}
+.formal-body{white-space:pre-wrap;line-height:1.65;}
+.answer-body{font-size:1.05rem;font-weight:700;color:#1d4ed8;}
+.explanation-body{margin-top:0;}
+.answer-section .formal-section + .formal-section{margin-top:1.15rem;}
+.deep-section .formal-section + .formal-section{margin-top:1rem;}
 .review-two-col{column-count:2;column-gap:1.5rem;white-space:pre-wrap;}
 .running-head{text-align:center;font-weight:700;font-size:1rem;padding-bottom:0.5rem;margin-bottom:1rem;border-bottom:2px solid #cbd5e1;color:#1e293b;}
 .doc-title-row{margin-bottom:0.25rem;}
@@ -103,7 +150,7 @@ ol.choices li{margin:0.25rem 0;white-space:pre-wrap;}
 </style></head><body>
 ${head}
 <div class="doc-title-row"><h1>${esc(title)}</h1></div>
-<p class="meta">Phase3·4는 데이터가 있고 스위치가 켜져 있을 때만 표시됩니다.</p>
+<p class="meta">모듈 출력 설정에 따라 [주제]·[확인문제] 등 추가 블록이 이어질 수 있습니다.</p>
 ${unitsHtml}
 ${foot}
 </body></html>`;
