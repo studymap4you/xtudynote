@@ -71,11 +71,11 @@ export function validateDraftUnit(
     const shortNeeded = unitTestShort;
     const mcqItems = unit.unitTest.filter((t): t is TextbookUnitTestMcq => t.kind === "mcq" && validMcq(t));
     const shortItems = unit.unitTest.filter((t): t is TextbookUnitTestShort => t.kind === "short" && validShort(t));
-    if (mcqItems.length < mcqNeeded) {
-      return `단원평가 객관식은 최소 ${mcqNeeded}문항입니다. (유효 ${mcqItems.length}개 — 질문·보기를 채우세요)`;
+    if (mcqNeeded > 0 && mcqItems.length < mcqNeeded) {
+      return `단원평가 객관식은 ${mcqNeeded}문항이어야 합니다. (유효 ${mcqItems.length}개 — 질문·보기를 채우세요)`;
     }
-    if (shortItems.length < shortNeeded) {
-      return `단원평가 주관식 단답은 최소 ${shortNeeded}문항입니다. (유효 ${shortItems.length}개)`;
+    if (shortNeeded > 0 && shortItems.length < shortNeeded) {
+      return `단원평가 주관식 단답은 ${shortNeeded}문항이어야 합니다. (유효 ${shortItems.length}개)`;
     }
   }
 

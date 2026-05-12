@@ -65,6 +65,17 @@
   border-radius: 10px;
   padding: 0.85rem;
   margin-bottom: 0.65rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.itemCard .input,
+.itemCard .textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .itemHead {

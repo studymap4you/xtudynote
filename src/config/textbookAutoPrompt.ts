@@ -72,9 +72,20 @@ export function buildTextbookUnitUserPrompt(params: {
     secLines.push("- practice: **[]** 빈 배열만.");
   }
   if (inc.unitTest) {
-    secLines.push(
-      `- unitTest: 객관식(kind=\"mcq\") **정확히 ${unitTestMcq}개** + 주관식 단답(kind=\"short\") **정확히 ${unitTestShort}개** (합계 ${testTotal}개, 빈 배열 금지).`,
-    );
+    if (unitTestMcq === 0 && unitTestShort === 0) {
+      secLines.push("- unitTest: **[]** 빈 배열만. 문항을 추가하지 마세요.");
+    } else {
+      const parts: string[] = [];
+      if (unitTestMcq > 0) {
+        parts.push(`객관식(kind="mcq") **정확히 ${unitTestMcq}개**`);
+      }
+      if (unitTestShort > 0) {
+        parts.push(`주관식 단답(kind="short") **정확히 ${unitTestShort}개**`);
+      }
+      secLines.push(
+        `- unitTest: ${parts.join(", ")}. 객관식·주관식 개수를 **정확히** 맞추고, 배열 합계는 ${testTotal}개입니다.`,
+      );
+    }
   } else {
     secLines.push("- unitTest: **[]** 빈 배열만.");
   }

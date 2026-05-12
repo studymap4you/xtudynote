@@ -62,7 +62,6 @@ type BuilderWorkspaceTab = "unitBook" | "worksheet" | "evaluation" | "passageCla
 const DEFAULT_TOTAL_UNITS = 3;
 const MAX_UNITS = 30;
 const MIN_PRACTICE_QUESTIONS = 10;
-const MIN_UNIT_TEST_TOTAL = 20;
 const DEFAULT_UNIT_TEST_MCQ = 12;
 const DEFAULT_UNIT_TEST_SHORT = 8;
 /** Firestore·AI 안정용 단원당 상한 */
@@ -134,9 +133,6 @@ export function TextbookAutoBuilderPage() {
   const [setupPassageIndex, setSetupPassageIndex] = useState(0);
 
   const isComplete = sessionId !== null && currentUnitIndex >= totalUnits;
-  const unitTestTotalOk =
-    !sectionInclusion.unitTest || unitTestMcqCount + unitTestShortCount >= MIN_UNIT_TEST_TOTAL;
-
   const contentStudyAiContext = useMemo(() => {
     if (!sessionId || !sessionUnitPassages) return null;
     const raw = sessionUnitPassages[currentUnitIndex] ?? "";
@@ -437,10 +433,6 @@ export function TextbookAutoBuilderPage() {
       setErr("AI 생성에 포함할 섹션을 한 개 이상 선택하세요.");
       return;
     }
-    if (sectionInclusion.unitTest && !unitTestTotalOk) {
-      setErr(`단원평가 문항 합계는 ${MIN_UNIT_TEST_TOTAL}개 이상이어야 합니다. (객관식+주관식 단답)`);
-      return;
-    }
     draftLoadSeqRef.current += 1;
     setBusy(true);
     try {
@@ -482,7 +474,6 @@ export function TextbookAutoBuilderPage() {
     totalUnits,
     unitTestMcqCount,
     unitTestShortCount,
-    unitTestTotalOk,
     sectionInclusion,
   ]);
 
@@ -1416,7 +1407,7 @@ export function TextbookAutoBuilderPage() {
                     {sectionInclusion.unitTest ? (
                     <div className={styles.field}>
                       <span className={styles.label}>
-                        단원평가 문항 수 (AI 생성·확정 기준) — 객관식 + 주관식 단답 합계 {MIN_UNIT_TEST_TOTAL}개 이상
+                        단원평가 문항 수 (AI 생성·확정 기준) — 입력한 객관식·주관식 단답 개수만큼 생성합니다
                       </span>
                       <div className={styles.countRow}>
                         <label className={styles.countLabel}>
@@ -1445,8 +1436,8 @@ export function TextbookAutoBuilderPage() {
                             }
                           />
                         </label>
-                        <span className={unitTestTotalOk ? styles.hint : styles.countWarn}>
-                          합계 {unitTestMcqCount + unitTestShortCount}개
+                        <span className={styles.hint}>
+                          객관식 {unitTestMcqCount} · 주관식 단답 {unitTestShortCount}
                           {sectionInclusion.practice
                             ? ` · 확인학습 선택 시 AI가 ${MIN_PRACTICE_QUESTIONS}문항(주관식 단답)을 만듭니다`
                             : ""}
@@ -1465,11 +1456,7 @@ export function TextbookAutoBuilderPage() {
                       <button
                         type="button"
                         className={styles.btnPrimary}
-                        disabled={
-                          busy ||
-                          !anySectionInclusionEnabled(sectionInclusion) ||
-                          (sectionInclusion.unitTest && !unitTestTotalOk)
-                        }
+                        disabled={busy || !anySectionInclusionEnabled(sectionInclusion)}
                         onClick={() => void runGenerate()}
                       >
                         {busy ? "생성 중…" : "이 단원 AI 생성"}
