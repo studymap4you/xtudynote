@@ -102,6 +102,24 @@
   color: #94a3b8;
 }
 
+.moduleBox {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.preBody {
+  margin: 0;
+  font-family: inherit;
+  font-size: 10pt;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  color: #0f172a;
+}
+
 @media print {
   .root {
     -webkit-print-color-adjust: exact;

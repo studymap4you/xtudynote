@@ -8,10 +8,12 @@ import { TextbookAutoMasterBookPanel } from "@/components/textbookAuto/TextbookA
 import { PassageClassificationPanel } from "@/components/passageClassification/PassageClassificationPanel";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
 import { TextbookUnitDraftEditor } from "@/components/textbookAuto/TextbookUnitDraftEditor";
+import { LocalDocModulesEditor } from "@/components/localDocumentAuto/LocalDocModulesEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { storage } from "@/firebase/config";
 import { BRAND_APP_NAME } from "@/lib/brand";
 import { combineUnitPassage, emptyUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
+import { parseManuscriptToModules } from "@/lib/localDocumentAuto/manuscriptModules";
 import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextbookUnitGeneration";
@@ -309,9 +311,14 @@ export function TextbookAutoBuilderPage() {
         unitTestShort: sectionInclusion.unitTest ? unitTestShortCount : 0,
         sectionInclusion,
       });
-      setDraftUnit(unit);
+      const passageMods = parseManuscriptToModules(sliceForAi(src));
+      const unitWithMods: TextbookUnitContent = {
+        ...unit,
+        manuscriptModules: passageMods.length > 0 ? passageMods : [],
+      };
+      setDraftUnit(unitWithMods);
       setDraftModel(meta.model);
-      await writeUnitDraft(uid, sessionId, currentUnitIndex, unit, meta.model);
+      await writeUnitDraft(uid, sessionId, currentUnitIndex, unitWithMods, meta.model);
       setMsg(
         src.length > AI_SOURCE_SLICE
           ? `생성했습니다. (이 단원 지문 ${AI_SOURCE_SLICE.toLocaleString()}자까지 AI에 전달됨)`
@@ -1093,6 +1100,20 @@ export function TextbookAutoBuilderPage() {
                         }
                       }}
                     />
+                    <div className={styles.preview}>
+                      <h3 className={styles.previewTitle}>원고 모듈 (학습지 제작과 동일)</h3>
+                      <p className={styles.hint}>
+                        단원별로 블록을 나누어 순서·내용을 조정합니다. AI 생성 직후에는 이 단원 지문이 모듈로 채워지며, 확정된 모든 단원의 모듈이 3·5단계 학생용 Word·PDF·완성본 본문에 단원 순으로
+                        이어집니다.
+                      </p>
+                      <LocalDocModulesEditor
+                        modules={draftUnit.manuscriptModules ?? []}
+                        onChange={(mm) => setDraftUnit({ ...draftUnit, manuscriptModules: mm })}
+                        disabled={busy}
+                        kind="worksheet"
+                        analyzeSeedText={sessionUnitPassages?.[currentUnitIndex] ?? ""}
+                      />
+                    </div>
                   </div>
                 ) : null}
 

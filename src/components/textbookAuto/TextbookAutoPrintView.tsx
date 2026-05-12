@@ -1,5 +1,10 @@
+import type { ReactNode } from "react";
 import { BRAND_APP_NAME } from "@/lib/brand";
 import { mapUnitsForStudentOutput } from "@/lib/textbookAuto/sectionInclusion";
+import {
+  LOCAL_DOC_FIELD_LABEL,
+  problemModulePrintTitle,
+} from "@/lib/localDocumentAuto/manuscriptModules";
 import type {
   TextbookContentStudyBlock,
   TextbookKeyConceptItem,
@@ -87,6 +92,37 @@ function UnitTestBlock({ items }: { items: TextbookUnitTestItem[] }) {
   );
 }
 
+function ManuscriptModulesBlock({ modules }: { modules: TextbookUnitContent["manuscriptModules"] }) {
+  if (!modules?.length) return null;
+  let problemOrdinal = 0;
+  const blocks: ReactNode[] = [];
+  for (const m of modules) {
+    if (m.field === "evaluation") continue;
+    const body = (m.body ?? "").trim();
+    if (!body) continue;
+    let title: string;
+    if (m.field === "problem") {
+      problemOrdinal += 1;
+      title = problemModulePrintTitle(m, problemOrdinal);
+    } else {
+      title = m.field === "preamble" ? "도입 (구획 전)" : LOCAL_DOC_FIELD_LABEL[m.field];
+    }
+    blocks.push(
+      <div key={m.id} className={styles.moduleBox}>
+        <h3 className={styles.h3}>{title}</h3>
+        <pre className={styles.preBody}>{body}</pre>
+      </div>,
+    );
+  }
+  if (!blocks.length) return null;
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.h2}>원고 모듈</h2>
+      {blocks}
+    </section>
+  );
+}
+
 export function TextbookAutoPrintView({
   bookTitle,
   units,
@@ -107,6 +143,7 @@ export function TextbookAutoPrintView({
           <h2 className={styles.unitTitle}>
             제 {unitIndex + 1}단원 · {unit.unitTitle}
           </h2>
+          <ManuscriptModulesBlock modules={unit.manuscriptModules} />
           <KeyConceptBlock items={unit.keyConcepts} />
           <ContentStudyPrint blocks={unit.contentStudy} />
           <ListBlock title="핵심요약" items={unit.coreSummary} />

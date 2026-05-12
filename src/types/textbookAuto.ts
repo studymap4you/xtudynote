@@ -1,3 +1,5 @@
+import type { LocalDocModule } from "@/lib/localDocumentAuto/manuscriptModules";
+
 /** 교재 자동 생성 — 세션·단원 스키마 */
 export const TEXTBOOK_AUTO_SCHEMA_VERSION = 1;
 
@@ -77,6 +79,7 @@ export type TextbookUnitContent = {
   practice: string[];
   unitTest: TextbookUnitTestItem[];
   sectionInclusion?: TextbookSectionInclusion;
+  manuscriptModules?: LocalDocModule[];
 };
 
 export type TextbookUnitDoc = TextbookUnitContent & {

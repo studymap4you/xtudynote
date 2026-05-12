@@ -8,6 +8,7 @@ import type {
   TextbookUnitTestItem,
 } from "@/types/textbookAuto";
 import { unitForStudentOutput } from "@/lib/textbookAuto/sectionInclusion";
+import { manuscriptModulesToStudentDocxParagraphs } from "@/lib/textbookAuto/manuscriptModulesDocx";
 
 function textPara(text: string, opts?: { size?: number; bold?: boolean; after?: number }): Paragraph {
   return new Paragraph({
@@ -146,6 +147,9 @@ export function buildTextbookBodyParagraphsFromUnits(units: { unitIndex: number;
         spacing: { before: 180, after: 120 },
       }),
     );
+    if (rawUnit.manuscriptModules?.length) {
+      blocks.push(...manuscriptModulesToStudentDocxParagraphs(rawUnit.manuscriptModules));
+    }
     blocks.push(...keyConceptParagraphs(unit.keyConcepts));
     blocks.push(...contentStudyParagraphs(unit.contentStudy));
     blocks.push(...listBlock("핵심요약", unit.coreSummary));

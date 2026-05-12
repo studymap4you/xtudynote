@@ -18,6 +18,7 @@ import {
   type TextbookUnitContent,
   DEFAULT_SECTION_INCLUSION,
 } from "@/types/textbookAuto";
+import type { LocalDocModule } from "@/lib/localDocumentAuto/manuscriptModules";
 import { unitContentFromFirestoreDoc } from "@/lib/textbookAuto/normalizeUnitContent";
 
 export type TextbookAutoSessionDoc = {
@@ -71,6 +72,20 @@ export function unitDocumentId(unitIndex: number): string {
   return `${UNIT_DOC_PREFIX}${unitIndex}`;
 }
 
+function serializeManuscriptModules(mods: LocalDocModule[] | undefined): Record<string, unknown>[] {
+  if (!mods?.length) return [];
+  return mods.map((m) => {
+    const row: Record<string, unknown> = {
+      id: m.id,
+      field: m.field,
+      body: m.body ?? "",
+    };
+    if (m.inputMode) row.inputMode = m.inputMode;
+    if ((m.questionNumber ?? "").trim()) row.questionNumber = m.questionNumber!.trim();
+    return row;
+  });
+}
+
 function sanitizeUnitForFirestoreWrite(unit: TextbookUnitContent): TextbookUnitContent {
   const t = unit.unitTitle.trim();
   return { ...unit, unitTitle: t || "(제목 미정)" };
@@ -94,6 +109,7 @@ export async function writeUnitDraft(
     practice: u.practice,
     unitTest: u.unitTest,
     sectionInclusion: u.sectionInclusion ?? DEFAULT_SECTION_INCLUSION,
+    manuscriptModules: serializeManuscriptModules(u.manuscriptModules),
     model,
     createdAt: serverTimestamp(),
   });
@@ -117,6 +133,7 @@ export async function writeUnitConfirmed(
     practice: u.practice,
     unitTest: u.unitTest,
     sectionInclusion: u.sectionInclusion ?? DEFAULT_SECTION_INCLUSION,
+    manuscriptModules: serializeManuscriptModules(u.manuscriptModules),
     model,
     createdAt: serverTimestamp(),
     confirmedAt: serverTimestamp(),

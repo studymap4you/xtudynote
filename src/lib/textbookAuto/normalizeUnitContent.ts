@@ -6,6 +6,33 @@ import type {
 } from "@/types/textbookAuto";
 import { DEFAULT_SECTION_INCLUSION } from "@/types/textbookAuto";
 import { parseSectionInclusionFromUnknown } from "@/lib/textbookAuto/sectionInclusion";
+import {
+  ALL_LOCAL_DOC_MODULE_FIELDS,
+  type LocalDocModule,
+  type LocalDocModuleField,
+} from "@/lib/localDocumentAuto/manuscriptModules";
+
+const MODULE_FIELD_SET = new Set<LocalDocModuleField>(ALL_LOCAL_DOC_MODULE_FIELDS);
+const MAX_MANUSCRIPT_MODULES = 400;
+
+function parseManuscriptModules(raw: unknown): LocalDocModule[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LocalDocModule[] = [];
+  for (const x of raw) {
+    if (out.length >= MAX_MANUSCRIPT_MODULES) break;
+    if (!x || typeof x !== "object" || Array.isArray(x)) continue;
+    const o = x as Record<string, unknown>;
+    const id = typeof o.id === "string" && o.id.trim() ? o.id.trim() : "";
+    const field = o.field as LocalDocModuleField;
+    const body = typeof o.body === "string" ? o.body : "";
+    if (!id || !MODULE_FIELD_SET.has(field)) continue;
+    const m: LocalDocModule = { id, field, body };
+    if (o.inputMode === "manual" || o.inputMode === "ai") m.inputMode = o.inputMode;
+    if (typeof o.questionNumber === "string" && o.questionNumber.trim()) m.questionNumber = o.questionNumber.trim();
+    out.push(m);
+  }
+  return out;
+}
 
 function cleanLines(arr: unknown, max: number): string[] {
   if (!Array.isArray(arr)) return [];
@@ -120,6 +147,8 @@ export function normalizeUnitContentFromUnknown(raw: Record<string, unknown>): T
   const sectionInclusion =
     parseSectionInclusionFromUnknown(raw.sectionInclusion) ?? DEFAULT_SECTION_INCLUSION;
 
+  const mm = parseManuscriptModules(raw.manuscriptModules);
+
   return {
     unitTitle: unitTitle || "(제목 없음)",
     keyConcepts: keyOut,
@@ -128,6 +157,7 @@ export function normalizeUnitContentFromUnknown(raw: Record<string, unknown>): T
     practice: cleanLines(raw.practice, 50),
     unitTest: utOut,
     sectionInclusion,
+    ...(mm.length ? { manuscriptModules: mm } : {}),
   };
 }
 
@@ -141,5 +171,6 @@ export function unitContentFromFirestoreDoc(data: Record<string, unknown>): Text
     practice: data.practice,
     unitTest: data.unitTest,
     sectionInclusion: data.sectionInclusion,
+    manuscriptModules: data.manuscriptModules,
   });
 }
