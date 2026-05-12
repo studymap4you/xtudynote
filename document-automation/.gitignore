@@ -1,3 +1,6 @@
 __pycache__/
 *.py[cod]
 *.pdf
+passage-classification/out/
+_tmp*.json
+_tmp*.html

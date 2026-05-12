@@ -55,7 +55,7 @@ import type {
 import { DEFAULT_SECTION_INCLUSION } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
-type BuilderWorkspaceTab = "unitBook" | "worksheet" | "evaluation";
+type BuilderWorkspaceTab = "unitBook" | "worksheet" | "evaluation" | "passageClassify";
 
 const DEFAULT_TOTAL_UNITS = 3;
 const MAX_UNITS = 30;
@@ -738,6 +738,11 @@ export function TextbookAutoBuilderPage() {
                 단원 수만큼 지문 칸이 열립니다. 각 단원에 직접 붙여넣거나 파일을 여러 개 올린 뒤 PDF는 페이지 범위·개별 페이지를 지정해 추출할 수 있습니다. 세션을 시작한 뒤 단원별 AI
                 초안을 확정하고, 3–4단계에서 정답·해설·클라우드를 다룬 뒤, 5단계에서 표지·목차·본문·추가 페이지를 합친 완성본 Word를 내려받을 수 있습니다.
               </p>
+            ) : workspaceTab === "passageClassify" ? (
+              <p className={styles.lead}>
+                비정형 원고를 문제 번호·선택지·앵커 태그로 나누어 JSON으로 만든 뒤, 값이 있는 Phase만 HTML로 순서대로 냅니다. 로컬 스크립트 경로는{" "}
+                <span className={styles.pathChip}>document-automation/passage-classification/</span> 입니다.
+              </p>
             ) : (
               <p className={styles.lead}>
                 대용량 원고(.txt)를 구획 헤더로 나눈 뒤, 로컬 Python(Jinja2 · WeasyPrint)으로 전용 PDF를 만듭니다. 외부 API 없이 오프라인에서만 동작합니다. 프로젝트 폴더는 저장소
@@ -774,12 +779,23 @@ export function TextbookAutoBuilderPage() {
             >
               평가문제지
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={workspaceTab === "passageClassify"}
+              className={`${styles.tab}${workspaceTab === "passageClassify" ? ` ${styles.tabActive}` : ""}`}
+              onClick={() => setWorkspaceTab("passageClassify")}
+            >
+              지문 분류
+            </button>
           </div>
 
           {workspaceTab === "worksheet" ? (
             <LocalDocumentAutomationPanel kind="worksheet" />
           ) : workspaceTab === "evaluation" ? (
             <LocalDocumentAutomationPanel kind="evaluation" />
+          ) : workspaceTab === "passageClassify" ? (
+            <PassageClassificationPanel />
           ) : !sessionId ? (
             <section className={styles.card} aria-labelledby="setup-h">
               <h2 id="setup-h" className={styles.cardTitle}>
@@ -1387,6 +1403,113 @@ function localDocDownloadTextFile(filename: string, content: string, mime: strin
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+function PassageClassificationPanel() {
+  const sample = `1. 다음 글의 요지로 가장 적절한 것은?
+
+English passage line one.
+Line two.
+
+① 선택1
+② 선택2
+③ 선택3
+④ 선택4
+⑤ 선택5
+
+[정답 및 해설]
+정답: ③
+해설 문단…
+
+[주제]
+주제 한 줄
+
+[요지]
+요지 요약
+
+[주제문]
+Key sentence in English.
+
+[직독직해]
+ word / by / word
+직역 줄
+
+[확인문제]
+복습 문항 (2단 HTML로 렌더)
+
+2. 다음 빈칸에 들어갈 말로 알맞은 것은?
+
+Second passage text.
+
+① A
+② B
+③ C
+④ D
+⑤ E
+
+[정답 및 해설]
+정답: ②
+간단 해설`;
+
+  const mergeSample = `[문제 1]
+[직독직해]
+나중에 붙인 직독직해만 보강하는 예시입니다.`;
+
+  return (
+    <section className={`${styles.card} ${styles.localPanel}`} aria-labelledby="passage-class-h">
+      <h2 id="passage-class-h" className={styles.cardTitle}>
+        지문 분류 · 4단계 구조
+      </h2>
+      <p className={styles.localPanelLead}>
+        <strong>Phase 1</strong> 문제·지문(번호로 시작하는 줄 + ①~⑤), <strong>Phase 2</strong>{" "}
+        <span className={styles.pathChip}>[정답 및 해설]</span> 또는 <span className={styles.pathChip}>[정답]</span>,{" "}
+        <strong>Phase 3</strong> <span className={styles.pathChip}>[주제]</span>·
+        <span className={styles.pathChip}>[요지]</span>·<span className={styles.pathChip}>[주제문]</span>·
+        <span className={styles.pathChip}>[직독직해]</span> (없으면 JSON/HTML 모두 생략), <strong>Phase 4</strong>{" "}
+        <span className={styles.pathChip}>[확인문제]</span> 또는 <span className={styles.pathChip}>[Review]</span> (2단 CSS).{" "}
+        병합 파일에는 <span className={styles.pathChip}>[문제 N]</span> 블록으로 같은 번호에 Phase2~4만 덧붙일 수 있습니다.
+      </p>
+
+      <h3 className={styles.localSectionTitle}>로컬 실행 (상대 경로)</h3>
+      <ol className={styles.localPanelSteps}>
+        <li>
+          터미널에서 저장소의{" "}
+          <span className={styles.pathChip}>document-automation/passage-classification/</span> 로 이동합니다.
+        </li>
+        <li>
+          <pre className={styles.samplePre}>
+            {`python processor.py --in sample_input.txt --json out/units.json
+python processor.py --in base.txt --json out/units.json --merge patch.txt
+python renderer.py --json out/units.json --out out/report.html`}
+          </pre>
+        </li>
+        <li>
+          <span className={styles.pathChip}>renderer.py</span>는 같은 폴더의{" "}
+          <span className={styles.pathChip}>templates/document.html</span>만 사용합니다(Jinja2). 외부 API 없습니다.
+        </li>
+      </ol>
+
+      <div className={styles.localActionRow}>
+        <button
+          type="button"
+          className={styles.btnSecondary}
+          onClick={() => localDocDownloadTextFile("passage_sample.txt", sample, "text/plain;charset=utf-8")}
+        >
+          예시 원고 .txt 받기
+        </button>
+        <button
+          type="button"
+          className={styles.btnSecondary}
+          onClick={() => localDocDownloadTextFile("passage_merge_sample.txt", mergeSample, "text/plain;charset=utf-8")}
+        >
+          병합 예시 .txt 받기
+        </button>
+      </div>
+
+      <p className={styles.label}>형식 요약 (문제마다 1., 2., … 로 구분, 선택지는 줄마다 ①~⑤)</p>
+      <pre className={styles.samplePre}>{sample}</pre>
+    </section>
+  );
 }
 
 function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluation" }) {
