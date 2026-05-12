@@ -117,6 +117,42 @@
   font-family: ui-monospace, monospace;
 }
 
+.localSectionTitle {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.localSectionTitle:first-of-type {
+  margin-top: 0;
+}
+
+.localManuscript {
+  min-height: 280px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.localActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.localDivider {
+  margin: 1.15rem 0;
+  border: none;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.localHintTight {
+  margin-top: 0 !important;
+}
+
 .card {
   background: #fff;
   border: 1px solid #e2e8f0;

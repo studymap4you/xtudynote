@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useReactToPrint } from "react-to-print";
 import { getDownloadURL, ref as storageRef } from "firebase/storage";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -1321,47 +1321,7 @@ export function TextbookAutoBuilderPage() {
   );
 }
 
-function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluation" }) {
-  const title = kind === "worksheet" ? "학습지 (로컬 PDF)" : "평가문제지 (로컬 PDF)";
-  const outName =
-    kind === "worksheet"
-      ? "동일 베이스 이름에 «_worksheet.pdf»"
-      : "동일 베이스 이름에 «_evaluation.pdf» (평가문제 블록만, 2단 구성)";
-
-  return (
-    <section className={`${styles.card} ${styles.localPanel}`} aria-labelledby="local-doc-h">
-      <h2 id="local-doc-h" className={styles.cardTitle}>
-        {title}
-      </h2>
-      <p className={styles.localPanelLead}>
-        이 탭은 웹 서버가 아니라 내 PC에서 돌리는 배치 도구입니다. 아래 마커로 원고를 나눈 뒤{" "}
-        <span className={styles.pathChip}>document-automation/src/main.py</span> 를 실행하면{" "}
-        <span className={styles.pathChip}>document-automation/output/</span> 에 PDF가 쌓입니다. 의존성은{" "}
-        <span className={styles.pathChip}>pip install -r document-automation/requirements.txt</span> 로 설치합니다. Windows에서는 WeasyPrint가 GTK 런타임(Pango 등)을
-        추가로 요구할 수 있으며, 안내 메시지의 공식 문서 링크를 따르면 됩니다.
-      </p>
-      <ol className={styles.localPanelSteps}>
-        <li>
-          <span className={styles.pathChip}>document-automation/config.yaml</span> 에서 머릿말·꼬리말 문구와 폰트 경로를 수정합니다.
-        </li>
-        <li>
-          원고를 <span className={styles.pathChip}>document-automation/input/*.txt</span> 로 저장합니다.
-        </li>
-        <li>
-          프로젝트 루트에서 <span className={styles.pathChip}>python document-automation/src/main.py</span> 를 실행합니다 ({outName}).
-        </li>
-        {kind === "evaluation" ? (
-          <li>
-            평가문 PDF는 <strong>[평가문제]</strong> 블록만 넣고, CSS <code style={{ fontSize: "0.85em" }}>column-count: 2</code> 로 2단으로 흘려 보냅니다.
-          </li>
-        ) : (
-          <li>
-            학습지 PDF에는 <strong>[평가문제]</strong>를 제외한 블록(문제·지문, 정답·해설, 주제·요지, 직독직해)이 한 문서로 들어갑니다.
-          </li>
-        )}
-      </ol>
-      <p className={styles.label}>원고 구획 예시 (줄 단위 헤더는 정확히 일치해야 합니다)</p>
-      <pre className={styles.samplePre}>{`[문제+지문]
+const LOCAL_DOC_SAMPLE_MANUSCRIPT = `[문제+지문]
 지문과 함께 붙어 있는 발문…
 
 [정답+해설]
@@ -1374,7 +1334,238 @@ function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluatio
 단락 단위 해석…
 
 [평가문제]
-객관식 / 서술형 문항만 모음…`}</pre>
+객관식 / 서술형 문항만 모음…`;
+
+function localDocSafeBasename(name: string): string {
+  const t = name.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 96);
+  return t || "manuscript";
+}
+
+function localDocYamlDoubleQuoted(s: string): string {
+  return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r\n/g, "\n").replace(/\n/g, "\\n").replace(/\r/g, "\\n")}"`;
+}
+
+function localDocBuildConfigYaml(params: {
+  headerTitle: string;
+  footerLeft: string;
+  footerRight: string;
+  koreanFont: string;
+  englishFont: string;
+}): string {
+  const { headerTitle, footerLeft, footerRight, koreanFont, englishFont } = params;
+  return `# Xtudy 웹에서 내보냄 — document-automation/config.yaml 에 덮어쓰거나 document 블록만 복사하세요.
+paths:
+  input: input
+  output: output
+  templates: templates
+  assets: assets
+
+document:
+  header_title: ${localDocYamlDoubleQuoted(headerTitle)}
+  footer_left: ${localDocYamlDoubleQuoted(footerLeft)}
+  footer_right: ${localDocYamlDoubleQuoted(footerRight)}
+
+fonts:
+  korean_ttf: ${localDocYamlDoubleQuoted(koreanFont)}
+  english_ttf: ${localDocYamlDoubleQuoted(englishFont)}
+`;
+}
+
+function localDocDownloadTextFile(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function LocalDocumentAutomationPanel({ kind }: { kind: "worksheet" | "evaluation" }) {
+  const title = kind === "worksheet" ? "학습지 (로컬 PDF)" : "평가문제지 (로컬 PDF)";
+  const outName =
+    kind === "worksheet"
+      ? "«이름_worksheet.pdf»"
+      : "«이름_evaluation.pdf» (평가문제 블록·2단)";
+
+  const [headerTitle, setHeaderTitle] = useState("Xtudy · 학습 자료");
+  const [footerLeft, setFooterLeft] = useState("Xtudy-Universe");
+  const [footerRight, setFooterRight] = useState("내부용");
+  const [koreanFont, setKoreanFont] = useState("assets/fonts/NotoSansKR-Regular.ttf");
+  const [englishFont, setEnglishFont] = useState("assets/fonts/NotoSans-Regular.ttf");
+  const [docStem, setDocStem] = useState(kind === "worksheet" ? "worksheet_manuscript" : "evaluation_manuscript");
+  const [manuscript, setManuscript] = useState("");
+  const [localMsg, setLocalMsg] = useState<string | null>(null);
+
+  const onUploadTxt = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    try {
+      const text = await f.text();
+      setManuscript(text);
+      const base = f.name.replace(/\.txt$/i, "").trim();
+      if (base) setDocStem(localDocSafeBasename(base));
+      setLocalMsg(`「${f.name}」을(를) 원고에 불러왔습니다.`);
+    } catch {
+      setLocalMsg("파일을 읽지 못했습니다.");
+    }
+  }, []);
+
+  const downloadManuscript = useCallback(() => {
+    const stem = localDocSafeBasename(docStem);
+    if (!manuscript.trim()) {
+      setLocalMsg("원고 내용이 비었습니다. 붙여넣거나 파일을 올려 주세요.");
+      return;
+    }
+    localDocDownloadTextFile(`${stem}.txt`, manuscript, "text/plain;charset=utf-8");
+    setLocalMsg(`「${stem}.txt」를 내려받았습니다. document-automation/input/ 에 넣은 뒤 main.py 를 실행하세요.`);
+  }, [docStem, manuscript]);
+
+  const downloadConfig = useCallback(() => {
+    const yaml = localDocBuildConfigYaml({
+      headerTitle,
+      footerLeft,
+      footerRight,
+      koreanFont,
+      englishFont,
+    });
+    localDocDownloadTextFile("xtudy-doc-config.yaml", yaml, "text/yaml;charset=utf-8");
+    setLocalMsg(
+      "「xtudy-doc-config.yaml」를 내려받았습니다. document-automation/config.yaml 과 비교해 병합하거나 교체하세요.",
+    );
+  }, [headerTitle, footerLeft, footerRight, koreanFont, englishFont]);
+
+  return (
+    <section className={`${styles.card} ${styles.localPanel}`} aria-labelledby="local-doc-h">
+      <h2 id="local-doc-h" className={styles.cardTitle}>
+        {title}
+      </h2>
+      <p className={styles.localPanelLead}>
+        웹에서 머릿말·꼬리말·원고를 입력하거나 .txt를 올린 다음, 파일을 내려받아 로컬{" "}
+        <span className={styles.pathChip}>document-automation/</span>에 넣고{" "}
+        <span className={styles.pathChip}>python document-automation/src/main.py</span> 를 실행하면 PDF(
+        {outName})가 <span className={styles.pathChip}>output/</span>에 생성됩니다. Vercel에서는 WeasyPrint를 돌리지 않으므로 반드시 본인 PC에서 스크립트를 실행해야 합니다.
+      </p>
+
+      <h3 className={styles.localSectionTitle}>머릿말 · 꼬리말 · 폰트 경로</h3>
+      <p className={`${styles.hint} ${styles.localHintTight}`}>
+        아래 값은 «config.yaml 내보내기」에 반영됩니다. 폰트 파일은 로컬{" "}
+        <span className={styles.pathChip}>document-automation/assets/fonts/</span>에 두고 경로를 맞춥니다.
+      </p>
+      <label className={styles.field}>
+        <span className={styles.label}>머릿말 (PDF 상단 러닝 헤더)</span>
+        <input
+          className={styles.input}
+          value={headerTitle}
+          onChange={(e) => setHeaderTitle(e.target.value)}
+          maxLength={300}
+          placeholder="예: 독해 워크시트 3강"
+        />
+      </label>
+      <label className={styles.field}>
+        <span className={styles.label}>꼬리말 왼쪽</span>
+        <input
+          className={styles.input}
+          value={footerLeft}
+          onChange={(e) => setFooterLeft(e.target.value)}
+          maxLength={200}
+        />
+      </label>
+      <label className={styles.field}>
+        <span className={styles.label}>꼬리말 오른쪽</span>
+        <input
+          className={styles.input}
+          value={footerRight}
+          onChange={(e) => setFooterRight(e.target.value)}
+          maxLength={200}
+        />
+      </label>
+      <label className={styles.field}>
+        <span className={styles.label}>한글 폰트 (.ttf 상대 경로, document-automation 기준)</span>
+        <input
+          className={styles.input}
+          value={koreanFont}
+          onChange={(e) => setKoreanFont(e.target.value)}
+          maxLength={400}
+        />
+      </label>
+      <label className={styles.field}>
+        <span className={styles.label}>영문 폰트 (.ttf 상대 경로)</span>
+        <input
+          className={styles.input}
+          value={englishFont}
+          onChange={(e) => setEnglishFont(e.target.value)}
+          maxLength={400}
+        />
+      </label>
+
+      <h3 className={styles.localSectionTitle}>원고 (.txt)</h3>
+      <label className={styles.field}>
+        <span className={styles.label}>저장 파일 이름 (확장자 제외)</span>
+        <input
+          className={styles.input}
+          value={docStem}
+          onChange={(e) => setDocStem(e.target.value)}
+          maxLength={96}
+          placeholder="예: unit3_worksheet"
+        />
+      </label>
+      <label className={styles.field}>
+        <span className={styles.label}>
+          원고 붙여넣기
+          {kind === "evaluation" ? (
+            <>
+              {" "}
+              — 평가 PDF에는 <strong>[평가문제]</strong> 블록이 필요합니다.
+            </>
+          ) : null}
+        </span>
+        <textarea
+          className={`${styles.textarea} ${styles.localManuscript}`}
+          value={manuscript}
+          onChange={(e) => setManuscript(e.target.value)}
+          placeholder="여기에 마커를 넣어 작성하거나, 아래에서 .txt를 업로드하세요."
+          spellCheck={false}
+        />
+      </label>
+      <label className={styles.field}>
+        <span className={styles.label}>원고 파일 업로드 (.txt)</span>
+        <input type="file" accept=".txt,text/plain" className={styles.file} onChange={onUploadTxt} />
+      </label>
+
+      <div className={styles.localActionRow}>
+        <button type="button" className={styles.btnSecondary} onClick={() => setManuscript(LOCAL_DOC_SAMPLE_MANUSCRIPT)}>
+          예시 원고 넣기
+        </button>
+        <button type="button" className={styles.btnPrimary} onClick={downloadManuscript}>
+          원고 .txt 내려받기
+        </button>
+        <button type="button" className={styles.btnSecondary} onClick={downloadConfig}>
+          config.yaml 내려받기
+        </button>
+      </div>
+
+      {localMsg ? <p className={styles.ok}>{localMsg}</p> : null}
+
+      <hr className={styles.localDivider} />
+
+      <ol className={styles.localPanelSteps}>
+        <li>
+          내려받은 <strong>.txt</strong>를 <span className={styles.pathChip}>document-automation/input/</span>에 넣습니다.
+        </li>
+        <li>
+          필요하면 <strong>config.yaml</strong>을 내보낸 파일로 맞춥니다.
+        </li>
+        <li>
+          저장소 루트에서 <span className={styles.pathChip}>python document-automation/src/main.py</span> 실행 → {outName}
+        </li>
+      </ol>
+      <p className={styles.label}>마커 예시 (각 헤더는 줄 전체가 아래와 정확히 같아야 합니다)</p>
+      <pre className={styles.samplePre}>{LOCAL_DOC_SAMPLE_MANUSCRIPT}</pre>
     </section>
   );
 }
