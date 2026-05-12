@@ -35,10 +35,12 @@ import {
   deleteAnswerKeysForUnit,
   loadAnswerKeyItems,
   loadConfirmedUnits,
+  loadTextbookAutoSession,
   loadTextbookExportPackage,
   loadUnitDraft,
   setSessionCurrentUnit,
   updateAnswerKeyItem,
+  updateSessionUnitDisplayOrder,
   writeAnswerKeyItems,
   writeUnitConfirmed,
   writeUnitDraft,
@@ -55,13 +57,15 @@ import type {
   SourceModuleFieldKey,
 } from "@/types/textbookAuto";
 import { DEFAULT_SECTION_INCLUSION, SOURCE_MODULE_FIELD_KEYS, SOURCE_MODULE_FIELD_LABELS } from "@/types/textbookAuto";
+import { formatKeyContextForAnswerKey } from "@/lib/textbookAuto/formatKeyContextForAnswerKey";
+import { defaultUnitDisplayOrder, orderUnitsForBook } from "@/lib/textbookAuto/orderConfirmedUnits";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
 type BuilderWorkspaceTab = "unitBook" | "worksheet" | "evaluation" | "passageClassify";
 
 const DEFAULT_TOTAL_UNITS = 3;
 const MAX_UNITS = 30;
-const MIN_PRACTICE_QUESTIONS = 10;
+const DEFAULT_PRACTICE_SHORT = 10;
 const DEFAULT_UNIT_TEST_MCQ = 12;
 const DEFAULT_UNIT_TEST_SHORT = 8;
 /** Firestore·AI 안정용 단원당 상한 */
@@ -112,6 +116,8 @@ export function TextbookAutoBuilderPage() {
   const [currentUnitIndex, setCurrentUnitIndex] = useState(0);
   const [draftUnit, setDraftUnit] = useState<TextbookUnitContent | null>(null);
   const [confirmedUnits, setConfirmedUnits] = useState<{ unitIndex: number; unit: TextbookUnitContent }[]>([]);
+  /** 학생용 본문·Word 등 표시 순서 (unitIndex 순열); 세션 메타와 동기 */
+  const [unitDisplayOrder, setUnitDisplayOrder] = useState<number[] | null>(null);
   const [draftModel, setDraftModel] = useState("");
   const [busy, setBusy] = useState(false);
   const [extractBusyId, setExtractBusyId] = useState<string | null>(null);
@@ -127,12 +133,18 @@ export function TextbookAutoBuilderPage() {
   /** 단원평가 문항 수 (AI 생성·확정 검증에 사용) */
   const [unitTestMcqCount, setUnitTestMcqCount] = useState(DEFAULT_UNIT_TEST_MCQ);
   const [unitTestShortCount, setUnitTestShortCount] = useState(DEFAULT_UNIT_TEST_SHORT);
+  /** 확인학습 주관식 단답 문항 수 (AI·확정 검증) */
+  const [practiceShortCount, setPracticeShortCount] = useState(DEFAULT_PRACTICE_SHORT);
   const [sectionInclusion, setSectionInclusion] = useState<TextbookSectionInclusion>(DEFAULT_SECTION_INCLUSION);
   /** 세션 시작 전: 교재 정보 → 단원별 지문(한 화면씩) → 확인·단원 추가·교재 생성 */
   const [preSessionPhase, setPreSessionPhase] = useState<PreSessionPhase>("meta");
   const [setupPassageIndex, setSetupPassageIndex] = useState(0);
 
   const isComplete = sessionId !== null && currentUnitIndex >= totalUnits;
+  const displayOrderedUnits = useMemo(
+    () => orderUnitsForBook(confirmedUnits, unitDisplayOrder),
+    [confirmedUnits, unitDisplayOrder],
+  );
   const contentStudyAiContext = useMemo(() => {
     if (!sessionId || !sessionUnitPassages) return null;
     const raw = sessionUnitPassages[currentUnitIndex] ?? "";
@@ -183,6 +195,7 @@ export function TextbookAutoBuilderPage() {
     setErr(null);
     setPreSessionPhase("meta");
     setSetupPassageIndex(0);
+    setUnitDisplayOrder(null);
   }, []);
 
   /** 2단계 → 1단계(지문 설정). 세션 UI만 끊음 — Firestore 데이터는 유지됨 */
@@ -224,6 +237,22 @@ export function TextbookAutoBuilderPage() {
       cancelled = true;
     };
   }, [uid, sessionId, isComplete]);
+
+  useEffect(() => {
+    if (!uid || !sessionId || !isComplete) return;
+    let cancelled = false;
+    const n = confirmedUnits.length;
+    if (n === 0) return;
+    void loadTextbookAutoSession(uid, sessionId).then((s) => {
+      if (cancelled) return;
+      const o = s?.unitDisplayOrder;
+      if (o && o.length === n) setUnitDisplayOrder(o);
+      else setUnitDisplayOrder(defaultUnitDisplayOrder(n));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, sessionId, isComplete, confirmedUnits.length]);
 
   /** 재방문 시 Firestore 임시저장 초안 불러오기 */
   useEffect(() => {
@@ -406,6 +435,7 @@ export function TextbookAutoBuilderPage() {
       setDraftModel("");
       setSectionInclusion(DEFAULT_SECTION_INCLUSION);
       setConfirmedUnits([]);
+      setUnitDisplayOrder(defaultUnitDisplayOrder(n));
       setMsg("세션이 시작되었습니다. 아래에서 단원별 생성을 진행하세요.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "세션을 만들지 못했습니다.");
@@ -433,6 +463,10 @@ export function TextbookAutoBuilderPage() {
       setErr("AI 생성에 포함할 섹션을 한 개 이상 선택하세요.");
       return;
     }
+    if (sectionInclusion.practice && practiceShortCount <= 0) {
+      setErr("확인학습을 켠 경우 문항 수는 1 이상으로 정해 주세요.");
+      return;
+    }
     draftLoadSeqRef.current += 1;
     setBusy(true);
     try {
@@ -442,7 +476,7 @@ export function TextbookAutoBuilderPage() {
         sourceText: passage,
         unitIndex: currentUnitIndex,
         totalUnits,
-        practiceMin: sectionInclusion.practice ? MIN_PRACTICE_QUESTIONS : 0,
+        practiceMin: sectionInclusion.practice ? practiceShortCount : 0,
         unitTestMcq: sectionInclusion.unitTest ? unitTestMcqCount : 0,
         unitTestShort: sectionInclusion.unitTest ? unitTestShortCount : 0,
         sectionInclusion,
@@ -474,6 +508,7 @@ export function TextbookAutoBuilderPage() {
     totalUnits,
     unitTestMcqCount,
     unitTestShortCount,
+    practiceShortCount,
     sectionInclusion,
   ]);
 
@@ -511,7 +546,7 @@ export function TextbookAutoBuilderPage() {
       sectionInclusion,
     );
     const v = validateDraftUnit(toSave, {
-      practiceMin: MIN_PRACTICE_QUESTIONS,
+      practiceMin: practiceShortCount,
       unitTestMcq: unitTestMcqCount,
       unitTestShort: unitTestShortCount,
       sectionInclusion,
@@ -520,7 +555,13 @@ export function TextbookAutoBuilderPage() {
       setErr(v);
       return;
     }
+    if (sectionInclusion.practice && practiceShortCount <= 0) {
+      setErr("확인학습을 켠 경우 문항 수는 1 이상으로 정해 주세요.");
+      return;
+    }
     setBusy(true);
+    const title = bookTitle.trim() || "교재";
+    let answerKeyNote = "";
     try {
       await writeUnitConfirmed(uid, sessionId, currentUnitIndex, toSave, model);
       const next = currentUnitIndex + 1;
@@ -532,10 +573,33 @@ export function TextbookAutoBuilderPage() {
       setDraftUnit(null);
       setDraftModel("");
       setSectionInclusion(DEFAULT_SECTION_INCLUSION);
+
+      const confirmedIdx = currentUnitIndex;
+      try {
+        const passageRaw = sessionUnitPassages?.[confirmedIdx] ?? "";
+        const passageSnippet = sliceForAi(passageRaw);
+        await deleteAnswerKeysForUnit(uid, sessionId, confirmedIdx);
+        const stubs = buildAnswerKeyStubs(confirmedIdx, unitForStudentOutput(toSave));
+        if (stubs.length > 0) {
+          const incForKey = getSectionInclusion(toSave);
+          const { items, meta } = await requestTextbookAnswerKeyForUnit({
+            bookTitle: title,
+            unitTitle: toSave.unitTitle,
+            unitIndex: confirmedIdx,
+            stubs,
+            sourceExcerpt: passageSnippet.trim() || undefined,
+            unitKeyContext: formatKeyContextForAnswerKey(toSave, incForKey),
+          });
+          if (items.length > 0) await writeAnswerKeyItems(uid, sessionId, items, meta.model);
+        }
+      } catch (akErr) {
+        answerKeyNote = ` (정답·해설 자동 저장 실패: ${akErr instanceof Error ? akErr.message : "오류"} — 3단계에서 이 단원만 재생성할 수 있습니다.)`;
+      }
+
       setMsg(
         next >= totalUnits
-          ? "모든 단원이 확정되었습니다. 3–5단계에서 정답·해설·클라우드 패키지·완성본을 진행할 수 있습니다."
-          : "다음 단원으로 넘어갔습니다.",
+          ? `모든 단원이 확정되었습니다. 문항이 있으면 정답·해설을 함께 저장했습니다.${answerKeyNote} 3단계에서 검수·재생성하고, 4–5단계에서 클라우드·완성본을 진행하세요.`
+          : `다음 단원으로 넘어갔습니다.${answerKeyNote}`,
       );
     } catch (e) {
       setErr(e instanceof Error ? e.message : "저장에 실패했습니다.");
@@ -551,13 +615,21 @@ export function TextbookAutoBuilderPage() {
     totalUnits,
     unitTestMcqCount,
     unitTestShortCount,
+    practiceShortCount,
     sectionInclusion,
+    bookTitle,
+    sessionUnitPassages,
   ]);
 
   const refreshConfirmedForPrint = useCallback(async () => {
     if (!uid || !sessionId) return;
     const rows = await loadConfirmedUnits(uid, sessionId);
     setConfirmedUnits(rows);
+    const sess = await loadTextbookAutoSession(uid, sessionId);
+    const n = rows.length;
+    const o = sess?.unitDisplayOrder;
+    if (o && o.length === n) setUnitDisplayOrder(o);
+    else if (n > 0) setUnitDisplayOrder(defaultUnitDisplayOrder(n));
     const ak = await loadAnswerKeyItems(uid, sessionId);
     setAnswerKeyItems(ak);
     const pkg = await loadTextbookExportPackage(uid, sessionId);
@@ -582,11 +654,15 @@ export function TextbookAutoBuilderPage() {
       for (const { unitIndex, unit } of sorted) {
         const stubs = buildAnswerKeyStubs(unitIndex, unitForStudentOutput(unit));
         if (stubs.length === 0) continue;
+        const passageSnippet = sliceForAi(sessionUnitPassages?.[unitIndex] ?? "");
+        const incForKey = getSectionInclusion(unit);
         const { items, meta } = await requestTextbookAnswerKeyForUnit({
           bookTitle: title,
           unitTitle: unit.unitTitle,
           unitIndex,
           stubs,
+          sourceExcerpt: passageSnippet.trim() || undefined,
+          unitKeyContext: formatKeyContextForAnswerKey(unit, incForKey),
         });
         await writeAnswerKeyItems(uid, sessionId, items, meta.model);
         totalWritten += items.length;
@@ -603,7 +679,7 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setBusy(false);
     }
-  }, [uid, sessionId, confirmedUnits, bookTitle]);
+  }, [uid, sessionId, confirmedUnits, bookTitle, sessionUnitPassages]);
 
   const patchSourceModule = useCallback(
     (unitIndex: number, moduleId: string, patch: Partial<Omit<TextbookUnitSourceModule, "id">>) => {
@@ -843,11 +919,15 @@ export function TextbookAutoBuilderPage() {
           setAnswerKeyItems(rows);
           return;
         }
+        const passageSnippet = sliceForAi(sessionUnitPassages?.[unitIndex] ?? "");
+        const incForKey = getSectionInclusion(row.unit);
         const { items, meta } = await requestTextbookAnswerKeyForUnit({
           bookTitle: title,
           unitTitle: row.unit.unitTitle,
           unitIndex,
           stubs,
+          sourceExcerpt: passageSnippet.trim() || undefined,
+          unitKeyContext: formatKeyContextForAnswerKey(row.unit, incForKey),
         });
         await writeAnswerKeyItems(uid, sessionId, items, meta.model);
         const rows = await loadAnswerKeyItems(uid, sessionId);
@@ -859,17 +939,17 @@ export function TextbookAutoBuilderPage() {
         setPhase2UnitBusy(null);
       }
     },
-    [uid, sessionId, confirmedUnits, bookTitle],
+    [uid, sessionId, confirmedUnits, bookTitle, sessionUnitPassages],
   );
 
   const runDownloadStudentDocx = useCallback(async () => {
-    if (confirmedUnits.length === 0) return;
+    if (displayOrderedUnits.length === 0) return;
     setDocxBusy("student");
     setErr(null);
     try {
       await downloadTextbookAutoStudentDocx({
         bookTitle: bookTitle.trim() || "교재",
-        units: confirmedUnits,
+        units: displayOrderedUnits,
       });
       setMsg("학생용 Word(.docx)를 받았습니다.");
     } catch (e) {
@@ -877,7 +957,7 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setDocxBusy(null);
     }
-  }, [confirmedUnits, bookTitle]);
+  }, [displayOrderedUnits, bookTitle]);
 
   const runDownloadTeacherDocx = useCallback(async () => {
     if (answerKeyItems.length === 0) return;
@@ -886,7 +966,7 @@ export function TextbookAutoBuilderPage() {
     try {
       await downloadTextbookAutoTeacherDocx({
         bookTitle: bookTitle.trim() || "교재",
-        unitTitles: confirmedUnits.map(({ unitIndex, unit }) => ({ unitIndex, unitTitle: unit.unitTitle })),
+        unitTitles: displayOrderedUnits.map(({ unitIndex, unit }) => ({ unitIndex, unitTitle: unit.unitTitle })),
         items: answerKeyItems,
       });
       setMsg("교사용 정답·해설 Word(.docx)를 받았습니다.");
@@ -895,7 +975,7 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setDocxBusy(null);
     }
-  }, [answerKeyItems, confirmedUnits, bookTitle]);
+  }, [answerKeyItems, displayOrderedUnits, bookTitle]);
 
   const runPublishPackage = useCallback(async () => {
     setErr(null);
@@ -907,7 +987,7 @@ export function TextbookAutoBuilderPage() {
         uid,
         sessionId,
         bookTitle: bookTitle.trim() || "교재",
-        units: confirmedUnits,
+        units: displayOrderedUnits,
         answerKeyItems,
       });
       const pkg = await loadTextbookExportPackage(uid, sessionId);
@@ -918,7 +998,29 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setPackageBusy(false);
     }
-  }, [uid, sessionId, confirmedUnits, bookTitle, answerKeyItems]);
+  }, [uid, sessionId, displayOrderedUnits, bookTitle, answerKeyItems]);
+
+  const moveBookUnit = useCallback(
+    async (displayPos: number, dir: -1 | 1) => {
+      if (!uid || !sessionId || !isComplete) return;
+      const n = confirmedUnits.length;
+      if (n < 2) return;
+      const base = unitDisplayOrder ?? defaultUnitDisplayOrder(n);
+      const j = displayPos + dir;
+      if (j < 0 || j >= n) return;
+      const next = [...base];
+      [next[displayPos], next[j]] = [next[j]!, next[displayPos]!];
+      setUnitDisplayOrder(next);
+      setErr(null);
+      try {
+        await updateSessionUnitDisplayOrder(uid, sessionId, next);
+        setMsg("단원 표시 순서를 바꿨습니다. 학생용 PDF·Word·완성본 본문에 반영됩니다.");
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "순서 저장에 실패했습니다.");
+      }
+    },
+    [uid, sessionId, isComplete, confirmedUnits.length, unitDisplayOrder],
+  );
 
   const openCloudDownload = useCallback(async (path: string) => {
     if (!path) return;
@@ -942,7 +1044,7 @@ export function TextbookAutoBuilderPage() {
             <h1 className={styles.title}>교재 자동 생성 · 통합 작업실</h1>
             {workspaceTab === "unitBook" ? (
               <p className={styles.lead}>
-                먼저 <strong>교재 제목·단원 수</strong>를 정한 뒤, <strong>1단원부터 한 화면씩</strong> 지문을 입력합니다. 마지막 확인 화면에서 단원을 더하거나 「교재 생성」으로 세션을 시작하고, 단원별 AI 초안 확정 후 3–5단계에서 정답·해설·완성본 Word를 다룹니다.
+                먼저 <strong>교재 제목·단원 수</strong>를 정한 뒤, <strong>1단원부터 한 화면씩</strong> 지문을 입력합니다. 마지막 확인 화면에서 단원을 더하거나 「교재 생성」으로 세션을 시작합니다. 단원별로 AI 초안을 확정할 때 문항 정답·해설까지 함께 저장되며, 이후 단계에서는 검수·출력·완성본 작업을 합니다.
               </p>
             ) : workspaceTab === "passageClassify" ? (
               <p className={styles.lead}>
@@ -1377,8 +1479,7 @@ export function TextbookAutoBuilderPage() {
                 {!isComplete ? (
                   <>
                     <p className={styles.p}>
-                      <strong>제 {currentUnitIndex + 1}단원</strong>: 위에서 섹션·문항 수를 고른 뒤 「이 단원 AI 생성」으로 초안을 만듭니다. 편집이 끝나면{" "}
-                      <strong>화면 맨 아래</strong>에서 임시 저장·확정·PDF를 진행하세요.
+                      <strong>제 {currentUnitIndex + 1}단원</strong>: 섹션과 문항 수를 정한 뒤 「이 단원 AI 생성」으로 초안을 만듭니다. 확인학습·단원평가와 핵심개념·요약은 같은 화면에서 편집하고, <strong>확정</strong>하면 이 단원의 정답·해설까지 저장됩니다.
                     </p>
                     <div className={styles.field}>
                       <span className={styles.label}>AI 생성·교재에 포함할 섹션</span>
@@ -1404,6 +1505,29 @@ export function TextbookAutoBuilderPage() {
                       </div>
                       <p className={styles.hint}>체크한 섹션만 AI가 채우며, 학생용 PDF·Word·클라우드 본문에도 반영됩니다.</p>
                     </div>
+                    {sectionInclusion.practice ? (
+                      <div className={styles.field}>
+                        <span className={styles.label}>
+                          확인학습 문항 수 (주관식 단답) — 입력한 개수만큼 AI가 만들고, 확정 시 그 이상인지 검사합니다
+                        </span>
+                        <div className={styles.countRow}>
+                          <label className={styles.countLabel}>
+                            주관식 단답
+                            <input
+                              className={styles.inputSmall}
+                              type="number"
+                              min={0}
+                              max={50}
+                              value={practiceShortCount}
+                              onChange={(e) =>
+                                setPracticeShortCount(Math.min(50, Math.max(0, Math.floor(Number(e.target.value) || 0))))
+                              }
+                            />
+                          </label>
+                          <span className={styles.hint}>현재 {practiceShortCount}문항</span>
+                        </div>
+                      </div>
+                    ) : null}
                     {sectionInclusion.unitTest ? (
                     <div className={styles.field}>
                       <span className={styles.label}>
@@ -1438,19 +1562,11 @@ export function TextbookAutoBuilderPage() {
                         </label>
                         <span className={styles.hint}>
                           객관식 {unitTestMcqCount} · 주관식 단답 {unitTestShortCount}
-                          {sectionInclusion.practice
-                            ? ` · 확인학습 선택 시 AI가 ${MIN_PRACTICE_QUESTIONS}문항(주관식 단답)을 만듭니다`
-                            : ""}
                         </span>
                       </div>
                     </div>
                     ) : (
-                      <p className={styles.hint}>
-                        단원평가를 끄면 문항 수 설정 없이 생성할 수 있습니다.
-                        {sectionInclusion.practice
-                          ? ` 확인학습만 켠 경우 AI가 주관식 단답 ${MIN_PRACTICE_QUESTIONS}문항을 만듭니다.`
-                          : ""}
-                      </p>
+                      <p className={styles.hint}>단원평가를 끄면 평가 문항은 만들지 않습니다.</p>
                     )}
                     <div className={styles.row}>
                       <button
@@ -1491,8 +1607,8 @@ export function TextbookAutoBuilderPage() {
                     <div className={styles.preview}>
                       <h3 className={styles.previewTitle}>원고 모듈 (학습지 제작과 동일)</h3>
                       <p className={styles.hint}>
-                        단원별로 블록을 나누어 순서·내용을 조정합니다. AI 생성 직후에는 이 단원 지문이 모듈로 채워지며, 확정된 모든 단원의 모듈이 3·5단계 학생용 Word·PDF·완성본 본문에 단원 순으로
-                        이어집니다.
+                        단원별 블록을 나누어 순서·내용을 조정합니다. AI 생성 직후 이 단원 지문이 모듈로 채워집니다. 전체 단원이 확정된 뒤에는 아래 「최종 본문 순서」에서 책
+                        속 단원 순서를 바꿀 수 있습니다.
                       </p>
                       <LocalDocModulesEditor
                         modules={draftUnit.manuscriptModules ?? []}
@@ -1508,7 +1624,7 @@ export function TextbookAutoBuilderPage() {
                 <div className={styles.step2BottomActions} aria-label="저장·확정·인쇄">
                   <p className={styles.step2BottomHint}>
                     {isComplete
-                      ? "확정된 단원으로 학생용 PDF를 만들거나 Firestore에서 최신 정보를 다시 불러올 수 있습니다."
+                      ? "아래에서 학생용 출력 순서를 바꾼 뒤, 정답·해설을 검수하고 클라우드·완성본을 진행하세요."
                       : "편집을 마친 뒤 임시 저장(초안만) 또는 확정(다음 단원으로)을 누르세요."}
                   </p>
                   <div className={styles.row}>
@@ -1549,14 +1665,56 @@ export function TextbookAutoBuilderPage() {
 
               {isComplete ? (
                 <>
+                <section className={styles.card} aria-labelledby="book-order-h">
+                  <h2 id="book-order-h" className={styles.cardTitle}>
+                    2-보완. 최종 본문 순서 (학생용)
+                  </h2>
+                  <p className={styles.p}>
+                    확정 단원이 학생용 PDF·Word·5단계 완성본에 나오는 순서입니다. 교사용 정답·해설은 원래 단원 번호(제 n단원)를 그대로 씁니다.
+                  </p>
+                  <ul className={styles.segmentList}>
+                    {(unitDisplayOrder ?? defaultUnitDisplayOrder(confirmedUnits.length)).map((ui, pos) => {
+                      const row = confirmedUnits.find((u) => u.unitIndex === ui);
+                      if (!row) return null;
+                      return (
+                        <li key={ui} className={styles.segmentItem}>
+                          <div className={styles.segmentHead}>
+                            <span className={styles.segmentNote}>
+                              책에서 {pos + 1}번째 → 제 {ui + 1}단원 · {row.unit.unitTitle}
+                            </span>
+                            <span className={styles.row}>
+                              <button
+                                type="button"
+                                className={styles.btnMiniGhost}
+                                disabled={pos === 0}
+                                onClick={() => void moveBookUnit(pos, -1)}
+                              >
+                                위로
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.btnMiniGhost}
+                                disabled={pos >= confirmedUnits.length - 1}
+                                onClick={() => void moveBookUnit(pos, 1)}
+                              >
+                                아래로
+                              </button>
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+
                 <section className={styles.card} aria-labelledby="phase3-h">
                   <h2 id="phase3-h" className={styles.cardTitle}>
                     3. 정답·해설 · 내보내기
                   </h2>
-                  <h3 className={styles.phase3Sub}>AI 생성</h3>
+                  <h3 className={styles.phase3Sub}>AI 재생성 (선택)</h3>
                   <p className={styles.p}>
-                    「전체 생성」은 이 세션의 저장된 정답·해설을 <strong>모두 삭제한 뒤</strong> 모든 단원을 다시 씁니다. 특정 단원만 갱신하려면 「단원별 생성」 버튼을
-                    사용하세요.
+                    각 단원을 <strong>확정할 때</strong> 확인학습·단원평가 문항의 정답·해설을 이미 저장합니다. 내용을 크게 바꾼 뒤에는 아래에서 전체 또는 단원별로 다시 생성할 수 있습니다.
+                    「전체 생성」은 저장된 정답·해설을 <strong>모두 삭제한 뒤</strong> 모든 단원을 다시 씁니다.
                   </p>
                   <div className={styles.row}>
                     <button
@@ -1613,7 +1771,7 @@ export function TextbookAutoBuilderPage() {
                       })}
                     </>
                   ) : (
-                    <p className={styles.hint}>아직 저장된 정답·해설이 없습니다. 위에서 AI 생성을 실행하세요.</p>
+                    <p className={styles.hint}>아직 저장된 정답·해설이 없습니다. 2단계에서 단원을 확정했는지, 또는 위에서 AI 재생성을 실행해 보세요.</p>
                   )}
 
                   <h3 className={styles.phase3Sub}>인쇄 · Word</h3>
@@ -1706,7 +1864,7 @@ export function TextbookAutoBuilderPage() {
                 <TextbookAutoMasterBookPanel
                   key={sessionId ?? "session"}
                   bookTitle={bookTitle}
-                  confirmedUnits={confirmedUnits}
+                  confirmedUnits={displayOrderedUnits}
                   sessionUnitPassages={sessionUnitPassages}
                 />
                 </>
@@ -1718,10 +1876,10 @@ export function TextbookAutoBuilderPage() {
           {workspaceTab === "unitBook" && err ? <p className={styles.bad}>{err}</p> : null}
         </div>
 
-        <div className={styles.printPortal} aria-hidden={confirmedUnits.length ? undefined : true}>
+        <div className={styles.printPortal} aria-hidden={displayOrderedUnits.length ? undefined : true}>
           <div ref={printRef}>
-            {confirmedUnits.length > 0 ? (
-              <TextbookAutoPrintView bookTitle={bookTitle.trim() || "교재"} units={confirmedUnits} />
+            {displayOrderedUnits.length > 0 ? (
+              <TextbookAutoPrintView bookTitle={bookTitle.trim() || "교재"} units={displayOrderedUnits} />
             ) : (
               <div className={styles.printEmpty} />
             )}

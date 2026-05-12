@@ -81,8 +81,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
   }, [backCover]);
 
   const fillTocFromUnits = useCallback(() => {
-    const sorted = [...confirmedUnits].sort((a, b) => a.unitIndex - b.unitIndex);
-    const lines = sorted.map(
+    const lines = confirmedUnits.map(
       ({ unitIndex, unit }) => `제 ${unitIndex + 1}단원 · ${unit.unitTitle}`,
     );
     setTocDraft(lines.join("\n"));

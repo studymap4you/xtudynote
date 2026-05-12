@@ -37,6 +37,8 @@ export async function requestTextbookAnswerKeyForUnit(params: {
   unitTitle: string;
   unitIndex: number;
   stubs: TextbookAnswerKeyStub[];
+  sourceExcerpt?: string;
+  unitKeyContext?: string;
 }): Promise<{ items: TextbookAnswerKeyItem[]; meta: AnswerKeyGenMeta }> {
   if (params.stubs.length === 0) {
     return { items: [], meta: { model: readOpenAiModel() } };
@@ -54,6 +56,8 @@ export async function requestTextbookAnswerKeyForUnit(params: {
     unitTitle: params.unitTitle,
     unitIndexOneBased: params.unitIndex + 1,
     stubs: params.stubs,
+    sourceExcerpt: params.sourceExcerpt,
+    unitKeyContext: params.unitKeyContext,
   });
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {

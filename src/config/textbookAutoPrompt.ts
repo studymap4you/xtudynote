@@ -13,6 +13,10 @@ export const TEXTBOOK_AUTO_SYSTEM_PROMPT = `당신은 한국어 교육용 교재
   - 객관식: { "kind": "mcq", "question": "...", "choices": ["보기1","보기2","보기3","보기4"] } — 보기는 **서로 다르고** 의미가 있어야 하며, 질문과 논리적으로 대응합니다. 보기 개수는 정확히 4개를 권장합니다.
   - 주관식 단답: { "kind": "short", "question": "..." }
 
+근거 표기(선택된 모든 텍스트 섹션에 공통):
+- **unitTitle**, **핵심개념 explanation**, **내용학습 제목·불릿**, **핵심요약 불릿**에는 지문 원문에 실제로 나오는 **짧은 영문 인용구**나 **핵심 영문 표현**을 한국어 설명와 함께 **괄호로 반드시 병기**합니다. (예: …은 핵심이다 (*"The evidence suggests …"*). / … 개념 (*mitochondria*, …))
+- 영문은 지문에 없는 내용을 꾸며 내지 말고, 원문에서 인용하거나 그에 대응하는 표현만 씁니다.
+
 내용 완전성(선택된 내용학습에 한함):
 - **내용학습(contentStudy)**: 원문에 있는 **주장·근거·예시·정의·수치·인물·대조·절차 등 중요 정보가 누락되지 않도록** 합니다. 임의로 큰 단락·주제를 통째로 생략하거나, 한두 줄로 과도하게 축약하여 정보를 버리지 마세요.
 
@@ -47,20 +51,20 @@ export function buildTextbookUnitUserPrompt(params: {
   const secLines: string[] = [];
   if (inc.keyConcepts) {
     secLines.push(
-      "- keyConcepts: { \"concept\": string, \"explanation\": string } 객체 배열을 **충실히** 작성 (빈 배열 금지).",
+      "- keyConcepts: { \"concept\": string, \"explanation\": string } 객체 배열을 **충실히** 작성 (빈 배열 금지). 각 explanation에 **지문 근거 영문(또는 핵심 표현) 괄호 병기**.",
     );
   } else {
     secLines.push("- keyConcepts: **[]** 빈 배열만.");
   }
   if (inc.contentStudy) {
     secLines.push(
-      "- contentStudy: { \"title\": string, \"bullets\": string[] } 블록 배열을 **충실히** 작성 (빈 배열 금지).",
+      "- contentStudy: { \"title\": string, \"bullets\": string[] } 블록 배열을 **충실히** 작성 (빈 배열 금지). 제목·불릿에 **근거 영문 병기**.",
     );
   } else {
     secLines.push("- contentStudy: **[]** 빈 배열만.");
   }
   if (inc.coreSummary) {
-    secLines.push("- coreSummary: 불릿 문자열 배열 (빈 배열 금지).");
+    secLines.push("- coreSummary: 불릿 문자열 배열 (빈 배열 금지). 각 줄에 **근거 영문 병기**.");
   } else {
     secLines.push("- coreSummary: **[]** 빈 배열만.");
   }
@@ -98,6 +102,7 @@ ${sourceText}
 ---
 
 총 단원 수: ${totalUnits}개 중 **제 ${k}단원**만 작성하세요. 앞뒤 단원 내용은 쓰지 말고, 이 단원 분량에 맞게 원문에서 다루 범위를 스스로 나눕니다.
+**단원 제목(unitTitle)** 에 주제를 드러내는 **짧은 영문 병기**를 넣으세요.
 
 **포함할 섹션**(선택된 항목만 채우고, 나머지는 빈 배열):
 ${secLines.join("\n")}

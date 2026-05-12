@@ -28,6 +28,8 @@ export type TextbookAutoSessionDoc = {
   unitPassages: string[];
   totalUnits: number;
   currentUnitIndex: number;
+  /** 본문·Word·PDF 표시 순서 (unitIndex들의 순열, 기본 [0,1,…]) */
+  unitDisplayOrder?: number[];
 };
 
 function sessionRef(uid: string, sessionId: string) {
@@ -53,10 +55,45 @@ export async function createTextbookAutoSession(
     unitPassages: input.unitPassages,
     totalUnits: input.totalUnits,
     currentUnitIndex: 0,
+    unitDisplayOrder: Array.from({ length: input.totalUnits }, (_, i) => i),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
   return sessionId;
+}
+
+export async function loadTextbookAutoSession(
+  uid: string,
+  sessionId: string,
+): Promise<TextbookAutoSessionDoc | null> {
+  const snap = await getDoc(sessionRef(uid, sessionId));
+  if (!snap.exists()) return null;
+  const x = snap.data() as Record<string, unknown>;
+  const totalUnits = typeof x.totalUnits === "number" ? x.totalUnits : 0;
+  let unitDisplayOrder: number[] | undefined;
+  if (Array.isArray(x.unitDisplayOrder)) {
+    unitDisplayOrder = x.unitDisplayOrder.filter((n): n is number => typeof n === "number" && Number.isFinite(n));
+    if (unitDisplayOrder.length !== totalUnits) unitDisplayOrder = undefined;
+  }
+  return {
+    schemaVersion: typeof x.schemaVersion === "number" ? x.schemaVersion : TEXTBOOK_AUTO_SCHEMA_VERSION,
+    title: typeof x.title === "string" ? x.title : "",
+    unitPassages: Array.isArray(x.unitPassages) ? x.unitPassages.map(String) : [],
+    totalUnits,
+    currentUnitIndex: typeof x.currentUnitIndex === "number" ? x.currentUnitIndex : 0,
+    unitDisplayOrder,
+  };
+}
+
+export async function updateSessionUnitDisplayOrder(
+  uid: string,
+  sessionId: string,
+  order: number[],
+): Promise<void> {
+  await updateDoc(sessionRef(uid, sessionId), {
+    unitDisplayOrder: order,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function setSessionCurrentUnit(uid: string, sessionId: string, currentUnitIndex: number) {

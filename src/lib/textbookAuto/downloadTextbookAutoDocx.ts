@@ -135,8 +135,7 @@ function buildStudentParagraphs(params: {
 /** 5단계 완성본 등 — 앞/뒤표지·목차 없이 단원 본문만 */
 export function buildTextbookBodyParagraphsFromUnits(units: { unitIndex: number; unit: TextbookUnitContent }[]): Paragraph[] {
   const blocks: Paragraph[] = [];
-  const sorted = [...units].sort((a, b) => a.unitIndex - b.unitIndex);
-  for (const { unitIndex, unit: rawUnit } of sorted) {
+  for (const { unitIndex, unit: rawUnit } of units) {
     const unit = unitForStudentOutput(rawUnit);
     blocks.push(
       new Paragraph({
