@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   addDoc,
   collection,
@@ -447,6 +448,16 @@ export function StudentManagementSection() {
             </span>
           </p>
         </div>
+      </div>
+
+      <div className="crm-my-students-row">
+        <Link to="/teacher/my-students" className="btn btn--primary btn--stack crm-my-students-link">
+          <span className="ui-en">My students</span>
+          <span className="ui-ko">나의 수강생</span>
+        </Link>
+        <p className="crm-my-students-hint">
+          내 강의실에 등록된 수강생을 한 페이지에서 보고, 강의실에서 제거할 수 있습니다.
+        </p>
       </div>
 
       <form className="crm-form" onSubmit={(e) => void handleAddStudent(e)}>

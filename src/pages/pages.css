@@ -11186,6 +11186,26 @@ a.btn.btn--primary:hover {
   font-size: 0.82rem;
   line-height: 1.55;
 }
+.crm-my-students-row {
+  margin-bottom: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.crm-my-students-link {
+  flex: 0 0 auto;
+  text-decoration: none;
+  text-align: left;
+}
+.crm-my-students-hint {
+  margin: 0;
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--premium-ink-muted);
+}
 .crm-form {
   margin-bottom: var(--space-3);
 }

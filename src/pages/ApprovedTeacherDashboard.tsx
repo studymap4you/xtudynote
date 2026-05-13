@@ -139,12 +139,6 @@ export function ApprovedTeacherDashboard() {
                 <span className="educator-quick-links__ko">새자료 등록</span>
               </Link>
             </li>
-            <li>
-              <Link to="/teacher/my-students" className="educator-quick-links__a">
-                <span className="educator-quick-links__en">My students</span>
-                <span className="educator-quick-links__ko">나의 수강생</span>
-              </Link>
-            </li>
           </ul>
         </section>
 
