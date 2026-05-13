@@ -1866,6 +1866,8 @@ export function TextbookAutoBuilderPage() {
                   bookTitle={bookTitle}
                   confirmedUnits={displayOrderedUnits}
                   sessionUnitPassages={sessionUnitPassages}
+                  uid={uid}
+                  sessionId={sessionId}
                 />
                 </>
               ) : null}

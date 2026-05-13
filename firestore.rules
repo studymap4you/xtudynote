@@ -489,6 +489,28 @@ service cloud.firestore {
 
           allow delete: if signedIn() && request.auth.uid == userId;
         }
+
+        /** 5단계: 완성본 머리말·꼬리말·단원 커버 레이아웃 (문서 id 고정 current) */
+        match /master_book_layout/{layoutDocId} {
+          allow read: if signedIn() && request.auth.uid == userId
+            && userData(userId).accountStatus != 'banned';
+
+          allow create, update: if signedIn()
+            && request.auth.uid == userId
+            && userData(userId).accountStatus != 'banned'
+            && layoutDocId == 'current'
+            && request.resource.data.schemaVersion is int
+            && request.resource.data.schemaVersion == 1
+            && request.resource.data.foreword is list
+            && request.resource.data.afterword is list
+            && request.resource.data.unitCovers is map
+            && request.resource.data.foreword.size() <= 80
+            && request.resource.data.afterword.size() <= 80
+            && request.resource.data.unitCovers.size() <= 40
+            && request.resource.data.updatedAt != null;
+
+          allow delete: if signedIn() && request.auth.uid == userId;
+        }
       }
 
       /** 학습지 배포용 주소록 — 교사·승인 관리자 본인만 (표시명·이메일은 선택, UID는 문서 ID와 동일) */

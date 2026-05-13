@@ -9,7 +9,7 @@ import {
 } from "docx";
 import { safeDocxFilenamePart, triggerDocxDownload } from "@/lib/docx/docxHelpers";
 import type { MasterBookFolioBlock } from "@/lib/textbookAuto/masterBookFolio";
-import { rasterImageFileToDocxRaster, scaleCoverToMaxWidth } from "@/lib/textbookAuto/imageFileForDocx";
+import { rasterImageFileToDocxRaster, scaleCoverToMaxWidth, fetchUrlToRasterImageDocx } from "@/lib/textbookAuto/imageFileForDocx";
 
 export async function folioBlocksToDocxParagraphs(blocks: MasterBookFolioBlock[]): Promise<Paragraph[]> {
   const out: Paragraph[] = [];
@@ -24,22 +24,38 @@ export async function folioBlocksToDocxParagraphs(blocks: MasterBookFolioBlock[]
           }),
         );
       }
-    } else if (b.kind === "image" && b.file) {
-      const raster = await rasterImageFileToDocxRaster(b.file);
-      const dim = scaleCoverToMaxWidth(raster);
-      out.push(
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          children: [
-            new ImageRun({
-              type: raster.type,
-              data: raster.data,
-              transformation: { width: dim.width, height: dim.height },
+    } else if (b.kind === "image") {
+      let raster: Awaited<ReturnType<typeof rasterImageFileToDocxRaster>> | null = null;
+      if (b.file) {
+        raster = await rasterImageFileToDocxRaster(b.file);
+      } else if (b.remoteUrl) {
+        try {
+          raster = await fetchUrlToRasterImageDocx(b.remoteUrl);
+        } catch {
+          out.push(
+            new Paragraph({
+              children: [new TextRun({ text: "(이미지를 불러올 수 없습니다.)", italics: true, size: 22 })],
+              spacing: { after: 80 },
             }),
-          ],
-          spacing: { after: 120 },
-        }),
-      );
+          );
+        }
+      }
+      if (raster) {
+        const dim = scaleCoverToMaxWidth(raster);
+        out.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new ImageRun({
+                type: raster.type,
+                data: raster.data,
+                transformation: { width: dim.width, height: dim.height },
+              }),
+            ],
+            spacing: { after: 120 },
+          }),
+        );
+      }
     }
   }
   return out;
@@ -81,6 +97,7 @@ export async function buildMasterBookDocxBlob(params: {
       heading: HeadingLevel.HEADING_1,
       alignment: AlignmentType.CENTER,
       children: [new TextRun({ text: params.bookTitle.trim() || "제목 없음", bold: true, size: 56 })],
+      keepNext: true,
       spacing: { before: 200, after: 400 },
     }),
   );

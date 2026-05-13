@@ -15,6 +15,7 @@ function bodyLines(text: string, size = 22): Paragraph[] {
       new Paragraph({
         children: [new TextRun({ text: line || " ", size })],
         spacing: { after: 65 },
+        keepLines: true,
       }),
   );
 }
@@ -43,6 +44,8 @@ export function manuscriptModulesToStudentDocxParagraphs(modules: LocalDocModule
         heading: HeadingLevel.HEADING_2,
         children: [new TextRun({ text: title, bold: true })],
         spacing: { before: 120, after: 80 },
+        keepNext: true,
+        keepLines: true,
       }),
     );
     blocks.push(...bodyLines(body, 22));

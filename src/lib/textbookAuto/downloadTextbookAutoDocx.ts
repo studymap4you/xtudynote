@@ -1,6 +1,6 @@
 import { AlignmentType, Document, HeadingLevel, ImageRun, Packer, Paragraph, TextRun } from "docx";
 import { safeDocxFilenamePart, stripMarkdownBold, triggerDocxDownload } from "@/lib/docx/docxHelpers";
-import { rasterImageFileToDocxRaster, scaleCoverToMaxWidth } from "@/lib/textbookAuto/imageFileForDocx";
+import { fetchUrlToRasterImageDocx, rasterImageFileToDocxRaster, scaleCoverToMaxWidth } from "@/lib/textbookAuto/imageFileForDocx";
 import type {
   TextbookAnswerKeyItem,
   TextbookContentStudyBlock,
@@ -11,7 +11,10 @@ import type {
 import { unitForStudentOutput } from "@/lib/textbookAuto/sectionInclusion";
 import { manuscriptModulesToStudentDocxParagraphs } from "@/lib/textbookAuto/manuscriptModulesDocx";
 
-function textPara(text: string, opts?: { size?: number; bold?: boolean; after?: number }): Paragraph {
+function textPara(
+  text: string,
+  opts?: { size?: number; bold?: boolean; after?: number; keepNext?: boolean; keepLines?: boolean },
+): Paragraph {
   return new Paragraph({
     children: [
       new TextRun({
@@ -21,6 +24,8 @@ function textPara(text: string, opts?: { size?: number; bold?: boolean; after?: 
       }),
     ],
     spacing: { after: opts?.after ?? 90 },
+    keepLines: opts?.keepLines ?? true,
+    keepNext: opts?.keepNext,
   });
 }
 
@@ -32,6 +37,8 @@ function listBlock(title: string, items: string[]): Paragraph[] {
       heading: HeadingLevel.HEADING_2,
       children: [new TextRun({ text: title, bold: true })],
       spacing: { before: 140, after: 90 },
+      keepNext: true,
+      keepLines: true,
     }),
   );
   for (const line of items) {
@@ -47,6 +54,8 @@ function sectionHeading(title: string): Paragraph {
     heading: HeadingLevel.HEADING_2,
     children: [new TextRun({ text: title, bold: true })],
     spacing: { before: 140, after: 90 },
+    keepNext: true,
+    keepLines: true,
   });
 }
 
@@ -58,7 +67,7 @@ function keyConceptParagraphs(items: TextbookKeyConceptItem[]): Paragraph[] {
     const c = stripMarkdownBold(k.concept).trim();
     const e = stripMarkdownBold(k.explanation).trim();
     if (!c && !e) continue;
-    blocks.push(textPara(`• ${c || "(개념)"}`, { bold: true, after: 45 }));
+    blocks.push(textPara(`• ${c || "(개념)"}`, { bold: true, after: 45, keepNext: Boolean(e) }));
     if (e) blocks.push(textPara(`  ${e}`, { size: 22, after: 70 }));
   }
   return blocks;
@@ -75,6 +84,8 @@ function contentStudyParagraphs(sections: TextbookContentStudyBlock[]): Paragrap
         new Paragraph({
           children: [new TextRun({ text: ti, bold: true, size: 24 })],
           spacing: { before: 100, after: 55 },
+          keepNext: true,
+          keepLines: true,
         }),
       );
     }
@@ -95,14 +106,14 @@ function unitTestStudentParagraphs(items: TextbookUnitTestItem[]): Paragraph[] {
     if (it.kind === "short") {
       const q = stripMarkdownBold(it.question).trim();
       if (!q) continue;
-      blocks.push(textPara(`${n}. ${q}`, { size: 22, after: 70 }));
+      blocks.push(textPara(`${n}. ${q}`, { size: 22, after: 70, keepNext: false }));
       n++;
       continue;
     }
     const q = stripMarkdownBold(it.question).trim();
     const hasChoice = it.choices.some((c) => stripMarkdownBold(c).trim());
     if (!q && !hasChoice) continue;
-    if (q) blocks.push(textPara(`${n}. ${q}`, { size: 22, after: 50 }));
+    if (q) blocks.push(textPara(`${n}. ${q}`, { size: 22, after: 50, keepNext: hasChoice }));
     let ci = 1;
     for (const c of it.choices) {
       const t = stripMarkdownBold(c).trim();
@@ -127,6 +138,8 @@ function buildStudentParagraphs(params: {
       heading: HeadingLevel.HEADING_1,
       children: [new TextRun({ text: params.bookTitle.trim() || "제목 없음", bold: true, size: 36 })],
       spacing: { after: 140 },
+      keepNext: true,
+      keepLines: true,
     }),
   );
   blocks.push(...buildTextbookBodyParagraphsFromUnits(params.units));
@@ -146,6 +159,8 @@ function pushUnitBodyParagraphs(
         new TextRun({ text: `제 ${unitIndex + 1}단원 · ${unit.unitTitle}`, bold: true, size: 30 }),
       ],
       spacing: { before: 180, after: 120 },
+      keepNext: true,
+      keepLines: true,
     }),
   );
   if (rawUnit.manuscriptModules?.length) {
@@ -167,14 +182,16 @@ export function buildTextbookBodyParagraphsFromUnits(units: { unitIndex: number;
   return blocks;
 }
 
-/** 단원 시작 커버 이미지(File)를 선행 삽입한 본문 (완성본 Word용) */
+/** 단원 시작 커버 이미지(File 또는 URL)를 선행 삽입한 본문 (완성본 Word용) */
 export async function buildTextbookBodyParagraphsFromUnitsWithCovers(
   units: { unitIndex: number; unit: TextbookUnitContent }[],
   unitCovers?: Record<number, File | null>,
+  unitCoverUrls?: Record<number, string>,
 ): Promise<Paragraph[]> {
   const blocks: Paragraph[] = [];
   for (const { unitIndex, unit: rawUnit } of units) {
     const cover = unitCovers?.[unitIndex];
+    const coverUrl = unitCoverUrls?.[unitIndex];
     if (cover) {
       const raster = await rasterImageFileToDocxRaster(cover);
       const dim = scaleCoverToMaxWidth(raster);
@@ -191,6 +208,31 @@ export async function buildTextbookBodyParagraphsFromUnitsWithCovers(
           spacing: { before: 120, after: 120 },
         }),
       );
+    } else if (coverUrl) {
+      try {
+        const raster = await fetchUrlToRasterImageDocx(coverUrl);
+        const dim = scaleCoverToMaxWidth(raster);
+        blocks.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new ImageRun({
+                type: raster.type,
+                data: raster.data,
+                transformation: { width: dim.width, height: dim.height },
+              }),
+            ],
+            spacing: { before: 120, after: 120 },
+          }),
+        );
+      } catch {
+        blocks.push(
+          new Paragraph({
+            children: [new TextRun({ text: "(단원 커버 이미지를 불러올 수 없습니다.)", italics: true, size: 22 })],
+            spacing: { after: 80 },
+          }),
+        );
+      }
     }
     pushUnitBodyParagraphs(blocks, unitIndex, rawUnit);
   }
@@ -204,6 +246,8 @@ export function buildTextbookBodyParagraphsFromPassages(unitPassages: string[]):
       new Paragraph({
         heading: HeadingLevel.HEADING_1,
         children: [new TextRun({ text: `제 ${i + 1}단원 · 원문`, bold: true, size: 30 })],
+        keepNext: true,
+        keepLines: true,
         spacing: { before: 180, after: 120 },
       }),
     );
@@ -257,6 +301,8 @@ function buildTeacherParagraphs(params: {
       heading: HeadingLevel.HEADING_1,
       children: [new TextRun({ text: params.bookTitle.trim() || "제목 없음", bold: true, size: 36 })],
       spacing: { after: 140 },
+      keepNext: true,
+      keepLines: true,
     }),
   );
 
@@ -267,6 +313,8 @@ function buildTeacherParagraphs(params: {
         heading: HeadingLevel.HEADING_1,
         children: [new TextRun({ text: `제 ${ui + 1}단원 · ${ut || "(제목 없음)"}`, bold: true, size: 30 })],
         spacing: { before: 180, after: 100 },
+        keepNext: true,
+        keepLines: true,
       }),
     );
 
@@ -279,6 +327,8 @@ function buildTeacherParagraphs(params: {
         heading: HeadingLevel.HEADING_2,
         children: [new TextRun({ text: "확인학습 — 정답·해설", bold: true })],
         spacing: { before: 100, after: 80 },
+        keepNext: true,
+        keepLines: true,
       }),
     );
     if (practice.length === 0) {
@@ -291,9 +341,9 @@ function buildTeacherParagraphs(params: {
     } else {
       let n = 1;
       for (const it of practice) {
-        blocks.push(textPara(`문항 ${n}`, { bold: true, after: 40 }));
+        blocks.push(textPara(`문항 ${n}`, { bold: true, after: 40, keepNext: true }));
         n++;
-        blocks.push(textPara(stripMarkdownBold(it.question), { after: 50 }));
+        blocks.push(textPara(stripMarkdownBold(it.question), { after: 50, keepNext: true }));
         blocks.push(textPara(`정답: ${stripMarkdownBold(it.answer)}`, { bold: true, after: 50 }));
         for (const b of it.explanationBullets) {
           const t = stripMarkdownBold(b).trim();
@@ -307,6 +357,8 @@ function buildTeacherParagraphs(params: {
         heading: HeadingLevel.HEADING_2,
         children: [new TextRun({ text: "단원평가 — 정답·해설", bold: true })],
         spacing: { before: 160, after: 80 },
+        keepNext: true,
+        keepLines: true,
       }),
     );
     if (test.length === 0) {
@@ -319,9 +371,9 @@ function buildTeacherParagraphs(params: {
     } else {
       let n = 1;
       for (const it of test) {
-        blocks.push(textPara(`문항 ${n}`, { bold: true, after: 40 }));
+        blocks.push(textPara(`문항 ${n}`, { bold: true, after: 40, keepNext: true }));
         n++;
-        blocks.push(textPara(stripMarkdownBold(it.question), { after: 50 }));
+        blocks.push(textPara(stripMarkdownBold(it.question), { after: 50, keepNext: true }));
         blocks.push(textPara(`정답: ${stripMarkdownBold(it.answer)}`, { bold: true, after: 50 }));
         for (const b of it.explanationBullets) {
           const t = stripMarkdownBold(b).trim();

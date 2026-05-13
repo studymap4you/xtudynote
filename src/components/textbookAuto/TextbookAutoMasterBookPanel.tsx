@@ -8,6 +8,14 @@ import {
   type MasterBookContentMode,
 } from "@/lib/textbookAuto/masterBookBodyBuild";
 import { exportMasterBookPdfFromElement } from "@/lib/textbookAuto/exportMasterBookPdf";
+import {
+  loadMasterBookLayoutDoc,
+  masterFolioBlocksToPersisted,
+  persistedFolioToMasterBlocks,
+  saveMasterBookLayoutDoc,
+  storagePathToDownloadUrl,
+  uploadMasterLayoutImage,
+} from "@/lib/textbookAuto/masterBookLayoutFirestore";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
 import { TextbookAutoMasterBookPrintView } from "@/components/textbookAuto/TextbookAutoMasterBookPrintView";
 import { extractTableOfContentsFromText } from "@/lib/textbookAuto/extractTocFromText";
@@ -26,7 +34,7 @@ import type {
 } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoBuilder.module.css";
 
-function FolioThumb({ file }: { file: File | null }) {
+function FolioThumb({ file, remoteUrl }: { file: File | null; remoteUrl?: string | null }) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     if (!file) {
@@ -37,8 +45,9 @@ function FolioThumb({ file }: { file: File | null }) {
     setSrc(u);
     return () => URL.revokeObjectURL(u);
   }, [file]);
-  if (!src) return null;
-  return <img src={src} alt="" className={styles.coverThumb} />;
+  const imgSrc = src ?? remoteUrl ?? null;
+  if (!imgSrc) return null;
+  return <img src={imgSrc} alt="" className={styles.coverThumb} />;
 }
 
 export type MasterContentMode = MasterBookContentMode;
@@ -49,6 +58,8 @@ type Props = {
   bookTitle: string;
   confirmedUnits: { unitIndex: number; unit: TextbookUnitContent }[];
   sessionUnitPassages: string[] | null;
+  uid: string;
+  sessionId: string | null;
 };
 
 const DEFAULT_FOREWORD_TEMPLATE =
@@ -56,7 +67,13 @@ const DEFAULT_FOREWORD_TEMPLATE =
 const DEFAULT_AFTERWORD_TEMPLATE =
   "끝까지 마친 학습자 여러분, 수고하셨습니다.\n\n추가 문의는 담당 교사에게 연락해 주세요.";
 
-export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, sessionUnitPassages }: Props) {
+export function TextbookAutoMasterBookPanel({
+  bookTitle,
+  confirmedUnits,
+  sessionUnitPassages,
+  uid,
+  sessionId,
+}: Props) {
   const [frontCover, setFrontCover] = useState<File | null>(null);
   const [backCover, setBackCover] = useState<File | null>(null);
   const [frontPreview, setFrontPreview] = useState<string | null>(null);
@@ -76,8 +93,11 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
   const [forewordBlocks, setForewordBlocks] = useState<MasterBookFolioBlock[]>([]);
   const [afterwordBlocks, setAfterwordBlocks] = useState<MasterBookFolioBlock[]>([]);
   const [unitCoverFiles, setUnitCoverFiles] = useState<Record<number, File | null>>({});
+  const [unitCoverPaths, setUnitCoverPaths] = useState<Record<number, string>>({});
+  const [unitCoverRemoteUrls, setUnitCoverRemoteUrls] = useState<Record<number, string>>({});
 
   const [masterBusy, setMasterBusy] = useState(false);
+  const [layoutCloudBusy, setLayoutCloudBusy] = useState(false);
   const [localMsg, setLocalMsg] = useState<string | null>(null);
   const [localErr, setLocalErr] = useState<string | null>(null);
   const masterPrintRef = useRef<HTMLDivElement>(null);
@@ -88,6 +108,45 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
       bookTitle.trim() ? `Xtudy_Textbook_Master_${bookTitle.trim().slice(0, 24)}` : "Xtudy_Textbook_Master",
     pageStyle: REACT_TO_PRINT_A4_PAGE_STYLE,
   });
+
+  /** 규칙 배포 후 세션별 저장분을 자동 반영 (수동 「불러오기」와 동일 데이터) */
+  useEffect(() => {
+    if (!uid || !sessionId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const doc = await loadMasterBookLayoutDoc(uid, sessionId);
+        if (cancelled || !doc) return;
+        const hasAny =
+          doc.foreword.length > 0 ||
+          doc.afterword.length > 0 ||
+          Object.keys(doc.unitCovers).length > 0;
+        if (!hasAny) return;
+        setForewordBlocks(await persistedFolioToMasterBlocks(doc.foreword));
+        setAfterwordBlocks(await persistedFolioToMasterBlocks(doc.afterword));
+        const paths: Record<number, string> = {};
+        const urls: Record<number, string> = {};
+        for (const [k, path] of Object.entries(doc.unitCovers)) {
+          const ui = Number(k);
+          if (!Number.isFinite(ui)) continue;
+          paths[ui] = path;
+          urls[ui] = await storagePathToDownloadUrl(path);
+        }
+        if (cancelled) return;
+        setUnitCoverPaths(paths);
+        setUnitCoverRemoteUrls(urls);
+        setUnitCoverFiles({});
+        setLocalMsg("클라우드에서 완성본 레이아웃을 불러왔습니다.");
+      } catch (e) {
+        if (!cancelled) {
+          setLocalErr(e instanceof Error ? e.message : "불러오기에 실패했습니다.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, sessionId]);
 
   useEffect(() => {
     if (frontCover) {
@@ -313,6 +372,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
         sessionUnitPassages,
         contentState,
         unitCovers: unitCoverFiles,
+        unitCoverUrls: unitCoverRemoteUrls,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -359,6 +419,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
     forewordBlocks,
     afterwordBlocks,
     unitCoverFiles,
+    unitCoverRemoteUrls,
   ]);
 
   const runDownloadMasterPdf = useCallback(async () => {
@@ -372,6 +433,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
         sessionUnitPassages,
         contentState,
         unitCovers: unitCoverFiles,
+        unitCoverUrls: unitCoverRemoteUrls,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -391,7 +453,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
     } finally {
       setMasterBusy(false);
     }
-  }, [bookTitle, contentMode, confirmedUnits, sessionUnitPassages, contentState, appendixState, unitCoverFiles]);
+  }, [bookTitle, contentMode, confirmedUnits, sessionUnitPassages, contentState, appendixState, unitCoverFiles, unitCoverRemoteUrls]);
 
   const onPrintMasterBook = useCallback(async () => {
     setLocalErr(null);
@@ -404,6 +466,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
         sessionUnitPassages,
         contentState,
         unitCovers: unitCoverFiles,
+        unitCoverUrls: unitCoverRemoteUrls,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -417,7 +480,100 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
     sessionUnitPassages,
     contentState,
     unitCoverFiles,
+    unitCoverRemoteUrls,
     printMasterBook,
+  ]);
+
+  const runLoadMasterLayoutFromCloud = useCallback(async () => {
+    if (!uid || !sessionId) {
+      setLocalErr("로그인·세션이 필요합니다.");
+      return;
+    }
+    setLocalErr(null);
+    setLayoutCloudBusy(true);
+    try {
+      const doc = await loadMasterBookLayoutDoc(uid, sessionId);
+      if (!doc) {
+        setLocalMsg("저장된 완성본 레이아웃이 없습니다.");
+        return;
+      }
+      setForewordBlocks(await persistedFolioToMasterBlocks(doc.foreword));
+      setAfterwordBlocks(await persistedFolioToMasterBlocks(doc.afterword));
+      const paths: Record<number, string> = {};
+      const urls: Record<number, string> = {};
+      for (const [k, path] of Object.entries(doc.unitCovers)) {
+        const ui = Number(k);
+        if (!Number.isFinite(ui)) continue;
+        paths[ui] = path;
+        urls[ui] = await storagePathToDownloadUrl(path);
+      }
+      setUnitCoverPaths(paths);
+      setUnitCoverRemoteUrls(urls);
+      setUnitCoverFiles({});
+      setLocalMsg("클라우드에서 완성본 레이아웃을 불러왔습니다.");
+    } catch (e) {
+      setLocalErr(e instanceof Error ? e.message : "불러오기에 실패했습니다.");
+    } finally {
+      setLayoutCloudBusy(false);
+    }
+  }, [uid, sessionId]);
+
+  const runSaveMasterLayoutToCloud = useCallback(async () => {
+    if (!uid || !sessionId) {
+      setLocalErr("로그인·세션이 필요합니다.");
+      return;
+    }
+    setLocalErr(null);
+    setLayoutCloudBusy(true);
+    try {
+      const foreword = await masterFolioBlocksToPersisted(uid, sessionId, "foreword", forewordBlocks);
+      const afterword = await masterFolioBlocksToPersisted(uid, sessionId, "afterword", afterwordBlocks);
+      const unitCoversOut: Record<string, string> = {};
+      for (const { unitIndex } of confirmedUnits) {
+        const f = unitCoverFiles[unitIndex];
+        const existing = unitCoverPaths[unitIndex];
+        if (f) {
+          unitCoversOut[String(unitIndex)] = await uploadMasterLayoutImage(
+            uid,
+            sessionId,
+            `unit_cover_${unitIndex}`,
+            f,
+          );
+        } else if (existing) {
+          unitCoversOut[String(unitIndex)] = existing;
+        }
+      }
+      await saveMasterBookLayoutDoc(uid, sessionId, { foreword, afterword, unitCovers: unitCoversOut });
+      const refreshed = await loadMasterBookLayoutDoc(uid, sessionId);
+      if (refreshed) {
+        setForewordBlocks(await persistedFolioToMasterBlocks(refreshed.foreword));
+        setAfterwordBlocks(await persistedFolioToMasterBlocks(refreshed.afterword));
+        const paths: Record<number, string> = {};
+        const urls: Record<number, string> = {};
+        for (const [k, path] of Object.entries(refreshed.unitCovers)) {
+          const ui = Number(k);
+          if (!Number.isFinite(ui)) continue;
+          paths[ui] = path;
+          urls[ui] = await storagePathToDownloadUrl(path);
+        }
+        setUnitCoverPaths(paths);
+        setUnitCoverRemoteUrls(urls);
+        setUnitCoverFiles({});
+      }
+      setLocalMsg("완성본 머리말·꼬리말·단원 커버를 클라우드에 저장했습니다.");
+    } catch (e) {
+      setLocalErr(e instanceof Error ? e.message : "클라우드 저장에 실패했습니다.");
+    } finally {
+      setLayoutCloudBusy(false);
+    }
+  }, [
+    uid,
+    sessionId,
+    forewordBlocks,
+    afterwordBlocks,
+    confirmedUnits,
+    unitCoverFiles,
+    unitCoverPaths,
   ]);
 
   const pendingRow = (
@@ -607,11 +763,17 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
                     onChange={(e) => {
                       const f = e.target.files?.[0] ?? null;
                       if (f) window.alert(`머리말에 「${f.name}」 이미지를 넣었습니다. 아래 미리보기를 확인하세요.`);
-                      setForewordBlocks((prev) => prev.map((x) => (x.id === b.id ? { ...x, file: f } : x)));
+                      setForewordBlocks((prev) =>
+                        prev.map((x) =>
+                          x.id === b.id ?
+                            { ...x, file: f, storagePath: null, remoteUrl: null }
+                          : x,
+                        ),
+                      );
                       e.target.value = "";
                     }}
                   />
-                  <FolioThumb file={b.file} />
+                  <FolioThumb file={b.file} remoteUrl={b.kind === "image" ? b.remoteUrl : null} />
                 </div>
               )}
               <button
@@ -677,11 +839,17 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
                     onChange={(e) => {
                       const f = e.target.files?.[0] ?? null;
                       if (f) window.alert(`꼬리말에 「${f.name}」 이미지를 넣었습니다. 아래 미리보기를 확인하세요.`);
-                      setAfterwordBlocks((prev) => prev.map((x) => (x.id === b.id ? { ...x, file: f } : x)));
+                      setAfterwordBlocks((prev) =>
+                        prev.map((x) =>
+                          x.id === b.id ?
+                            { ...x, file: f, storagePath: null, remoteUrl: null }
+                          : x,
+                        ),
+                      );
                       e.target.value = "";
                     }}
                   />
-                  <FolioThumb file={b.file} />
+                  <FolioThumb file={b.file} remoteUrl={b.kind === "image" ? b.remoteUrl : null} />
                 </div>
               )}
               <button
@@ -717,26 +885,49 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
                       const f = e.target.files?.[0] ?? null;
                       if (f) window.alert(`제 ${unitIndex + 1}단원 커버로 「${f.name}」을(를) 올렸습니다.`);
                       setUnitCoverFiles((prev) => ({ ...prev, [unitIndex]: f }));
+                      setUnitCoverPaths((prev) => {
+                        const next = { ...prev };
+                        delete next[unitIndex];
+                        return next;
+                      });
+                      setUnitCoverRemoteUrls((prev) => {
+                        const next = { ...prev };
+                        delete next[unitIndex];
+                        return next;
+                      });
                       e.target.value = "";
                     }}
                   />
-                  {unitCoverFiles[unitIndex] ? (
+                  {unitCoverFiles[unitIndex] || unitCoverRemoteUrls[unitIndex] ? (
                     <button
                       type="button"
                       className={styles.btnMiniGhost}
-                      onClick={() =>
+                      onClick={() => {
                         setUnitCoverFiles((prev) => {
                           const next = { ...prev };
                           delete next[unitIndex];
                           return next;
-                        })
-                      }
+                        });
+                        setUnitCoverPaths((prev) => {
+                          const next = { ...prev };
+                          delete next[unitIndex];
+                          return next;
+                        });
+                        setUnitCoverRemoteUrls((prev) => {
+                          const next = { ...prev };
+                          delete next[unitIndex];
+                          return next;
+                        });
+                      }}
                     >
                       커버 제거
                     </button>
                   ) : null}
                 </div>
-                <FolioThumb file={unitCoverFiles[unitIndex] ?? null} />
+                <FolioThumb
+                  file={unitCoverFiles[unitIndex] ?? null}
+                  remoteUrl={unitCoverRemoteUrls[unitIndex] ?? null}
+                />
               </li>
             ))}
           </ul>
@@ -922,6 +1113,28 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
         </button>
       </div>
 
+      <div className={styles.row}>
+        <button
+          type="button"
+          className={styles.btnSecondary}
+          disabled={layoutCloudBusy || !uid || !sessionId}
+          onClick={() => void runLoadMasterLayoutFromCloud()}
+        >
+          {layoutCloudBusy ? "처리 중…" : "클라우드에서 불러오기"}
+        </button>
+        <button
+          type="button"
+          className={styles.btnSecondary}
+          disabled={layoutCloudBusy || !uid || !sessionId}
+          onClick={() => void runSaveMasterLayoutToCloud()}
+        >
+          {layoutCloudBusy ? "저장 중…" : "클라우드에 저장 (머리말·꼬리말·단원 커버)"}
+        </button>
+      </div>
+      <p className={styles.hint}>
+        머리말·꼬리말·단원 시작 커버만 세션별 Firestore·Storage에 보관됩니다. 앞·뒷표지, 목차, 본문·추가 페이지 구성은 포함되지 않습니다.
+      </p>
+
       {localMsg ? <p className={styles.ok}>{localMsg}</p> : null}
       {localErr ? <p className={styles.bad}>{localErr}</p> : null}
 
@@ -942,6 +1155,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
           forewordBlocks={forewordBlocks}
           afterwordBlocks={afterwordBlocks}
           unitCoverFiles={unitCoverFiles}
+          unitCoverUrls={unitCoverRemoteUrls}
         />
       </div>
     </section>

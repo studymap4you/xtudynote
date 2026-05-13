@@ -14,18 +14,25 @@ import type {
 } from "@/types/textbookAuto";
 import styles from "@/components/textbookAuto/textbookAutoPrint.module.css";
 
-function UnitPageCoverImg({ coverFile }: { coverFile: File | null }) {
-  const [src, setSrc] = useState<string | null>(null);
+function UnitPageCoverImg({
+  coverFile,
+  coverUrl,
+}: {
+  coverFile: File | null;
+  coverUrl?: string | null;
+}) {
+  const [blobSrc, setBlobSrc] = useState<string | null>(null);
   useEffect(() => {
     if (!coverFile) {
-      setSrc(null);
+      setBlobSrc(null);
       return;
     }
     const u = URL.createObjectURL(coverFile);
-    setSrc(u);
+    setBlobSrc(u);
     return () => URL.revokeObjectURL(u);
   }, [coverFile]);
-  if (!coverFile || !src) return null;
+  const src = blobSrc ?? coverUrl ?? null;
+  if (!src) return null;
   return (
     <div className={`${styles.unitCoverWrap} ${styles.printBlock}`}>
       <img src={src} alt="" className={styles.unitCoverImg} />
@@ -150,16 +157,21 @@ function ManuscriptModulesBlock({ modules }: { modules: TextbookUnitContent["man
 export function TextbookAutoStudentUnitsBody({
   units,
   unitCovers,
+  unitCoverUrls,
 }: {
   units: { unitIndex: number; unit: TextbookUnitContent }[];
   unitCovers?: Record<number, File | null>;
+  unitCoverUrls?: Record<number, string>;
 }) {
   const outUnits = mapUnitsForStudentOutput(units);
   return (
     <>
       {outUnits.map(({ unitIndex, unit }) => (
         <article key={unitIndex} className={styles.unit}>
-          <UnitPageCoverImg coverFile={unitCovers?.[unitIndex] ?? null} />
+          <UnitPageCoverImg
+            coverFile={unitCovers?.[unitIndex] ?? null}
+            coverUrl={unitCoverUrls?.[unitIndex] ?? null}
+          />
           <h2 className={`${styles.unitTitle} ${styles.printBlock}`}>
             제 {unitIndex + 1}단원 · {unit.unitTitle}
           </h2>

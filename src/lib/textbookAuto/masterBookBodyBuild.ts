@@ -15,12 +15,18 @@ export async function buildMasterBookBodyParagraphsForDocx(params: {
   sessionUnitPassages: string[] | null;
   contentState: TextbookUnitSetupState;
   unitCovers?: Record<number, File | null>;
+  /** Storage 등에서 불러온 단원 커버 이미지 URL (File이 없을 때 사용) */
+  unitCoverUrls?: Record<number, string>;
 }): Promise<Paragraph[]> {
-  const { contentMode, confirmedUnits, sessionUnitPassages, contentState, unitCovers } = params;
+  const { contentMode, confirmedUnits, sessionUnitPassages, contentState, unitCovers, unitCoverUrls } =
+    params;
   if (contentMode === "session_units") {
     if (confirmedUnits.length === 0) throw new Error("확정된 단원이 없습니다.");
-    const hasCover = unitCovers && Object.values(unitCovers).some(Boolean);
-    if (hasCover) return buildTextbookBodyParagraphsFromUnitsWithCovers(confirmedUnits, unitCovers);
+    const hasFileCover = unitCovers && Object.values(unitCovers).some(Boolean);
+    const hasUrlCover = unitCoverUrls && Object.values(unitCoverUrls).some(Boolean);
+    if (hasFileCover || hasUrlCover) {
+      return buildTextbookBodyParagraphsFromUnitsWithCovers(confirmedUnits, unitCovers, unitCoverUrls);
+    }
     return buildTextbookBodyParagraphsFromUnits(confirmedUnits);
   }
   if (contentMode === "session_passages") {

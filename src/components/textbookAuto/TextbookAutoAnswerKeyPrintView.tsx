@@ -45,7 +45,7 @@ export function TextbookAutoAnswerKeyPrintView({
               {practice.length ? (
                 <ol className={styles.ulOl}>
                   {practice.map((it) => (
-                    <li key={it.id} className={styles.liBlock}>
+                    <li key={it.id} className={`${styles.liBlock} ${styles.printBlock}`}>
                       <p className={styles.q}>{it.question}</p>
                       <p className={styles.ans}>
                         <strong>정답</strong> {it.answer}
@@ -69,7 +69,7 @@ export function TextbookAutoAnswerKeyPrintView({
               {test.length ? (
                 <ol className={styles.ulOl}>
                   {test.map((it) => (
-                    <li key={it.id} className={styles.liBlock}>
+                    <li key={it.id} className={`${styles.liBlock} ${styles.printBlock}`}>
                       <p className={styles.q}>{it.question}</p>
                       <p className={styles.ans}>
                         <strong>정답</strong> {it.answer}

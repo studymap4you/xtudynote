@@ -71,3 +71,12 @@ export function scaleCoverToMaxWidth(img: DocxRasterImage): { width: number; hei
     height: Math.max(1, Math.round(img.height * scale)),
   };
 }
+
+/** Cloud 스토리지 URL 등 — docx용 래스터로 변환 */
+export async function fetchUrlToRasterImageDocx(url: string): Promise<DocxRasterImage> {
+  const res = await fetch(url, { mode: "cors" });
+  if (!res.ok) throw new Error("이미지를 불러오지 못했습니다.");
+  const blob = await res.blob();
+  const file = new File([blob], "remote.png", { type: blob.type || "image/png" });
+  return rasterImageFileToDocxRaster(file);
+}

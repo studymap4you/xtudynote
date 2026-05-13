@@ -7,18 +7,25 @@ import { TextbookAutoStudentUnitsBody } from "@/components/textbookAuto/Textbook
 import printStyles from "@/components/textbookAuto/textbookAutoPrint.module.css";
 import styles from "@/components/textbookAuto/textbookAutoMasterBookPrint.module.css";
 
-function MasterBookFolioImage({ file }: { file: File | null }) {
-  const [src, setSrc] = useState<string | null>(null);
+function MasterBookFolioImage({
+  file,
+  remoteUrl,
+}: {
+  file: File | null;
+  remoteUrl?: string | null;
+}) {
+  const [blobSrc, setBlobSrc] = useState<string | null>(null);
   useEffect(() => {
     if (!file) {
-      setSrc(null);
+      setBlobSrc(null);
       return;
     }
     const u = URL.createObjectURL(file);
-    setSrc(u);
+    setBlobSrc(u);
     return () => URL.revokeObjectURL(u);
   }, [file]);
-  if (!file || !src) return null;
+  const src = blobSrc ?? remoteUrl ?? null;
+  if (!src) return null;
   return <img src={src} alt="" className={styles.folioImg} />;
 }
 
@@ -33,7 +40,7 @@ function FolioBlocksPrint({ blocks }: { blocks: MasterBookFolioBlock[] }) {
               <pre className={styles.folioText}>{b.text}</pre>
             ) : null
           ) : (
-            <MasterBookFolioImage file={b.file} />
+            <MasterBookFolioImage file={b.file} remoteUrl={b.remoteUrl} />
           )}
         </div>
       ))}
@@ -87,6 +94,7 @@ export function TextbookAutoMasterBookPrintView({
   forewordBlocks,
   afterwordBlocks,
   unitCoverFiles,
+  unitCoverUrls,
 }: {
   bookTitle: string;
   frontCoverUrl: string | null;
@@ -100,6 +108,7 @@ export function TextbookAutoMasterBookPrintView({
   forewordBlocks: MasterBookFolioBlock[];
   afterwordBlocks: MasterBookFolioBlock[];
   unitCoverFiles: Record<number, File | null>;
+  unitCoverUrls?: Record<number, string>;
 }) {
   const title = bookTitle.trim() || "제목 없음";
 
@@ -138,7 +147,11 @@ export function TextbookAutoMasterBookPrintView({
 
       <h2 className={styles.phaseH}>본문</h2>
       {contentMode === "session_units" ? (
-        <TextbookAutoStudentUnitsBody units={confirmedUnits} unitCovers={unitCoverFiles} />
+        <TextbookAutoStudentUnitsBody
+          units={confirmedUnits}
+          unitCovers={unitCoverFiles}
+          unitCoverUrls={unitCoverUrls}
+        />
       ) : null}
       {contentMode === "session_passages" && sessionUnitPassages?.length ? (
         <PassagesBody passages={sessionUnitPassages} />
