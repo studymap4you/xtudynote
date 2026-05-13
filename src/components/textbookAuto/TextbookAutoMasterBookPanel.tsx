@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { downloadMasterBookDocx, folioBlocksToDocxParagraphs } from "@/lib/textbookAuto/buildMasterBookDocx";
 import {
   assertMasterAppendixNoPending,
   buildMasterAppendixParagraphsForDocx,
   buildMasterBookBodyParagraphsForDocx,
-  type MasterBookContentMode,
 } from "@/lib/textbookAuto/masterBookBodyBuild";
 import { exportMasterBookPdfFromElement } from "@/lib/textbookAuto/exportMasterBookPdf";
 import {
@@ -20,7 +19,7 @@ import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle"
 import { TextbookAutoMasterBookPrintView } from "@/components/textbookAuto/TextbookAutoMasterBookPrintView";
 import { extractTableOfContentsFromText } from "@/lib/textbookAuto/extractTocFromText";
 import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
-import { combineUnitPassage, emptyUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
+import { emptyUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
 import {
   newMasterBookImageBlock,
   newMasterBookTextBlock,
@@ -52,14 +51,11 @@ function FolioThumb({ file, remoteUrl }: { file: File | null; remoteUrl?: string
   return <img src={imgSrc} alt="" className={styles.coverThumb} />;
 }
 
-export type MasterContentMode = MasterBookContentMode;
-
 type TocMode = "auto" | "file" | "manual";
 
 type Props = {
   bookTitle: string;
   confirmedUnits: { unitIndex: number; unit: TextbookUnitContent }[];
-  sessionUnitPassages: string[] | null;
   uid: string;
   sessionId: string | null;
   answerKeyLayout: TextbookAnswerKeyLayout;
@@ -74,7 +70,6 @@ const DEFAULT_AFTERWORD_TEMPLATE =
 export function TextbookAutoMasterBookPanel({
   bookTitle,
   confirmedUnits,
-  sessionUnitPassages,
   uid,
   sessionId,
   answerKeyLayout,
@@ -90,11 +85,46 @@ export function TextbookAutoMasterBookPanel({
   const [tocScanBusy, setTocScanBusy] = useState(false);
   const [tocSourceFull, setTocSourceFull] = useState("");
 
-  const [contentMode, setContentMode] = useState<MasterContentMode>("session_units");
-  const [contentState, setContentState] = useState<TextbookUnitSetupState>(() => emptyUnitSetup());
   const [appendixState, setAppendixState] = useState<TextbookUnitSetupState>(() => emptyUnitSetup());
-  const [contentExtractBusy, setContentExtractBusy] = useState<string | null>(null);
   const [appendixExtractBusy, setAppendixExtractBusy] = useState<string | null>(null);
+
+  const confirmedUnitKey = useMemo(
+    () =>
+      confirmedUnits
+        .map((u) => u.unitIndex)
+        .slice()
+        .sort((a, b) => a - b)
+        .join(","),
+    [confirmedUnits],
+  );
+  const [includedUnitIndices, setIncludedUnitIndices] = useState<Set<number>>(() => new Set());
+
+  useEffect(() => {
+    setIncludedUnitIndices((prev) => {
+      const ids = confirmedUnits.map((u) => u.unitIndex);
+      const idSet = new Set(ids);
+      if (idSet.size === 0) return new Set();
+      if (prev.size === 0) return new Set(idSet);
+      const next = new Set<number>();
+      for (const id of ids) {
+        if (prev.has(id)) next.add(id);
+      }
+      for (const id of ids) {
+        if (!prev.has(id)) next.add(id);
+      }
+      return next;
+    });
+  }, [confirmedUnitKey]);
+
+  const bodyUnits = useMemo(
+    () => confirmedUnits.filter((u) => includedUnitIndices.has(u.unitIndex)),
+    [confirmedUnits, includedUnitIndices],
+  );
+
+  const answerKeyItemsForBody = useMemo(
+    () => answerKeyItems.filter((item) => includedUnitIndices.has(item.unitIndex)),
+    [answerKeyItems, includedUnitIndices],
+  );
 
   const [forewordBlocks, setForewordBlocks] = useState<MasterBookFolioBlock[]>([]);
   const [afterwordBlocks, setAfterwordBlocks] = useState<MasterBookFolioBlock[]>([]);
@@ -175,13 +205,13 @@ export function TextbookAutoMasterBookPanel({
   }, [backCover]);
 
   const fillTocFromUnits = useCallback(() => {
-    const lines = confirmedUnits.map(
-      ({ unitIndex, unit }) => `제 ${unitIndex + 1}단원 · ${unit.unitTitle}`,
-    );
+    const lines = confirmedUnits
+      .filter(({ unitIndex }) => includedUnitIndices.has(unitIndex))
+      .map(({ unitIndex, unit }) => `제 ${unitIndex + 1}단원 · ${unit.unitTitle}`);
     setTocDraft(lines.join("\n"));
-    setLocalMsg("확정 단원 제목으로 목차를 채웠습니다.");
+    setLocalMsg("포함된 단원 제목으로 목차를 채웠습니다.");
     setLocalErr(null);
-  }, [confirmedUnits]);
+  }, [confirmedUnits, includedUnitIndices]);
 
   useEffect(() => {
     if (tocMode === "auto" && tocDraft.trim() === "" && confirmedUnits.length > 0) {
@@ -211,21 +241,6 @@ export function TextbookAutoMasterBookPanel({
     }
   }, []);
 
-  const addContentPending = useCallback((files: File[]) => {
-    if (!files.length) return;
-    setContentState((prev) => {
-      const batch: TextbookSetupPendingFile[] = files.map((file) => ({
-        id: crypto.randomUUID(),
-        file,
-        mode: "all" as TextbookSetupPendingMode,
-        fromPage: "",
-        toPage: "",
-        pagesRaw: "",
-      }));
-      return { ...prev, pendingFiles: [...prev.pendingFiles, ...batch] };
-    });
-  }, []);
-
   const addAppendixPending = useCallback((files: File[]) => {
     if (!files.length) return;
     setAppendixState((prev) => {
@@ -241,24 +256,10 @@ export function TextbookAutoMasterBookPanel({
     });
   }, []);
 
-  const patchContentPending = useCallback((id: string, patch: Partial<TextbookSetupPendingFile>) => {
-    setContentState((prev) => ({
-      ...prev,
-      pendingFiles: prev.pendingFiles.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-    }));
-  }, []);
-
   const patchAppendixPending = useCallback((id: string, patch: Partial<TextbookSetupPendingFile>) => {
     setAppendixState((prev) => ({
       ...prev,
       pendingFiles: prev.pendingFiles.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-    }));
-  }, []);
-
-  const removeContentPending = useCallback((id: string) => {
-    setContentState((prev) => ({
-      ...prev,
-      pendingFiles: prev.pendingFiles.filter((p) => p.id !== id),
     }));
   }, []);
 
@@ -269,59 +270,12 @@ export function TextbookAutoMasterBookPanel({
     }));
   }, []);
 
-  const removeContentSegment = useCallback((id: string) => {
-    setContentState((prev) => ({
-      ...prev,
-      fileSegments: prev.fileSegments.filter((s) => s.id !== id),
-    }));
-  }, []);
-
   const removeAppendixSegment = useCallback((id: string) => {
     setAppendixState((prev) => ({
       ...prev,
       fileSegments: prev.fileSegments.filter((s) => s.id !== id),
     }));
   }, []);
-
-  const extractContentPending = useCallback(
-    async (pendingId: string) => {
-      const pending = contentState.pendingFiles.find((p) => p.id === pendingId);
-      if (!pending) return;
-      setLocalErr(null);
-      setContentExtractBusy(pendingId);
-      try {
-        const fromRaw = pending.fromPage.trim();
-        const toRaw = pending.toPage.trim();
-        const fromNum = fromRaw === "" ? undefined : Number(fromRaw);
-        const toNum = toRaw === "" ? undefined : Number(toRaw);
-        const { text, extractNote } = await extractUnitSourceFile(pending.file, {
-          mode: pending.mode,
-          fromPage: fromNum !== undefined && Number.isFinite(fromNum) ? Math.max(1, Math.floor(fromNum)) : undefined,
-          toPage: toNum !== undefined && Number.isFinite(toNum) ? Math.max(1, Math.floor(toNum)) : undefined,
-          pagesRaw: pending.pagesRaw,
-        });
-        if (!text.trim()) {
-          setLocalErr(`「${pending.file.name}」에서 본문을 추출하지 못했습니다.`);
-          return;
-        }
-        const segId = crypto.randomUUID();
-        setContentState((prev) => ({
-          ...prev,
-          fileSegments: [
-            ...prev.fileSegments,
-            { id: segId, fileName: pending.file.name, extractNote, text },
-          ],
-          pendingFiles: prev.pendingFiles.filter((p) => p.id !== pendingId),
-        }));
-        setLocalMsg(`본문에 「${pending.file.name}」 블록을 추가했습니다.`);
-      } catch (e) {
-        setLocalErr(e instanceof Error ? e.message : "추출에 실패했습니다.");
-      } finally {
-        setContentExtractBusy(null);
-      }
-    },
-    [contentState.pendingFiles],
-  );
 
   const extractAppendixPending = useCallback(
     async (pendingId: string) => {
@@ -373,14 +327,11 @@ export function TextbookAutoMasterBookPanel({
     try {
       assertMasterAppendixNoPending(appendixState);
       bodyParagraphs = await buildMasterBookBodyParagraphsForDocx({
-        contentMode,
-        confirmedUnits,
-        sessionUnitPassages,
-        contentState,
+        bodyUnits,
         unitCovers: unitCoverFiles,
         unitCoverUrls: unitCoverRemoteUrls,
         answerKeyLayout,
-        answerKeyItems,
+        answerKeyItems: answerKeyItemsForBody,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -417,10 +368,7 @@ export function TextbookAutoMasterBookPanel({
   }, [
     bookTitle,
     tocDraft,
-    contentMode,
-    confirmedUnits,
-    sessionUnitPassages,
-    contentState,
+    bodyUnits,
     appendixState,
     frontCover,
     backCover,
@@ -429,7 +377,7 @@ export function TextbookAutoMasterBookPanel({
     unitCoverFiles,
     unitCoverRemoteUrls,
     answerKeyLayout,
-    answerKeyItems,
+    answerKeyItemsForBody,
   ]);
 
   const runDownloadMasterPdf = useCallback(async () => {
@@ -438,14 +386,11 @@ export function TextbookAutoMasterBookPanel({
     try {
       assertMasterAppendixNoPending(appendixState);
       await buildMasterBookBodyParagraphsForDocx({
-        contentMode,
-        confirmedUnits,
-        sessionUnitPassages,
-        contentState,
+        bodyUnits,
         unitCovers: unitCoverFiles,
         unitCoverUrls: unitCoverRemoteUrls,
         answerKeyLayout,
-        answerKeyItems,
+        answerKeyItems: answerKeyItemsForBody,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -465,7 +410,7 @@ export function TextbookAutoMasterBookPanel({
     } finally {
       setMasterBusy(false);
     }
-  }, [bookTitle, contentMode, confirmedUnits, sessionUnitPassages, contentState, appendixState, unitCoverFiles, unitCoverRemoteUrls, answerKeyLayout, answerKeyItems]);
+  }, [bookTitle, bodyUnits, appendixState, unitCoverFiles, unitCoverRemoteUrls, answerKeyLayout, answerKeyItemsForBody]);
 
   const onPrintMasterBook = useCallback(async () => {
     setLocalErr(null);
@@ -473,14 +418,11 @@ export function TextbookAutoMasterBookPanel({
     try {
       assertMasterAppendixNoPending(appendixState);
       await buildMasterBookBodyParagraphsForDocx({
-        contentMode,
-        confirmedUnits,
-        sessionUnitPassages,
-        contentState,
+        bodyUnits,
         unitCovers: unitCoverFiles,
         unitCoverUrls: unitCoverRemoteUrls,
         answerKeyLayout,
-        answerKeyItems,
+        answerKeyItems: answerKeyItemsForBody,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -489,14 +431,11 @@ export function TextbookAutoMasterBookPanel({
     printMasterBook();
   }, [
     appendixState,
-    contentMode,
-    confirmedUnits,
-    sessionUnitPassages,
-    contentState,
+    bodyUnits,
     unitCoverFiles,
     unitCoverRemoteUrls,
     answerKeyLayout,
-    answerKeyItems,
+    answerKeyItemsForBody,
     printMasterBook,
   ]);
 
@@ -592,16 +531,9 @@ export function TextbookAutoMasterBookPanel({
     unitCoverPaths,
   ]);
 
-  const pendingRow = (
-    kind: "content" | "appendix",
-    p: TextbookSetupPendingFile,
-  ) => {
+  const appendixPendingRow = (p: TextbookSetupPendingFile) => {
     const isPdf =
       p.file.name.toLowerCase().endsWith(".pdf") || p.file.type.toLowerCase() === "application/pdf";
-    const busyId = kind === "content" ? contentExtractBusy : appendixExtractBusy;
-    const patch = kind === "content" ? patchContentPending : patchAppendixPending;
-    const remove = kind === "content" ? removeContentPending : removeAppendixPending;
-    const extract = kind === "content" ? extractContentPending : extractAppendixPending;
 
     return (
       <div key={p.id} className={styles.pendingRow}>
@@ -613,7 +545,7 @@ export function TextbookAutoMasterBookPanel({
             <select
               className={styles.select}
               value={p.mode}
-              onChange={(e) => patch(p.id, { mode: e.target.value as TextbookSetupPendingMode })}
+              onChange={(e) => patchAppendixPending(p.id, { mode: e.target.value as TextbookSetupPendingMode })}
               aria-label="PDF 추출 방식"
             >
               <option value="all">PDF 전체</option>
@@ -628,7 +560,7 @@ export function TextbookAutoMasterBookPanel({
                   min={1}
                   placeholder="시작"
                   value={p.fromPage}
-                  onChange={(e) => patch(p.id, { fromPage: e.target.value })}
+                  onChange={(e) => patchAppendixPending(p.id, { fromPage: e.target.value })}
                 />
                 <span className={styles.pageSep}>—</span>
                 <input
@@ -637,7 +569,7 @@ export function TextbookAutoMasterBookPanel({
                   min={1}
                   placeholder="끝"
                   value={p.toPage}
-                  onChange={(e) => patch(p.id, { toPage: e.target.value })}
+                  onChange={(e) => patchAppendixPending(p.id, { toPage: e.target.value })}
                 />
               </span>
             ) : null}
@@ -646,7 +578,7 @@ export function TextbookAutoMasterBookPanel({
                 className={styles.inputPages}
                 placeholder="예: 1, 3, 5"
                 value={p.pagesRaw}
-                onChange={(e) => patch(p.id, { pagesRaw: e.target.value })}
+                onChange={(e) => patchAppendixPending(p.id, { pagesRaw: e.target.value })}
               />
             ) : null}
           </>
@@ -656,16 +588,33 @@ export function TextbookAutoMasterBookPanel({
         <button
           type="button"
           className={styles.btnMini}
-          disabled={busyId === p.id}
-          onClick={() => void extract(p.id)}
+          disabled={appendixExtractBusy === p.id}
+          onClick={() => void extractAppendixPending(p.id)}
         >
-          {busyId === p.id ? "추출 중…" : "추출"}
+          {appendixExtractBusy === p.id ? "추출 중…" : "추출"}
         </button>
-        <button type="button" className={styles.btnMiniGhost} onClick={() => remove(p.id)}>
+        <button type="button" className={styles.btnMiniGhost} onClick={() => removeAppendixPending(p.id)}>
           제거
         </button>
       </div>
     );
+  };
+
+  const toggleUnitIncluded = (unitIndex: number) => {
+    setIncludedUnitIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(unitIndex)) next.delete(unitIndex);
+      else next.add(unitIndex);
+      return next;
+    });
+  };
+
+  const selectAllUnitsForBook = () => {
+    setIncludedUnitIndices(new Set(confirmedUnits.map((u) => u.unitIndex)));
+  };
+
+  const clearAllUnitsForBook = () => {
+    setIncludedUnitIndices(new Set());
   };
 
   return (
@@ -880,14 +829,53 @@ export function TextbookAutoMasterBookPanel({
         </div>
       </div>
 
-      {contentMode === "session_units" && confirmedUnits.length > 0 ? (
+      <h3 className={styles.phase3Sub}>본문</h3>
+      <p className={styles.hint}>
+        4단계까지 확정·편집한 단원 내용이 곧 교재 본문입니다. 아래에서 이번 완성본에 넣을 단원만 고릅니다. 부록·별첨은 「추가 페이지」에서
+        올리거나 목차 아래 줄을 직접 입력하세요.
+      </p>
+      {confirmedUnits.length > 0 ? (
+        <>
+          <div className={styles.row}>
+            <button type="button" className={styles.btnMini} onClick={selectAllUnitsForBook}>
+              모두 포함
+            </button>
+            <button type="button" className={styles.btnMiniGhost} onClick={clearAllUnitsForBook}>
+              모두 제외
+            </button>
+          </div>
+          <ul className={styles.segmentList}>
+            {confirmedUnits.map(({ unitIndex, unit }) => (
+              <li key={unitIndex} className={styles.segmentItem}>
+                <label className={styles.radioLabel}>
+                  <input
+                    type="checkbox"
+                    checked={includedUnitIndices.has(unitIndex)}
+                    onChange={() => toggleUnitIncluded(unitIndex)}
+                  />
+                  제 {unitIndex + 1}단원 · {unit.unitTitle}
+                </label>
+              </li>
+            ))}
+          </ul>
+          <p className={styles.hint}>
+            포함 {bodyUnits.length}개 · 순서는 「2. 최종 본문 순서(학생용)」에서 정한 순서와 같습니다.
+          </p>
+        </>
+      ) : (
+        <p className={styles.hint}>확정된 단원이 없습니다.</p>
+      )}
+
+      {confirmedUnits.length > 0 ? (
         <>
           <h3 className={styles.phase3Sub}>단원 시작 커버 (선택)</h3>
           <p className={styles.hint}>
-            각 단원 제목 바로 위에 표시됩니다. 업로드가 끝나면 안내 팝업이 뜨고, 아래에서 미리보기를 볼 수 있습니다.
+            본문에 포함한 단원만 표시됩니다. 각 단원 제목 바로 위에 붙습니다.
           </p>
           <ul className={styles.segmentList}>
-            {confirmedUnits.map(({ unitIndex, unit }) => (
+            {confirmedUnits
+              .filter(({ unitIndex }) => includedUnitIndices.has(unitIndex))
+              .map(({ unitIndex, unit }) => (
               <li key={unitIndex} className={styles.segmentItem}>
                 <div className={styles.segmentHead}>
                   <span className={styles.segmentNote}>
@@ -953,7 +941,7 @@ export function TextbookAutoMasterBookPanel({
       <h3 className={styles.phase3Sub}>목차</h3>
       <div className={styles.row}>
         <label className={styles.radioLabel}>
-          <input type="radio" name="tocmode" checked={tocMode === "auto"} onChange={() => setTocMode("auto")} /> 자동(확정 단원
+          <input type="radio" name="tocmode" checked={tocMode === "auto"} onChange={() => setTocMode("auto")} /> 자동(포함 단원
           제목)
         </label>
         <label className={styles.radioLabel}>
@@ -999,81 +987,6 @@ export function TextbookAutoMasterBookPanel({
         />
       </label>
 
-      <h3 className={styles.phase3Sub}>본문</h3>
-      <div className={styles.row}>
-        <label className={styles.radioLabel}>
-          <input
-            type="radio"
-            name="contentmode"
-            checked={contentMode === "session_units"}
-            onChange={() => setContentMode("session_units")}
-          />
-          세션 · AI 확정 단원
-        </label>
-        <label className={styles.radioLabel}>
-          <input
-            type="radio"
-            name="contentmode"
-            checked={contentMode === "session_passages"}
-            onChange={() => setContentMode("session_passages")}
-            disabled={!sessionUnitPassages || sessionUnitPassages.length === 0}
-          />
-          세션 · 1단계 원문 지문
-        </label>
-        <label className={styles.radioLabel}>
-          <input type="radio" name="contentmode" checked={contentMode === "upload"} onChange={() => setContentMode("upload")} />
-          파일 업로드 합산
-        </label>
-      </div>
-      {contentMode === "upload" ? (
-        <>
-          <label className={styles.field}>
-            <span className={styles.label}>본문 파일 (.txt · .pdf · .docx, 다중)</span>
-            <input
-              type="file"
-              multiple
-              accept=".txt,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-              className={styles.file}
-              onChange={(e) => {
-                const files = e.target.files ? Array.from(e.target.files) : [];
-                addContentPending(files);
-                e.target.value = "";
-              }}
-            />
-          </label>
-          {contentState.pendingFiles.length > 0 ? (
-            <div className={styles.pendingList}>
-              <p className={styles.pendingHead}>본문 추출 대기</p>
-              {contentState.pendingFiles.map((p) => pendingRow("content", p))}
-            </div>
-          ) : null}
-          {contentState.fileSegments.length > 0 ? (
-            <ul className={styles.segmentList}>
-              {contentState.fileSegments.map((s) => (
-                <li key={s.id} className={styles.segmentItem}>
-                  <div className={styles.segmentHead}>
-                    <span className={styles.segmentNote}>{s.extractNote}</span>
-                    <button type="button" className={styles.btnMiniGhost} onClick={() => removeContentSegment(s.id)}>
-                      블록 제거
-                    </button>
-                  </div>
-                  <p className={styles.segmentPreview}>
-                    {s.text.length > 200 ? `${s.text.slice(0, 200)}…` : s.text}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <p className={styles.hint}>합산 약 {combineUnitPassage(contentState).length.toLocaleString()}자 (미리보기)</p>
-        </>
-      ) : (
-        <p className={styles.hint}>
-          {contentMode === "session_units"
-            ? `확정 단원 ${confirmedUnits.length}개를 그대로 본문에 넣습니다.`
-            : `저장된 단원별 원문 ${sessionUnitPassages?.length ?? 0}개를 순서대로 넣습니다.`}
-        </p>
-      )}
-
       <h3 className={styles.phase3Sub}>추가 페이지</h3>
       <p className={styles.hint}>부록·안내 등 본문 뒤에 붙일 내용을 파일로 올립니다.</p>
       <label className={styles.field}>
@@ -1093,7 +1006,7 @@ export function TextbookAutoMasterBookPanel({
       {appendixState.pendingFiles.length > 0 ? (
         <div className={styles.pendingList}>
           <p className={styles.pendingHead}>추가 추출 대기</p>
-          {appendixState.pendingFiles.map((p) => pendingRow("appendix", p))}
+          {appendixState.pendingFiles.map((p) => appendixPendingRow(p))}
         </div>
       ) : null}
       {appendixState.fileSegments.length > 0 ? (
@@ -1163,17 +1076,14 @@ export function TextbookAutoMasterBookPanel({
             .split("\n")
             .map((l) => l.trim())
             .filter(Boolean)}
-          contentMode={contentMode}
-          confirmedUnits={confirmedUnits}
-          sessionUnitPassages={sessionUnitPassages}
-          contentFileSegments={contentState.fileSegments}
+          bodyUnits={bodyUnits}
           appendixFileSegments={appendixState.fileSegments}
           forewordBlocks={forewordBlocks}
           afterwordBlocks={afterwordBlocks}
           unitCoverFiles={unitCoverFiles}
           unitCoverUrls={unitCoverRemoteUrls}
           answerKeyLayout={answerKeyLayout}
-          answerKeyItems={answerKeyItems}
+          answerKeyItems={answerKeyItemsForBody}
         />
       </div>
     </section>

@@ -2232,7 +2232,6 @@ export function TextbookAutoBuilderPage() {
                   key={sessionId ?? "session"}
                   bookTitle={bookTitle}
                   confirmedUnits={displayOrderedUnits}
-                  sessionUnitPassages={sessionUnitPassages}
                   uid={uid}
                   sessionId={sessionId}
                   answerKeyLayout={answerKeyLayout}

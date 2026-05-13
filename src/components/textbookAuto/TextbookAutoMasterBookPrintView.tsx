@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { BRAND_APP_NAME } from "@/lib/brand";
-import type { MasterBookContentMode } from "@/lib/textbookAuto/masterBookBodyBuild";
 import type { MasterBookFolioBlock } from "@/lib/textbookAuto/masterBookFolio";
 import type {
   TextbookAnswerKeyItem,
@@ -53,21 +52,6 @@ function FolioBlocksPrint({ blocks }: { blocks: MasterBookFolioBlock[] }) {
   );
 }
 
-function PassagesBody({ passages }: { passages: string[] }) {
-  return (
-    <>
-      {passages.map((raw, i) => (
-        <article key={i} className={printStyles.unit}>
-          <h2 className={printStyles.unitTitle}>
-            제 {i + 1}단원 · 원문
-          </h2>
-          <pre className={`${styles.preRaw} ${printStyles.printBlock}`}>{raw}</pre>
-        </article>
-      ))}
-    </>
-  );
-}
-
 function FileSegmentsBody({ segments }: { segments: TextbookSetupFileSegment[] }) {
   return (
     <>
@@ -91,10 +75,7 @@ export function TextbookAutoMasterBookPrintView({
   frontCoverUrl,
   backCoverUrl,
   tocLines,
-  contentMode,
-  confirmedUnits,
-  sessionUnitPassages,
-  contentFileSegments,
+  bodyUnits,
   appendixFileSegments,
   forewordBlocks,
   afterwordBlocks,
@@ -107,10 +88,7 @@ export function TextbookAutoMasterBookPrintView({
   frontCoverUrl: string | null;
   backCoverUrl: string | null;
   tocLines: string[];
-  contentMode: MasterBookContentMode;
-  confirmedUnits: { unitIndex: number; unit: TextbookUnitContent }[];
-  sessionUnitPassages: string[] | null;
-  contentFileSegments: TextbookSetupFileSegment[];
+  bodyUnits: { unitIndex: number; unit: TextbookUnitContent }[];
   appendixFileSegments: TextbookSetupFileSegment[];
   forewordBlocks: MasterBookFolioBlock[];
   afterwordBlocks: MasterBookFolioBlock[];
@@ -155,28 +133,17 @@ export function TextbookAutoMasterBookPrintView({
       )}
 
       <h2 className={styles.phaseH}>본문</h2>
-      {contentMode === "session_units" ? (
+      {bodyUnits.length > 0 ? (
         <TextbookAutoStudentUnitsBody
-          units={confirmedUnits}
+          units={bodyUnits}
           unitCovers={unitCoverFiles}
           unitCoverUrls={unitCoverUrls}
           answerKeyItems={answerKeyItems}
           answerKeyLayout={answerKeyLayout}
         />
-      ) : null}
-      {contentMode === "session_passages" && sessionUnitPassages?.length ? (
-        <PassagesBody passages={sessionUnitPassages} />
-      ) : null}
-      {contentMode === "session_passages" && (!sessionUnitPassages || sessionUnitPassages.length === 0) ? (
-        <p className={printStyles.meta}>(세션 원문 없음)</p>
-      ) : null}
-      {contentMode === "upload" ? (
-        contentFileSegments.length > 0 ? (
-          <FileSegmentsBody segments={contentFileSegments} />
-        ) : (
-          <p className={printStyles.meta}>(본문 파일 블록 없음)</p>
-        )
-      ) : null}
+      ) : (
+        <p className={printStyles.meta}>(포함된 단원 없음)</p>
+      )}
 
       <h2 className={styles.phaseH}>추가 페이지</h2>
       {appendixFileSegments.length > 0 ? (
