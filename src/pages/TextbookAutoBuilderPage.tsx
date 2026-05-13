@@ -7,8 +7,6 @@ import { TextbookAutoAnswerKeyPrintView } from "@/components/textbookAuto/Textbo
 import { TextbookAutoMasterBookPanel } from "@/components/textbookAuto/TextbookAutoMasterBookPanel";
 import { PassageClassificationPanel } from "@/components/passageClassification/PassageClassificationPanel";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
-import { TextbookUnitDraftEditor } from "@/components/textbookAuto/TextbookUnitDraftEditor";
-import { LocalDocModulesEditor } from "@/components/localDocumentAuto/LocalDocModulesEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { storage } from "@/firebase/config";
 import { BRAND_APP_NAME } from "@/lib/brand";
@@ -32,20 +30,17 @@ import {
   loadConfirmedUnits,
   loadTextbookAutoSession,
   loadTextbookExportPackage,
-  loadUnitDraft,
   setSessionCurrentUnit,
   updateAnswerKeyItem,
   updateSessionAnswerKeyLayout,
   updateSessionUnitDisplayOrder,
   writeAnswerKeyItems,
   writeUnitConfirmed,
-  writeUnitDraft,
   type TextbookAutoExportPackageDoc,
 } from "@/lib/textbookAuto/textbookAutoFirestore";
 import type {
   TextbookAnswerKeyItem,
   TextbookAnswerKeyLayout,
-  TextbookSectionInclusion,
   TextbookSetupPendingFile,
   TextbookSetupPendingMode,
   TextbookUnitContent,
@@ -93,6 +88,21 @@ function sliceForAi(full: string): string {
   return full.slice(0, AI_SOURCE_SLICE);
 }
 
+/** 세션 시작 시 1단계 지문으로 자동 확정할 단원 본문(원고 모듈만) */
+function buildInitialConfirmedUnit(unitIndex: number, passage: string): TextbookUnitContent {
+  const passageMods = parseManuscriptToModules(sliceForAi(passage));
+  return {
+    unitTitle: `제 ${unitIndex + 1}단원`,
+    keyConcepts: [],
+    contentStudy: [],
+    coreSummary: [],
+    practice: [],
+    unitTest: [],
+    manuscriptModules: passageMods.length > 0 ? passageMods : [],
+    sectionInclusion: MODULES_ONLY_SECTION_INCLUSION,
+  };
+}
+
 type PreSessionPhase = "meta" | "passage" | "review";
 
 export function TextbookAutoBuilderPage() {
@@ -101,8 +111,6 @@ export function TextbookAutoBuilderPage() {
   const [workspaceTab, setWorkspaceTab] = useState<BuilderWorkspaceTab>("unitBook");
   const printRef = useRef<HTMLDivElement>(null);
   const answerKeyPrintRef = useRef<HTMLDivElement>(null);
-  /** loadUnitDraft 완료가 AI 생성보다 늦게 도착해 초안을 덮어쓰지 않도록 */
-  const draftLoadSeqRef = useRef(0);
 
   const [bookTitle, setBookTitle] = useState("");
   const [totalUnits, setTotalUnits] = useState(DEFAULT_TOTAL_UNITS);
@@ -113,12 +121,10 @@ export function TextbookAutoBuilderPage() {
   const [sessionUnitPassages, setSessionUnitPassages] = useState<string[] | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentUnitIndex, setCurrentUnitIndex] = useState(0);
-  const [draftUnit, setDraftUnit] = useState<TextbookUnitContent | null>(null);
   const [confirmedUnits, setConfirmedUnits] = useState<{ unitIndex: number; unit: TextbookUnitContent }[]>([]);
   /** 학생용 본문·Word 등 표시 순서 (unitIndex 순열); 세션 메타와 동기 */
   const [unitDisplayOrder, setUnitDisplayOrder] = useState<number[] | null>(null);
   const [answerKeyLayout, setAnswerKeyLayout] = useState<TextbookAnswerKeyLayout>(DEFAULT_TEXTBOOK_ANSWER_KEY_LAYOUT);
-  const [draftModel, setDraftModel] = useState("");
   const [busy, setBusy] = useState(false);
   const [extractBusyId, setExtractBusyId] = useState<string | null>(null);
   /** 모듈 칸별 AI 생성 중 — `${unitIndex}|${moduleId}|${field}` */
@@ -130,7 +136,6 @@ export function TextbookAutoBuilderPage() {
   const [phase2UnitBusy, setPhase2UnitBusy] = useState<number | null>(null);
   const [exportPackage, setExportPackage] = useState<TextbookAutoExportPackageDoc | null>(null);
   const [packageBusy, setPackageBusy] = useState(false);
-  const [sectionInclusion, setSectionInclusion] = useState<TextbookSectionInclusion>(MODULES_ONLY_SECTION_INCLUSION);
   /** 세션 시작 전: 교재 정보 → 단원별 지문(한 화면씩) → 확인·단원 추가·교재 생성 */
   const [preSessionPhase, setPreSessionPhase] = useState<PreSessionPhase>("meta");
   const [setupPassageIndex, setSetupPassageIndex] = useState(0);
@@ -140,13 +145,6 @@ export function TextbookAutoBuilderPage() {
     () => orderUnitsForBook(confirmedUnits, unitDisplayOrder),
     [confirmedUnits, unitDisplayOrder],
   );
-  const contentStudyAiContext = useMemo(() => {
-    if (!sessionId || !sessionUnitPassages) return null;
-    const raw = sessionUnitPassages[currentUnitIndex] ?? "";
-    const text = sliceForAi(raw);
-    if (!text.trim()) return null;
-    return { bookTitle: bookTitle.trim() || "교재", unitSourceText: text };
-  }, [sessionId, sessionUnitPassages, currentUnitIndex, bookTitle]);
 
   useEffect(() => {
     if (!uid || !sessionId) return;
@@ -192,9 +190,6 @@ export function TextbookAutoBuilderPage() {
     setSessionId(null);
     setSessionUnitPassages(null);
     setCurrentUnitIndex(0);
-    setDraftUnit(null);
-    setDraftModel("");
-    setSectionInclusion(MODULES_ONLY_SECTION_INCLUSION);
     setConfirmedUnits([]);
     setAnswerKeyItems([]);
     setExportPackage(null);
@@ -253,51 +248,6 @@ export function TextbookAutoBuilderPage() {
       cancelled = true;
     };
   }, [uid, sessionId, isComplete, confirmedUnits.length]);
-
-  /** 재방문 시 Firestore 임시저장 초안 불러오기. 없으면 원고 모듈 중심 빈 초안 + 1단계 지문을 모듈 후보로 채움 */
-  useEffect(() => {
-    if (!uid || !sessionId || isComplete) return;
-    const token = ++draftLoadSeqRef.current;
-    let cancelled = false;
-    void loadUnitDraft(uid, sessionId, currentUnitIndex).then((row) => {
-      if (cancelled || token !== draftLoadSeqRef.current) return;
-      if (!row) {
-        setSectionInclusion(MODULES_ONLY_SECTION_INCLUSION);
-        if (!sessionUnitPassages || currentUnitIndex >= sessionUnitPassages.length) {
-          setDraftUnit(null);
-          return;
-        }
-        const passage = sessionUnitPassages[currentUnitIndex] ?? "";
-        const passageMods = parseManuscriptToModules(sliceForAi(passage));
-        setDraftUnit({
-          unitTitle: `제 ${currentUnitIndex + 1}단원`,
-          keyConcepts: [],
-          contentStudy: [],
-          coreSummary: [],
-          practice: [],
-          unitTest: [],
-          manuscriptModules: passageMods.length > 0 ? passageMods : [],
-          sectionInclusion: MODULES_ONLY_SECTION_INCLUSION,
-        });
-        setDraftModel("manual");
-        return;
-      }
-      setDraftUnit(row.unit);
-      setDraftModel(row.model || "manual");
-      setSectionInclusion(getSectionInclusion(row.unit));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [uid, sessionId, currentUnitIndex, isComplete, sessionUnitPassages]);
-
-  const patchSectionInclusion = useCallback((patch: Partial<TextbookSectionInclusion>) => {
-    setSectionInclusion((prev) => {
-      const next = { ...prev, ...patch };
-      setDraftUnit((d) => (d ? applySectionInclusionToUnit(d, next) : d));
-      return next;
-    });
-  }, []);
 
   const validateSetupUnit = useCallback(
     (unitIndex: number): string | null => {
@@ -452,141 +402,82 @@ export function TextbookAutoBuilderPage() {
     setBusy(true);
     try {
       const sid = await createTextbookAutoSession(uid, { title, unitPassages: passages, totalUnits: n });
+      const model = "session-auto";
+      const inc = MODULES_ONLY_SECTION_INCLUSION;
+      const confirmed: { unitIndex: number; unit: TextbookUnitContent }[] = [];
+      let answerKeyNote = "";
+
+      for (let i = 0; i < n; i++) {
+        const raw = buildInitialConfirmedUnit(i, passages[i]!);
+        const toSave = applySectionInclusionToUnit(raw, inc);
+        const v = validateDraftUnit(toSave, {
+          practiceMin: inc.practice ? 1 : 0,
+          unitTestMcq: 0,
+          unitTestShort: 0,
+          sectionInclusion: inc,
+        });
+        if (v) {
+          throw new Error(`제 ${i + 1}단원: ${v}`);
+        }
+        await writeUnitConfirmed(uid, sid, i, toSave, model);
+        confirmed.push({ unitIndex: i, unit: toSave });
+
+        try {
+          const passageRaw = passages[i] ?? "";
+          const passageSnippet = sliceForAi(passageRaw);
+          await deleteAnswerKeysForUnit(uid, sid, i);
+          const outForKey = unitForStudentOutput(toSave);
+          const embedded = buildAnswerKeyItemsFromUnit(i, outForKey);
+          if (embedded.length > 0) {
+            const incForKey = getSectionInclusion(toSave);
+            let itemsToWrite = embedded;
+            let modelUsed = "embedded";
+            if (embedded.some(embeddedNeedsAiFill)) {
+              const stubs = buildAnswerKeyStubs(i, outForKey);
+              try {
+                const { items: aiItems, meta } = await requestTextbookAnswerKeyForUnit({
+                  bookTitle: title,
+                  unitTitle: toSave.unitTitle,
+                  unitIndex: i,
+                  stubs,
+                  sourceExcerpt: passageSnippet.trim() || undefined,
+                  unitKeyContext: formatKeyContextForAnswerKey(toSave, incForKey),
+                });
+                itemsToWrite = mergeAnswerKeyAiWithEmbedded(embedded, aiItems);
+                modelUsed = meta.model;
+              } catch {
+                itemsToWrite = embedded;
+                modelUsed = "embedded";
+                answerKeyNote =
+                  " (일부 단원에서 AI 정답·해설 보완에 실패했을 수 있습니다. 3단계에서 확인하세요.)";
+              }
+            }
+            await writeAnswerKeyItems(uid, sid, itemsToWrite, modelUsed);
+          }
+        } catch (akErr) {
+          answerKeyNote = ` (정답·해설 자동 저장 중 오류: ${akErr instanceof Error ? akErr.message : "오류"} — 3단계에서 재시도할 수 있습니다.)`;
+        }
+      }
+
+      await setSessionCurrentUnit(uid, sid, n);
+      const akRows = await loadAnswerKeyItems(uid, sid);
+
       setSessionId(sid);
       setTotalUnits(n);
       setSessionUnitPassages(passages);
-      setCurrentUnitIndex(0);
-      setDraftUnit(null);
-      setDraftModel("");
-      setSectionInclusion(MODULES_ONLY_SECTION_INCLUSION);
-      setConfirmedUnits([]);
+      setCurrentUnitIndex(n);
+      setConfirmedUnits(confirmed);
       setUnitDisplayOrder(defaultUnitDisplayOrder(n));
-      setMsg("세션이 시작되었습니다. 아래에서 원고 모듈을 편집해 단원을 확정하세요.");
+      setAnswerKeyItems(akRows);
+      setMsg(
+        `교재 세션을 시작하고 ${n}개 단원을 1단계 원고 모듈로 확정했습니다.${answerKeyNote} 아래에서 순서·정답·해설·출력을 진행하세요.`,
+      );
     } catch (e) {
       setErr(e instanceof Error ? e.message : "세션을 만들지 못했습니다.");
     } finally {
       setBusy(false);
     }
   }, [uid, bookTitle, unitInputs, totalUnits]);
-
-  const saveDraftOnly = useCallback(async () => {
-    setErr(null);
-    setMsg(null);
-    if (!uid || !sessionId || !draftUnit) {
-      setErr("저장할 초안이 없습니다. 잠시 후 다시 시도하거나 페이지를 새로고침해 보세요.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const model = draftModel.trim() || "manual";
-      const u = applySectionInclusionToUnit(draftUnit, sectionInclusion);
-      await writeUnitDraft(uid, sessionId, currentUnitIndex, u, model);
-      setDraftModel(model);
-      setMsg("임시 저장했습니다. 같은 단원에서 계속 편집한 뒤, 확정 시 다음 단원으로 이동합니다.");
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "임시 저장에 실패했습니다.");
-    } finally {
-      setBusy(false);
-    }
-  }, [uid, sessionId, draftUnit, draftModel, currentUnitIndex, sectionInclusion]);
-
-  const confirmUnit = useCallback(async () => {
-    setErr(null);
-    setMsg(null);
-    if (!uid || !sessionId || !draftUnit) {
-      setErr("먼저 이 단원 초안을 준비하세요.");
-      return;
-    }
-    const model = draftModel.trim() || "manual";
-    const toSave = applySectionInclusionToUnit(
-      { ...draftUnit, unitTitle: draftUnit.unitTitle.trim() },
-      sectionInclusion,
-    );
-    const v = validateDraftUnit(toSave, {
-      practiceMin: sectionInclusion.practice ? 1 : 0,
-      unitTestMcq: 0,
-      unitTestShort: 0,
-      sectionInclusion,
-    });
-    if (v) {
-      setErr(v);
-      return;
-    }
-    setBusy(true);
-    const title = bookTitle.trim() || "교재";
-    let answerKeyNote = "";
-    try {
-      await writeUnitConfirmed(uid, sessionId, currentUnitIndex, toSave, model);
-      const next = currentUnitIndex + 1;
-      await setSessionCurrentUnit(uid, sessionId, next);
-      setConfirmedUnits((prev) =>
-        [...prev, { unitIndex: currentUnitIndex, unit: toSave }].sort((a, b) => a.unitIndex - b.unitIndex),
-      );
-      setCurrentUnitIndex(next);
-      setDraftUnit(null);
-      setDraftModel("");
-      setSectionInclusion(MODULES_ONLY_SECTION_INCLUSION);
-
-      const confirmedIdx = currentUnitIndex;
-      try {
-        const passageRaw = sessionUnitPassages?.[confirmedIdx] ?? "";
-        const passageSnippet = sliceForAi(passageRaw);
-        await deleteAnswerKeysForUnit(uid, sessionId, confirmedIdx);
-        const outForKey = unitForStudentOutput(toSave);
-        const embedded = buildAnswerKeyItemsFromUnit(confirmedIdx, outForKey);
-        if (embedded.length > 0) {
-          const incForKey = getSectionInclusion(toSave);
-          let itemsToWrite = embedded;
-          let modelUsed = "embedded";
-          if (embedded.some(embeddedNeedsAiFill)) {
-            const stubs = buildAnswerKeyStubs(confirmedIdx, outForKey);
-            let aiNote = "";
-            try {
-              const { items: aiItems, meta } = await requestTextbookAnswerKeyForUnit({
-                bookTitle: title,
-                unitTitle: toSave.unitTitle,
-                unitIndex: confirmedIdx,
-                stubs,
-                sourceExcerpt: passageSnippet.trim() || undefined,
-                unitKeyContext: formatKeyContextForAnswerKey(toSave, incForKey),
-              });
-              itemsToWrite = mergeAnswerKeyAiWithEmbedded(embedded, aiItems);
-              modelUsed = meta.model;
-            } catch {
-              itemsToWrite = embedded;
-              modelUsed = "embedded";
-              aiNote =
-                " (AI 정답·해설 보완에 실패해 편집기에 넣은 값만 저장했습니다. 3단계에서 재시도할 수 있습니다.)";
-            }
-            if (aiNote) answerKeyNote = aiNote;
-          }
-          await writeAnswerKeyItems(uid, sessionId, itemsToWrite, modelUsed);
-        }
-      } catch (akErr) {
-        answerKeyNote = ` (정답·해설 자동 저장 실패: ${akErr instanceof Error ? akErr.message : "오류"} — 3단계에서 이 단원만 재생성할 수 있습니다.)`;
-      }
-
-      setMsg(
-        next >= totalUnits
-          ? `모든 단원이 확정되었습니다. 문항이 있으면 정답·해설을 함께 저장했습니다.${answerKeyNote} 3단계에서 검수·재생성하고, 4–5단계에서 클라우드·완성본을 진행하세요.`
-          : `다음 단원으로 넘어갔습니다.${answerKeyNote}`,
-      );
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "저장에 실패했습니다.");
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    uid,
-    sessionId,
-    draftUnit,
-    draftModel,
-    currentUnitIndex,
-    totalUnits,
-    sectionInclusion,
-    bookTitle,
-    sessionUnitPassages,
-  ]);
 
   const refreshConfirmedForPrint = useCallback(async () => {
     if (!uid || !sessionId) return;
@@ -1068,7 +959,7 @@ export function TextbookAutoBuilderPage() {
             <h1 className={styles.title}>교재 자동 생성 · 통합 작업실</h1>
             {workspaceTab === "unitBook" ? (
               <p className={styles.lead}>
-                먼저 <strong>교재 제목·단원 수</strong>를 정한 뒤, <strong>1단원부터 한 화면씩</strong> 지문을 입력합니다. 마지막 확인 화면에서 단원을 더하거나 「교재 생성」으로 세션을 시작합니다. 단원별로 AI 초안을 확정할 때 문항 정답·해설까지 함께 저장되며, 이후 단계에서는 검수·출력·완성본 작업을 합니다.
+                먼저 <strong>교재 제목·단원 수</strong>를 정한 뒤, <strong>1단원부터 한 화면씩</strong> 지문·원고 모듈을 입력합니다. 마지막 확인 화면에서 「교재 생성」으로 세션을 시작하면 1단계 내용이 그대로 확정되고 정답·해설 초안이 저장되며, 이후에는 순서·검수·출력·완성본 작업을 합니다.
               </p>
             ) : workspaceTab === "passageClassify" ? (
               <p className={styles.lead}>
@@ -1461,7 +1352,7 @@ export function TextbookAutoBuilderPage() {
                     })}
                   </ul>
                   <p className={styles.hint}>
-                    「교재 생성」으로 단원별 편집(2단계)을 시작합니다. 단원 수는 아래 「단원 추가」·목록의 「단원 삭제」로 바꿀 수 있습니다.
+                    「교재 생성」으로 세션을 열면 1단계 원고 모듈이 그대로 확정 단원이 됩니다. 단원 수는 「단원 추가」·목록의 「단원 삭제」로 바꿀 수 있습니다.
                   </p>
                   <div className={styles.row}>
                     <button type="button" className={styles.btnGhost} onClick={goSetupReviewPrevToLastPassage}>
@@ -1487,7 +1378,7 @@ export function TextbookAutoBuilderPage() {
               <section className={styles.card} aria-labelledby="session-h">
                 <div className={styles.sessionTop}>
                   <h2 id="session-h" className={styles.cardTitle}>
-                    2. 단원별 편집 ({isComplete ? "완료" : `진행 ${Math.min(currentUnitIndex + 1, totalUnits)} / ${totalUnits}`})
+                    세션 · 출력
                   </h2>
                   <div className={styles.sessionTopActions}>
                     <button type="button" className={styles.btnGhost} disabled={busy} onClick={() => void goBackToStepOne()}>
@@ -1499,107 +1390,14 @@ export function TextbookAutoBuilderPage() {
                   </div>
                 </div>
                 <p className={styles.mono}>session: {sessionId.slice(0, 8)}…</p>
-
-                {!isComplete ? (
-                  <>
-                    <p className={styles.p}>
-                      <strong>제 {currentUnitIndex + 1}단원</strong>: 위 <strong>원고 모듈</strong>에서 지문·문항을 편집합니다. 「이
-                      단원 지문으로 모듈 분석」으로 1단계 지문을 나눌 수 있습니다. <strong>단원 제목</strong>과 핵심개념·확인학습 등은
-                      모듈 아래에서 필요할 때만 채웁니다.
-                    </p>
-                    <div className={styles.field}>
-                      <span className={styles.label}>학생용 본문에 넣을 항목 (선택 — 끄면 해당 칸은 비우고 숨깁니다)</span>
-                      <div className={styles.sectionCheckGrid}>
-                        {(
-                          [
-                            ["keyConcepts", "핵심개념"],
-                            ["contentStudy", "내용학습"],
-                            ["coreSummary", "핵심요약"],
-                            ["practice", "확인학습"],
-                            ["unitTest", "단원평가"],
-                          ] as const
-                        ).map(([k, label]) => (
-                          <label key={k} className={styles.sectionCheck}>
-                            <input
-                              type="checkbox"
-                              checked={sectionInclusion[k]}
-                              onChange={(e) => patchSectionInclusion({ [k]: e.target.checked })}
-                            />
-                            {label}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <p className={styles.p}>모든 단원이 확정되었습니다.</p>
-                )}
-
-                {draftUnit ? (
-                  <div className={styles.preview}>
-                    <h3 className={styles.previewTitle}>
-                      편집 — 제 {currentUnitIndex + 1}단원 · {draftUnit.unitTitle}
-                    </h3>
-                    <div className={styles.preview}>
-                      <h3 className={styles.previewTitle}>원고 모듈 (학습지 제작과 동일)</h3>
-                      <p className={styles.hint}>
-                        블록 순서와 본문을 조정합니다. 「이 단원 지문으로 모듈 분석」은 1단계에서 저장한 원문을 학습지와 같은 규칙으로
-                        나눕니다. 전체 단원 확정 뒤에는 「최종 본문 순서」에서 책 속 단원 순서를 바꿀 수 있습니다.
-                      </p>
-                      <LocalDocModulesEditor
-                        modules={draftUnit.manuscriptModules ?? []}
-                        onChange={(mm) => setDraftUnit({ ...draftUnit, manuscriptModules: mm })}
-                        disabled={busy}
-                        kind="worksheet"
-                        analyzeSeedText={sessionUnitPassages?.[currentUnitIndex] ?? ""}
-                      />
-                    </div>
-                    <TextbookUnitDraftEditor
-                      unit={draftUnit}
-                      onChange={setDraftUnit}
-                      sectionInclusion={sectionInclusion}
-                      disabled={busy}
-                      contentStudyAiContext={contentStudyAiContext}
-                      onContentStudyAiNotice={(message, variant) => {
-                        if (variant === "ok") {
-                          setErr(null);
-                          setMsg(message);
-                        } else {
-                          setMsg(null);
-                          setErr(message);
-                        }
-                      }}
-                    />
-                  </div>
-                ) : null}
-
-                <div className={styles.step2BottomActions} aria-label="저장·확정·인쇄">
+                <p className={styles.p}>
+                  {totalUnits}개 단원이 1단계 구성을 기준으로 확정되었습니다. 원고는 학습지 모듈 규칙으로 나뉜 그대로 저장되어 있습니다.
+                </p>
+                <div className={styles.step2BottomActions} aria-label="인쇄·동기화">
                   <p className={styles.step2BottomHint}>
-                    {isComplete
-                      ? "아래에서 학생용 출력 순서를 바꾼 뒤, 정답·해설을 검수하고 클라우드·완성본을 진행하세요."
-                      : "편집을 마친 뒤 임시 저장(초안만) 또는 확정(다음 단원으로)을 누르세요."}
+                    아래에서 학생용 출력 순서·정답 배치를 바꾼 뒤, 정답·해설을 검수하고 클라우드·완성본을 진행하세요.
                   </p>
                   <div className={styles.row}>
-                    {!isComplete ? (
-                      <>
-                        <button
-                          type="button"
-                          className={styles.btnSecondary}
-                          disabled={busy || !draftUnit}
-                          onClick={() => void saveDraftOnly()}
-                        >
-                          임시 저장
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btnSecondary}
-                          disabled={busy || !draftUnit}
-                          onClick={() => void confirmUnit()}
-                        >
-                          확정하고 다음 단원
-                        </button>
-                      </>
-                    ) : null}
                     <button
                       type="button"
                       className={styles.btnSecondary}
@@ -1619,7 +1417,7 @@ export function TextbookAutoBuilderPage() {
                 <>
                 <section className={styles.card} aria-labelledby="book-order-h">
                   <h2 id="book-order-h" className={styles.cardTitle}>
-                    2-보완. 최종 본문 순서 (학생용)
+                    2. 최종 본문 순서 (학생용)
                   </h2>
                   <p className={styles.p}>
                     확정 단원이 학생용 PDF·Word·5단계 완성본에 나오는 순서입니다. 교사용 정답·해설은 원래 단원 번호(제 n단원)를 그대로 씁니다.
@@ -1647,7 +1445,7 @@ export function TextbookAutoBuilderPage() {
                       </label>
                     </div>
                     <p className={styles.hint}>
-                      부록은 본문에서 문제만 두고, 마지막에 정답·해설을 모읍니다. 인라인은 각 문항 아래에 바로 표시합니다. 단원 편집기에서 넣은 정답·해설과 3단계 answer_keys가 같은 내용을 씁니다.
+                      부록은 본문에서 문제만 두고, 마지막에 정답·해설을 모읍니다. 인라인은 각 문항 아래에 바로 표시합니다. 3단계에서 편집하는 정답·해설과 연동됩니다.
                     </p>
                   </div>
                   <ul className={styles.segmentList}>
@@ -1691,7 +1489,7 @@ export function TextbookAutoBuilderPage() {
                   </h2>
                   <h3 className={styles.phase3Sub}>AI 재생성 (선택)</h3>
                   <p className={styles.p}>
-                    각 단원을 <strong>확정할 때</strong> 편집기에 넣은 정답·해설을 저장하고, 비어 있는 칸만 AI로 보완합니다. 내용을 크게 바꾼 뒤에는 아래에서 전체 또는 단원별로 다시 생성할 수 있습니다.
+                    세션 시작 시 자동으로 정답·해설 초안을 저장하고, 비어 있는 칸만 AI로 보완합니다. 내용을 크게 바꾼 뒤에는 아래에서 전체 또는 단원별로 다시 생성할 수 있습니다.
                     「전체 생성」은 저장된 정답·해설을 <strong>모두 삭제한 뒤</strong> 위 규칙으로 다시 채웁니다.
                   </p>
                   <div className={styles.row}>

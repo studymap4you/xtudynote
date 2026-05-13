@@ -160,9 +160,8 @@ export function TextbookAutoMasterBookPrintView({
           units={confirmedUnits}
           unitCovers={unitCoverFiles}
           unitCoverUrls={unitCoverUrls}
-          answerKeyLayout={answerKeyLayout}
           answerKeyItems={answerKeyItems}
-          bookTitle={title}
+          answerKeyLayout={answerKeyLayout}
         />
       ) : null}
       {contentMode === "session_passages" && sessionUnitPassages?.length ? (
