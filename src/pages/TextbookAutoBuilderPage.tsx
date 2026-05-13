@@ -138,6 +138,8 @@ export function TextbookAutoBuilderPage() {
   const [workspaceTab, setWorkspaceTab] = useState<BuilderWorkspaceTab>("unitBook");
   const printRef = useRef<HTMLDivElement>(null);
   const answerKeyPrintRef = useRef<HTMLDivElement>(null);
+  /** 세션 확정 직후·같은 페이지 하단 단계로 안내할 앵커 */
+  const postSessionFlowRef = useRef<HTMLElement | null>(null);
 
   const [bookTitle, setBookTitle] = useState("");
   const [totalUnits, setTotalUnits] = useState(DEFAULT_TOTAL_UNITS);
@@ -458,8 +460,11 @@ export function TextbookAutoBuilderPage() {
       setUnitDisplayOrder(defaultUnitDisplayOrder(n));
       setAnswerKeyItems(akRows);
       setMsg(
-        `교재 세션을 시작하고 ${n}개 단원을 1단계 원고 모듈로 확정했습니다.${answerKeyNote} 아래에서 순서·정답·해설·출력을 진행하세요.`,
+        `교재 세션을 시작하고 ${n}개 단원을 1단계 원고 모듈로 확정했습니다.${answerKeyNote} 같은 화면 아래로 스크롤하면 순서·정답·해설·완성본까지 이어서 진행할 수 있습니다.`,
       );
+      window.requestAnimationFrame(() => {
+        postSessionFlowRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "세션을 만들지 못했습니다.");
     } finally {
@@ -483,6 +488,9 @@ export function TextbookAutoBuilderPage() {
     setAnswerKeyItems(ak);
     const pkg = await loadTextbookExportPackage(uid, sessionId);
     setExportPackage(pkg);
+    if (sess?.unitPassages?.length) {
+      setSessionUnitPassages(sess.unitPassages.map(String));
+    }
     setMsg("단원·정답·패키지 정보를 Firestore에서 다시 불러왔습니다.");
   }, [uid, sessionId]);
 
@@ -1179,7 +1187,8 @@ export function TextbookAutoBuilderPage() {
             <h1 className={styles.title}>교재 자동 생성 · 통합 작업실</h1>
             {workspaceTab === "unitBook" ? (
               <p className={styles.lead}>
-                <strong>교재 제목·단원 수</strong>를 정한 뒤, 같은 화면에서 <strong>단원별 지문·모듈을 자유 순서로</strong> 입력·추출·AI 생성할 수 있습니다. 「교재 생성」으로 세션을 시작할 때만 전 단원이 함께 결합되며, 그때 1단계 내용이 확정되고 정답·해설 초안이 저장됩니다. 이후에는 순서·검수·출력·완성본 작업을 합니다.
+                <strong>교재 제목·단원 수</strong>를 정한 뒤 이 페이지에서 <strong>단원별 지문·모듈</strong>을 입력·추출·AI 생성합니다. 맨 아래 「교재 생성 (세션 시작)」을 누르면{" "}
+                <strong>새 창으로 이동하지 않고</strong> 바로 아래에 확정 요약이 채워지며, 같은 화면을 스크롤하면 순서·정답·해설·Word·완성본까지 한 줄로 이어집니다.
               </p>
             ) : workspaceTab === "passageClassify" ? (
               <p className={styles.lead}>
@@ -1239,14 +1248,16 @@ export function TextbookAutoBuilderPage() {
             <LocalDocumentAutomationPanel kind="evaluation" />
           ) : workspaceTab === "passageClassify" ? (
             <PassageClassificationPanel />
-          ) : !sessionId ? (
+          ) : (
+            <>
+            {!sessionId ? (
             <section className={styles.card} aria-labelledby="setup-h">
               <h2 id="setup-h" className={styles.cardTitle}>
-                교재 구성 — 세션 시작 전
+                1. 교재 구성 (세션 시작 전)
               </h2>
               <p className={styles.hint}>
-                단원별 입력·추출·AI 생성은 순서와 관계 없이 진행할 수 있습니다. 「교재 생성」은 맨 아래에서만 누르며, 그때 전 단원이 함께 검증·결합됩니다. 미추출
-                파일이 있거나 AI 생성으로 비어 있는 칸이 있으면 세션을 열 수 없습니다.
+                단원별 입력·추출·AI 생성은 순서와 관계 없이 진행할 수 있습니다. 「교재 생성 (세션 시작)」은 맨 아래에서만 누르며, 그때 전 단원이 함께 검증·결합됩니다. 미추출 파일이
+                있거나 AI 생성으로 비어 있는 칸이 있으면 세션을 열 수 없습니다.
               </p>
 
               <div className={styles.setupOnePageMeta}>
@@ -1962,10 +1973,49 @@ export function TextbookAutoBuilderPage() {
                     {busy ? "처리 중…" : "교재 생성 (세션 시작)"}
                   </button>
                 </div>
+                <p className={styles.hint}>
+                  누르면 <strong>이 탭에 그대로</strong> 머물고, 바로 아래에 확정 합본 요약이 채워집니다. 새 창이 열리지 않습니다.
+                </p>
               </div>
             </section>
-          ) : (
+            ) : null}
+
+            {sessionId ? (
             <>
+              <section className={styles.card} ref={postSessionFlowRef} aria-labelledby="post-confirm-h">
+                <h2 id="post-confirm-h" className={styles.cardTitle}>
+                  확정된 단원 · 합본 미리보기
+                </h2>
+                <p className={styles.p}>
+                  세션에 저장된 단원별 합본(글자 수·앞부분)입니다. 같은 페이지에서 아래로만 스크롤하면 순서·정답·완성본까지 이어집니다.
+                </p>
+                <p className={styles.p}>
+                  <strong>{bookTitle.trim() || "(제목 없음)"}</strong> · 확정 <strong>{confirmedUnits.length}</strong>단원
+                </p>
+                <ul className={styles.segmentList}>
+                  {confirmedUnits
+                    .slice()
+                    .sort((a, b) => a.unitIndex - b.unitIndex)
+                    .map(({ unitIndex, unit }) => {
+                      const merged = (sessionUnitPassages?.[unitIndex] ?? "").trim();
+                      const len = merged.length;
+                      const prev =
+                        (merged.replace(/\s+/g, " ").slice(0, 120) + (merged.length > 120 ? "…" : "")) || "(비어 있음)";
+                      return (
+                        <li key={unitIndex} className={styles.segmentItem}>
+                          <div className={styles.segmentHead}>
+                            <span className={styles.segmentNote}>
+                              제 {unitIndex + 1}단원
+                              {unit.unitTitle.trim() ? ` · ${unit.unitTitle.trim()}` : ""} · 약 {len.toLocaleString()}자
+                            </span>
+                          </div>
+                          <p className={styles.segmentPreview}>{prev}</p>
+                        </li>
+                      );
+                    })}
+                </ul>
+              </section>
+
               <section className={styles.card} aria-labelledby="session-h">
                 <div className={styles.sessionTop}>
                   <h2 id="session-h" className={styles.cardTitle}>
@@ -2239,6 +2289,8 @@ export function TextbookAutoBuilderPage() {
                 />
                 </>
               ) : null}
+            </>
+            ) : null}
             </>
           )}
 
