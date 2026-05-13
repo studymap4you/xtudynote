@@ -1187,8 +1187,8 @@ export function TextbookAutoBuilderPage() {
             <h1 className={styles.title}>교재 자동 생성 · 통합 작업실</h1>
             {workspaceTab === "unitBook" ? (
               <p className={styles.lead}>
-                <strong>교재 제목·단원 수</strong>를 정한 뒤 이 페이지에서 <strong>단원별 지문·모듈</strong>을 입력·추출·AI 생성합니다. 맨 아래 「교재 생성 (세션 시작)」을 누르면{" "}
-                <strong>새 창으로 이동하지 않고</strong> 바로 아래에 확정 요약이 채워지며, 같은 화면을 스크롤하면 순서·정답·해설·Word·완성본까지 한 줄로 이어집니다.
+                <strong>교재 제목·단원 수</strong>를 정한 뒤 이 페이지에서 <strong>단원별 지문·모듈</strong>을 입력·추출·AI 생성합니다. 맨 아래 「내용 확정」으로 저장하면{" "}
+                <strong>바로 아래에 이미 보이던 단계 블록</strong>이 세션 데이터로 채워지며, 새 창 없이 끝까지 같은 화면에서 작업합니다.
               </p>
             ) : workspaceTab === "passageClassify" ? (
               <p className={styles.lead}>
@@ -1253,11 +1253,11 @@ export function TextbookAutoBuilderPage() {
             {!sessionId ? (
             <section className={styles.card} aria-labelledby="setup-h">
               <h2 id="setup-h" className={styles.cardTitle}>
-                1. 교재 구성 (세션 시작 전)
+                1. 교재 구성
               </h2>
               <p className={styles.hint}>
-                단원별 입력·추출·AI 생성은 순서와 관계 없이 진행할 수 있습니다. 「교재 생성 (세션 시작)」은 맨 아래에서만 누르며, 그때 전 단원이 함께 검증·결합됩니다. 미추출 파일이
-                있거나 AI 생성으로 비어 있는 칸이 있으면 세션을 열 수 없습니다.
+                단원별 입력·추출·AI 생성은 순서와 관계 없이 진행할 수 있습니다. 맨 아래 「내용 확정」에서 전 단원을 검증·저장합니다. 미추출 파일이 있거나 AI
+                생성으로 비어 있는 칸이 있으면 확정할 수 없습니다.
               </p>
 
               <div className={styles.setupOnePageMeta}>
@@ -1924,7 +1924,7 @@ export function TextbookAutoBuilderPage() {
               </div>
 
               <div className={styles.setupCombineSection}>
-                <h3 className={styles.unitCardTitle}>요약 및 교재 생성</h3>
+                <h3 className={styles.unitCardTitle}>요약 및 내용 확정</h3>
                 <p className={styles.p}>
                   <strong>{bookTitle.trim() || "(제목 없음)"}</strong> · 총 <strong>{setupUnitCount}</strong>단원
                 </p>
@@ -1970,127 +1970,173 @@ export function TextbookAutoBuilderPage() {
                     단원 추가
                   </button>
                   <button type="button" className={styles.btnPrimary} disabled={busy} onClick={() => void startSession()}>
-                    {busy ? "처리 중…" : "교재 생성 (세션 시작)"}
+                    {busy ? "확정 중…" : "내용 확정"}
                   </button>
                 </div>
                 <p className={styles.hint}>
-                  누르면 <strong>이 탭에 그대로</strong> 머물고, 바로 아래에 확정 합본 요약이 채워집니다. 새 창이 열리지 않습니다.
+                  확정하면 <strong>이 탭에 그대로</strong> 머무르며, 이미 보이는 아래 단계 블록들이 세션 데이터로 채워집니다. 새 창이 열리지 않습니다.
                 </p>
               </div>
             </section>
             ) : null}
 
-            {sessionId ? (
-            <>
-              <section className={styles.card} ref={postSessionFlowRef} aria-labelledby="post-confirm-h">
-                <h2 id="post-confirm-h" className={styles.cardTitle}>
-                  확정된 단원 · 합본 미리보기
-                </h2>
-                <p className={styles.p}>
-                  세션에 저장된 단원별 합본(글자 수·앞부분)입니다. 같은 페이지에서 아래로만 스크롤하면 순서·정답·완성본까지 이어집니다.
-                </p>
-                <p className={styles.p}>
-                  <strong>{bookTitle.trim() || "(제목 없음)"}</strong> · 확정 <strong>{confirmedUnits.length}</strong>단원
-                </p>
-                <ul className={styles.segmentList}>
-                  {confirmedUnits
-                    .slice()
-                    .sort((a, b) => a.unitIndex - b.unitIndex)
-                    .map(({ unitIndex, unit }) => {
-                      const merged = (sessionUnitPassages?.[unitIndex] ?? "").trim();
+            <section className={styles.card} ref={postSessionFlowRef} aria-labelledby="post-confirm-h">
+              <h2 id="post-confirm-h" className={styles.cardTitle}>
+                {sessionId ? "확정된 단원 · 합본 미리보기" : "단원 합본 미리보기 (작성 중)"}
+              </h2>
+              <p className={styles.p}>
+                {sessionId
+                  ? "세션에 저장된 단원별 합본입니다. 아래로 스크롤하면 출력·정답·완성본까지 같은 페이지에서 이어집니다."
+                  : "지금 편집 중인 내용의 합본 분량입니다. 「내용 확정」 후에는 저장된 확정본으로 바뀝니다."}
+              </p>
+              <p className={styles.p}>
+                <strong>{bookTitle.trim() || "(제목 없음)"}</strong> ·{" "}
+                {sessionId ? (
+                  <>확정 <strong>{confirmedUnits.length}</strong>단원</>
+                ) : (
+                  <>작성 중 <strong>{setupUnitCount}</strong>단원</>
+                )}
+              </p>
+              <ul className={styles.segmentList}>
+                {sessionId && confirmedUnits.length > 0
+                  ? confirmedUnits
+                      .slice()
+                      .sort((a, b) => a.unitIndex - b.unitIndex)
+                      .map(({ unitIndex, unit }) => {
+                        const merged = (sessionUnitPassages?.[unitIndex] ?? "").trim();
+                        const len = merged.length;
+                        const prev =
+                          (merged.replace(/\s+/g, " ").slice(0, 120) + (merged.length > 120 ? "…" : "")) ||
+                          "(비어 있음)";
+                        return (
+                          <li key={unitIndex} className={styles.segmentItem}>
+                            <div className={styles.segmentHead}>
+                              <span className={styles.segmentNote}>
+                                제 {unitIndex + 1}단원
+                                {unit.unitTitle.trim() ? ` · ${unit.unitTitle.trim()}` : ""} · 약 {len.toLocaleString()}자
+                              </span>
+                            </div>
+                            <p className={styles.segmentPreview}>{prev}</p>
+                          </li>
+                        );
+                      })
+                  : Array.from({ length: setupUnitCount }, (_, ui) => {
+                      const st = normalizeUnitSetup(unitInputs[ui]);
+                      const merged = combineUnitPassage(st).trim();
                       const len = merged.length;
                       const prev =
                         (merged.replace(/\s+/g, " ").slice(0, 120) + (merged.length > 120 ? "…" : "")) || "(비어 있음)";
                       return (
-                        <li key={unitIndex} className={styles.segmentItem}>
+                        <li key={ui} className={styles.segmentItem}>
                           <div className={styles.segmentHead}>
                             <span className={styles.segmentNote}>
-                              제 {unitIndex + 1}단원
-                              {unit.unitTitle.trim() ? ` · ${unit.unitTitle.trim()}` : ""} · 약 {len.toLocaleString()}자
+                              제 {ui + 1}단원
+                              {st.unitTitle.trim() ? ` · ${st.unitTitle.trim()}` : ""} · 약 {len.toLocaleString()}자
                             </span>
                           </div>
                           <p className={styles.segmentPreview}>{prev}</p>
                         </li>
                       );
                     })}
-                </ul>
-              </section>
+              </ul>
+            </section>
 
-              <section className={styles.card} aria-labelledby="session-h">
-                <div className={styles.sessionTop}>
+            <section className={styles.card} aria-labelledby="session-h">
+              {sessionId ? (
+                <>
+                  <div className={styles.sessionTop}>
+                    <h2 id="session-h" className={styles.cardTitle}>
+                      세션 · 출력
+                    </h2>
+                    <div className={styles.sessionTopActions}>
+                      <button
+                        type="button"
+                        className={styles.btnGhost}
+                        disabled={busy}
+                        onClick={() => void goBackToStepOne()}
+                      >
+                        1단계로
+                      </button>
+                      <button type="button" className={styles.btnGhost} onClick={resetSession}>
+                        새 세션
+                      </button>
+                    </div>
+                  </div>
+                  <p className={styles.mono}>session: {sessionId.slice(0, 8)}…</p>
+                  <p className={styles.p}>
+                    {totalUnits}개 단원이 1단계 구성을 기준으로 확정되었습니다. 원고는 학습지 모듈 규칙으로 나뉜 그대로 저장되어 있습니다.
+                  </p>
+                  <div className={styles.step2BottomActions} aria-label="인쇄·동기화">
+                    <p className={styles.step2BottomHint}>
+                      아래에서 학생용 출력 순서·정답 배치를 바꾼 뒤, 정답·해설을 검수하고 클라우드·완성본을 진행하세요.
+                    </p>
+                    <div className={styles.row}>
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        disabled={confirmedUnits.length === 0}
+                        onClick={() => printBook()}
+                      >
+                        학생용 PDF (인쇄)
+                      </button>
+                      <button type="button" className={styles.btnGhost} onClick={() => void refreshConfirmedForPrint()}>
+                        확정 단원 새로고침
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
                   <h2 id="session-h" className={styles.cardTitle}>
                     세션 · 출력
                   </h2>
-                  <div className={styles.sessionTopActions}>
-                    <button type="button" className={styles.btnGhost} disabled={busy} onClick={() => void goBackToStepOne()}>
-                      1단계로
-                    </button>
-                    <button type="button" className={styles.btnGhost} onClick={resetSession}>
-                      새 세션
-                    </button>
-                  </div>
-                </div>
-                <p className={styles.mono}>session: {sessionId.slice(0, 8)}…</p>
-                <p className={styles.p}>
-                  {totalUnits}개 단원이 1단계 구성을 기준으로 확정되었습니다. 원고는 학습지 모듈 규칙으로 나뉜 그대로 저장되어 있습니다.
-                </p>
-                <div className={styles.step2BottomActions} aria-label="인쇄·동기화">
-                  <p className={styles.step2BottomHint}>
-                    아래에서 학생용 출력 순서·정답 배치를 바꾼 뒤, 정답·해설을 검수하고 클라우드·완성본을 진행하세요.
-                  </p>
-                  <div className={styles.row}>
-                    <button
-                      type="button"
-                      className={styles.btnSecondary}
-                      disabled={confirmedUnits.length === 0}
-                      onClick={() => printBook()}
-                    >
-                      학생용 PDF (인쇄)
-                    </button>
-                    <button type="button" className={styles.btnGhost} onClick={() => void refreshConfirmedForPrint()}>
-                      확정 단원 새로고침
-                    </button>
-                  </div>
-                </div>
-              </section>
-
-              {isComplete ? (
-                <>
-                <section className={styles.card} aria-labelledby="book-order-h">
-                  <h2 id="book-order-h" className={styles.cardTitle}>
-                    2. 최종 본문 순서 (학생용)
-                  </h2>
                   <p className={styles.p}>
-                    확정 단원이 학생용 PDF·Word·5단계 완성본에 나오는 순서입니다. 교사용 정답·해설은 원래 단원 번호(제 n단원)를 그대로 씁니다.
+                    「내용 확정」을 누르면 이 블록에 세션 ID와 학생용 PDF 인쇄 등이 활성화됩니다. 지금은 같은 자리에서 아래 단계까지 미리 구조만 볼 수 있습니다.
                   </p>
-                  <div className={styles.field}>
-                    <span className={styles.label}>학생용 — 정답·해설 위치</span>
-                    <div className={styles.row} role="radiogroup" aria-label="정답 해설 배치">
-                      <label className={styles.sectionCheck}>
-                        <input
-                          type="radio"
-                          name="answerKeyLayout"
-                          checked={answerKeyLayout === "appendix"}
-                          onChange={() => void persistAnswerKeyLayout("appendix")}
-                        />
-                        말미 부록 (일반 교재)
-                      </label>
-                      <label className={styles.sectionCheck}>
-                        <input
-                          type="radio"
-                          name="answerKeyLayout"
-                          checked={answerKeyLayout === "inline"}
-                          onChange={() => void persistAnswerKeyLayout("inline")}
-                        />
-                        문항 직후 (인라인)
-                      </label>
-                    </div>
-                    <p className={styles.hint}>
-                      부록은 본문에서 문제만 두고, 마지막에 정답·해설을 모읍니다. 인라인은 각 문항 아래에 바로 표시합니다. 3단계에서 편집하는 정답·해설과 연동됩니다.
-                    </p>
-                  </div>
-                  <ul className={styles.segmentList}>
-                    {(unitDisplayOrder ?? defaultUnitDisplayOrder(confirmedUnits.length)).map((ui, pos) => {
+                  <p className={styles.hint}>(확정 대기 중 — 인쇄·동기화 비활성)</p>
+                </>
+              )}
+            </section>
+
+            <section className={styles.card} aria-labelledby="book-order-h">
+              <h2 id="book-order-h" className={styles.cardTitle}>
+                2. 최종 본문 순서 (학생용)
+              </h2>
+              <p className={styles.p}>
+                확정 단원이 학생용 PDF·Word·5단계 완성본에 나오는 순서입니다. 교사용 정답·해설은 원래 단원 번호(제 n단원)를 그대로 씁니다.
+              </p>
+              <div className={styles.field}>
+                <span className={styles.label}>학생용 — 정답·해설 위치</span>
+                <div className={styles.row} role="radiogroup" aria-label="정답 해설 배치">
+                  <label className={styles.sectionCheck}>
+                    <input
+                      type="radio"
+                      name="answerKeyLayout"
+                      checked={answerKeyLayout === "appendix"}
+                      disabled={!sessionId}
+                      onChange={() => void persistAnswerKeyLayout("appendix")}
+                    />
+                    말미 부록 (일반 교재)
+                  </label>
+                  <label className={styles.sectionCheck}>
+                    <input
+                      type="radio"
+                      name="answerKeyLayout"
+                      checked={answerKeyLayout === "inline"}
+                      disabled={!sessionId}
+                      onChange={() => void persistAnswerKeyLayout("inline")}
+                    />
+                    문항 직후 (인라인)
+                  </label>
+                </div>
+                <p className={styles.hint}>
+                  부록은 본문에서 문제만 두고, 마지막에 정답·해설을 모읍니다. 인라인은 각 문항 아래에 바로 표시합니다. 3단계에서 편집하는 정답·해설과 연동됩니다.
+                  {!sessionId ? " 내용 확정 후 서버에 저장됩니다." : null}
+                </p>
+              </div>
+              <ul className={styles.segmentList}>
+                {sessionId && confirmedUnits.length > 0
+                  ? (unitDisplayOrder ?? defaultUnitDisplayOrder(confirmedUnits.length)).map((ui, pos) => {
                       const row = confirmedUnits.find((u) => u.unitIndex === ui);
                       if (!row) return null;
                       return (
@@ -2120,33 +2166,51 @@ export function TextbookAutoBuilderPage() {
                           </div>
                         </li>
                       );
+                    })
+                  : Array.from({ length: setupUnitCount }, (_, pos) => {
+                      const ui = pos;
+                      const st = normalizeUnitSetup(unitInputs[ui]);
+                      return (
+                        <li key={ui} className={styles.segmentItem}>
+                          <div className={styles.segmentHead}>
+                            <span className={styles.segmentNote}>
+                              책에서 {pos + 1}번째 → 제 {ui + 1}단원 ·{" "}
+                              {st.unitTitle.trim() || `제 ${ui + 1}단원`}
+                            </span>
+                          </div>
+                        </li>
+                      );
                     })}
-                  </ul>
-                </section>
+              </ul>
+              {!sessionId ? (
+                <p className={styles.hint}>내용 확정 후 「위로」「아래로」로 순서를 저장할 수 있습니다.</p>
+              ) : null}
+            </section>
 
-                <section className={styles.card} aria-labelledby="phase3-h">
-                  <h2 id="phase3-h" className={styles.cardTitle}>
-                    3. 정답·해설 · 내보내기
-                  </h2>
-                  <h3 className={styles.phase3Sub}>AI 재생성 (선택)</h3>
-                  <p className={styles.p}>
-                    세션 시작 시 자동으로 정답·해설 초안을 저장하고, 비어 있는 칸만 AI로 보완합니다. 내용을 크게 바꾼 뒤에는 아래에서 전체 또는 단원별로 다시 생성할 수 있습니다.
-                    「전체 생성」은 저장된 정답·해설을 <strong>모두 삭제한 뒤</strong> 위 규칙으로 다시 채웁니다.
-                  </p>
-                  <div className={styles.row}>
-                    <button
-                      type="button"
-                      className={styles.btnPrimary}
-                      disabled={busy || phase2UnitBusy !== null || confirmedUnits.length === 0}
-                      onClick={() => void runPhase2All()}
-                    >
-                      {busy ? "처리 중…" : "정답·해설 전체 AI 생성"}
-                    </button>
-                  </div>
-                  <div className={styles.unitPhase2Wrap}>
-                    <p className={styles.hint}>단원별 생성 (해당 단원의 정답만 삭제 후 재생성)</p>
-                    <div className={styles.unitPhase2Row}>
-                      {[...confirmedUnits]
+            <section className={styles.card} aria-labelledby="phase3-h">
+              <h2 id="phase3-h" className={styles.cardTitle}>
+                3. 정답·해설 · 내보내기
+              </h2>
+              <h3 className={styles.phase3Sub}>AI 재생성 (선택)</h3>
+              <p className={styles.p}>
+                내용 확정 시 정답·해설 초안을 자동 저장하고, 비어 있는 칸만 AI로 보완합니다. 이후에는 전 단원 또는 단원별로 다시 생성할 수 있습니다. 「전체 생성」은
+                저장된 정답·해설을 <strong>모두 삭제한 뒤</strong> 다시 채웁니다.
+              </p>
+              <div className={styles.row}>
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  disabled={busy || phase2UnitBusy !== null || !sessionId || confirmedUnits.length === 0}
+                  onClick={() => void runPhase2All()}
+                >
+                  {busy ? "처리 중…" : "정답·해설 전체 AI 생성"}
+                </button>
+              </div>
+              <div className={styles.unitPhase2Wrap}>
+                <p className={styles.hint}>단원별 생성 (해당 단원의 정답만 삭제 후 재생성)</p>
+                <div className={styles.unitPhase2Row}>
+                  {sessionId && confirmedUnits.length > 0
+                    ? [...confirmedUnits]
                         .sort((a, b) => a.unitIndex - b.unitIndex)
                         .map(({ unitIndex, unit }) => (
                           <button
@@ -2159,138 +2223,156 @@ export function TextbookAutoBuilderPage() {
                           >
                             {phase2UnitBusy === unitIndex ? "생성 중…" : `제 ${unitIndex + 1}단원만`}
                           </button>
-                        ))}
-                    </div>
-                  </div>
-
-                  {answerKeyItems.length > 0 ? (
-                    <>
-                      <h3 className={styles.phase3Sub}>검수·수정</h3>
-                      <p className={styles.p}>문항별로 정답과 해설(줄바꿈 = 불릿)을 고친 뒤 저장할 수 있습니다.</p>
-                      {answerKeysByUnit.map(({ unitIndex, items }) => {
-                        const ut =
-                          confirmedUnits.find((u) => u.unitIndex === unitIndex)?.unit.unitTitle ?? "";
-                        return (
-                          <div key={unitIndex} className={styles.answerUnitBlock}>
-                            <h4 className={styles.answerUnitTitle}>
-                              제 {unitIndex + 1}단원 · {ut || "(제목 없음)"}
-                            </h4>
-                            {items.map((it) => (
-                              <AnswerKeyEditCard
-                                key={it.id}
-                                item={it}
-                                saving={savingKeyId === it.id}
-                                onSave={saveAnswerKeyEdit}
-                              />
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </>
-                  ) : (
-                    <p className={styles.hint}>아직 저장된 정답·해설이 없습니다. 2단계에서 단원을 확정했는지, 또는 위에서 AI 재생성을 실행해 보세요.</p>
-                  )}
-
-                  <h3 className={styles.phase3Sub}>인쇄 · Word</h3>
-                  <div className={styles.row}>
-                    <button
-                      type="button"
-                      className={styles.btnSecondary}
-                      disabled={answerKeyItems.length === 0}
-                      onClick={() => printAnswerKey()}
-                    >
-                      교사용 PDF (정답·해설)
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.btnSecondary}
-                      disabled={docxBusy !== null || confirmedUnits.length === 0}
-                      onClick={() => void runDownloadStudentDocx()}
-                    >
-                      {docxBusy === "student" ? "만드는 중…" : "학생용 Word (.docx)"}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.btnSecondary}
-                      disabled={docxBusy !== null || answerKeyItems.length === 0}
-                      onClick={() => void runDownloadTeacherDocx()}
-                    >
-                      {docxBusy === "teacher" ? "만드는 중…" : "교사용 Word (.docx)"}
-                    </button>
-                  </div>
-                  {answerKeyItems.length > 0 ? (
-                    <p className={styles.hint}>Firestore에 저장된 문항: {answerKeyItems.length}개</p>
-                  ) : null}
-                </section>
-
-                <section className={styles.card} aria-labelledby="phase4-h">
-                  <h2 id="phase4-h" className={styles.cardTitle}>
-                    4. 클라우드 패키지 (Storage)
-                  </h2>
-                  <p className={styles.p}>
-                    확정 단원·현재 정답·해설을 반영해 Word(.docx)를 만들어 <strong>본인 Storage</strong>에 저장합니다. 같은 세션에서 다시 누르면 파일을 덮어씁니다. 정답·해설이
-                    없으면 학생용만 올리고 교사용은 생략합니다.
-                  </p>
-                  <div className={styles.row}>
-                    <button
-                      type="button"
-                      className={styles.btnPrimary}
-                      disabled={packageBusy || confirmedUnits.length === 0}
-                      onClick={() => void runPublishPackage()}
-                    >
-                      {packageBusy ? "업로드 중…" : "패키지 업로드·갱신"}
-                    </button>
-                  </div>
-                  {exportPackage ? (
-                    <div className={styles.packageMeta}>
-                      <p className={styles.hint}>
-                        학생용: <span className={styles.monoInline}>{exportPackage.studentStoragePath}</span>
-                      </p>
-                      {exportPackage.teacherStoragePath ? (
-                        <p className={styles.hint}>
-                          교사용: <span className={styles.monoInline}>{exportPackage.teacherStoragePath}</span>
-                        </p>
-                      ) : (
-                        <p className={styles.hint}>교사용 파일은 정답·해설이 있을 때만 업로드됩니다.</p>
-                      )}
-                      <div className={styles.row}>
-                        <button
-                          type="button"
-                          className={styles.btnSecondary}
-                          disabled={!exportPackage.studentStoragePath}
-                          onClick={() => void openCloudDownload(exportPackage.studentStoragePath)}
-                        >
-                          클라우드에서 학생용 받기
+                        ))
+                    : Array.from({ length: setupUnitCount }, (_, ui) => (
+                        <button key={ui} type="button" className={styles.btnMini} disabled>
+                          제 {ui + 1}단원만
                         </button>
-                        {exportPackage.teacherStoragePath ? (
-                          <button
-                            type="button"
-                            className={styles.btnSecondary}
-                            onClick={() => void openCloudDownload(exportPackage.teacherStoragePath)}
-                          >
-                            클라우드에서 교사용 받기
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className={styles.hint}>아직 클라우드에 저장된 패키지가 없습니다.</p>
-                  )}
-                </section>
+                      ))}
+                </div>
+              </div>
 
-                <TextbookAutoMasterBookPanel
-                  key={sessionId ?? "session"}
-                  bookTitle={bookTitle}
-                  confirmedUnits={displayOrderedUnits}
-                  uid={uid}
-                  sessionId={sessionId}
-                  answerKeyLayout={answerKeyLayout}
-                  answerKeyItems={answerKeyItems}
-                />
+              {sessionId && answerKeyItems.length > 0 ? (
+                <>
+                  <h3 className={styles.phase3Sub}>검수·수정</h3>
+                  <p className={styles.p}>문항별로 정답과 해설(줄바꿈 = 불릿)을 고친 뒤 저장할 수 있습니다.</p>
+                  {answerKeysByUnit.map(({ unitIndex, items }) => {
+                    const ut = confirmedUnits.find((u) => u.unitIndex === unitIndex)?.unit.unitTitle ?? "";
+                    return (
+                      <div key={unitIndex} className={styles.answerUnitBlock}>
+                        <h4 className={styles.answerUnitTitle}>
+                          제 {unitIndex + 1}단원 · {ut || "(제목 없음)"}
+                        </h4>
+                        {items.map((it) => (
+                          <AnswerKeyEditCard
+                            key={it.id}
+                            item={it}
+                            saving={savingKeyId === it.id}
+                            onSave={saveAnswerKeyEdit}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })}
                 </>
+              ) : (
+                <p className={styles.hint}>
+                  {sessionId
+                    ? "아직 저장된 정답·해설이 없습니다. 위에서 AI 재생성을 실행해 보세요."
+                    : "내용 확정 후 저장된 문항이 여기에 표시됩니다."}
+                </p>
+              )}
+
+              <h3 className={styles.phase3Sub}>인쇄 · Word</h3>
+              <div className={styles.row}>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  disabled={!sessionId || answerKeyItems.length === 0}
+                  onClick={() => printAnswerKey()}
+                >
+                  교사용 PDF (정답·해설)
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  disabled={docxBusy !== null || !sessionId || confirmedUnits.length === 0}
+                  onClick={() => void runDownloadStudentDocx()}
+                >
+                  {docxBusy === "student" ? "만드는 중…" : "학생용 Word (.docx)"}
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  disabled={docxBusy !== null || !sessionId || answerKeyItems.length === 0}
+                  onClick={() => void runDownloadTeacherDocx()}
+                >
+                  {docxBusy === "teacher" ? "만드는 중…" : "교사용 Word (.docx)"}
+                </button>
+              </div>
+              {answerKeyItems.length > 0 ? (
+                <p className={styles.hint}>Firestore에 저장된 문항: {answerKeyItems.length}개</p>
               ) : null}
-            </>
-            ) : null}
+            </section>
+
+            <section className={styles.card} aria-labelledby="phase4-h">
+              <h2 id="phase4-h" className={styles.cardTitle}>
+                4. 클라우드 패키지 (Storage)
+              </h2>
+              <p className={styles.p}>
+                확정 단원·현재 정답·해설을 반영해 Word(.docx)를 만들어 <strong>본인 Storage</strong>에 저장합니다. 같은 세션에서 다시 누르면 파일을 덮어씁니다. 정답·해설이
+                없으면 학생용만 올리고 교사용은 생략합니다.
+              </p>
+              <div className={styles.row}>
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  disabled={packageBusy || !sessionId || confirmedUnits.length === 0}
+                  onClick={() => void runPublishPackage()}
+                >
+                  {packageBusy ? "업로드 중…" : "패키지 업로드·갱신"}
+                </button>
+              </div>
+              {sessionId && exportPackage ? (
+                <div className={styles.packageMeta}>
+                  <p className={styles.hint}>
+                    학생용: <span className={styles.monoInline}>{exportPackage.studentStoragePath}</span>
+                  </p>
+                  {exportPackage.teacherStoragePath ? (
+                    <p className={styles.hint}>
+                      교사용: <span className={styles.monoInline}>{exportPackage.teacherStoragePath}</span>
+                    </p>
+                  ) : (
+                    <p className={styles.hint}>교사용 파일은 정답·해설이 있을 때만 업로드됩니다.</p>
+                  )}
+                  <div className={styles.row}>
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      disabled={!exportPackage.studentStoragePath}
+                      onClick={() => void openCloudDownload(exportPackage.studentStoragePath)}
+                    >
+                      클라우드에서 학생용 받기
+                    </button>
+                    {exportPackage.teacherStoragePath ? (
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        onClick={() => void openCloudDownload(exportPackage.teacherStoragePath)}
+                      >
+                        클라우드에서 교사용 받기
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <p className={styles.hint}>
+                  {sessionId ? "아직 클라우드에 저장된 패키지가 없습니다." : "내용 확정 후 패키지를 올릴 수 있습니다."}
+                </p>
+              )}
+            </section>
+
+            {sessionId ? (
+              <TextbookAutoMasterBookPanel
+                key={sessionId ?? "session"}
+                bookTitle={bookTitle}
+                confirmedUnits={displayOrderedUnits}
+                uid={uid}
+                sessionId={sessionId}
+                answerKeyLayout={answerKeyLayout}
+                answerKeyItems={answerKeyItems}
+              />
+            ) : (
+              <section className={styles.card} aria-labelledby="phase5-placeholder-h">
+                <h2 id="phase5-placeholder-h" className={styles.cardTitle}>
+                  5. 완성본 (앞표지 · 목차 · 본문 · 추가 · 뒷표지)
+                </h2>
+                <p className={styles.p}>
+                  내용 확정 후 이어서 표지·목차·완성본 Word·PDF·인쇄를 같은 페이지 아래에서 설정합니다.
+                </p>
+                <p className={styles.hint}>(확정 대기 중)</p>
+              </section>
+            )}
             </>
           )}
 
