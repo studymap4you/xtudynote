@@ -91,9 +91,9 @@ const SOURCE_MODULE_FIELD_UI: readonly {
   maxLength?: number;
 }[] = [
   { key: "passageNo", label: "지문번호", placeholder: "예: 01, A독해-3", rows: 1, multiline: false, maxLength: 80 },
-  { key: "passage", label: "지문", placeholder: "본 지문 전체", rows: 4, multiline: true },
-  { key: "passageAnalysis", label: "지문분석 (보고서)", rows: 6, multiline: true },
-  { key: "keySummary", label: "핵심정리 (보고서)", rows: 6, multiline: true },
+  { key: "passage", label: "지문", placeholder: "본 지문 전체", rows: 12, multiline: true },
+  { key: "passageAnalysis", label: "지문분석 (보고서)", rows: 12, multiline: true },
+  { key: "keySummary", label: "핵심정리 (보고서)", rows: 12, multiline: true },
 ];
 
 function sliceForAi(full: string): string {
@@ -1486,7 +1486,7 @@ export function TextbookAutoBuilderPage() {
                                         ) : null}
                                         <textarea
                                           className={styles.textarea}
-                                          rows={3}
+                                          rows={8}
                                           value={sq.stem}
                                           onChange={(e) => patchSubQuestion(ui, mod.id, sq.id, { stem: e.target.value })}
                                           placeholder="발문"
@@ -1526,7 +1526,7 @@ export function TextbookAutoBuilderPage() {
                                             ) : null}
                                             <textarea
                                               className={styles.textarea}
-                                              rows={4}
+                                              rows={10}
                                               value={sq.options}
                                               onChange={(e) => patchSubQuestion(ui, mod.id, sq.id, { options: e.target.value })}
                                               placeholder={"① …\n② …\n③ …\n④ …\n⑤ …"}
@@ -1725,7 +1725,7 @@ export function TextbookAutoBuilderPage() {
                       ) : null}
                       <textarea
                         className={styles.textarea}
-                        rows={5}
+                        rows={10}
                         value={unitState.reviewStudy.body}
                         onChange={(e) => patchUnitReviewStudy(ui, { body: e.target.value })}
                         placeholder={"1. …\n\n2. …"}
@@ -1816,7 +1816,7 @@ export function TextbookAutoBuilderPage() {
                             ) : null}
                             <textarea
                               className={styles.textarea}
-                              rows={3}
+                              rows={8}
                               value={eq.stem}
                               onChange={(e) => patchEvalQuestion(ui, eq.id, { stem: e.target.value })}
                               placeholder="발문"
@@ -1856,7 +1856,7 @@ export function TextbookAutoBuilderPage() {
                                 ) : null}
                                 <textarea
                                   className={styles.textarea}
-                                  rows={4}
+                                  rows={10}
                                   value={eq.options}
                                   onChange={(e) => patchEvalQuestion(ui, eq.id, { options: e.target.value })}
                                   placeholder={"① …\n② …\n③ …\n④ …\n⑤ …"}

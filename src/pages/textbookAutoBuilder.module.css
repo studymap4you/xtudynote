@@ -473,6 +473,8 @@
 
 .subQuestionsWrap {
   margin: 0.75rem 0 1rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .subQuestionsHead {
@@ -490,6 +492,21 @@
   padding: 0.85rem 0.95rem;
   margin-bottom: 0.85rem;
   background: #fff;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.subQuestionCard .input,
+.subQuestionCard .textarea {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.subQuestionCard .textarea {
+  min-height: 10rem;
 }
 
 .subQuestionToolbar {
@@ -504,6 +521,20 @@
   margin-top: 1.5rem;
   padding-top: 1.25rem;
   border-top: 1px solid #e2e8f0;
+  width: 100%;
+  min-width: 0;
+}
+
+.setupSectionBlock .input,
+.setupSectionBlock .textarea {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.setupSectionBlock .textarea {
+  min-height: 11rem;
 }
 
 .setupSectionTitle {
@@ -552,14 +583,15 @@
 
 .sourceModuleField .input,
 .sourceModuleField .textarea {
+  display: block;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
 }
 
-/* 글로벌 .textarea min-height(200px)는 모듈 소필드에 과대 — 행 수에 맞게 완화 */
+/* 글로벌 .textarea min-height(200px)는 모듈 소필드에 과대 — 행 수에 맞게 완화; 지문·보고서는 편집 여유를 두어 키움 */
 .sourceModuleField .textarea {
-  min-height: 5rem;
+  min-height: 14rem;
 }
 
 .fieldHeadRow {
@@ -638,6 +670,8 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .sourceModuleToolbar {
