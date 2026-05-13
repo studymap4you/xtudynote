@@ -123,6 +123,7 @@ export function emptyModule(): TextbookUnitSourceModule {
 
 export function emptyUnitSetup(): TextbookUnitSetupState {
   return {
+    unitTitle: "",
     manualText: "",
     modules: [emptyModule()],
     fileSegments: [],
@@ -165,6 +166,7 @@ export function normalizeUnitSetup(u: TextbookUnitSetupState | undefined): Textb
         : undefined;
 
   return {
+    unitTitle: typeof u.unitTitle === "string" ? u.unitTitle : "",
     manualText: u.manualText ?? "",
     modules,
     fileSegments: Array.isArray(u.fileSegments) ? u.fileSegments : [],

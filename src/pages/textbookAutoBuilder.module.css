@@ -486,6 +486,28 @@
   margin-bottom: 0.35rem;
 }
 
+.subQuestionsFooter {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.unitSetupTitleField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1 1 100%;
+  min-width: 0;
+  width: 100%;
+  margin: 0 0 0.35rem;
+}
+
+.unitSetupTitleField .input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .subQuestionCard {
   border: 1px dashed #cbd5e1;
   border-radius: 10px;

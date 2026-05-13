@@ -109,6 +109,7 @@ function buildInitialConfirmedUnit(
 ): TextbookUnitContent {
   const passageMods = parseManuscriptToModules(sliceForAi(passage));
   const nSetup = normalizeUnitSetup(setup);
+  const titleBase = nSetup.unitTitle.trim();
   const practice = buildPracticeItemsFromReviewSetup(nSetup.reviewStudy);
   const unitTest = buildUnitTestFromEvalQuestions(nSetup.unitEvaluation.questions);
   const wantsUnitTest = nSetup.unitEvaluation.mcqCount > 0 || nSetup.unitEvaluation.shortCount > 0;
@@ -118,7 +119,7 @@ function buildInitialConfirmedUnit(
     unitTest: wantsUnitTest,
   };
   return {
-    unitTitle: `제 ${unitIndex + 1}단원`,
+    unitTitle: titleBase || `제 ${unitIndex + 1}단원`,
     keyConcepts: [],
     contentStudy: [],
     coreSummary: [],
@@ -300,6 +301,15 @@ export function TextbookAutoBuilderPage() {
     setTotalUnits(newN);
     setMsg(`단원을 삭제했습니다. 현재 총 ${newN}단원입니다.`);
   }, [totalUnits]);
+
+  const patchSetupUnitTitle = useCallback((unitIndex: number, unitTitle: string) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = normalizeUnitSetup(next[unitIndex]);
+      next[unitIndex] = normalizeUnitSetup({ ...row, unitTitle });
+      return next;
+    });
+  }, []);
 
   const startSession = useCallback(async () => {
     setErr(null);
@@ -1276,7 +1286,19 @@ export function TextbookAutoBuilderPage() {
                     <div key={ui} className={styles.setupUnitBlock}>
                       <div className={styles.unitCard}>
                         <div className={styles.unitCardHead}>
-                          <h3 className={styles.unitCardTitle}>제 {ui + 1}단원 — 모듈 구성</h3>
+                          <label className={styles.unitSetupTitleField}>
+                            <span className={styles.label}>
+                              제 {ui + 1}단원 — 단원명 (완성본·Word·「자동」목차에{' '}
+                              <strong>제 {ui + 1}단원 · 이 이름</strong>으로 표시)
+                            </span>
+                            <input
+                              className={styles.input}
+                              value={unitState.unitTitle}
+                              onChange={(e) => patchSetupUnitTitle(ui, e.target.value)}
+                              placeholder={`예: 어휘 추론 · 문맥독해 (${ui + 1}강)`}
+                              maxLength={200}
+                            />
+                          </label>
                           <div className={styles.setupUnitToolbar}>
                             <button
                               type="button"
@@ -1395,13 +1417,6 @@ export function TextbookAutoBuilderPage() {
                                 <div className={styles.subQuestionsWrap}>
                                   <div className={styles.subQuestionsHead}>
                                     <span className={styles.fieldHeadLabel}>문제 · 선택지 (통합)</span>
-                                    <button
-                                      type="button"
-                                      className={styles.btnSecondary}
-                                      onClick={() => addSubQuestion(ui, mod.id)}
-                                    >
-                                      문항 추가
-                                    </button>
                                   </div>
                                   <p className={styles.hint}>
                                     유형(객관식·주관식)과 언어(한국어·영어)를 고른 뒤 발문·선택지를 입력합니다. 객관식만 선택지 칸과 「선택지 AI」가
@@ -1536,6 +1551,15 @@ export function TextbookAutoBuilderPage() {
                                       </div>
                                     );
                                   })}
+                                  <div className={styles.subQuestionsFooter}>
+                                    <button
+                                      type="button"
+                                      className={styles.btnSecondary}
+                                      onClick={() => addSubQuestion(ui, mod.id)}
+                                    >
+                                      문항 추가
+                                    </button>
+                                  </div>
                                 </div>
                               ) : null}
                             </div>
@@ -1894,7 +1918,8 @@ export function TextbookAutoBuilderPage() {
                       <li key={ui} className={styles.segmentItem}>
                         <div className={styles.segmentHead}>
                           <span className={styles.segmentNote}>
-                            제 {ui + 1}단원 · 약 {len.toLocaleString()}자
+                            제 {ui + 1}단원
+                            {st.unitTitle.trim() ? ` · ${st.unitTitle.trim()}` : ""} · 약 {len.toLocaleString()}자
                           </span>
                           <button
                             type="button"
@@ -1911,7 +1936,8 @@ export function TextbookAutoBuilderPage() {
                   })}
                 </ul>
                 <p className={styles.hint}>
-                  「교재 생성」으로 세션을 열면 1단계 원고 모듈이 그대로 확정 단원이 됩니다.
+                  완성본(마스터북)에서 목차를 「자동」으로 두면 <strong>확정된 단원명</strong>이 한 줄씩 목차에 들어갑니다. 위에서 단원명을 비우면 세션에서는 「제
+                  n단원」으로 저장됩니다.
                 </p>
                 <div className={styles.row}>
                   <button

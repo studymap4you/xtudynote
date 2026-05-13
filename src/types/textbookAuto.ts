@@ -279,6 +279,8 @@ export type TextbookUnitSourceModule = {
 };
 
 export type TextbookUnitSetupState = {
+  /** 완성본·Word·자동 목차 등에 쓰는 단원 표시 제목 (비우면 「제 n단원」) */
+  unitTitle: string;
   /** 단원별 자유 입력(레거시·마스터북 패널 등). 모듈과 병합 시 뒤에 붙습니다. */
   manualText: string;
   modules: TextbookUnitSourceModule[];
