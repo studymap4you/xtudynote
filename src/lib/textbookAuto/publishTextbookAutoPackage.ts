@@ -2,7 +2,7 @@ import { ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/firebase/config";
 import { buildTextbookAutoStudentDocxBlob, buildTextbookAutoTeacherDocxBlob } from "@/lib/textbookAuto/downloadTextbookAutoDocx";
 import { upsertTextbookExportPackage } from "@/lib/textbookAuto/textbookAutoFirestore";
-import type { TextbookAnswerKeyItem, TextbookUnitContent } from "@/types/textbookAuto";
+import type { TextbookAnswerKeyItem, TextbookAnswerKeyLayout, TextbookUnitContent } from "@/types/textbookAuto";
 
 const DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
@@ -12,12 +12,18 @@ export async function publishTextbookAutoPackage(params: {
   bookTitle: string;
   units: { unitIndex: number; unit: TextbookUnitContent }[];
   answerKeyItems: TextbookAnswerKeyItem[];
+  answerKeyLayout?: TextbookAnswerKeyLayout;
 }): Promise<void> {
-  const { uid, sessionId, bookTitle, units, answerKeyItems } = params;
+  const { uid, sessionId, bookTitle, units, answerKeyItems, answerKeyLayout } = params;
   const studentPath = `textbook_auto/${uid}/${sessionId}/student.docx`;
   const teacherPath = `textbook_auto/${uid}/${sessionId}/teacher.docx`;
 
-  const studentBlob = await buildTextbookAutoStudentDocxBlob({ bookTitle, units });
+  const studentBlob = await buildTextbookAutoStudentDocxBlob({
+    bookTitle,
+    units,
+    answerKeyLayout,
+    answerKeyItems,
+  });
   await uploadBytes(ref(storage, studentPath), studentBlob, { contentType: DOCX_TYPE });
 
   let teacherStoragePath = "";

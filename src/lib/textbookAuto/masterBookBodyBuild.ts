@@ -5,7 +5,7 @@ import {
   buildTextbookBodyParagraphsFromUnits,
   buildTextbookBodyParagraphsFromUnitsWithCovers,
 } from "@/lib/textbookAuto/downloadTextbookAutoDocx";
-import type { TextbookUnitContent, TextbookUnitSetupState } from "@/types/textbookAuto";
+import type { TextbookAnswerKeyItem, TextbookAnswerKeyLayout, TextbookUnitContent, TextbookUnitSetupState } from "@/types/textbookAuto";
 
 export type MasterBookContentMode = "session_units" | "session_passages" | "upload";
 
@@ -17,17 +17,28 @@ export async function buildMasterBookBodyParagraphsForDocx(params: {
   unitCovers?: Record<number, File | null>;
   /** Storage 등에서 불러온 단원 커버 이미지 URL (File이 없을 때 사용) */
   unitCoverUrls?: Record<number, string>;
+  answerKeyLayout?: TextbookAnswerKeyLayout;
+  answerKeyItems?: TextbookAnswerKeyItem[];
 }): Promise<Paragraph[]> {
-  const { contentMode, confirmedUnits, sessionUnitPassages, contentState, unitCovers, unitCoverUrls } =
-    params;
+  const {
+    contentMode,
+    confirmedUnits,
+    sessionUnitPassages,
+    contentState,
+    unitCovers,
+    unitCoverUrls,
+    answerKeyLayout,
+    answerKeyItems,
+  } = params;
   if (contentMode === "session_units") {
     if (confirmedUnits.length === 0) throw new Error("확정된 단원이 없습니다.");
     const hasFileCover = unitCovers && Object.values(unitCovers).some(Boolean);
     const hasUrlCover = unitCoverUrls && Object.values(unitCoverUrls).some(Boolean);
+    const docOpts = { answerKeyLayout, answerKeyItems };
     if (hasFileCover || hasUrlCover) {
-      return buildTextbookBodyParagraphsFromUnitsWithCovers(confirmedUnits, unitCovers, unitCoverUrls);
+      return buildTextbookBodyParagraphsFromUnitsWithCovers(confirmedUnits, unitCovers, unitCoverUrls, docOpts);
     }
-    return buildTextbookBodyParagraphsFromUnits(confirmedUnits);
+    return buildTextbookBodyParagraphsFromUnits(confirmedUnits, docOpts);
   }
   if (contentMode === "session_passages") {
     if (!sessionUnitPassages || sessionUnitPassages.length === 0) {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type {
   TextbookContentStudyBlock,
   TextbookKeyConceptItem,
+  TextbookPracticeItem,
   TextbookSectionInclusion,
   TextbookUnitContent,
   TextbookUnitTestItem,
@@ -48,7 +49,7 @@ export function TextbookUnitDraftEditor({
 
   const setKeyConcepts = (next: TextbookKeyConceptItem[]) => patch({ keyConcepts: next });
   const setContentStudy = (next: TextbookContentStudyBlock[]) => patch({ contentStudy: next });
-  const setPractice = (next: string[]) => patch({ practice: next });
+  const setPractice = (next: TextbookPracticeItem[]) => patch({ practice: next });
   const setUnitTest = (next: TextbookUnitTestItem[]) => patch({ unitTest: next });
 
   const [csAiBlock, setCsAiBlock] = useState<{ bi: number; mode: "full" | "bullets" } | null>(null);
@@ -291,8 +292,8 @@ export function TextbookUnitDraftEditor({
       {inc.practice ? (
         <section className={styles.section}>
           <h4 className={styles.sectionTitle}>확인학습 (주관식 단답)</h4>
-          <p className={styles.subtle}>질문만 입력합니다. 정답은 3단계에서 생성합니다.</p>
-          {unit.practice.map((q, i) => (
+          <p className={styles.subtle}>질문 아래에 정답·해설을 바로 넣을 수 있습니다. 비워 두면 확정 시 AI로 보완합니다.</p>
+          {unit.practice.map((row, i) => (
             <div key={i} className={styles.itemCard}>
               <div className={styles.itemHead}>
                 <span className={styles.badge}>Q{i + 1}</span>
@@ -305,16 +306,54 @@ export function TextbookUnitDraftEditor({
                   제거
                 </button>
               </div>
-              <input
-                className={styles.input}
-                disabled={disabled}
-                value={q}
-                onChange={(e) => {
-                  const next = [...unit.practice];
-                  next[i] = e.target.value;
-                  setPractice(next);
-                }}
-              />
+              <div className={styles.field}>
+                <span className={styles.label}>질문</span>
+                <input
+                  className={styles.input}
+                  disabled={disabled}
+                  value={row.question}
+                  onChange={(e) => {
+                    const next = [...unit.practice];
+                    next[i] = { ...row, question: e.target.value };
+                    setPractice(next);
+                  }}
+                />
+              </div>
+              <div className={styles.field}>
+                <span className={styles.label}>정답</span>
+                <input
+                  className={styles.input}
+                  disabled={disabled}
+                  value={row.answer ?? ""}
+                  onChange={(e) => {
+                    const next = [...unit.practice];
+                    const v = e.target.value;
+                    next[i] = v.trim() ? { ...row, answer: v } : { ...row, answer: undefined };
+                    setPractice(next);
+                  }}
+                  maxLength={8000}
+                />
+              </div>
+              <div className={styles.field}>
+                <span className={styles.label}>해설 (줄마다 한 불릿)</span>
+                <textarea
+                  className={styles.textarea}
+                  disabled={disabled}
+                  rows={3}
+                  value={(row.explanationBullets ?? []).join("\n")}
+                  onChange={(e) => {
+                    const lines = e.target.value
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .slice(0, 25);
+                    const next = [...unit.practice];
+                    next[i] =
+                      lines.length > 0 ? { ...row, explanationBullets: lines } : { ...row, explanationBullets: undefined };
+                    setPractice(next);
+                  }}
+                />
+              </div>
             </div>
           ))}
           <div className={styles.toolRow}>
@@ -322,7 +361,7 @@ export function TextbookUnitDraftEditor({
               type="button"
               className={styles.btnTiny}
               disabled={disabled}
-              onClick={() => setPractice([...unit.practice, ""])}
+              onClick={() => setPractice([...unit.practice, { question: "" }])}
             >
               문항 추가
             </button>
@@ -371,7 +410,9 @@ export function TextbookUnitDraftEditor({
                     value={item.question}
                     onChange={(e) => {
                       const next = [...unit.unitTest];
-                      next[i] = { kind: "short", question: e.target.value };
+                      const cur = next[i];
+                      if (cur?.kind !== "short") return;
+                      next[i] = { ...cur, question: e.target.value };
                       setUnitTest(next);
                     }}
                   />
@@ -447,6 +488,47 @@ export function TextbookUnitDraftEditor({
                   </div>
                 </>
               )}
+              <div className={styles.field}>
+                <span className={styles.label}>정답</span>
+                <input
+                  className={styles.input}
+                  disabled={disabled}
+                  value={item.answer ?? ""}
+                  maxLength={8000}
+                  onChange={(e) => {
+                    const next = [...unit.unitTest];
+                    const cur = next[i];
+                    if (!cur) return;
+                    const v = e.target.value;
+                    next[i] = v.trim() ? { ...cur, answer: v } : { ...cur, answer: undefined };
+                    setUnitTest(next);
+                  }}
+                />
+              </div>
+              <div className={styles.field}>
+                <span className={styles.label}>해설 (줄마다 한 불릿)</span>
+                <textarea
+                  className={styles.textarea}
+                  disabled={disabled}
+                  rows={3}
+                  value={(item.explanationBullets ?? []).join("\n")}
+                  onChange={(e) => {
+                    const lines = e.target.value
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .slice(0, 25);
+                    const next = [...unit.unitTest];
+                    const cur = next[i];
+                    if (!cur) return;
+                    next[i] =
+                      lines.length > 0
+                        ? { ...cur, explanationBullets: lines }
+                        : { ...cur, explanationBullets: undefined };
+                    setUnitTest(next);
+                  }}
+                />
+              </div>
             </div>
           ))}
 

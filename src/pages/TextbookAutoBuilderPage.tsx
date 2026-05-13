@@ -17,6 +17,7 @@ import { requestSourceModuleFieldAi } from "@/lib/textbookAuto/requestSourceModu
 import { parseManuscriptToModules } from "@/lib/localDocumentAuto/manuscriptModules";
 import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
+import { buildAnswerKeyItemsFromUnit, embeddedNeedsAiFill, mergeAnswerKeyAiWithEmbedded } from "@/lib/textbookAuto/buildAnswerKeyItemsFromUnit";
 import { buildAnswerKeyStubs } from "@/lib/textbookAuto/buildAnswerKeyStubs";
 import { validateDraftUnit } from "@/lib/textbookAuto/validateDraftUnit";
 import { applySectionInclusionToUnit, getSectionInclusion, unitForStudentOutput } from "@/lib/textbookAuto/sectionInclusion";
@@ -34,6 +35,7 @@ import {
   loadUnitDraft,
   setSessionCurrentUnit,
   updateAnswerKeyItem,
+  updateSessionAnswerKeyLayout,
   updateSessionUnitDisplayOrder,
   writeAnswerKeyItems,
   writeUnitConfirmed,
@@ -42,6 +44,7 @@ import {
 } from "@/lib/textbookAuto/textbookAutoFirestore";
 import type {
   TextbookAnswerKeyItem,
+  TextbookAnswerKeyLayout,
   TextbookSectionInclusion,
   TextbookSetupPendingFile,
   TextbookSetupPendingMode,
@@ -50,7 +53,12 @@ import type {
   TextbookUnitSourceModule,
   SourceModuleFieldKey,
 } from "@/types/textbookAuto";
-import { MODULES_ONLY_SECTION_INCLUSION, SOURCE_MODULE_FIELD_KEYS, SOURCE_MODULE_FIELD_LABELS } from "@/types/textbookAuto";
+import {
+  DEFAULT_TEXTBOOK_ANSWER_KEY_LAYOUT,
+  MODULES_ONLY_SECTION_INCLUSION,
+  SOURCE_MODULE_FIELD_KEYS,
+  SOURCE_MODULE_FIELD_LABELS,
+} from "@/types/textbookAuto";
 import { formatKeyContextForAnswerKey } from "@/lib/textbookAuto/formatKeyContextForAnswerKey";
 import { defaultUnitDisplayOrder, orderUnitsForBook } from "@/lib/textbookAuto/orderConfirmedUnits";
 import styles from "@/pages/textbookAutoBuilder.module.css";
@@ -109,6 +117,7 @@ export function TextbookAutoBuilderPage() {
   const [confirmedUnits, setConfirmedUnits] = useState<{ unitIndex: number; unit: TextbookUnitContent }[]>([]);
   /** 학생용 본문·Word 등 표시 순서 (unitIndex 순열); 세션 메타와 동기 */
   const [unitDisplayOrder, setUnitDisplayOrder] = useState<number[] | null>(null);
+  const [answerKeyLayout, setAnswerKeyLayout] = useState<TextbookAnswerKeyLayout>(DEFAULT_TEXTBOOK_ANSWER_KEY_LAYOUT);
   const [draftModel, setDraftModel] = useState("");
   const [busy, setBusy] = useState(false);
   const [extractBusyId, setExtractBusyId] = useState<string | null>(null);
@@ -138,6 +147,18 @@ export function TextbookAutoBuilderPage() {
     if (!text.trim()) return null;
     return { bookTitle: bookTitle.trim() || "교재", unitSourceText: text };
   }, [sessionId, sessionUnitPassages, currentUnitIndex, bookTitle]);
+
+  useEffect(() => {
+    if (!uid || !sessionId) return;
+    let cancelled = false;
+    void loadTextbookAutoSession(uid, sessionId).then((s) => {
+      if (cancelled || !s) return;
+      if (s.answerKeyLayout === "inline" || s.answerKeyLayout === "appendix") setAnswerKeyLayout(s.answerKeyLayout);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, sessionId]);
 
   useEffect(() => {
     setUnitInputs((prev) => {
@@ -182,6 +203,7 @@ export function TextbookAutoBuilderPage() {
     setPreSessionPhase("meta");
     setSetupPassageIndex(0);
     setUnitDisplayOrder(null);
+    setAnswerKeyLayout(DEFAULT_TEXTBOOK_ANSWER_KEY_LAYOUT);
   }, []);
 
   /** 2단계 → 1단계(지문 설정). 세션 UI만 끊음 — Firestore 데이터는 유지됨 */
@@ -510,18 +532,35 @@ export function TextbookAutoBuilderPage() {
         const passageRaw = sessionUnitPassages?.[confirmedIdx] ?? "";
         const passageSnippet = sliceForAi(passageRaw);
         await deleteAnswerKeysForUnit(uid, sessionId, confirmedIdx);
-        const stubs = buildAnswerKeyStubs(confirmedIdx, unitForStudentOutput(toSave));
-        if (stubs.length > 0) {
+        const outForKey = unitForStudentOutput(toSave);
+        const embedded = buildAnswerKeyItemsFromUnit(confirmedIdx, outForKey);
+        if (embedded.length > 0) {
           const incForKey = getSectionInclusion(toSave);
-          const { items, meta } = await requestTextbookAnswerKeyForUnit({
-            bookTitle: title,
-            unitTitle: toSave.unitTitle,
-            unitIndex: confirmedIdx,
-            stubs,
-            sourceExcerpt: passageSnippet.trim() || undefined,
-            unitKeyContext: formatKeyContextForAnswerKey(toSave, incForKey),
-          });
-          if (items.length > 0) await writeAnswerKeyItems(uid, sessionId, items, meta.model);
+          let itemsToWrite = embedded;
+          let modelUsed = "embedded";
+          if (embedded.some(embeddedNeedsAiFill)) {
+            const stubs = buildAnswerKeyStubs(confirmedIdx, outForKey);
+            let aiNote = "";
+            try {
+              const { items: aiItems, meta } = await requestTextbookAnswerKeyForUnit({
+                bookTitle: title,
+                unitTitle: toSave.unitTitle,
+                unitIndex: confirmedIdx,
+                stubs,
+                sourceExcerpt: passageSnippet.trim() || undefined,
+                unitKeyContext: formatKeyContextForAnswerKey(toSave, incForKey),
+              });
+              itemsToWrite = mergeAnswerKeyAiWithEmbedded(embedded, aiItems);
+              modelUsed = meta.model;
+            } catch {
+              itemsToWrite = embedded;
+              modelUsed = "embedded";
+              aiNote =
+                " (AI 정답·해설 보완에 실패해 편집기에 넣은 값만 저장했습니다. 3단계에서 재시도할 수 있습니다.)";
+            }
+            if (aiNote) answerKeyNote = aiNote;
+          }
+          await writeAnswerKeyItems(uid, sessionId, itemsToWrite, modelUsed);
         }
       } catch (akErr) {
         answerKeyNote = ` (정답·해설 자동 저장 실패: ${akErr instanceof Error ? akErr.message : "오류"} — 3단계에서 이 단원만 재생성할 수 있습니다.)`;
@@ -558,6 +597,9 @@ export function TextbookAutoBuilderPage() {
     const o = sess?.unitDisplayOrder;
     if (o && o.length === n) setUnitDisplayOrder(o);
     else if (n > 0) setUnitDisplayOrder(defaultUnitDisplayOrder(n));
+    if (sess?.answerKeyLayout === "inline" || sess?.answerKeyLayout === "appendix") {
+      setAnswerKeyLayout(sess.answerKeyLayout);
+    }
     const ak = await loadAnswerKeyItems(uid, sessionId);
     setAnswerKeyItems(ak);
     const pkg = await loadTextbookExportPackage(uid, sessionId);
@@ -580,20 +622,33 @@ export function TextbookAutoBuilderPage() {
       const title = bookTitle.trim() || "교재";
       let totalWritten = 0;
       for (const { unitIndex, unit } of sorted) {
-        const stubs = buildAnswerKeyStubs(unitIndex, unitForStudentOutput(unit));
-        if (stubs.length === 0) continue;
+        const outForKey = unitForStudentOutput(unit);
+        const embedded = buildAnswerKeyItemsFromUnit(unitIndex, outForKey);
+        if (embedded.length === 0) continue;
         const passageSnippet = sliceForAi(sessionUnitPassages?.[unitIndex] ?? "");
         const incForKey = getSectionInclusion(unit);
-        const { items, meta } = await requestTextbookAnswerKeyForUnit({
-          bookTitle: title,
-          unitTitle: unit.unitTitle,
-          unitIndex,
-          stubs,
-          sourceExcerpt: passageSnippet.trim() || undefined,
-          unitKeyContext: formatKeyContextForAnswerKey(unit, incForKey),
-        });
-        await writeAnswerKeyItems(uid, sessionId, items, meta.model);
-        totalWritten += items.length;
+        let itemsToWrite = embedded;
+        let modelUsed = "embedded";
+        if (embedded.some(embeddedNeedsAiFill)) {
+          const stubs = buildAnswerKeyStubs(unitIndex, outForKey);
+          try {
+            const { items: aiItems, meta } = await requestTextbookAnswerKeyForUnit({
+              bookTitle: title,
+              unitTitle: unit.unitTitle,
+              unitIndex,
+              stubs,
+              sourceExcerpt: passageSnippet.trim() || undefined,
+              unitKeyContext: formatKeyContextForAnswerKey(unit, incForKey),
+            });
+            itemsToWrite = mergeAnswerKeyAiWithEmbedded(embedded, aiItems);
+            modelUsed = meta.model;
+          } catch {
+            itemsToWrite = embedded;
+            modelUsed = "embedded";
+          }
+        }
+        await writeAnswerKeyItems(uid, sessionId, itemsToWrite, modelUsed);
+        totalWritten += itemsToWrite.length;
       }
       const rows = await loadAnswerKeyItems(uid, sessionId);
       setAnswerKeyItems(rows);
@@ -840,8 +895,9 @@ export function TextbookAutoBuilderPage() {
       try {
         await deleteAnswerKeysForUnit(uid, sessionId, unitIndex);
         const title = bookTitle.trim() || "교재";
-        const stubs = buildAnswerKeyStubs(unitIndex, unitForStudentOutput(row.unit));
-        if (stubs.length === 0) {
+        const outForKey = unitForStudentOutput(row.unit);
+        const embedded = buildAnswerKeyItemsFromUnit(unitIndex, outForKey);
+        if (embedded.length === 0) {
           setMsg(`제 ${unitIndex + 1}단원: 확인학습·단원평가 문항이 없어 건너뜁니다.`);
           const rows = await loadAnswerKeyItems(uid, sessionId);
           setAnswerKeyItems(rows);
@@ -849,18 +905,36 @@ export function TextbookAutoBuilderPage() {
         }
         const passageSnippet = sliceForAi(sessionUnitPassages?.[unitIndex] ?? "");
         const incForKey = getSectionInclusion(row.unit);
-        const { items, meta } = await requestTextbookAnswerKeyForUnit({
-          bookTitle: title,
-          unitTitle: row.unit.unitTitle,
-          unitIndex,
-          stubs,
-          sourceExcerpt: passageSnippet.trim() || undefined,
-          unitKeyContext: formatKeyContextForAnswerKey(row.unit, incForKey),
-        });
-        await writeAnswerKeyItems(uid, sessionId, items, meta.model);
+        let itemsToWrite = embedded;
+        let modelUsed = "embedded";
+        let aiFillFailed = false;
+        if (embedded.some(embeddedNeedsAiFill)) {
+          const stubs = buildAnswerKeyStubs(unitIndex, outForKey);
+          try {
+            const { items: aiItems, meta } = await requestTextbookAnswerKeyForUnit({
+              bookTitle: title,
+              unitTitle: row.unit.unitTitle,
+              unitIndex,
+              stubs,
+              sourceExcerpt: passageSnippet.trim() || undefined,
+              unitKeyContext: formatKeyContextForAnswerKey(row.unit, incForKey),
+            });
+            itemsToWrite = mergeAnswerKeyAiWithEmbedded(embedded, aiItems);
+            modelUsed = meta.model;
+          } catch {
+            itemsToWrite = embedded;
+            modelUsed = "embedded";
+            aiFillFailed = true;
+          }
+        }
+        await writeAnswerKeyItems(uid, sessionId, itemsToWrite, modelUsed);
         const rows = await loadAnswerKeyItems(uid, sessionId);
         setAnswerKeyItems(rows);
-        setMsg(`제 ${unitIndex + 1}단원: 정답·해설 ${items.length}개를 저장했습니다.`);
+        setMsg(
+          aiFillFailed
+            ? `제 ${unitIndex + 1}단원: 정답·해설 ${itemsToWrite.length}개를 저장했습니다. (AI 보완 실패 — 편집기·3단계에서 채울 수 있습니다.)`
+            : `제 ${unitIndex + 1}단원: 정답·해설 ${itemsToWrite.length}개를 저장했습니다.`,
+        );
       } catch (e) {
         setErr(e instanceof Error ? e.message : "단원 정답·해설 생성에 실패했습니다.");
       } finally {
@@ -878,6 +952,8 @@ export function TextbookAutoBuilderPage() {
       await downloadTextbookAutoStudentDocx({
         bookTitle: bookTitle.trim() || "교재",
         units: displayOrderedUnits,
+        answerKeyLayout,
+        answerKeyItems,
       });
       setMsg("학생용 Word(.docx)를 받았습니다.");
     } catch (e) {
@@ -885,7 +961,7 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setDocxBusy(null);
     }
-  }, [displayOrderedUnits, bookTitle]);
+  }, [displayOrderedUnits, bookTitle, answerKeyLayout, answerKeyItems]);
 
   const runDownloadTeacherDocx = useCallback(async () => {
     if (answerKeyItems.length === 0) return;
@@ -917,6 +993,7 @@ export function TextbookAutoBuilderPage() {
         bookTitle: bookTitle.trim() || "교재",
         units: displayOrderedUnits,
         answerKeyItems,
+        answerKeyLayout,
       });
       const pkg = await loadTextbookExportPackage(uid, sessionId);
       setExportPackage(pkg);
@@ -926,7 +1003,7 @@ export function TextbookAutoBuilderPage() {
     } finally {
       setPackageBusy(false);
     }
-  }, [uid, sessionId, displayOrderedUnits, bookTitle, answerKeyItems]);
+  }, [uid, sessionId, displayOrderedUnits, bookTitle, answerKeyItems, answerKeyLayout]);
 
   const moveBookUnit = useCallback(
     async (displayPos: number, dir: -1 | 1) => {
@@ -948,6 +1025,25 @@ export function TextbookAutoBuilderPage() {
       }
     },
     [uid, sessionId, isComplete, confirmedUnits.length, unitDisplayOrder],
+  );
+
+  const persistAnswerKeyLayout = useCallback(
+    async (layout: TextbookAnswerKeyLayout) => {
+      setAnswerKeyLayout(layout);
+      if (!uid || !sessionId) return;
+      setErr(null);
+      try {
+        await updateSessionAnswerKeyLayout(uid, sessionId, layout);
+        setMsg(
+          layout === "inline"
+            ? "학생용 본문에 정답·해설을 문항 바로 아래 표시합니다. (인쇄·Word·완성본에 반영)"
+            : "정답·해설을 말미 부록으로 둡니다. (인쇄·Word·완성본에 반영)",
+        );
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "설정 저장에 실패했습니다.");
+      }
+    },
+    [uid, sessionId],
   );
 
   const openCloudDownload = useCallback(async (path: string) => {
@@ -1528,6 +1624,32 @@ export function TextbookAutoBuilderPage() {
                   <p className={styles.p}>
                     확정 단원이 학생용 PDF·Word·5단계 완성본에 나오는 순서입니다. 교사용 정답·해설은 원래 단원 번호(제 n단원)를 그대로 씁니다.
                   </p>
+                  <div className={styles.field}>
+                    <span className={styles.label}>학생용 — 정답·해설 위치</span>
+                    <div className={styles.row} role="radiogroup" aria-label="정답 해설 배치">
+                      <label className={styles.sectionCheck}>
+                        <input
+                          type="radio"
+                          name="answerKeyLayout"
+                          checked={answerKeyLayout === "appendix"}
+                          onChange={() => void persistAnswerKeyLayout("appendix")}
+                        />
+                        말미 부록 (일반 교재)
+                      </label>
+                      <label className={styles.sectionCheck}>
+                        <input
+                          type="radio"
+                          name="answerKeyLayout"
+                          checked={answerKeyLayout === "inline"}
+                          onChange={() => void persistAnswerKeyLayout("inline")}
+                        />
+                        문항 직후 (인라인)
+                      </label>
+                    </div>
+                    <p className={styles.hint}>
+                      부록은 본문에서 문제만 두고, 마지막에 정답·해설을 모읍니다. 인라인은 각 문항 아래에 바로 표시합니다. 단원 편집기에서 넣은 정답·해설과 3단계 answer_keys가 같은 내용을 씁니다.
+                    </p>
+                  </div>
                   <ul className={styles.segmentList}>
                     {(unitDisplayOrder ?? defaultUnitDisplayOrder(confirmedUnits.length)).map((ui, pos) => {
                       const row = confirmedUnits.find((u) => u.unitIndex === ui);
@@ -1569,8 +1691,8 @@ export function TextbookAutoBuilderPage() {
                   </h2>
                   <h3 className={styles.phase3Sub}>AI 재생성 (선택)</h3>
                   <p className={styles.p}>
-                    각 단원을 <strong>확정할 때</strong> 확인학습·단원평가 문항의 정답·해설을 이미 저장합니다. 내용을 크게 바꾼 뒤에는 아래에서 전체 또는 단원별로 다시 생성할 수 있습니다.
-                    「전체 생성」은 저장된 정답·해설을 <strong>모두 삭제한 뒤</strong> 모든 단원을 다시 씁니다.
+                    각 단원을 <strong>확정할 때</strong> 편집기에 넣은 정답·해설을 저장하고, 비어 있는 칸만 AI로 보완합니다. 내용을 크게 바꾼 뒤에는 아래에서 전체 또는 단원별로 다시 생성할 수 있습니다.
+                    「전체 생성」은 저장된 정답·해설을 <strong>모두 삭제한 뒤</strong> 위 규칙으로 다시 채웁니다.
                   </p>
                   <div className={styles.row}>
                     <button
@@ -1724,6 +1846,8 @@ export function TextbookAutoBuilderPage() {
                   sessionUnitPassages={sessionUnitPassages}
                   uid={uid}
                   sessionId={sessionId}
+                  answerKeyLayout={answerKeyLayout}
+                  answerKeyItems={answerKeyItems}
                 />
                 </>
               ) : null}
@@ -1737,7 +1861,12 @@ export function TextbookAutoBuilderPage() {
         <div className={styles.printPortal} aria-hidden={displayOrderedUnits.length ? undefined : true}>
           <div ref={printRef}>
             {displayOrderedUnits.length > 0 ? (
-              <TextbookAutoPrintView bookTitle={bookTitle.trim() || "교재"} units={displayOrderedUnits} />
+              <TextbookAutoPrintView
+                bookTitle={bookTitle.trim() || "교재"}
+                units={displayOrderedUnits}
+                answerKeyLayout={answerKeyLayout}
+                answerKeyItems={answerKeyItems}
+              />
             ) : (
               <div className={styles.printEmpty} />
             )}

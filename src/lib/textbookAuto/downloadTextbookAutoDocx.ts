@@ -3,12 +3,14 @@ import { safeDocxFilenamePart, stripMarkdownBold, triggerDocxDownload } from "@/
 import { fetchUrlToRasterImageDocx, rasterImageFileToDocxRaster, scaleCoverToMaxWidth } from "@/lib/textbookAuto/imageFileForDocx";
 import type {
   TextbookAnswerKeyItem,
+  TextbookAnswerKeyLayout,
   TextbookContentStudyBlock,
   TextbookKeyConceptItem,
+  TextbookPracticeItem,
   TextbookUnitContent,
   TextbookUnitTestItem,
 } from "@/types/textbookAuto";
-import { unitForStudentOutput } from "@/lib/textbookAuto/sectionInclusion";
+import { unitForStudentPrintBody } from "@/lib/textbookAuto/studentPrintBody";
 import { manuscriptModulesToStudentDocxParagraphs } from "@/lib/textbookAuto/manuscriptModulesDocx";
 
 function textPara(
@@ -97,7 +99,7 @@ function contentStudyParagraphs(sections: TextbookContentStudyBlock[]): Paragrap
   return blocks;
 }
 
-function unitTestStudentParagraphs(items: TextbookUnitTestItem[]): Paragraph[] {
+function unitTestStudentParagraphs(items: TextbookUnitTestItem[], layout: TextbookAnswerKeyLayout): Paragraph[] {
   const blocks: Paragraph[] = [];
   if (!items.length) return blocks;
   blocks.push(sectionHeading("단원평가"));
@@ -107,6 +109,13 @@ function unitTestStudentParagraphs(items: TextbookUnitTestItem[]): Paragraph[] {
       const q = stripMarkdownBold(it.question).trim();
       if (!q) continue;
       blocks.push(textPara(`${n}. ${q}`, { size: 22, after: 70, keepNext: false }));
+      if (layout === "inline" && (it.answer?.trim() || it.explanationBullets?.some((s) => s.trim()))) {
+        if (it.answer?.trim()) blocks.push(textPara(`정답: ${stripMarkdownBold(it.answer).trim()}`, { bold: true, after: 40 }));
+        for (const b of it.explanationBullets ?? []) {
+          const t = stripMarkdownBold(b).trim();
+          if (t) blocks.push(textPara(`• ${t}`, { size: 22, after: 40 }));
+        }
+      }
       n++;
       continue;
     }
@@ -122,7 +131,122 @@ function unitTestStudentParagraphs(items: TextbookUnitTestItem[]): Paragraph[] {
         ci++;
       }
     }
+    if (layout === "inline" && (it.answer?.trim() || it.explanationBullets?.some((s) => s.trim()))) {
+      if (it.answer?.trim()) blocks.push(textPara(`정답: ${stripMarkdownBold(it.answer).trim()}`, { bold: true, after: 40 }));
+      for (const b of it.explanationBullets ?? []) {
+        const t = stripMarkdownBold(b).trim();
+        if (t) blocks.push(textPara(`• ${t}`, { size: 22, after: 40 }));
+      }
+    }
     n++;
+  }
+  return blocks;
+}
+
+function practiceStudentParagraphs(practice: TextbookPracticeItem[], layout: TextbookAnswerKeyLayout): Paragraph[] {
+  const blocks: Paragraph[] = [];
+  if (!practice.length) return blocks;
+  blocks.push(
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      children: [new TextRun({ text: "확인학습", bold: true })],
+      spacing: { before: 140, after: 90 },
+      keepNext: true,
+      keepLines: true,
+    }),
+  );
+  if (layout === "appendix") {
+    for (let i = 0; i < practice.length; i++) {
+      const q = stripMarkdownBold(practice[i]!.question).trim();
+      if (!q) continue;
+      blocks.push(textPara(`${i + 1}. ${q}`, { size: 22, after: 55 }));
+    }
+    return blocks;
+  }
+  for (let i = 0; i < practice.length; i++) {
+    const p = practice[i]!;
+    const q = stripMarkdownBold(p.question).trim();
+    if (!q) continue;
+    blocks.push(textPara(`${i + 1}. ${q}`, { size: 22, after: 45, keepNext: true }));
+    if (p.answer?.trim()) {
+      blocks.push(textPara(`정답: ${stripMarkdownBold(p.answer).trim()}`, { bold: true, after: 40 }));
+    }
+    for (const b of p.explanationBullets ?? []) {
+      const t = stripMarkdownBold(b).trim();
+      if (t) blocks.push(textPara(`• ${t}`, { size: 22, after: 40 }));
+    }
+  }
+  return blocks;
+}
+
+function studentAnswerAppendixParagraphs(confirmationOrderUnits: { unitIndex: number; unit: TextbookUnitContent }[], items: TextbookAnswerKeyItem[]): Paragraph[] {
+  if (!items.length) return [];
+  const byUnit = new Map<number, TextbookAnswerKeyItem[]>();
+  for (const it of items) {
+    const arr = byUnit.get(it.unitIndex) ?? [];
+    arr.push(it);
+    byUnit.set(it.unitIndex, arr);
+  }
+  const blocks: Paragraph[] = [];
+  blocks.push(
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      children: [new TextRun({ text: "부록 · 정답·해설", bold: true, size: 30 })],
+      spacing: { before: 200, after: 100 },
+      keepNext: true,
+      keepLines: true,
+    }),
+  );
+  for (const { unitIndex, unit } of confirmationOrderUnits) {
+    const unitItems = (byUnit.get(unitIndex) ?? []).slice().sort((a, b) => {
+      if (a.bucket !== b.bucket) return a.bucket === "practice" ? -1 : 1;
+      return a.orderIndex - b.orderIndex;
+    });
+    if (!unitItems.length) continue;
+    blocks.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        children: [
+          new TextRun({
+            text: `제 ${unitIndex + 1}단원 · ${stripMarkdownBold(unit.unitTitle).trim() || "(제목 없음)"}`,
+            bold: true,
+          }),
+        ],
+        spacing: { before: 140, after: 70 },
+        keepNext: true,
+        keepLines: true,
+      }),
+    );
+    const practice = unitItems.filter((x) => x.bucket === "practice");
+    const test = unitItems.filter((x) => x.bucket === "unitTest");
+    if (practice.length) {
+      blocks.push(textPara("확인학습", { bold: true, after: 50 }));
+      let k = 1;
+      for (const it of practice) {
+        blocks.push(textPara(`문항 ${k}`, { bold: true, after: 35, keepNext: true }));
+        k++;
+        blocks.push(textPara(stripMarkdownBold(it.question), { after: 45, keepNext: true }));
+        blocks.push(textPara(`정답: ${stripMarkdownBold(it.answer)}`, { bold: true, after: 40 }));
+        for (const b of it.explanationBullets) {
+          const t = stripMarkdownBold(b).trim();
+          if (t) blocks.push(textPara(`• ${t}`, { after: 35 }));
+        }
+      }
+    }
+    if (test.length) {
+      blocks.push(textPara("단원평가", { bold: true, after: 50 }));
+      let k = 1;
+      for (const it of test) {
+        blocks.push(textPara(`문항 ${k}`, { bold: true, after: 35, keepNext: true }));
+        k++;
+        blocks.push(textPara(stripMarkdownBold(it.question), { after: 45, keepNext: true }));
+        blocks.push(textPara(`정답: ${stripMarkdownBold(it.answer)}`, { bold: true, after: 40 }));
+        for (const b of it.explanationBullets) {
+          const t = stripMarkdownBold(b).trim();
+          if (t) blocks.push(textPara(`• ${t}`, { after: 35 }));
+        }
+      }
+    }
   }
   return blocks;
 }
@@ -130,6 +254,8 @@ function unitTestStudentParagraphs(items: TextbookUnitTestItem[]): Paragraph[] {
 function buildStudentParagraphs(params: {
   bookTitle: string;
   units: { unitIndex: number; unit: TextbookUnitContent }[];
+  answerKeyLayout?: TextbookAnswerKeyLayout;
+  answerKeyItems?: TextbookAnswerKeyItem[];
 }): Paragraph[] {
   const blocks: Paragraph[] = [];
   blocks.push(textPara("Xtudy-Universe · 교재 자동 생성 · 학생용", { size: 18, after: 50 }));
@@ -142,7 +268,12 @@ function buildStudentParagraphs(params: {
       keepLines: true,
     }),
   );
-  blocks.push(...buildTextbookBodyParagraphsFromUnits(params.units));
+  blocks.push(
+    ...buildTextbookBodyParagraphsFromUnits(params.units, {
+      answerKeyLayout: params.answerKeyLayout,
+      answerKeyItems: params.answerKeyItems,
+    }),
+  );
   return blocks;
 }
 
@@ -150,8 +281,10 @@ function pushUnitBodyParagraphs(
   blocks: Paragraph[],
   unitIndex: number,
   rawUnit: TextbookUnitContent,
+  layout: TextbookAnswerKeyLayout,
+  answerKeyItems?: TextbookAnswerKeyItem[],
 ): void {
-  const unit = unitForStudentOutput(rawUnit);
+  const unit = unitForStudentPrintBody(rawUnit, layout, { unitIndex, answerKeyItems });
   blocks.push(
     new Paragraph({
       heading: HeadingLevel.HEADING_1,
@@ -169,15 +302,22 @@ function pushUnitBodyParagraphs(
   blocks.push(...keyConceptParagraphs(unit.keyConcepts));
   blocks.push(...contentStudyParagraphs(unit.contentStudy));
   blocks.push(...listBlock("핵심요약", unit.coreSummary));
-  blocks.push(...listBlock("확인학습", unit.practice));
-  blocks.push(...unitTestStudentParagraphs(unit.unitTest));
+  blocks.push(...practiceStudentParagraphs(unit.practice, layout));
+  blocks.push(...unitTestStudentParagraphs(unit.unitTest, layout));
 }
 
 /** 5단계 완성본 등 — 앞/뒤표지·목차 없이 단원 본문만 */
-export function buildTextbookBodyParagraphsFromUnits(units: { unitIndex: number; unit: TextbookUnitContent }[]): Paragraph[] {
+export function buildTextbookBodyParagraphsFromUnits(
+  units: { unitIndex: number; unit: TextbookUnitContent }[],
+  opts?: { answerKeyLayout?: TextbookAnswerKeyLayout; answerKeyItems?: TextbookAnswerKeyItem[] },
+): Paragraph[] {
+  const layout = opts?.answerKeyLayout ?? "appendix";
   const blocks: Paragraph[] = [];
   for (const { unitIndex, unit: rawUnit } of units) {
-    pushUnitBodyParagraphs(blocks, unitIndex, rawUnit);
+    pushUnitBodyParagraphs(blocks, unitIndex, rawUnit, layout, opts?.answerKeyItems);
+  }
+  if (layout === "appendix" && opts?.answerKeyItems && opts.answerKeyItems.length > 0) {
+    blocks.push(...studentAnswerAppendixParagraphs(units, opts.answerKeyItems));
   }
   return blocks;
 }
@@ -187,7 +327,9 @@ export async function buildTextbookBodyParagraphsFromUnitsWithCovers(
   units: { unitIndex: number; unit: TextbookUnitContent }[],
   unitCovers?: Record<number, File | null>,
   unitCoverUrls?: Record<number, string>,
+  opts?: { answerKeyLayout?: TextbookAnswerKeyLayout; answerKeyItems?: TextbookAnswerKeyItem[] },
 ): Promise<Paragraph[]> {
+  const layout = opts?.answerKeyLayout ?? "appendix";
   const blocks: Paragraph[] = [];
   for (const { unitIndex, unit: rawUnit } of units) {
     const cover = unitCovers?.[unitIndex];
@@ -234,7 +376,10 @@ export async function buildTextbookBodyParagraphsFromUnitsWithCovers(
         );
       }
     }
-    pushUnitBodyParagraphs(blocks, unitIndex, rawUnit);
+    pushUnitBodyParagraphs(blocks, unitIndex, rawUnit, layout, opts?.answerKeyItems);
+  }
+  if (layout === "appendix" && opts?.answerKeyItems && opts.answerKeyItems.length > 0) {
+    blocks.push(...studentAnswerAppendixParagraphs(units, opts.answerKeyItems));
   }
   return blocks;
 }
@@ -263,6 +408,8 @@ export function buildTextbookBodyParagraphsFromPassages(unitPassages: string[]):
 export async function buildTextbookAutoStudentDocxBlob(params: {
   bookTitle: string;
   units: { unitIndex: number; unit: TextbookUnitContent }[];
+  answerKeyLayout?: TextbookAnswerKeyLayout;
+  answerKeyItems?: TextbookAnswerKeyItem[];
 }): Promise<Blob> {
   const doc = new Document({ sections: [{ children: buildStudentParagraphs(params) }] });
   return Packer.toBlob(doc);
@@ -271,6 +418,8 @@ export async function buildTextbookAutoStudentDocxBlob(params: {
 export async function downloadTextbookAutoStudentDocx(params: {
   bookTitle: string;
   units: { unitIndex: number; unit: TextbookUnitContent }[];
+  answerKeyLayout?: TextbookAnswerKeyLayout;
+  answerKeyItems?: TextbookAnswerKeyItem[];
 }): Promise<void> {
   const blob = await buildTextbookAutoStudentDocxBlob(params);
   const base = safeDocxFilenamePart(params.bookTitle.trim(), "textbook");

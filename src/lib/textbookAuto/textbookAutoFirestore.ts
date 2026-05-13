@@ -15,6 +15,7 @@ import {
   TEXTBOOK_AUTO_ANSWER_KEY_SCHEMA_VERSION,
   TEXTBOOK_AUTO_SCHEMA_VERSION,
   type TextbookAnswerKeyItem,
+  type TextbookAnswerKeyLayout,
   type TextbookUnitContent,
   DEFAULT_SECTION_INCLUSION,
 } from "@/types/textbookAuto";
@@ -28,8 +29,10 @@ export type TextbookAutoSessionDoc = {
   unitPassages: string[];
   totalUnits: number;
   currentUnitIndex: number;
-  /** 본문·Word·PDF 표시 순서 (unitIndex들의 순열, 기본 [0,1,…]) */
+  /** 본문·Word·PDF 표시 순서 (unitIndex들의 순열, 기본 [01,…]) */
   unitDisplayOrder?: number[];
+  /** 학생용 본문에서 확인학습·해설 위치 */
+  answerKeyLayout?: TextbookAnswerKeyLayout;
 };
 
 function sessionRef(uid: string, sessionId: string) {
@@ -56,6 +59,7 @@ export async function createTextbookAutoSession(
     totalUnits: input.totalUnits,
     currentUnitIndex: 0,
     unitDisplayOrder: Array.from({ length: input.totalUnits }, (_, i) => i),
+    answerKeyLayout: "appendix",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -75,6 +79,8 @@ export async function loadTextbookAutoSession(
     unitDisplayOrder = x.unitDisplayOrder.filter((n): n is number => typeof n === "number" && Number.isFinite(n));
     if (unitDisplayOrder.length !== totalUnits) unitDisplayOrder = undefined;
   }
+  const answerKeyLayout: TextbookAnswerKeyLayout | undefined =
+    x.answerKeyLayout === "inline" || x.answerKeyLayout === "appendix" ? x.answerKeyLayout : undefined;
   return {
     schemaVersion: typeof x.schemaVersion === "number" ? x.schemaVersion : TEXTBOOK_AUTO_SCHEMA_VERSION,
     title: typeof x.title === "string" ? x.title : "",
@@ -82,7 +88,19 @@ export async function loadTextbookAutoSession(
     totalUnits,
     currentUnitIndex: typeof x.currentUnitIndex === "number" ? x.currentUnitIndex : 0,
     unitDisplayOrder,
+    answerKeyLayout,
   };
+}
+
+export async function updateSessionAnswerKeyLayout(
+  uid: string,
+  sessionId: string,
+  answerKeyLayout: TextbookAnswerKeyLayout,
+): Promise<void> {
+  await updateDoc(sessionRef(uid, sessionId), {
+    answerKeyLayout,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function updateSessionUnitDisplayOrder(

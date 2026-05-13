@@ -1,6 +1,7 @@
 import type {
   TextbookContentStudyBlock,
   TextbookKeyConceptItem,
+  TextbookPracticeItem,
   TextbookUnitContent,
   TextbookUnitTestItem,
 } from "@/types/textbookAuto";
@@ -43,6 +44,31 @@ function cleanLines(arr: unknown, max: number): string[] {
       if (t) out.push(t);
     }
     if (out.length >= max) break;
+  }
+  return out;
+}
+
+function parsePracticeFromUnknown(raw: unknown): TextbookPracticeItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: TextbookPracticeItem[] = [];
+  for (const x of raw) {
+    if (typeof x === "string") {
+      const q = x.trim();
+      if (q) out.push({ question: q });
+      if (out.length >= 50) break;
+      continue;
+    }
+    if (x && typeof x === "object" && !Array.isArray(x)) {
+      const o = x as Record<string, unknown>;
+      const question = typeof o.question === "string" ? o.question.trim() : "";
+      if (!question) continue;
+      const item: TextbookPracticeItem = { question };
+      if (typeof o.answer === "string" && o.answer.trim()) item.answer = o.answer.trim();
+      const bullets = cleanLines(o.explanationBullets ?? o.explanation_bullets, 25);
+      if (bullets.length) item.explanationBullets = bullets;
+      out.push(item);
+      if (out.length >= 50) break;
+    }
   }
   return out;
 }
@@ -99,11 +125,27 @@ function parseUnitTestItem(raw: unknown): TextbookUnitTestItem | null {
         : "short";
     const question = typeof o.question === "string" ? o.question.trim() : "";
     if (!question) return null;
+    const answer = typeof o.answer === "string" ? o.answer.trim() : "";
+    const explanationBullets = cleanLines(o.explanationBullets ?? o.explanation_bullets, 25);
     if (kind === "mcq") {
       const choices = cleanLines(o.choices ?? o.options, 12);
-      return { kind: "mcq", question, choices: choices.length >= 2 ? choices : [choices[0] ?? "보기1", "보기2"] };
+      const base = {
+        kind: "mcq" as const,
+        question,
+        choices: choices.length >= 2 ? choices : [choices[0] ?? "보기1", "보기2"],
+      };
+      return {
+        ...base,
+        ...(answer ? { answer } : {}),
+        ...(explanationBullets.length ? { explanationBullets } : {}),
+      };
     }
-    return { kind: "short", question };
+    return {
+      kind: "short" as const,
+      question,
+      ...(answer ? { answer } : {}),
+      ...(explanationBullets.length ? { explanationBullets } : {}),
+    };
   }
   if (typeof raw === "string") {
     const t = raw.trim();
@@ -154,7 +196,7 @@ export function normalizeUnitContentFromUnknown(raw: Record<string, unknown>): T
     keyConcepts: keyOut,
     contentStudy: csOut,
     coreSummary: cleanLines(raw.coreSummary, 40),
-    practice: cleanLines(raw.practice, 50),
+    practice: parsePracticeFromUnknown(raw.practice),
     unitTest: utOut,
     sectionInclusion,
     ...(mm.length ? { manuscriptModules: mm } : {}),

@@ -349,8 +349,24 @@ service cloud.firestore {
           && request.resource.data.currentUnitIndex >= 0
           && request.resource.data.currentUnitIndex <= request.resource.data.totalUnits
           && request.resource.data.updatedAt != null
+          && (!('unitDisplayOrder' in request.resource.data)
+            || (
+              request.resource.data.unitDisplayOrder is list
+              && request.resource.data.unitDisplayOrder.size() == request.resource.data.totalUnits
+            ))
+          && (!('answerKeyLayout' in request.resource.data)
+            || (
+              request.resource.data.answerKeyLayout is string
+              && request.resource.data.answerKeyLayout in ['inline', 'appendix']
+            ))
           && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['currentUnitIndex', 'updatedAt', 'title']);
+            .hasOnly([
+              'currentUnitIndex',
+              'updatedAt',
+              'title',
+              'unitDisplayOrder',
+              'answerKeyLayout',
+            ]);
 
         allow delete: if signedIn() && request.auth.uid == userId;
 

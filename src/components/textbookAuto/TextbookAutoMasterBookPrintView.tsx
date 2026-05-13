@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { BRAND_APP_NAME } from "@/lib/brand";
 import type { MasterBookContentMode } from "@/lib/textbookAuto/masterBookBodyBuild";
 import type { MasterBookFolioBlock } from "@/lib/textbookAuto/masterBookFolio";
-import type { TextbookSetupFileSegment, TextbookUnitContent } from "@/types/textbookAuto";
+import type {
+  TextbookAnswerKeyItem,
+  TextbookAnswerKeyLayout,
+  TextbookSetupFileSegment,
+  TextbookUnitContent,
+} from "@/types/textbookAuto";
 import { TextbookAutoStudentUnitsBody } from "@/components/textbookAuto/TextbookAutoPrintView";
 import printStyles from "@/components/textbookAuto/textbookAutoPrint.module.css";
 import styles from "@/components/textbookAuto/textbookAutoMasterBookPrint.module.css";
@@ -95,6 +100,8 @@ export function TextbookAutoMasterBookPrintView({
   afterwordBlocks,
   unitCoverFiles,
   unitCoverUrls,
+  answerKeyLayout = "appendix",
+  answerKeyItems = [],
 }: {
   bookTitle: string;
   frontCoverUrl: string | null;
@@ -109,6 +116,8 @@ export function TextbookAutoMasterBookPrintView({
   afterwordBlocks: MasterBookFolioBlock[];
   unitCoverFiles: Record<number, File | null>;
   unitCoverUrls?: Record<number, string>;
+  answerKeyLayout?: TextbookAnswerKeyLayout;
+  answerKeyItems?: TextbookAnswerKeyItem[];
 }) {
   const title = bookTitle.trim() || "제목 없음";
 
@@ -151,6 +160,9 @@ export function TextbookAutoMasterBookPrintView({
           units={confirmedUnits}
           unitCovers={unitCoverFiles}
           unitCoverUrls={unitCoverUrls}
+          answerKeyLayout={answerKeyLayout}
+          answerKeyItems={answerKeyItems}
+          bookTitle={title}
         />
       ) : null}
       {contentMode === "session_passages" && sessionUnitPassages?.length ? (

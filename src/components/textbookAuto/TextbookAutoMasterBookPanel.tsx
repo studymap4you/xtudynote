@@ -27,6 +27,8 @@ import {
   type MasterBookFolioBlock,
 } from "@/lib/textbookAuto/masterBookFolio";
 import type {
+  TextbookAnswerKeyItem,
+  TextbookAnswerKeyLayout,
   TextbookSetupPendingFile,
   TextbookSetupPendingMode,
   TextbookUnitContent,
@@ -60,6 +62,8 @@ type Props = {
   sessionUnitPassages: string[] | null;
   uid: string;
   sessionId: string | null;
+  answerKeyLayout: TextbookAnswerKeyLayout;
+  answerKeyItems: TextbookAnswerKeyItem[];
 };
 
 const DEFAULT_FOREWORD_TEMPLATE =
@@ -73,6 +77,8 @@ export function TextbookAutoMasterBookPanel({
   sessionUnitPassages,
   uid,
   sessionId,
+  answerKeyLayout,
+  answerKeyItems,
 }: Props) {
   const [frontCover, setFrontCover] = useState<File | null>(null);
   const [backCover, setBackCover] = useState<File | null>(null);
@@ -373,6 +379,8 @@ export function TextbookAutoMasterBookPanel({
         contentState,
         unitCovers: unitCoverFiles,
         unitCoverUrls: unitCoverRemoteUrls,
+        answerKeyLayout,
+        answerKeyItems,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -420,6 +428,8 @@ export function TextbookAutoMasterBookPanel({
     afterwordBlocks,
     unitCoverFiles,
     unitCoverRemoteUrls,
+    answerKeyLayout,
+    answerKeyItems,
   ]);
 
   const runDownloadMasterPdf = useCallback(async () => {
@@ -434,6 +444,8 @@ export function TextbookAutoMasterBookPanel({
         contentState,
         unitCovers: unitCoverFiles,
         unitCoverUrls: unitCoverRemoteUrls,
+        answerKeyLayout,
+        answerKeyItems,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -453,7 +465,7 @@ export function TextbookAutoMasterBookPanel({
     } finally {
       setMasterBusy(false);
     }
-  }, [bookTitle, contentMode, confirmedUnits, sessionUnitPassages, contentState, appendixState, unitCoverFiles, unitCoverRemoteUrls]);
+  }, [bookTitle, contentMode, confirmedUnits, sessionUnitPassages, contentState, appendixState, unitCoverFiles, unitCoverRemoteUrls, answerKeyLayout, answerKeyItems]);
 
   const onPrintMasterBook = useCallback(async () => {
     setLocalErr(null);
@@ -467,6 +479,8 @@ export function TextbookAutoMasterBookPanel({
         contentState,
         unitCovers: unitCoverFiles,
         unitCoverUrls: unitCoverRemoteUrls,
+        answerKeyLayout,
+        answerKeyItems,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -481,6 +495,8 @@ export function TextbookAutoMasterBookPanel({
     contentState,
     unitCoverFiles,
     unitCoverRemoteUrls,
+    answerKeyLayout,
+    answerKeyItems,
     printMasterBook,
   ]);
 
@@ -1156,6 +1172,8 @@ export function TextbookAutoMasterBookPanel({
           afterwordBlocks={afterwordBlocks}
           unitCoverFiles={unitCoverFiles}
           unitCoverUrls={unitCoverRemoteUrls}
+          answerKeyLayout={answerKeyLayout}
+          answerKeyItems={answerKeyItems}
         />
       </div>
     </section>

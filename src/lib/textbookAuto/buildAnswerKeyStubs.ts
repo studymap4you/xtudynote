@@ -1,4 +1,5 @@
 import type { TextbookAnswerKeyStub, TextbookUnitContent, TextbookUnitTestItem } from "@/types/textbookAuto";
+import { practiceItemQuestion } from "@/lib/textbookAuto/practiceItems";
 
 /** 2단계 AI에 질문+보기 맥락을 넘기기 위한 한 덩어리 문자열 */
 export function stubQuestionLineForUnitTest(item: TextbookUnitTestItem): string {
@@ -17,8 +18,8 @@ export function stubQuestionLineForUnitTest(item: TextbookUnitTestItem): string 
 export function buildAnswerKeyStubs(unitIndex: number, unit: TextbookUnitContent): TextbookAnswerKeyStub[] {
   const out: TextbookAnswerKeyStub[] = [];
   let pi = 0;
-  for (const q of unit.practice) {
-    const t = (q ?? "").trim();
+  for (const p of unit.practice) {
+    const t = practiceItemQuestion(p);
     if (!t) continue;
     out.push({ id: `u${unitIndex}-p-${pi}`, question: t });
     pi++;

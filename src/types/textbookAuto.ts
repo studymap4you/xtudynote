@@ -16,6 +16,11 @@ export type TextbookAnswerKeyStub = {
   question: string;
 };
 
+/** 학생용 본문에서 확인학습·해설을 문항 직후 vs 말미 부록으로 둘 때 사용 */
+export type TextbookAnswerKeyLayout = "inline" | "appendix";
+
+export const DEFAULT_TEXTBOOK_ANSWER_KEY_LAYOUT: TextbookAnswerKeyLayout = "appendix";
+
 export type TextbookAnswerKeyItem = {
   id: string;
   unitIndex: number;
@@ -43,14 +48,26 @@ export type TextbookUnitTestMcq = {
   kind: "mcq";
   question: string;
   choices: string[];
+  /** 편집기·인쇄(인라인)용. 정답·해설은 answer_keys와 동기화됩니다. */
+  answer?: string;
+  explanationBullets?: string[];
 };
 
 export type TextbookUnitTestShort = {
   kind: "short";
   question: string;
+  answer?: string;
+  explanationBullets?: string[];
 };
 
 export type TextbookUnitTestItem = TextbookUnitTestMcq | TextbookUnitTestShort;
+
+/** 확인학습 (주관식 단답) — 질문 필수, 정답·해설은 선택 */
+export type TextbookPracticeItem = {
+  question: string;
+  answer?: string;
+  explanationBullets?: string[];
+};
 
 /** 최종 교재·AI 생성에 포함할 섹션 (미저장·구버전 문서는 전부 true로 간주) */
 export type TextbookSectionInclusion = {
@@ -83,8 +100,8 @@ export type TextbookUnitContent = {
   contentStudy: TextbookContentStudyBlock[];
   /** 핵심요약 */
   coreSummary: string[];
-  /** 확인학습 — 주관식 단답형 질문 문장만 */
-  practice: string[];
+  /** 확인학습 — 주관식 단답형 (질문 + 선택 정답·해설) */
+  practice: TextbookPracticeItem[];
   unitTest: TextbookUnitTestItem[];
   sectionInclusion?: TextbookSectionInclusion;
   manuscriptModules?: LocalDocModule[];

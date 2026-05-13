@@ -115,6 +115,26 @@
   color: #0f172a;
 }
 
+.inlineAnswer {
+  margin-top: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  border-left: 3px solid #93c5fd;
+  background: #f8fafc;
+  border-radius: 0 6px 6px 0;
+}
+
+.expBullet {
+  margin: 0.15rem 0 0;
+  font-size: 9.75pt;
+  color: #334155;
+}
+
+.appendixRoot {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 2px dashed #cbd5e1;
+}
+
 .muted {
   margin: 0;
   font-size: 9.5pt;

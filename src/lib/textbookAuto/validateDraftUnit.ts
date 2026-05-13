@@ -65,7 +65,7 @@ export function validateDraftUnit(
   }
 
   if (inc.practice) {
-    const practice = unit.practice.map((s) => s.trim()).filter(Boolean);
+    const practice = unit.practice.map((p) => p.question.trim()).filter(Boolean);
     const min = practiceMin > 0 ? practiceMin : 1;
     if (practice.length < min) {
       return `확인학습 주관식 문항은 최소 ${min}개입니다. (현재 ${practice.length}개)`;
