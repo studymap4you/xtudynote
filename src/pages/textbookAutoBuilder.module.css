@@ -470,6 +470,22 @@
   margin: 0 0 0.85rem;
 }
 
+.setupOnePageMeta {
+  margin-bottom: 0.35rem;
+}
+
+.setupUnitBlock + .setupUnitBlock {
+  margin-top: 1.75rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.setupCombineSection {
+  margin-top: 2rem;
+  padding-top: 1.75rem;
+  border-top: 1px dashed #cbd5e1;
+}
+
 .sourceModuleField {
   margin-bottom: 0.85rem;
   display: flex;
