@@ -61,6 +61,14 @@ export type TextbookSectionInclusion = {
   unitTest: boolean;
 };
 
+export const MODULES_ONLY_SECTION_INCLUSION: TextbookSectionInclusion = {
+  keyConcepts: false,
+  contentStudy: false,
+  coreSummary: false,
+  practice: false,
+  unitTest: false,
+};
+
 export const DEFAULT_SECTION_INCLUSION: TextbookSectionInclusion = {
   keyConcepts: true,
   contentStudy: true,

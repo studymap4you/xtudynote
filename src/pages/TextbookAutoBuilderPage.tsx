@@ -17,15 +17,9 @@ import { requestSourceModuleFieldAi } from "@/lib/textbookAuto/requestSourceModu
 import { parseManuscriptToModules } from "@/lib/localDocumentAuto/manuscriptModules";
 import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
-import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextbookUnitGeneration";
 import { buildAnswerKeyStubs } from "@/lib/textbookAuto/buildAnswerKeyStubs";
 import { validateDraftUnit } from "@/lib/textbookAuto/validateDraftUnit";
-import {
-  anySectionInclusionEnabled,
-  applySectionInclusionToUnit,
-  getSectionInclusion,
-  unitForStudentOutput,
-} from "@/lib/textbookAuto/sectionInclusion";
+import { applySectionInclusionToUnit, getSectionInclusion, unitForStudentOutput } from "@/lib/textbookAuto/sectionInclusion";
 import { requestTextbookAnswerKeyForUnit } from "@/lib/textbookAuto/requestTextbookAnswerKey";
 import { downloadTextbookAutoStudentDocx, downloadTextbookAutoTeacherDocx } from "@/lib/textbookAuto/downloadTextbookAutoDocx";
 import { publishTextbookAutoPackage } from "@/lib/textbookAuto/publishTextbookAutoPackage";
@@ -56,7 +50,7 @@ import type {
   TextbookUnitSourceModule,
   SourceModuleFieldKey,
 } from "@/types/textbookAuto";
-import { DEFAULT_SECTION_INCLUSION, SOURCE_MODULE_FIELD_KEYS, SOURCE_MODULE_FIELD_LABELS } from "@/types/textbookAuto";
+import { MODULES_ONLY_SECTION_INCLUSION, SOURCE_MODULE_FIELD_KEYS, SOURCE_MODULE_FIELD_LABELS } from "@/types/textbookAuto";
 import { formatKeyContextForAnswerKey } from "@/lib/textbookAuto/formatKeyContextForAnswerKey";
 import { defaultUnitDisplayOrder, orderUnitsForBook } from "@/lib/textbookAuto/orderConfirmedUnits";
 import styles from "@/pages/textbookAutoBuilder.module.css";
@@ -65,9 +59,6 @@ type BuilderWorkspaceTab = "unitBook" | "worksheet" | "evaluation" | "passageCla
 
 const DEFAULT_TOTAL_UNITS = 3;
 const MAX_UNITS = 30;
-const DEFAULT_PRACTICE_SHORT = 10;
-const DEFAULT_UNIT_TEST_MCQ = 12;
-const DEFAULT_UNIT_TEST_SHORT = 8;
 /** Firestore·AI 안정용 단원당 상한 */
 const MAX_UNIT_PASSAGE_CHARS = 38_000;
 const AI_SOURCE_SLICE = 24_000;
@@ -130,12 +121,7 @@ export function TextbookAutoBuilderPage() {
   const [phase2UnitBusy, setPhase2UnitBusy] = useState<number | null>(null);
   const [exportPackage, setExportPackage] = useState<TextbookAutoExportPackageDoc | null>(null);
   const [packageBusy, setPackageBusy] = useState(false);
-  /** 단원평가 문항 수 (AI 생성·확정 검증에 사용) */
-  const [unitTestMcqCount, setUnitTestMcqCount] = useState(DEFAULT_UNIT_TEST_MCQ);
-  const [unitTestShortCount, setUnitTestShortCount] = useState(DEFAULT_UNIT_TEST_SHORT);
-  /** 확인학습 주관식 단답 문항 수 (AI·확정 검증) */
-  const [practiceShortCount, setPracticeShortCount] = useState(DEFAULT_PRACTICE_SHORT);
-  const [sectionInclusion, setSectionInclusion] = useState<TextbookSectionInclusion>(DEFAULT_SECTION_INCLUSION);
+  const [sectionInclusion, setSectionInclusion] = useState<TextbookSectionInclusion>(MODULES_ONLY_SECTION_INCLUSION);
   /** 세션 시작 전: 교재 정보 → 단원별 지문(한 화면씩) → 확인·단원 추가·교재 생성 */
   const [preSessionPhase, setPreSessionPhase] = useState<PreSessionPhase>("meta");
   const [setupPassageIndex, setSetupPassageIndex] = useState(0);
@@ -187,7 +173,7 @@ export function TextbookAutoBuilderPage() {
     setCurrentUnitIndex(0);
     setDraftUnit(null);
     setDraftModel("");
-    setSectionInclusion(DEFAULT_SECTION_INCLUSION);
+    setSectionInclusion(MODULES_ONLY_SECTION_INCLUSION);
     setConfirmedUnits([]);
     setAnswerKeyItems([]);
     setExportPackage(null);
@@ -207,14 +193,6 @@ export function TextbookAutoBuilderPage() {
     if (!ok) return;
     resetSession();
   }, [sessionId, resetSession]);
-
-  const patchSectionInclusion = useCallback((patch: Partial<TextbookSectionInclusion>) => {
-    setSectionInclusion((prev) => {
-      const next = { ...prev, ...patch };
-      setDraftUnit((d) => (d ? applySectionInclusionToUnit(d, next) : d));
-      return next;
-    });
-  }, []);
 
   useEffect(() => {
     if (!uid || !sessionId || !isComplete) return;
@@ -254,7 +232,7 @@ export function TextbookAutoBuilderPage() {
     };
   }, [uid, sessionId, isComplete, confirmedUnits.length]);
 
-  /** 재방문 시 Firestore 임시저장 초안 불러오기 */
+  /** 재방문 시 Firestore 임시저장 초안 불러오기. 없으면 원고 모듈 중심 빈 초안 + 1단계 지문을 모듈 후보로 채움 */
   useEffect(() => {
     if (!uid || !sessionId || isComplete) return;
     const token = ++draftLoadSeqRef.current;
@@ -262,7 +240,24 @@ export function TextbookAutoBuilderPage() {
     void loadUnitDraft(uid, sessionId, currentUnitIndex).then((row) => {
       if (cancelled || token !== draftLoadSeqRef.current) return;
       if (!row) {
-        setSectionInclusion(DEFAULT_SECTION_INCLUSION);
+        setSectionInclusion(MODULES_ONLY_SECTION_INCLUSION);
+        if (!sessionUnitPassages || currentUnitIndex >= sessionUnitPassages.length) {
+          setDraftUnit(null);
+          return;
+        }
+        const passage = sessionUnitPassages[currentUnitIndex] ?? "";
+        const passageMods = parseManuscriptToModules(sliceForAi(passage));
+        setDraftUnit({
+          unitTitle: `제 ${currentUnitIndex + 1}단원`,
+          keyConcepts: [],
+          contentStudy: [],
+          coreSummary: [],
+          practice: [],
+          unitTest: [],
+          manuscriptModules: passageMods.length > 0 ? passageMods : [],
+          sectionInclusion: MODULES_ONLY_SECTION_INCLUSION,
+        });
+        setDraftModel("manual");
         return;
       }
       setDraftUnit(row.unit);
@@ -272,7 +267,15 @@ export function TextbookAutoBuilderPage() {
     return () => {
       cancelled = true;
     };
-  }, [uid, sessionId, currentUnitIndex, isComplete]);
+  }, [uid, sessionId, currentUnitIndex, isComplete, sessionUnitPassages]);
+
+  const patchSectionInclusion = useCallback((patch: Partial<TextbookSectionInclusion>) => {
+    setSectionInclusion((prev) => {
+      const next = { ...prev, ...patch };
+      setDraftUnit((d) => (d ? applySectionInclusionToUnit(d, next) : d));
+      return next;
+    });
+  }, []);
 
   const validateSetupUnit = useCallback(
     (unitIndex: number): string | null => {
@@ -433,10 +436,10 @@ export function TextbookAutoBuilderPage() {
       setCurrentUnitIndex(0);
       setDraftUnit(null);
       setDraftModel("");
-      setSectionInclusion(DEFAULT_SECTION_INCLUSION);
+      setSectionInclusion(MODULES_ONLY_SECTION_INCLUSION);
       setConfirmedUnits([]);
       setUnitDisplayOrder(defaultUnitDisplayOrder(n));
-      setMsg("세션이 시작되었습니다. 아래에서 단원별 생성을 진행하세요.");
+      setMsg("세션이 시작되었습니다. 아래에서 원고 모듈을 편집해 단원을 확정하세요.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "세션을 만들지 못했습니다.");
     } finally {
@@ -444,79 +447,11 @@ export function TextbookAutoBuilderPage() {
     }
   }, [uid, bookTitle, unitInputs, totalUnits]);
 
-  const runGenerate = useCallback(async () => {
-    setErr(null);
-    setMsg(null);
-    if (!uid || !sessionId || !sessionUnitPassages) return;
-    const title = bookTitle.trim();
-    if (!title) {
-      setErr("제목이 필요합니다.");
-      return;
-    }
-    if (currentUnitIndex >= totalUnits) return;
-    const src = sessionUnitPassages[currentUnitIndex] ?? "";
-    if (!src.trim()) {
-      setErr("이 단원 지문이 비었습니다.");
-      return;
-    }
-    if (!anySectionInclusionEnabled(sectionInclusion)) {
-      setErr("AI 생성에 포함할 섹션을 한 개 이상 선택하세요.");
-      return;
-    }
-    if (sectionInclusion.practice && practiceShortCount <= 0) {
-      setErr("확인학습을 켠 경우 문항 수는 1 이상으로 정해 주세요.");
-      return;
-    }
-    draftLoadSeqRef.current += 1;
-    setBusy(true);
-    try {
-      const passage = sliceForAi(src);
-      const { unit, meta } = await requestTextbookUnitGeneration({
-        bookTitle: title,
-        sourceText: passage,
-        unitIndex: currentUnitIndex,
-        totalUnits,
-        practiceMin: sectionInclusion.practice ? practiceShortCount : 0,
-        unitTestMcq: sectionInclusion.unitTest ? unitTestMcqCount : 0,
-        unitTestShort: sectionInclusion.unitTest ? unitTestShortCount : 0,
-        sectionInclusion,
-      });
-      const passageMods = parseManuscriptToModules(sliceForAi(src));
-      const unitWithMods: TextbookUnitContent = {
-        ...unit,
-        manuscriptModules: passageMods.length > 0 ? passageMods : [],
-      };
-      setDraftUnit(unitWithMods);
-      setDraftModel(meta.model);
-      await writeUnitDraft(uid, sessionId, currentUnitIndex, unitWithMods, meta.model);
-      setMsg(
-        src.length > AI_SOURCE_SLICE
-          ? `생성했습니다. (이 단원 지문 ${AI_SOURCE_SLICE.toLocaleString()}자까지 AI에 전달됨)`
-          : "생성했습니다. 내용을 확인한 뒤 확정하세요.",
-      );
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "생성에 실패했습니다.");
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    uid,
-    sessionId,
-    sessionUnitPassages,
-    bookTitle,
-    currentUnitIndex,
-    totalUnits,
-    unitTestMcqCount,
-    unitTestShortCount,
-    practiceShortCount,
-    sectionInclusion,
-  ]);
-
   const saveDraftOnly = useCallback(async () => {
     setErr(null);
     setMsg(null);
     if (!uid || !sessionId || !draftUnit) {
-      setErr("저장할 초안이 없습니다. AI 생성으로 초안을 만들거나 불러온 내용을 확인하세요.");
+      setErr("저장할 초안이 없습니다. 잠시 후 다시 시도하거나 페이지를 새로고침해 보세요.");
       return;
     }
     setBusy(true);
@@ -546,17 +481,13 @@ export function TextbookAutoBuilderPage() {
       sectionInclusion,
     );
     const v = validateDraftUnit(toSave, {
-      practiceMin: practiceShortCount,
-      unitTestMcq: unitTestMcqCount,
-      unitTestShort: unitTestShortCount,
+      practiceMin: sectionInclusion.practice ? 1 : 0,
+      unitTestMcq: 0,
+      unitTestShort: 0,
       sectionInclusion,
     });
     if (v) {
       setErr(v);
-      return;
-    }
-    if (sectionInclusion.practice && practiceShortCount <= 0) {
-      setErr("확인학습을 켠 경우 문항 수는 1 이상으로 정해 주세요.");
       return;
     }
     setBusy(true);
@@ -572,7 +503,7 @@ export function TextbookAutoBuilderPage() {
       setCurrentUnitIndex(next);
       setDraftUnit(null);
       setDraftModel("");
-      setSectionInclusion(DEFAULT_SECTION_INCLUSION);
+      setSectionInclusion(MODULES_ONLY_SECTION_INCLUSION);
 
       const confirmedIdx = currentUnitIndex;
       try {
@@ -613,9 +544,6 @@ export function TextbookAutoBuilderPage() {
     draftModel,
     currentUnitIndex,
     totalUnits,
-    unitTestMcqCount,
-    unitTestShortCount,
-    practiceShortCount,
     sectionInclusion,
     bookTitle,
     sessionUnitPassages,
@@ -1437,7 +1365,7 @@ export function TextbookAutoBuilderPage() {
                     })}
                   </ul>
                   <p className={styles.hint}>
-                    「교재 생성」으로 AI 단원 작업(2단계)을 시작합니다. 단원 수는 아래 「단원 추가」·목록의 「단원 삭제」로 바꿀 수 있습니다.
+                    「교재 생성」으로 단원별 편집(2단계)을 시작합니다. 단원 수는 아래 「단원 추가」·목록의 「단원 삭제」로 바꿀 수 있습니다.
                   </p>
                   <div className={styles.row}>
                     <button type="button" className={styles.btnGhost} onClick={goSetupReviewPrevToLastPassage}>
@@ -1463,7 +1391,7 @@ export function TextbookAutoBuilderPage() {
               <section className={styles.card} aria-labelledby="session-h">
                 <div className={styles.sessionTop}>
                   <h2 id="session-h" className={styles.cardTitle}>
-                    2. 단원별 생성 ({isComplete ? "완료" : `진행 ${Math.min(currentUnitIndex + 1, totalUnits)} / ${totalUnits}`})
+                    2. 단원별 편집 ({isComplete ? "완료" : `진행 ${Math.min(currentUnitIndex + 1, totalUnits)} / ${totalUnits}`})
                   </h2>
                   <div className={styles.sessionTopActions}>
                     <button type="button" className={styles.btnGhost} disabled={busy} onClick={() => void goBackToStepOne()}>
@@ -1479,10 +1407,12 @@ export function TextbookAutoBuilderPage() {
                 {!isComplete ? (
                   <>
                     <p className={styles.p}>
-                      <strong>제 {currentUnitIndex + 1}단원</strong>: 섹션과 문항 수를 정한 뒤 「이 단원 AI 생성」으로 초안을 만듭니다. 확인학습·단원평가와 핵심개념·요약은 같은 화면에서 편집하고, <strong>확정</strong>하면 이 단원의 정답·해설까지 저장됩니다.
+                      <strong>제 {currentUnitIndex + 1}단원</strong>: 위 <strong>원고 모듈</strong>에서 지문·문항을 편집합니다. 「이
+                      단원 지문으로 모듈 분석」으로 1단계 지문을 나눌 수 있습니다. <strong>단원 제목</strong>과 핵심개념·확인학습 등은
+                      모듈 아래에서 필요할 때만 채웁니다.
                     </p>
                     <div className={styles.field}>
-                      <span className={styles.label}>AI 생성·교재에 포함할 섹션</span>
+                      <span className={styles.label}>학생용 본문에 넣을 항목 (선택 — 끄면 해당 칸은 비우고 숨깁니다)</span>
                       <div className={styles.sectionCheckGrid}>
                         {(
                           [
@@ -1503,80 +1433,6 @@ export function TextbookAutoBuilderPage() {
                           </label>
                         ))}
                       </div>
-                      <p className={styles.hint}>체크한 섹션만 AI가 채우며, 학생용 PDF·Word·클라우드 본문에도 반영됩니다.</p>
-                    </div>
-                    {sectionInclusion.practice ? (
-                      <div className={styles.field}>
-                        <span className={styles.label}>
-                          확인학습 문항 수 (주관식 단답) — 입력한 개수만큼 AI가 만들고, 확정 시 그 이상인지 검사합니다
-                        </span>
-                        <div className={styles.countRow}>
-                          <label className={styles.countLabel}>
-                            주관식 단답
-                            <input
-                              className={styles.inputSmall}
-                              type="number"
-                              min={0}
-                              max={50}
-                              value={practiceShortCount}
-                              onChange={(e) =>
-                                setPracticeShortCount(Math.min(50, Math.max(0, Math.floor(Number(e.target.value) || 0))))
-                              }
-                            />
-                          </label>
-                          <span className={styles.hint}>현재 {practiceShortCount}문항</span>
-                        </div>
-                      </div>
-                    ) : null}
-                    {sectionInclusion.unitTest ? (
-                    <div className={styles.field}>
-                      <span className={styles.label}>
-                        단원평가 문항 수 (AI 생성·확정 기준) — 입력한 객관식·주관식 단답 개수만큼 생성합니다
-                      </span>
-                      <div className={styles.countRow}>
-                        <label className={styles.countLabel}>
-                          객관식
-                          <input
-                            className={styles.inputSmall}
-                            type="number"
-                            min={0}
-                            max={50}
-                            value={unitTestMcqCount}
-                            onChange={(e) =>
-                              setUnitTestMcqCount(Math.min(50, Math.max(0, Math.floor(Number(e.target.value) || 0))))
-                            }
-                          />
-                        </label>
-                        <label className={styles.countLabel}>
-                          주관식 단답
-                          <input
-                            className={styles.inputSmall}
-                            type="number"
-                            min={0}
-                            max={50}
-                            value={unitTestShortCount}
-                            onChange={(e) =>
-                              setUnitTestShortCount(Math.min(50, Math.max(0, Math.floor(Number(e.target.value) || 0))))
-                            }
-                          />
-                        </label>
-                        <span className={styles.hint}>
-                          객관식 {unitTestMcqCount} · 주관식 단답 {unitTestShortCount}
-                        </span>
-                      </div>
-                    </div>
-                    ) : (
-                      <p className={styles.hint}>단원평가를 끄면 평가 문항은 만들지 않습니다.</p>
-                    )}
-                    <div className={styles.row}>
-                      <button
-                        type="button"
-                        className={styles.btnPrimary}
-                        disabled={busy || !anySectionInclusionEnabled(sectionInclusion)}
-                        onClick={() => void runGenerate()}
-                      >
-                        {busy ? "생성 중…" : "이 단원 AI 생성"}
-                      </button>
                     </div>
                   </>
                 ) : (
@@ -1588,6 +1444,20 @@ export function TextbookAutoBuilderPage() {
                     <h3 className={styles.previewTitle}>
                       편집 — 제 {currentUnitIndex + 1}단원 · {draftUnit.unitTitle}
                     </h3>
+                    <div className={styles.preview}>
+                      <h3 className={styles.previewTitle}>원고 모듈 (학습지 제작과 동일)</h3>
+                      <p className={styles.hint}>
+                        블록 순서와 본문을 조정합니다. 「이 단원 지문으로 모듈 분석」은 1단계에서 저장한 원문을 학습지와 같은 규칙으로
+                        나눕니다. 전체 단원 확정 뒤에는 「최종 본문 순서」에서 책 속 단원 순서를 바꿀 수 있습니다.
+                      </p>
+                      <LocalDocModulesEditor
+                        modules={draftUnit.manuscriptModules ?? []}
+                        onChange={(mm) => setDraftUnit({ ...draftUnit, manuscriptModules: mm })}
+                        disabled={busy}
+                        kind="worksheet"
+                        analyzeSeedText={sessionUnitPassages?.[currentUnitIndex] ?? ""}
+                      />
+                    </div>
                     <TextbookUnitDraftEditor
                       unit={draftUnit}
                       onChange={setDraftUnit}
@@ -1604,20 +1474,6 @@ export function TextbookAutoBuilderPage() {
                         }
                       }}
                     />
-                    <div className={styles.preview}>
-                      <h3 className={styles.previewTitle}>원고 모듈 (학습지 제작과 동일)</h3>
-                      <p className={styles.hint}>
-                        단원별 블록을 나누어 순서·내용을 조정합니다. AI 생성 직후 이 단원 지문이 모듈로 채워집니다. 전체 단원이 확정된 뒤에는 아래 「최종 본문 순서」에서 책
-                        속 단원 순서를 바꿀 수 있습니다.
-                      </p>
-                      <LocalDocModulesEditor
-                        modules={draftUnit.manuscriptModules ?? []}
-                        onChange={(mm) => setDraftUnit({ ...draftUnit, manuscriptModules: mm })}
-                        disabled={busy}
-                        kind="worksheet"
-                        analyzeSeedText={sessionUnitPassages?.[currentUnitIndex] ?? ""}
-                      />
-                    </div>
                   </div>
                 ) : null}
 

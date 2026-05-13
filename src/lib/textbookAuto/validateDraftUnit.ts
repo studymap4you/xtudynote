@@ -31,7 +31,12 @@ export function validateDraftUnit(
   }
 
   if (!anySectionInclusionEnabled(inc)) {
-    return "핵심개념·내용학습·핵심요약·확인학습·단원평가 중 최소 한 섹션을 선택하세요.";
+    const mods = unit.manuscriptModules ?? [];
+    const hasBody = mods.some((m) => (m.body ?? "").trim().length > 0);
+    if (!hasBody) {
+      return "원고 모듈 본문을 한 칸 이상 입력한 뒤 확정하세요.";
+    }
+    return null;
   }
 
   if (inc.keyConcepts) {
@@ -61,8 +66,9 @@ export function validateDraftUnit(
 
   if (inc.practice) {
     const practice = unit.practice.map((s) => s.trim()).filter(Boolean);
-    if (practice.length < practiceMin) {
-      return `확인학습 주관식 문항은 최소 ${practiceMin}개입니다. (현재 ${practice.length}개)`;
+    const min = practiceMin > 0 ? practiceMin : 1;
+    if (practice.length < min) {
+      return `확인학습 주관식 문항은 최소 ${min}개입니다. (현재 ${practice.length}개)`;
     }
   }
 
@@ -71,11 +77,17 @@ export function validateDraftUnit(
     const shortNeeded = unitTestShort;
     const mcqItems = unit.unitTest.filter((t): t is TextbookUnitTestMcq => t.kind === "mcq" && validMcq(t));
     const shortItems = unit.unitTest.filter((t): t is TextbookUnitTestShort => t.kind === "short" && validShort(t));
-    if (mcqNeeded > 0 && mcqItems.length < mcqNeeded) {
-      return `단원평가 객관식은 ${mcqNeeded}문항이어야 합니다. (유효 ${mcqItems.length}개 — 질문·보기를 채우세요)`;
-    }
-    if (shortNeeded > 0 && shortItems.length < shortNeeded) {
-      return `단원평가 주관식 단답은 ${shortNeeded}문항이어야 합니다. (유효 ${shortItems.length}개)`;
+    if (mcqNeeded === 0 && shortNeeded === 0) {
+      if (mcqItems.length + shortItems.length < 1) {
+        return "단원평가에 완성된 문항을 한 개 이상 넣으세요. (질문·객관식 보기 등이 비어 있지 않은 항목)";
+      }
+    } else {
+      if (mcqNeeded > 0 && mcqItems.length < mcqNeeded) {
+        return `단원평가 객관식은 ${mcqNeeded}문항이어야 합니다. (유효 ${mcqItems.length}개 — 질문·보기를 채우세요)`;
+      }
+      if (shortNeeded > 0 && shortItems.length < shortNeeded) {
+        return `단원평가 주관식 단답은 ${shortNeeded}문항이어야 합니다. (유효 ${shortItems.length}개)`;
+      }
     }
   }
 
