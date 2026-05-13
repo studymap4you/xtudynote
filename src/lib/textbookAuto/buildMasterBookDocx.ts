@@ -8,13 +8,50 @@ import {
   TextRun,
 } from "docx";
 import { safeDocxFilenamePart, triggerDocxDownload } from "@/lib/docx/docxHelpers";
+import type { MasterBookFolioBlock } from "@/lib/textbookAuto/masterBookFolio";
 import { rasterImageFileToDocxRaster, scaleCoverToMaxWidth } from "@/lib/textbookAuto/imageFileForDocx";
+
+export async function folioBlocksToDocxParagraphs(blocks: MasterBookFolioBlock[]): Promise<Paragraph[]> {
+  const out: Paragraph[] = [];
+  for (const b of blocks) {
+    if (b.kind === "text") {
+      const lines = b.text.replace(/\r\n/g, "\n").split("\n");
+      for (const line of lines) {
+        out.push(
+          new Paragraph({
+            children: [new TextRun({ text: line.length ? line : " ", size: 24 })],
+            spacing: { after: 55 },
+          }),
+        );
+      }
+    } else if (b.kind === "image" && b.file) {
+      const raster = await rasterImageFileToDocxRaster(b.file);
+      const dim = scaleCoverToMaxWidth(raster);
+      out.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new ImageRun({
+              type: raster.type,
+              data: raster.data,
+              transformation: { width: dim.width, height: dim.height },
+            }),
+          ],
+          spacing: { after: 120 },
+        }),
+      );
+    }
+  }
+  return out;
+}
 
 export async function buildMasterBookDocxBlob(params: {
   bookTitle: string;
   frontCover: File | null;
   backCover: File | null;
   tocLines: string[];
+  forewordParagraphs?: Paragraph[];
+  afterwordParagraphs?: Paragraph[];
   bodyParagraphs: Paragraph[];
   appendixParagraphs: Paragraph[];
 }): Promise<Blob> {
@@ -47,6 +84,17 @@ export async function buildMasterBookDocxBlob(params: {
       spacing: { before: 200, after: 400 },
     }),
   );
+
+  if (params.forewordParagraphs && params.forewordParagraphs.length > 0) {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_1,
+        children: [new TextRun({ text: "머리말", bold: true, size: 36 })],
+        spacing: { before: 120, after: 120 },
+      }),
+    );
+    for (const p of params.forewordParagraphs) children.push(p);
+  }
 
   children.push(
     new Paragraph({
@@ -113,6 +161,18 @@ export async function buildMasterBookDocxBlob(params: {
     );
   } else {
     for (const p of params.appendixParagraphs) children.push(p);
+  }
+
+  if (params.afterwordParagraphs && params.afterwordParagraphs.length > 0) {
+    children.push(
+      new Paragraph({
+        pageBreakBefore: true,
+        heading: HeadingLevel.HEADING_1,
+        children: [new TextRun({ text: "꼬리말", bold: true, size: 36 })],
+        spacing: { after: 120 },
+      }),
+    );
+    for (const p of params.afterwordParagraphs) children.push(p);
   }
 
   if (params.backCover) {

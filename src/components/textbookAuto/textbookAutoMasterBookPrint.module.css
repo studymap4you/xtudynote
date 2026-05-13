@@ -52,6 +52,31 @@
 
 .segmentSection {
   margin-bottom: 1rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.folioSection {
+  margin: 1rem 0 1.25rem;
+}
+
+.folioText {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: #1e293b;
+}
+
+.folioImg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 
 .preRaw {
@@ -72,6 +97,10 @@
 
 @media print {
   .coverImg {
+    page-break-inside: avoid;
+  }
+  .segmentSection {
+    break-inside: avoid;
     page-break-inside: avoid;
   }
 }

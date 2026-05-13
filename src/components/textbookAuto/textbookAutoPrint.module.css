@@ -36,9 +36,14 @@
   border-bottom: 2px solid #2563eb;
 }
 
+.printBlock {
+  display: block;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 .unit {
   margin-bottom: 1.75rem;
-  page-break-inside: avoid;
 }
 
 .unitTitle {
@@ -90,6 +95,20 @@
   color: #1e293b;
 }
 
+.unitCoverWrap {
+  margin: 0 0 1rem;
+  text-align: center;
+}
+
+.unitCoverImg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
 .ans {
   margin: 0 0 0.35rem;
   font-size: 10pt;
@@ -108,6 +127,8 @@
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #f8fafc;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .preBody {
@@ -124,5 +145,10 @@
   .root {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  .printBlock,
+  .moduleBox {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { BRAND_APP_NAME } from "@/lib/brand";
 import { mapUnitsForStudentOutput } from "@/lib/textbookAuto/sectionInclusion";
 import {
@@ -13,6 +14,25 @@ import type {
 } from "@/types/textbookAuto";
 import styles from "@/components/textbookAuto/textbookAutoPrint.module.css";
 
+function UnitPageCoverImg({ coverFile }: { coverFile: File | null }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!coverFile) {
+      setSrc(null);
+      return;
+    }
+    const u = URL.createObjectURL(coverFile);
+    setSrc(u);
+    return () => URL.revokeObjectURL(u);
+  }, [coverFile]);
+  if (!coverFile || !src) return null;
+  return (
+    <div className={`${styles.unitCoverWrap} ${styles.printBlock}`}>
+      <img src={src} alt="" className={styles.unitCoverImg} />
+    </div>
+  );
+}
+
 function ListBlock({ title, items }: { title: string; items: string[] }) {
   if (!items.length) return null;
   return (
@@ -21,7 +41,7 @@ function ListBlock({ title, items }: { title: string; items: string[] }) {
       <ul className={styles.ul}>
         {items.map((t, i) => (
           <li key={i} className={styles.li}>
-            {t}
+            <span className={styles.printBlock}>{t}</span>
           </li>
         ))}
       </ul>
@@ -37,8 +57,10 @@ function KeyConceptBlock({ items }: { items: TextbookKeyConceptItem[] }) {
       <ul className={styles.ul}>
         {items.map((k, i) => (
           <li key={i} className={styles.li}>
-            <strong>{k.concept}</strong>
-            {k.explanation ? <> — {k.explanation}</> : null}
+            <div className={styles.printBlock}>
+              <strong>{k.concept}</strong>
+              {k.explanation ? <> — {k.explanation}</> : null}
+            </div>
           </li>
         ))}
       </ul>
@@ -52,7 +74,7 @@ function ContentStudyPrint({ blocks }: { blocks: TextbookContentStudyBlock[] }) 
     <section className={styles.section}>
       <h2 className={styles.h2}>내용학습</h2>
       {blocks.map((b, i) => (
-        <div key={i}>
+        <div key={i} className={styles.printBlock}>
           <h3 className={styles.h3}>{b.title}</h3>
           <ul className={styles.ul}>
             {b.bullets.map((line, j) => (
@@ -75,16 +97,18 @@ function UnitTestBlock({ items }: { items: TextbookUnitTestItem[] }) {
       <ol className={styles.ul}>
         {items.map((it, i) => (
           <li key={i} className={styles.li}>
-            <p>{it.question}</p>
-            {it.kind === "mcq" ? (
-              <ol type="a" className={styles.ul}>
-                {it.choices.map((c, j) => (
-                  <li key={j} className={styles.li}>
-                    {c}
-                  </li>
-                ))}
-              </ol>
-            ) : null}
+            <div className={styles.printBlock}>
+              <p className={styles.q}>{it.question}</p>
+              {it.kind === "mcq" ? (
+                <ol type="a" className={styles.ul}>
+                  {it.choices.map((c, j) => (
+                    <li key={j} className={styles.li}>
+                      {c}
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+            </div>
           </li>
         ))}
       </ol>
@@ -108,7 +132,7 @@ function ManuscriptModulesBlock({ modules }: { modules: TextbookUnitContent["man
       title = m.field === "preamble" ? "도입 (구획 전)" : LOCAL_DOC_FIELD_LABEL[m.field];
     }
     blocks.push(
-      <div key={m.id} className={styles.moduleBox}>
+      <div key={m.id} className={`${styles.moduleBox} ${styles.printBlock}`}>
         <h3 className={styles.h3}>{title}</h3>
         <pre className={styles.preBody}>{body}</pre>
       </div>,
@@ -125,15 +149,18 @@ function ManuscriptModulesBlock({ modules }: { modules: TextbookUnitContent["man
 
 export function TextbookAutoStudentUnitsBody({
   units,
+  unitCovers,
 }: {
   units: { unitIndex: number; unit: TextbookUnitContent }[];
+  unitCovers?: Record<number, File | null>;
 }) {
   const outUnits = mapUnitsForStudentOutput(units);
   return (
     <>
       {outUnits.map(({ unitIndex, unit }) => (
         <article key={unitIndex} className={styles.unit}>
-          <h2 className={styles.unitTitle}>
+          <UnitPageCoverImg coverFile={unitCovers?.[unitIndex] ?? null} />
+          <h2 className={`${styles.unitTitle} ${styles.printBlock}`}>
             제 {unitIndex + 1}단원 · {unit.unitTitle}
           </h2>
           <ManuscriptModulesBlock modules={unit.manuscriptModules} />

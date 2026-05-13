@@ -1,5 +1,6 @@
-import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
+import { AlignmentType, Document, HeadingLevel, ImageRun, Packer, Paragraph, TextRun } from "docx";
 import { safeDocxFilenamePart, stripMarkdownBold, triggerDocxDownload } from "@/lib/docx/docxHelpers";
+import { rasterImageFileToDocxRaster, scaleCoverToMaxWidth } from "@/lib/textbookAuto/imageFileForDocx";
 import type {
   TextbookAnswerKeyItem,
   TextbookContentStudyBlock,
@@ -132,28 +133,66 @@ function buildStudentParagraphs(params: {
   return blocks;
 }
 
+function pushUnitBodyParagraphs(
+  blocks: Paragraph[],
+  unitIndex: number,
+  rawUnit: TextbookUnitContent,
+): void {
+  const unit = unitForStudentOutput(rawUnit);
+  blocks.push(
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      children: [
+        new TextRun({ text: `제 ${unitIndex + 1}단원 · ${unit.unitTitle}`, bold: true, size: 30 }),
+      ],
+      spacing: { before: 180, after: 120 },
+    }),
+  );
+  if (rawUnit.manuscriptModules?.length) {
+    blocks.push(...manuscriptModulesToStudentDocxParagraphs(rawUnit.manuscriptModules));
+  }
+  blocks.push(...keyConceptParagraphs(unit.keyConcepts));
+  blocks.push(...contentStudyParagraphs(unit.contentStudy));
+  blocks.push(...listBlock("핵심요약", unit.coreSummary));
+  blocks.push(...listBlock("확인학습", unit.practice));
+  blocks.push(...unitTestStudentParagraphs(unit.unitTest));
+}
+
 /** 5단계 완성본 등 — 앞/뒤표지·목차 없이 단원 본문만 */
 export function buildTextbookBodyParagraphsFromUnits(units: { unitIndex: number; unit: TextbookUnitContent }[]): Paragraph[] {
   const blocks: Paragraph[] = [];
   for (const { unitIndex, unit: rawUnit } of units) {
-    const unit = unitForStudentOutput(rawUnit);
-    blocks.push(
-      new Paragraph({
-        heading: HeadingLevel.HEADING_1,
-        children: [
-          new TextRun({ text: `제 ${unitIndex + 1}단원 · ${unit.unitTitle}`, bold: true, size: 30 }),
-        ],
-        spacing: { before: 180, after: 120 },
-      }),
-    );
-    if (rawUnit.manuscriptModules?.length) {
-      blocks.push(...manuscriptModulesToStudentDocxParagraphs(rawUnit.manuscriptModules));
+    pushUnitBodyParagraphs(blocks, unitIndex, rawUnit);
+  }
+  return blocks;
+}
+
+/** 단원 시작 커버 이미지(File)를 선행 삽입한 본문 (완성본 Word용) */
+export async function buildTextbookBodyParagraphsFromUnitsWithCovers(
+  units: { unitIndex: number; unit: TextbookUnitContent }[],
+  unitCovers?: Record<number, File | null>,
+): Promise<Paragraph[]> {
+  const blocks: Paragraph[] = [];
+  for (const { unitIndex, unit: rawUnit } of units) {
+    const cover = unitCovers?.[unitIndex];
+    if (cover) {
+      const raster = await rasterImageFileToDocxRaster(cover);
+      const dim = scaleCoverToMaxWidth(raster);
+      blocks.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new ImageRun({
+              type: raster.type,
+              data: raster.data,
+              transformation: { width: dim.width, height: dim.height },
+            }),
+          ],
+          spacing: { before: 120, after: 120 },
+        }),
+      );
     }
-    blocks.push(...keyConceptParagraphs(unit.keyConcepts));
-    blocks.push(...contentStudyParagraphs(unit.contentStudy));
-    blocks.push(...listBlock("핵심요약", unit.coreSummary));
-    blocks.push(...listBlock("확인학습", unit.practice));
-    blocks.push(...unitTestStudentParagraphs(unit.unitTest));
+    pushUnitBodyParagraphs(blocks, unitIndex, rawUnit);
   }
   return blocks;
 }

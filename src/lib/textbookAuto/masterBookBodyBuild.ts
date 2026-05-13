@@ -3,20 +3,24 @@ import { buildSegmentBlocksParagraphs } from "@/lib/textbookAuto/buildMasterBook
 import {
   buildTextbookBodyParagraphsFromPassages,
   buildTextbookBodyParagraphsFromUnits,
+  buildTextbookBodyParagraphsFromUnitsWithCovers,
 } from "@/lib/textbookAuto/downloadTextbookAutoDocx";
 import type { TextbookUnitContent, TextbookUnitSetupState } from "@/types/textbookAuto";
 
 export type MasterBookContentMode = "session_units" | "session_passages" | "upload";
 
-export function buildMasterBookBodyParagraphsForDocx(params: {
+export async function buildMasterBookBodyParagraphsForDocx(params: {
   contentMode: MasterBookContentMode;
   confirmedUnits: { unitIndex: number; unit: TextbookUnitContent }[];
   sessionUnitPassages: string[] | null;
   contentState: TextbookUnitSetupState;
-}): Paragraph[] {
-  const { contentMode, confirmedUnits, sessionUnitPassages, contentState } = params;
+  unitCovers?: Record<number, File | null>;
+}): Promise<Paragraph[]> {
+  const { contentMode, confirmedUnits, sessionUnitPassages, contentState, unitCovers } = params;
   if (contentMode === "session_units") {
     if (confirmedUnits.length === 0) throw new Error("확정된 단원이 없습니다.");
+    const hasCover = unitCovers && Object.values(unitCovers).some(Boolean);
+    if (hasCover) return buildTextbookBodyParagraphsFromUnitsWithCovers(confirmedUnits, unitCovers);
     return buildTextbookBodyParagraphsFromUnits(confirmedUnits);
   }
   if (contentMode === "session_passages") {

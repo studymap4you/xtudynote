@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
-import { downloadMasterBookDocx } from "@/lib/textbookAuto/buildMasterBookDocx";
+import { downloadMasterBookDocx, folioBlocksToDocxParagraphs } from "@/lib/textbookAuto/buildMasterBookDocx";
 import {
   assertMasterAppendixNoPending,
   buildMasterAppendixParagraphsForDocx,
@@ -13,6 +13,11 @@ import { TextbookAutoMasterBookPrintView } from "@/components/textbookAuto/Textb
 import { extractTableOfContentsFromText } from "@/lib/textbookAuto/extractTocFromText";
 import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
 import { combineUnitPassage, emptyUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
+import {
+  newMasterBookImageBlock,
+  newMasterBookTextBlock,
+  type MasterBookFolioBlock,
+} from "@/lib/textbookAuto/masterBookFolio";
 import type {
   TextbookSetupPendingFile,
   TextbookSetupPendingMode,
@@ -20,6 +25,21 @@ import type {
   TextbookUnitSetupState,
 } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoBuilder.module.css";
+
+function FolioThumb({ file }: { file: File | null }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) {
+      setSrc(null);
+      return;
+    }
+    const u = URL.createObjectURL(file);
+    setSrc(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  if (!src) return null;
+  return <img src={src} alt="" className={styles.coverThumb} />;
+}
 
 export type MasterContentMode = MasterBookContentMode;
 
@@ -30,6 +50,11 @@ type Props = {
   confirmedUnits: { unitIndex: number; unit: TextbookUnitContent }[];
   sessionUnitPassages: string[] | null;
 };
+
+const DEFAULT_FOREWORD_TEMPLATE =
+  "이 교재는 제시된 지문과 문제를 통해 학습 목표를 달성하도록 구성되었습니다.\n\n학습에 참고하시기 바랍니다.";
+const DEFAULT_AFTERWORD_TEMPLATE =
+  "끝까지 마친 학습자 여러분, 수고하셨습니다.\n\n추가 문의는 담당 교사에게 연락해 주세요.";
 
 export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, sessionUnitPassages }: Props) {
   const [frontCover, setFrontCover] = useState<File | null>(null);
@@ -47,6 +72,10 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
   const [appendixState, setAppendixState] = useState<TextbookUnitSetupState>(() => emptyUnitSetup());
   const [contentExtractBusy, setContentExtractBusy] = useState<string | null>(null);
   const [appendixExtractBusy, setAppendixExtractBusy] = useState<string | null>(null);
+
+  const [forewordBlocks, setForewordBlocks] = useState<MasterBookFolioBlock[]>([]);
+  const [afterwordBlocks, setAfterwordBlocks] = useState<MasterBookFolioBlock[]>([]);
+  const [unitCoverFiles, setUnitCoverFiles] = useState<Record<number, File | null>>({});
 
   const [masterBusy, setMasterBusy] = useState(false);
   const [localMsg, setLocalMsg] = useState<string | null>(null);
@@ -278,11 +307,12 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
     let bodyParagraphs;
     try {
       assertMasterAppendixNoPending(appendixState);
-      bodyParagraphs = buildMasterBookBodyParagraphsForDocx({
+      bodyParagraphs = await buildMasterBookBodyParagraphsForDocx({
         contentMode,
         confirmedUnits,
         sessionUnitPassages,
         contentState,
+        unitCovers: unitCoverFiles,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -291,6 +321,11 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
 
     const appendixParagraphs = buildMasterAppendixParagraphsForDocx(appendixState);
 
+    const forewordParagraphs =
+      forewordBlocks.length > 0 ? await folioBlocksToDocxParagraphs(forewordBlocks) : [];
+    const afterwordParagraphs =
+      afterwordBlocks.length > 0 ? await folioBlocksToDocxParagraphs(afterwordBlocks) : [];
+
     setMasterBusy(true);
     try {
       await downloadMasterBookDocx({
@@ -298,6 +333,8 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
         frontCover,
         backCover,
         tocLines,
+        ...(forewordParagraphs.length > 0 ? { forewordParagraphs } : {}),
+        ...(afterwordParagraphs.length > 0 ? { afterwordParagraphs } : {}),
         bodyParagraphs,
         appendixParagraphs,
       });
@@ -319,6 +356,9 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
     appendixState,
     frontCover,
     backCover,
+    forewordBlocks,
+    afterwordBlocks,
+    unitCoverFiles,
   ]);
 
   const runDownloadMasterPdf = useCallback(async () => {
@@ -326,11 +366,12 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
     setLocalMsg(null);
     try {
       assertMasterAppendixNoPending(appendixState);
-      buildMasterBookBodyParagraphsForDocx({
+      await buildMasterBookBodyParagraphsForDocx({
         contentMode,
         confirmedUnits,
         sessionUnitPassages,
         contentState,
+        unitCovers: unitCoverFiles,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
@@ -350,25 +391,34 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
     } finally {
       setMasterBusy(false);
     }
-  }, [bookTitle, contentMode, confirmedUnits, sessionUnitPassages, contentState, appendixState]);
+  }, [bookTitle, contentMode, confirmedUnits, sessionUnitPassages, contentState, appendixState, unitCoverFiles]);
 
-  const onPrintMasterBook = useCallback(() => {
+  const onPrintMasterBook = useCallback(async () => {
     setLocalErr(null);
     setLocalMsg(null);
     try {
       assertMasterAppendixNoPending(appendixState);
-      buildMasterBookBodyParagraphsForDocx({
+      await buildMasterBookBodyParagraphsForDocx({
         contentMode,
         confirmedUnits,
         sessionUnitPassages,
         contentState,
+        unitCovers: unitCoverFiles,
       });
     } catch (e) {
       setLocalErr(e instanceof Error ? e.message : "본문을 구성하지 못했습니다.");
       return;
     }
     printMasterBook();
-  }, [appendixState, contentMode, confirmedUnits, sessionUnitPassages, contentState, printMasterBook]);
+  }, [
+    appendixState,
+    contentMode,
+    confirmedUnits,
+    sessionUnitPassages,
+    contentState,
+    unitCoverFiles,
+    printMasterBook,
+  ]);
 
   const pendingRow = (
     kind: "content" | "appendix",
@@ -464,6 +514,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
             className={styles.file}
             onChange={(e) => {
               const f = e.target.files?.[0] ?? null;
+              if (f) window.alert(`앞표지로 「${f.name}」을(를) 올렸습니다. 미리보기를 확인하세요.`);
               setFrontCover(f);
               e.target.value = "";
             }}
@@ -488,6 +539,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
             className={styles.file}
             onChange={(e) => {
               const f = e.target.files?.[0] ?? null;
+              if (f) window.alert(`뒷표지로 「${f.name}」을(를) 올렸습니다. 미리보기를 확인하세요.`);
               setBackCover(f);
               e.target.value = "";
             }}
@@ -500,6 +552,196 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
           ) : null}
         </div>
       </div>
+
+      <div className={styles.step5Grid}>
+        <div className={styles.step5Col}>
+          <h3 className={styles.phase3Sub}>머리말</h3>
+          <p className={styles.hint}>문단·이미지 블록을 쌓아 넣습니다. 인쇄·Word·PDF에서 목차 앞에 붙습니다.</p>
+          <div className={styles.row}>
+            <button
+              type="button"
+              className={styles.btnMini}
+              onClick={() => setForewordBlocks((p) => [...p, newMasterBookTextBlock()])}
+            >
+              문단 추가
+            </button>
+            <button
+              type="button"
+              className={styles.btnMini}
+              onClick={() => setForewordBlocks((p) => [...p, newMasterBookImageBlock()])}
+            >
+              이미지 추가
+            </button>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              onClick={() => setForewordBlocks([newMasterBookTextBlock(DEFAULT_FOREWORD_TEMPLATE)])}
+            >
+              기본 문구 넣기
+            </button>
+            <button type="button" className={styles.btnMiniGhost} onClick={() => setForewordBlocks([])}>
+              전부 제거
+            </button>
+          </div>
+          {forewordBlocks.map((b) => (
+            <div key={b.id} className={styles.segmentItem}>
+              {b.kind === "text" ? (
+                <label className={styles.field}>
+                  <textarea
+                    className={styles.textarea}
+                    rows={4}
+                    value={b.text}
+                    onChange={(e) =>
+                      setForewordBlocks((prev) =>
+                        prev.map((x) => (x.id === b.id ? { ...x, text: e.target.value } : x)),
+                      )
+                    }
+                  />
+                </label>
+              ) : (
+                <div className={styles.field}>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    className={styles.file}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      if (f) window.alert(`머리말에 「${f.name}」 이미지를 넣었습니다. 아래 미리보기를 확인하세요.`);
+                      setForewordBlocks((prev) => prev.map((x) => (x.id === b.id ? { ...x, file: f } : x)));
+                      e.target.value = "";
+                    }}
+                  />
+                  <FolioThumb file={b.file} />
+                </div>
+              )}
+              <button
+                type="button"
+                className={styles.btnMiniGhost}
+                onClick={() => setForewordBlocks((prev) => prev.filter((x) => x.id !== b.id))}
+              >
+                이 블록 제거
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className={styles.step5Col}>
+          <h3 className={styles.phase3Sub}>꼬리말</h3>
+          <p className={styles.hint}>추가 페이지 뒤·뒷표지 앞에 붙습니다.</p>
+          <div className={styles.row}>
+            <button
+              type="button"
+              className={styles.btnMini}
+              onClick={() => setAfterwordBlocks((p) => [...p, newMasterBookTextBlock()])}
+            >
+              문단 추가
+            </button>
+            <button
+              type="button"
+              className={styles.btnMini}
+              onClick={() => setAfterwordBlocks((p) => [...p, newMasterBookImageBlock()])}
+            >
+              이미지 추가
+            </button>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              onClick={() => setAfterwordBlocks([newMasterBookTextBlock(DEFAULT_AFTERWORD_TEMPLATE)])}
+            >
+              기본 문구 넣기
+            </button>
+            <button type="button" className={styles.btnMiniGhost} onClick={() => setAfterwordBlocks([])}>
+              전부 제거
+            </button>
+          </div>
+          {afterwordBlocks.map((b) => (
+            <div key={b.id} className={styles.segmentItem}>
+              {b.kind === "text" ? (
+                <label className={styles.field}>
+                  <textarea
+                    className={styles.textarea}
+                    rows={4}
+                    value={b.text}
+                    onChange={(e) =>
+                      setAfterwordBlocks((prev) =>
+                        prev.map((x) => (x.id === b.id ? { ...x, text: e.target.value } : x)),
+                      )
+                    }
+                  />
+                </label>
+              ) : (
+                <div className={styles.field}>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    className={styles.file}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      if (f) window.alert(`꼬리말에 「${f.name}」 이미지를 넣었습니다. 아래 미리보기를 확인하세요.`);
+                      setAfterwordBlocks((prev) => prev.map((x) => (x.id === b.id ? { ...x, file: f } : x)));
+                      e.target.value = "";
+                    }}
+                  />
+                  <FolioThumb file={b.file} />
+                </div>
+              )}
+              <button
+                type="button"
+                className={styles.btnMiniGhost}
+                onClick={() => setAfterwordBlocks((prev) => prev.filter((x) => x.id !== b.id))}
+              >
+                이 블록 제거
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {contentMode === "session_units" && confirmedUnits.length > 0 ? (
+        <>
+          <h3 className={styles.phase3Sub}>단원 시작 커버 (선택)</h3>
+          <p className={styles.hint}>
+            각 단원 제목 바로 위에 표시됩니다. 업로드가 끝나면 안내 팝업이 뜨고, 아래에서 미리보기를 볼 수 있습니다.
+          </p>
+          <ul className={styles.segmentList}>
+            {confirmedUnits.map(({ unitIndex, unit }) => (
+              <li key={unitIndex} className={styles.segmentItem}>
+                <div className={styles.segmentHead}>
+                  <span className={styles.segmentNote}>
+                    제 {unitIndex + 1}단원 · {unit.unitTitle}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    className={styles.file}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      if (f) window.alert(`제 ${unitIndex + 1}단원 커버로 「${f.name}」을(를) 올렸습니다.`);
+                      setUnitCoverFiles((prev) => ({ ...prev, [unitIndex]: f }));
+                      e.target.value = "";
+                    }}
+                  />
+                  {unitCoverFiles[unitIndex] ? (
+                    <button
+                      type="button"
+                      className={styles.btnMiniGhost}
+                      onClick={() =>
+                        setUnitCoverFiles((prev) => {
+                          const next = { ...prev };
+                          delete next[unitIndex];
+                          return next;
+                        })
+                      }
+                    >
+                      커버 제거
+                    </button>
+                  ) : null}
+                </div>
+                <FolioThumb file={unitCoverFiles[unitIndex] ?? null} />
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
 
       <h3 className={styles.phase3Sub}>목차</h3>
       <div className={styles.row}>
@@ -675,7 +917,7 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
         >
           {masterBusy ? "처리 중…" : "완성본 PDF 저장"}
         </button>
-        <button type="button" className={styles.btnGhost} disabled={masterBusy} onClick={onPrintMasterBook}>
+        <button type="button" className={styles.btnGhost} disabled={masterBusy} onClick={() => void onPrintMasterBook()}>
           완성본 인쇄
         </button>
       </div>
@@ -697,6 +939,9 @@ export function TextbookAutoMasterBookPanel({ bookTitle, confirmedUnits, session
           sessionUnitPassages={sessionUnitPassages}
           contentFileSegments={contentState.fileSegments}
           appendixFileSegments={appendixState.fileSegments}
+          forewordBlocks={forewordBlocks}
+          afterwordBlocks={afterwordBlocks}
+          unitCoverFiles={unitCoverFiles}
         />
       </div>
     </section>
