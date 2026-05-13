@@ -596,11 +596,12 @@ export function TextbookAutoBuilderPage() {
     [bookTitle, patchSourceModule],
   );
 
-  const addSourceModule = useCallback((unitIndex: number) => {
+  const addSourceModuleAfter = useCallback((unitIndex: number, afterModuleIndex: number) => {
     setUnitInputs((prev) => {
       const next = [...prev];
       const row = normalizeUnitSetup(next[unitIndex]);
-      row.modules = [...row.modules, emptyModule()];
+      const insertAt = Math.min(Math.max(afterModuleIndex + 1, 0), row.modules.length);
+      row.modules = [...row.modules.slice(0, insertAt), emptyModule(), ...row.modules.slice(insertAt)];
       next[unitIndex] = row;
       return next;
     });
@@ -1264,19 +1265,8 @@ export function TextbookAutoBuilderPage() {
                   />
                 </label>
                 <p className={styles.hint}>
-                  숫자를 바꾸면 아래 단원 블록 개수가 늘거나 줄어듭니다. 「단원 추가」·각 단원의 「이 단원 삭제」로도 조정할 수 있습니다.
+                  숫자를 바꾸면 아래 단원 블록 개수가 늘거나 줄어듭니다. 맨 아래 「단원 추가」·각 단원의 「이 단원 삭제」로도 조정할 수 있습니다.
                 </p>
-              </div>
-
-              <div className={styles.setupUnitToolbar}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={goSetupAddUnit}
-                  disabled={setupUnitCount >= MAX_UNITS}
-                >
-                  단원 추가
-                </button>
               </div>
 
               <div className={styles.unitGrid} style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -1308,14 +1298,11 @@ export function TextbookAutoBuilderPage() {
                             >
                               이 단원 삭제
                             </button>
-                            <button type="button" className={styles.btnSecondary} onClick={() => addSourceModule(ui)}>
-                              모듈 추가
-                            </button>
                           </div>
                         </div>
                         <p className={styles.hint}>
-                          카테고리마다 「직접 입력」과 「AI 생성」을 고를 수 있습니다. AI는 같은 모듈의 다른 칸·교재 제목을 참고합니다. 여러 지문 세트는
-                          「모듈 추가」·모듈 카드의 「모듈 삭제」로 나눕니다.
+                          카테고리마다 「직접 입력」과 「AI 생성」을 고를 수 있습니다. AI는 같은 모듈의 다른 칸·교재 제목을 참고합니다. 여러 지문 세트는 각 모듈
+                          카드 하단의 「모듈 추가」·상단 「모듈 삭제」로 나눕니다.
                         </p>
                     {unitState.modules.map((mod, mi) => (
                       <div key={mod.id} className={styles.sourceModuleCard}>
@@ -1565,13 +1552,17 @@ export function TextbookAutoBuilderPage() {
                             </div>
                           );
                         })}
+                        <div className={styles.sourceModuleActions}>
+                          <button
+                            type="button"
+                            className={styles.btnSecondary}
+                            onClick={() => addSourceModuleAfter(ui, mi)}
+                          >
+                            모듈 추가
+                          </button>
+                        </div>
                       </div>
                     ))}
-                    <div className={styles.sourceModuleActions}>
-                      <button type="button" className={styles.btnSecondary} onClick={() => addSourceModule(ui)}>
-                        모듈 추가
-                      </button>
-                    </div>
                     <label className={styles.field}>
                       <span className={styles.label}>파일 추가 (.txt · .pdf · .docx, 다중 선택 가능)</span>
                       <input
@@ -1900,6 +1891,17 @@ export function TextbookAutoBuilderPage() {
                     </div>
                   );
                 })}
+              </div>
+
+              <div className={styles.setupUnitToolbar}>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={goSetupAddUnit}
+                  disabled={setupUnitCount >= MAX_UNITS}
+                >
+                  단원 추가
+                </button>
               </div>
 
               <div className={styles.setupCombineSection}>
