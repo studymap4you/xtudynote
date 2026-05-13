@@ -7470,6 +7470,13 @@ a.btn.btn--primary:hover {
   color: #fff;
   text-decoration: none;
 }
+a.educator-btn.educator-btn--primary:any-link,
+a.educator-btn.educator-btn--primary:any-link:visited {
+  color: #fff;
+}
+a.educator-btn.educator-btn--primary:any-link:hover {
+  color: #fff;
+}
 .educator-btn--primary:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -11554,6 +11561,14 @@ a.btn.btn--primary:hover {
 .crm-section .btn--primary:hover:not(:disabled) {
   background: linear-gradient(180deg, var(--premium-accent) 0%, var(--premium-accent-hover) 100%);
   color: var(--btn-on-accent, #0a0f1a);
+}
+/* CRM: Link primary — 전역 a.btn.btn--primary:any-link 특이도보다 높여 라벨을 흰색으로 */
+.crm-section a.btn.btn--primary:any-link,
+.crm-section a.btn.btn--primary:any-link:visited {
+  color: #fff;
+}
+.crm-section a.btn.btn--primary:hover:not(:disabled) {
+  color: #fff;
 }
 .crm-section .btn--ghost {
   border-radius: var(--radius-ui);
