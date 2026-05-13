@@ -12,6 +12,18 @@ import { storage } from "@/firebase/config";
 import { BRAND_APP_NAME } from "@/lib/brand";
 import { combineUnitPassage, emptyModule, emptyUnitSetup, getSourceModuleFieldValue, normalizeUnitSetup } from "@/lib/textbookAuto/combineUnitPassage";
 import { requestSourceModuleFieldAi } from "@/lib/textbookAuto/requestSourceModuleFieldAi";
+import {
+  requestReviewStudyBodyAi,
+  requestSubQuestionOptionsAi,
+  requestSubQuestionStemAi,
+  requestUnitEvalOptionsAi,
+  requestUnitEvalStemAi,
+} from "@/lib/textbookAuto/requestTextbookSetupExtras";
+import {
+  KEY_SUMMARY_REPORT_HEAD,
+  PASSAGE_ANALYSIS_REPORT_HEAD,
+} from "@/lib/textbookAuto/reportTemplates";
+import { buildPracticeItemsFromReviewSetup, buildUnitTestFromEvalQuestions } from "@/lib/textbookAuto/unitSetupSupplements";
 import { parseManuscriptToModules } from "@/lib/localDocumentAuto/manuscriptModules";
 import { extractUnitSourceFile } from "@/lib/textbookAuto/extractUnitSourceFile";
 import { REACT_TO_PRINT_A4_PAGE_STYLE } from "@/lib/print/reactToPrintPageStyle";
@@ -41,9 +53,11 @@ import {
 import type {
   TextbookAnswerKeyItem,
   TextbookAnswerKeyLayout,
+  TextbookModuleSubQuestion,
   TextbookSetupPendingFile,
   TextbookSetupPendingMode,
   TextbookUnitContent,
+  TextbookUnitEvalQuestionSetup,
   TextbookUnitSetupState,
   TextbookUnitSourceModule,
   SourceModuleFieldKey,
@@ -53,6 +67,8 @@ import {
   MODULES_ONLY_SECTION_INCLUSION,
   SOURCE_MODULE_FIELD_KEYS,
   SOURCE_MODULE_FIELD_LABELS,
+  emptySubQuestion,
+  normalizeUnitEvaluationSetup,
 } from "@/types/textbookAuto";
 import { formatKeyContextForAnswerKey } from "@/lib/textbookAuto/formatKeyContextForAnswerKey";
 import { defaultUnitDisplayOrder, orderUnitsForBook } from "@/lib/textbookAuto/orderConfirmedUnits";
@@ -76,11 +92,8 @@ const SOURCE_MODULE_FIELD_UI: readonly {
 }[] = [
   { key: "passageNo", label: "지문번호", placeholder: "예: 01, A독해-3", rows: 1, multiline: false, maxLength: 80 },
   { key: "passage", label: "지문", placeholder: "본 지문 전체", rows: 4, multiline: true },
-  { key: "question", label: "문제", placeholder: "발문", rows: 2, multiline: true },
-  { key: "options", label: "선택지", placeholder: "① … ② … (복수 입력)", rows: 3, multiline: true },
-  { key: "passageAnalysis", label: "지문분석", rows: 2, multiline: true },
-  { key: "keySummary", label: "핵심정리", rows: 2, multiline: true },
-  { key: "reviewStudy", label: "확인학습", rows: 2, multiline: true },
+  { key: "passageAnalysis", label: "지문분석 (보고서)", rows: 6, multiline: true },
+  { key: "keySummary", label: "핵심정리 (보고서)", rows: 6, multiline: true },
 ];
 
 function sliceForAi(full: string): string {
@@ -88,18 +101,31 @@ function sliceForAi(full: string): string {
   return full.slice(0, AI_SOURCE_SLICE);
 }
 
-/** 세션 시작 시 1단계 지문으로 자동 확정할 단원 본문(원고 모듈만) */
-function buildInitialConfirmedUnit(unitIndex: number, passage: string): TextbookUnitContent {
+/** 세션 시작 시 1단계 지문으로 자동 확정할 단원 본문(원고 모듈만) + 확인학습·단원평가 */
+function buildInitialConfirmedUnit(
+  unitIndex: number,
+  passage: string,
+  setup: TextbookUnitSetupState,
+): TextbookUnitContent {
   const passageMods = parseManuscriptToModules(sliceForAi(passage));
+  const nSetup = normalizeUnitSetup(setup);
+  const practice = buildPracticeItemsFromReviewSetup(nSetup.reviewStudy);
+  const unitTest = buildUnitTestFromEvalQuestions(nSetup.unitEvaluation.questions);
+  const wantsUnitTest = nSetup.unitEvaluation.mcqCount > 0 || nSetup.unitEvaluation.shortCount > 0;
+  const inc = {
+    ...MODULES_ONLY_SECTION_INCLUSION,
+    practice: practice.length > 0,
+    unitTest: wantsUnitTest,
+  };
   return {
     unitTitle: `제 ${unitIndex + 1}단원`,
     keyConcepts: [],
     contentStudy: [],
     coreSummary: [],
-    practice: [],
-    unitTest: [],
+    practice,
+    unitTest,
     manuscriptModules: passageMods.length > 0 ? passageMods : [],
-    sectionInclusion: MODULES_ONLY_SECTION_INCLUSION,
+    sectionInclusion: inc,
   };
 }
 
@@ -288,9 +314,9 @@ export function TextbookAutoBuilderPage() {
       setErr("교재 제목을 입력하세요.");
       return;
     }
-    const slice = unitInputs.slice(0, n);
+    const slice = unitInputs.slice(0, n).map((row) => normalizeUnitSetup(row));
     for (let i = 0; i < n; i++) {
-      const u = normalizeUnitSetup(slice[i]);
+      const u = slice[i]!;
       if (u.pendingFiles.length > 0) {
         setErr(`제 ${i + 1}단원: 추출하지 않은 파일이 있습니다. 먼저 「추출」을 누르거나 대기 목록에서 제거하세요.`);
         return;
@@ -303,6 +329,34 @@ export function TextbookAutoBuilderPage() {
             );
             return;
           }
+        }
+        for (const sq of mod.subQuestions) {
+          if (sq.stemMode === "ai" && !sq.stem.trim()) {
+            setErr(
+              `제 ${i + 1}단원: 모듈 문항이 AI(발문)인데 비어 있습니다. AI를 실행하거나 직접 입력하세요.`,
+            );
+            return;
+          }
+          if (sq.kind === "mcq" && sq.optionsMode === "ai" && !sq.options.trim()) {
+            setErr(
+              `제 ${i + 1}단원: 객관식 문항이 AI(선택지)인데 비어 있습니다. AI를 실행하거나 직접 입력하세요.`,
+            );
+            return;
+          }
+        }
+      }
+      if (u.reviewStudy.fieldMode === "ai" && !u.reviewStudy.body.trim()) {
+        setErr(`제 ${i + 1}단원: 확인학습이 AI인데 내용이 비어 있습니다. 「AI 생성」을 실행하세요.`);
+        return;
+      }
+      for (const eq of u.unitEvaluation.questions) {
+        if (eq.stemMode === "ai" && !eq.stem.trim()) {
+          setErr(`제 ${i + 1}단원: 단원평가 문항 발문이 AI인데 비어 있습니다.`);
+          return;
+        }
+        if (eq.kind === "mcq" && eq.optionsMode === "ai" && !eq.options.trim()) {
+          setErr(`제 ${i + 1}단원: 단원평가 객관식 선택지가 AI인데 비어 있습니다.`);
+          return;
         }
       }
     }
@@ -324,17 +378,18 @@ export function TextbookAutoBuilderPage() {
     try {
       const sid = await createTextbookAutoSession(uid, { title, unitPassages: passages, totalUnits: n });
       const model = "session-auto";
-      const inc = MODULES_ONLY_SECTION_INCLUSION;
       const confirmed: { unitIndex: number; unit: TextbookUnitContent }[] = [];
       let answerKeyNote = "";
 
       for (let i = 0; i < n; i++) {
-        const raw = buildInitialConfirmedUnit(i, passages[i]!);
+        const setupRow = slice[i]!;
+        const raw = buildInitialConfirmedUnit(i, passages[i]!, setupRow);
+        const inc = raw.sectionInclusion ?? MODULES_ONLY_SECTION_INCLUSION;
         const toSave = applySectionInclusionToUnit(raw, inc);
         const v = validateDraftUnit(toSave, {
           practiceMin: inc.practice ? 1 : 0,
-          unitTestMcq: 0,
-          unitTestShort: 0,
+          unitTestMcq: inc.unitTest ? setupRow.unitEvaluation.mcqCount : 0,
+          unitTestShort: inc.unitTest ? setupRow.unitEvaluation.shortCount : 0,
           sectionInclusion: inc,
         });
         if (v) {
@@ -551,6 +606,231 @@ export function TextbookAutoBuilderPage() {
       return next;
     });
   }, []);
+
+  const applyReportTemplateToModule = useCallback(
+    (unitIndex: number, moduleId: string, field: "passageAnalysis" | "keySummary") => {
+      const head = field === "passageAnalysis" ? PASSAGE_ANALYSIS_REPORT_HEAD : KEY_SUMMARY_REPORT_HEAD;
+      setUnitInputs((prev) => {
+        const next = [...prev];
+        const row = normalizeUnitSetup(next[unitIndex]);
+        row.modules = row.modules.map((m) => {
+          if (m.id !== moduleId) return m;
+          const cur = (field === "passageAnalysis" ? m.passageAnalysis : m.keySummary).trim();
+          const text = cur ? `${head.trimEnd()}\n\n${cur}` : head;
+          return { ...m, [field]: text };
+        });
+        next[unitIndex] = row;
+        return next;
+      });
+    },
+    [],
+  );
+
+  const patchSubQuestion = useCallback(
+    (unitIndex: number, moduleId: string, sqId: string, patch: Partial<TextbookModuleSubQuestion>) => {
+      setUnitInputs((prev) => {
+        const next = [...prev];
+        const row = normalizeUnitSetup(next[unitIndex]);
+        row.modules = row.modules.map((mod) =>
+          mod.id === moduleId
+            ? { ...mod, subQuestions: mod.subQuestions.map((sq) => (sq.id === sqId ? { ...sq, ...patch } : sq)) }
+            : mod,
+        );
+        next[unitIndex] = row;
+        return next;
+      });
+    },
+    [],
+  );
+
+  const addSubQuestion = useCallback((unitIndex: number, moduleId: string) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = normalizeUnitSetup(next[unitIndex]);
+      row.modules = row.modules.map((mod) =>
+        mod.id === moduleId ? { ...mod, subQuestions: [...mod.subQuestions, emptySubQuestion()] } : mod,
+      );
+      next[unitIndex] = row;
+      return next;
+    });
+  }, []);
+
+  const removeSubQuestion = useCallback((unitIndex: number, moduleId: string, sqId: string) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = normalizeUnitSetup(next[unitIndex]);
+      row.modules = row.modules.map((mod) => {
+        if (mod.id !== moduleId) return mod;
+        if (mod.subQuestions.length <= 1) return mod;
+        return { ...mod, subQuestions: mod.subQuestions.filter((sq) => sq.id !== sqId) };
+      });
+      next[unitIndex] = row;
+      return next;
+    });
+  }, []);
+
+  const runSubQuestionStemAi = useCallback(
+    async (ui: number, mod: TextbookUnitSourceModule, sq: TextbookModuleSubQuestion, moduleOrdinal: number) => {
+      setErr(null);
+      const bk = `sqStem|${ui}|${mod.id}|${sq.id}`;
+      setSourceFieldAiBusyKey(bk);
+      try {
+        const text = await requestSubQuestionStemAi({
+          bookTitle: bookTitle.trim() || "교재",
+          unitIndex: ui,
+          moduleOrdinal,
+          mod,
+          sq,
+        });
+        patchSubQuestion(ui, mod.id, sq.id, { stem: text });
+        setMsg(`제 ${ui + 1}단원 · 모듈 ${moduleOrdinal}: 발문 AI를 반영했습니다.`);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "AI 생성에 실패했습니다.");
+      } finally {
+        setSourceFieldAiBusyKey(null);
+      }
+    },
+    [bookTitle, patchSubQuestion],
+  );
+
+  const runSubQuestionOptionsAi = useCallback(
+    async (ui: number, mod: TextbookUnitSourceModule, sq: TextbookModuleSubQuestion, moduleOrdinal: number) => {
+      setErr(null);
+      const bk = `sqOpt|${ui}|${mod.id}|${sq.id}`;
+      setSourceFieldAiBusyKey(bk);
+      try {
+        const text = await requestSubQuestionOptionsAi({
+          bookTitle: bookTitle.trim() || "교재",
+          unitIndex: ui,
+          moduleOrdinal,
+          mod,
+          sq,
+        });
+        patchSubQuestion(ui, mod.id, sq.id, { options: text });
+        setMsg(`제 ${ui + 1}단원 · 모듈 ${moduleOrdinal}: 선택지 AI를 반영했습니다.`);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "AI 생성에 실패했습니다.");
+      } finally {
+        setSourceFieldAiBusyKey(null);
+      }
+    },
+    [bookTitle, patchSubQuestion],
+  );
+
+  const patchUnitReviewStudy = useCallback((ui: number, patch: Partial<TextbookUnitSetupState["reviewStudy"]>) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = normalizeUnitSetup(next[ui]);
+      next[ui] = normalizeUnitSetup({ ...row, reviewStudy: { ...row.reviewStudy, ...patch } });
+      return next;
+    });
+  }, []);
+
+  const patchUnitEval = useCallback((ui: number, patch: Partial<TextbookUnitSetupState["unitEvaluation"]>) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = normalizeUnitSetup(next[ui]);
+      const merged = { ...row.unitEvaluation, ...patch };
+      next[ui] = normalizeUnitSetup({ ...row, unitEvaluation: normalizeUnitEvaluationSetup(merged) });
+      return next;
+    });
+  }, []);
+
+  const patchEvalQuestion = useCallback((ui: number, qid: string, patch: Partial<TextbookUnitEvalQuestionSetup>) => {
+    setUnitInputs((prev) => {
+      const next = [...prev];
+      const row = normalizeUnitSetup(next[ui]);
+      const questions = row.unitEvaluation.questions.map((q) => (q.id === qid ? { ...q, ...patch } : q));
+      next[ui] = normalizeUnitSetup({
+        ...row,
+        unitEvaluation: normalizeUnitEvaluationSetup({ ...row.unitEvaluation, questions }),
+      });
+      return next;
+    });
+  }, []);
+
+  const runReviewStudyAi = useCallback(
+    async (ui: number) => {
+      setErr(null);
+      const bk = `rs|${ui}`;
+      setSourceFieldAiBusyKey(bk);
+      try {
+        const row = normalizeUnitSetup(unitInputs[ui]);
+        const excerpt = combineUnitPassage(row);
+        const text = await requestReviewStudyBodyAi({
+          bookTitle: bookTitle.trim() || "교재",
+          unitIndex: ui,
+          passageExcerpt: excerpt,
+          setup: row.reviewStudy,
+        });
+        patchUnitReviewStudy(ui, { body: text });
+        setMsg(`제 ${ui + 1}단원 확인학습 AI를 반영했습니다.`);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "AI 생성에 실패했습니다.");
+      } finally {
+        setSourceFieldAiBusyKey(null);
+      }
+    },
+    [bookTitle, unitInputs, patchUnitReviewStudy],
+  );
+
+  const runUnitEvalStemAi = useCallback(
+    async (ui: number, q: TextbookUnitEvalQuestionSetup, ordinal: number) => {
+      setErr(null);
+      const bk = `evStem|${ui}|${q.id}`;
+      setSourceFieldAiBusyKey(bk);
+      try {
+        const row = normalizeUnitSetup(unitInputs[ui]);
+        const excerpt = combineUnitPassage(row);
+        const text = await requestUnitEvalStemAi({
+          bookTitle: bookTitle.trim() || "교재",
+          unitIndex: ui,
+          passageExcerpt: excerpt,
+          q,
+          ordinal,
+        });
+        patchEvalQuestion(ui, q.id, { stem: text });
+        setMsg(`제 ${ui + 1}단원 단원평가 ${ordinal}번 발문 AI를 반영했습니다.`);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "AI 생성에 실패했습니다.");
+      } finally {
+        setSourceFieldAiBusyKey(null);
+      }
+    },
+    [bookTitle, unitInputs, patchEvalQuestion],
+  );
+
+  const runUnitEvalOptionsAi = useCallback(
+    async (ui: number, q: TextbookUnitEvalQuestionSetup, ordinal: number) => {
+      setErr(null);
+      const bk = `evOpt|${ui}|${q.id}`;
+      setSourceFieldAiBusyKey(bk);
+      try {
+        const row = normalizeUnitSetup(unitInputs[ui]);
+        const excerpt = combineUnitPassage(row);
+        const stem = q.stem.trim();
+        if (!stem) {
+          setErr("먼저 발문을 입력하거나 AI로 생성하세요.");
+          return;
+        }
+        const text = await requestUnitEvalOptionsAi({
+          bookTitle: bookTitle.trim() || "교재",
+          unitIndex: ui,
+          passageExcerpt: excerpt,
+          stem,
+          q,
+          ordinal,
+        });
+        patchEvalQuestion(ui, q.id, { options: text });
+        setMsg(`제 ${ui + 1}단원 단원평가 ${ordinal}번 선택지 AI를 반영했습니다.`);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "AI 생성에 실패했습니다.");
+      } finally {
+        setSourceFieldAiBusyKey(null);
+      }
+    },
+    [bookTitle, unitInputs, patchEvalQuestion],
+  );
 
   const addPendingFiles = useCallback((unitIndex: number, files: File[]) => {
     if (!files.length) return;
@@ -1040,58 +1320,224 @@ export function TextbookAutoBuilderPage() {
                               [spec.key]: next,
                             } as Partial<Omit<TextbookUnitSourceModule, "id">>);
                           return (
-                            <div key={spec.key} className={styles.sourceModuleField}>
-                              <div className={styles.fieldHeadRow}>
-                                <span className={styles.fieldHeadLabel}>{spec.label}</span>
-                                <div className={styles.fieldModeToggle} role="group" aria-label={`${spec.label} 입력 방식`}>
-                                  <button
-                                    type="button"
-                                    className={`${styles.fieldModeBtn}${mode === "manual" ? ` ${styles.fieldModeBtnActive}` : ""}`}
-                                    onClick={() => patchModuleFieldMode(ui, mod.id, spec.key, "manual")}
-                                  >
-                                    직접 입력
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`${styles.fieldModeBtn}${mode === "ai" ? ` ${styles.fieldModeBtnActive}` : ""}`}
-                                    onClick={() => patchModuleFieldMode(ui, mod.id, spec.key, "ai")}
-                                  >
-                                    AI 생성
-                                  </button>
+                            <div key={spec.key}>
+                              <div className={styles.sourceModuleField}>
+                                <div className={styles.fieldHeadRow}>
+                                  <span className={styles.fieldHeadLabel}>{spec.label}</span>
+                                  <div className={styles.fieldHeadExtras}>
+                                    {spec.key === "passageAnalysis" || spec.key === "keySummary" ? (
+                                      <button
+                                        type="button"
+                                        className={styles.btnMiniGhost}
+                                        onClick={() =>
+                                          applyReportTemplateToModule(
+                                            ui,
+                                            mod.id,
+                                            spec.key === "passageAnalysis" ? "passageAnalysis" : "keySummary",
+                                          )
+                                        }
+                                      >
+                                        보고서 양식 넣기
+                                      </button>
+                                    ) : null}
+                                    <div className={styles.fieldModeToggle} role="group" aria-label={`${spec.label} 입력 방식`}>
+                                      <button
+                                        type="button"
+                                        className={`${styles.fieldModeBtn}${mode === "manual" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                        onClick={() => patchModuleFieldMode(ui, mod.id, spec.key, "manual")}
+                                      >
+                                        직접 입력
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={`${styles.fieldModeBtn}${mode === "ai" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                        onClick={() => patchModuleFieldMode(ui, mod.id, spec.key, "ai")}
+                                      >
+                                        AI 생성
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
+                                {mode === "ai" ? (
+                                  <div className={styles.fieldAiRow}>
+                                    <button
+                                      type="button"
+                                      className={styles.btnMini}
+                                      disabled={aiBlocked}
+                                      onClick={() => void runSourceFieldAi(ui, mod, spec.key, mi + 1)}
+                                    >
+                                      {isThisBusy ? "생성 중…" : "AI 생성"}
+                                    </button>
+                                    <span className={styles.fieldAiHint}>
+                                      OpenAI로 이 칸만 채웁니다. 보고서 머리말·본문 형식을 맞춥니다.
+                                    </span>
+                                  </div>
+                                ) : null}
+                                {spec.multiline ? (
+                                  <textarea
+                                    className={styles.textarea}
+                                    rows={spec.rows}
+                                    value={val}
+                                    onChange={(e) => onPatchVal(e.target.value)}
+                                    placeholder={spec.placeholder}
+                                  />
+                                ) : (
+                                  <input
+                                    className={styles.input}
+                                    value={val}
+                                    onChange={(e) => onPatchVal(e.target.value)}
+                                    placeholder={spec.placeholder}
+                                    maxLength={spec.maxLength}
+                                  />
+                                )}
                               </div>
-                              {mode === "ai" ? (
-                                <div className={styles.fieldAiRow}>
-                                  <button
-                                    type="button"
-                                    className={styles.btnMini}
-                                    disabled={aiBlocked}
-                                    onClick={() => void runSourceFieldAi(ui, mod, spec.key, mi + 1)}
-                                  >
-                                    {isThisBusy ? "생성 중…" : "AI 생성"}
-                                  </button>
-                                  <span className={styles.fieldAiHint}>
-                                    OpenAI로 이 칸만 채웁니다. 결과는 아래에서 수정할 수 있습니다.
-                                  </span>
+                              {spec.key === "passage" ? (
+                                <div className={styles.subQuestionsWrap}>
+                                  <div className={styles.subQuestionsHead}>
+                                    <span className={styles.fieldHeadLabel}>문제 · 선택지 (통합)</span>
+                                    <button
+                                      type="button"
+                                      className={styles.btnSecondary}
+                                      onClick={() => addSubQuestion(ui, mod.id)}
+                                    >
+                                      문항 추가
+                                    </button>
+                                  </div>
+                                  <p className={styles.hint}>
+                                    유형(객관식·주관식)과 언어(한국어·영어)를 고른 뒤 발문·선택지를 입력합니다. 객관식만 선택지 칸과 「선택지 AI」가
+                                    활성화됩니다.
+                                  </p>
+                                  {mod.subQuestions.map((sq, sqi) => {
+                                    const stemBk = `sqStem|${ui}|${mod.id}|${sq.id}`;
+                                    const optBk = `sqOpt|${ui}|${mod.id}|${sq.id}`;
+                                    const stemBusy = sourceFieldAiBusyKey === stemBk;
+                                    const optBusy = sourceFieldAiBusyKey === optBk;
+                                    const sqAiBlocked = sourceFieldAiBusyKey !== null;
+                                    return (
+                                      <div key={sq.id} className={styles.subQuestionCard}>
+                                        <div className={styles.subQuestionToolbar}>
+                                          <span className={styles.sourceModuleBadge}>문항 {sqi + 1}</span>
+                                          <select
+                                            className={styles.select}
+                                            value={sq.kind}
+                                            onChange={(e) =>
+                                              patchSubQuestion(ui, mod.id, sq.id, {
+                                                kind: e.target.value as "mcq" | "short",
+                                              })
+                                            }
+                                            aria-label="문항 유형"
+                                          >
+                                            <option value="mcq">객관식</option>
+                                            <option value="short">주관식</option>
+                                          </select>
+                                          <select
+                                            className={styles.select}
+                                            value={sq.lang}
+                                            onChange={(e) =>
+                                              patchSubQuestion(ui, mod.id, sq.id, {
+                                                lang: e.target.value as "ko" | "en",
+                                              })
+                                            }
+                                            aria-label="문항 언어"
+                                          >
+                                            <option value="ko">한국어</option>
+                                            <option value="en">영어</option>
+                                          </select>
+                                          {mod.subQuestions.length > 1 ? (
+                                            <button
+                                              type="button"
+                                              className={styles.btnMiniGhost}
+                                              onClick={() => removeSubQuestion(ui, mod.id, sq.id)}
+                                            >
+                                              문항 삭제
+                                            </button>
+                                          ) : null}
+                                        </div>
+                                        <div className={styles.fieldHeadRow}>
+                                          <span className={styles.fieldHeadLabel}>발문</span>
+                                          <div className={styles.fieldModeToggle} role="group" aria-label="발문 입력 방식">
+                                            <button
+                                              type="button"
+                                              className={`${styles.fieldModeBtn}${sq.stemMode === "manual" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                              onClick={() => patchSubQuestion(ui, mod.id, sq.id, { stemMode: "manual" })}
+                                            >
+                                              직접 입력
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className={`${styles.fieldModeBtn}${sq.stemMode === "ai" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                              onClick={() => patchSubQuestion(ui, mod.id, sq.id, { stemMode: "ai" })}
+                                            >
+                                              AI 생성
+                                            </button>
+                                          </div>
+                                        </div>
+                                        {sq.stemMode === "ai" ? (
+                                          <div className={styles.fieldAiRow}>
+                                            <button
+                                              type="button"
+                                              className={styles.btnMini}
+                                              disabled={sqAiBlocked}
+                                              onClick={() => void runSubQuestionStemAi(ui, mod, sq, mi + 1)}
+                                            >
+                                              {stemBusy ? "생성 중…" : "발문 AI"}
+                                            </button>
+                                          </div>
+                                        ) : null}
+                                        <textarea
+                                          className={styles.textarea}
+                                          rows={3}
+                                          value={sq.stem}
+                                          onChange={(e) => patchSubQuestion(ui, mod.id, sq.id, { stem: e.target.value })}
+                                          placeholder="발문"
+                                        />
+                                        {sq.kind === "mcq" ? (
+                                          <>
+                                            <div className={styles.fieldHeadRow}>
+                                              <span className={styles.fieldHeadLabel}>선택지 (5지, 한 줄에 ① 하나)</span>
+                                              <div className={styles.fieldModeToggle} role="group" aria-label="선택지 입력 방식">
+                                                <button
+                                                  type="button"
+                                                  className={`${styles.fieldModeBtn}${sq.optionsMode === "manual" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                                  onClick={() => patchSubQuestion(ui, mod.id, sq.id, { optionsMode: "manual" })}
+                                                >
+                                                  직접 입력
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className={`${styles.fieldModeBtn}${sq.optionsMode === "ai" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                                  onClick={() => patchSubQuestion(ui, mod.id, sq.id, { optionsMode: "ai" })}
+                                                >
+                                                  AI 생성
+                                                </button>
+                                              </div>
+                                            </div>
+                                            {sq.optionsMode === "ai" ? (
+                                              <div className={styles.fieldAiRow}>
+                                                <button
+                                                  type="button"
+                                                  className={styles.btnMini}
+                                                  disabled={sqAiBlocked}
+                                                  onClick={() => void runSubQuestionOptionsAi(ui, mod, sq, mi + 1)}
+                                                >
+                                                  {optBusy ? "생성 중…" : "선택지 AI"}
+                                                </button>
+                                              </div>
+                                            ) : null}
+                                            <textarea
+                                              className={styles.textarea}
+                                              rows={4}
+                                              value={sq.options}
+                                              onChange={(e) => patchSubQuestion(ui, mod.id, sq.id, { options: e.target.value })}
+                                              placeholder={"① …\n② …\n③ …\n④ …\n⑤ …"}
+                                            />
+                                          </>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               ) : null}
-                              {spec.multiline ? (
-                                <textarea
-                                  className={styles.textarea}
-                                  rows={spec.rows}
-                                  value={val}
-                                  onChange={(e) => onPatchVal(e.target.value)}
-                                  placeholder={spec.placeholder}
-                                />
-                              ) : (
-                                <input
-                                  className={styles.input}
-                                  value={val}
-                                  onChange={(e) => onPatchVal(e.target.value)}
-                                  placeholder={spec.placeholder}
-                                  maxLength={spec.maxLength}
-                                />
-                              )}
                             </div>
                           );
                         })}
@@ -1212,6 +1658,216 @@ export function TextbookAutoBuilderPage() {
                         ))}
                       </ul>
                     ) : null}
+                    <div className={styles.setupSectionBlock}>
+                      <h3 className={styles.setupSectionTitle}>확인학습 (단원)</h3>
+                      <p className={styles.hint}>
+                        세션에 포함될 주관식 확인학습 문항 수·언어를 정한 뒤 본문을 씁니다. 문항 사이는 빈 줄 두 줄(<code>---</code> 구분선 사용 가능)로 나눌 수
+                        있습니다.
+                      </p>
+                      <div className={styles.row}>
+                        <label className={styles.field}>
+                          <span className={styles.label}>문항 수</span>
+                          <input
+                            className={styles.input}
+                            type="number"
+                            min={1}
+                            max={20}
+                            value={unitState.reviewStudy.questionCount}
+                            onChange={(e) =>
+                              patchUnitReviewStudy(ui, { questionCount: Number(e.target.value) || 1 })
+                            }
+                          />
+                        </label>
+                        <label className={styles.field}>
+                          <span className={styles.label}>언어</span>
+                          <select
+                            className={styles.select}
+                            value={unitState.reviewStudy.lang}
+                            onChange={(e) =>
+                              patchUnitReviewStudy(ui, { lang: e.target.value as "ko" | "en" })
+                            }
+                          >
+                            <option value="ko">한국어</option>
+                            <option value="en">영어</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className={styles.fieldHeadRow}>
+                        <span className={styles.fieldHeadLabel}>본문</span>
+                        <div className={styles.fieldModeToggle} role="group" aria-label="확인학습 입력 방식">
+                          <button
+                            type="button"
+                            className={`${styles.fieldModeBtn}${unitState.reviewStudy.fieldMode === "manual" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                            onClick={() => patchUnitReviewStudy(ui, { fieldMode: "manual" })}
+                          >
+                            직접 입력
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.fieldModeBtn}${unitState.reviewStudy.fieldMode === "ai" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                            onClick={() => patchUnitReviewStudy(ui, { fieldMode: "ai" })}
+                          >
+                            AI 생성
+                          </button>
+                        </div>
+                      </div>
+                      {unitState.reviewStudy.fieldMode === "ai" ? (
+                        <div className={styles.fieldAiRow}>
+                          <button
+                            type="button"
+                            className={styles.btnMini}
+                            disabled={sourceFieldAiBusyKey !== null}
+                            onClick={() => void runReviewStudyAi(ui)}
+                          >
+                            {sourceFieldAiBusyKey === `rs|${ui}` ? "생성 중…" : "확인학습 AI"}
+                          </button>
+                        </div>
+                      ) : null}
+                      <textarea
+                        className={styles.textarea}
+                        rows={5}
+                        value={unitState.reviewStudy.body}
+                        onChange={(e) => patchUnitReviewStudy(ui, { body: e.target.value })}
+                        placeholder={"1. …\n\n2. …"}
+                      />
+                    </div>
+
+                    <div className={styles.setupSectionBlock}>
+                      <h3 className={styles.setupSectionTitle}>단원평가</h3>
+                      <p className={styles.hint}>객관식은 5지선다 보기를 줄바꿈으로 ①~⑤에 맞춰 입력합니다. 세션 시작 시 이 문항 수만큼 검증됩니다.</p>
+                      <div className={styles.row}>
+                        <label className={styles.field}>
+                          <span className={styles.label}>객관식(5지) 문항 수</span>
+                          <input
+                            className={styles.input}
+                            type="number"
+                            min={0}
+                            max={20}
+                            value={unitState.unitEvaluation.mcqCount}
+                            onChange={(e) => patchUnitEval(ui, { mcqCount: Number(e.target.value) })}
+                          />
+                        </label>
+                        <label className={styles.field}>
+                          <span className={styles.label}>주관식 문항 수</span>
+                          <input
+                            className={styles.input}
+                            type="number"
+                            min={0}
+                            max={20}
+                            value={unitState.unitEvaluation.shortCount}
+                            onChange={(e) => patchUnitEval(ui, { shortCount: Number(e.target.value) })}
+                          />
+                        </label>
+                      </div>
+                      {unitState.unitEvaluation.questions.map((eq, ei) => {
+                        const ord = ei + 1;
+                        const kindLabel = eq.kind === "mcq" ? "객관식" : "주관식";
+                        const stemBk = `evStem|${ui}|${eq.id}`;
+                        const optBk = `evOpt|${ui}|${eq.id}`;
+                        const evBlocked = sourceFieldAiBusyKey !== null;
+                        return (
+                          <div key={eq.id} className={styles.subQuestionCard}>
+                            <div className={styles.subQuestionToolbar}>
+                              <span className={styles.sourceModuleBadge}>
+                                단원평가 {ord} · {kindLabel}
+                              </span>
+                              <select
+                                className={styles.select}
+                                value={eq.lang}
+                                onChange={(e) =>
+                                  patchEvalQuestion(ui, eq.id, { lang: e.target.value as "ko" | "en" })
+                                }
+                                aria-label="단원평가 언어"
+                              >
+                                <option value="ko">한국어</option>
+                                <option value="en">영어</option>
+                              </select>
+                            </div>
+                            <div className={styles.fieldHeadRow}>
+                              <span className={styles.fieldHeadLabel}>발문</span>
+                              <div className={styles.fieldModeToggle} role="group" aria-label="단원평가 발문 방식">
+                                <button
+                                  type="button"
+                                  className={`${styles.fieldModeBtn}${eq.stemMode === "manual" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                  onClick={() => patchEvalQuestion(ui, eq.id, { stemMode: "manual" })}
+                                >
+                                  직접 입력
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`${styles.fieldModeBtn}${eq.stemMode === "ai" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                  onClick={() => patchEvalQuestion(ui, eq.id, { stemMode: "ai" })}
+                                >
+                                  AI 생성
+                                </button>
+                              </div>
+                            </div>
+                            {eq.stemMode === "ai" ? (
+                              <div className={styles.fieldAiRow}>
+                                <button
+                                  type="button"
+                                  className={styles.btnMini}
+                                  disabled={evBlocked}
+                                  onClick={() => void runUnitEvalStemAi(ui, eq, ord)}
+                                >
+                                  {sourceFieldAiBusyKey === stemBk ? "생성 중…" : "발문 AI"}
+                                </button>
+                              </div>
+                            ) : null}
+                            <textarea
+                              className={styles.textarea}
+                              rows={3}
+                              value={eq.stem}
+                              onChange={(e) => patchEvalQuestion(ui, eq.id, { stem: e.target.value })}
+                              placeholder="발문"
+                            />
+                            {eq.kind === "mcq" ? (
+                              <>
+                                <div className={styles.fieldHeadRow}>
+                                  <span className={styles.fieldHeadLabel}>선택지</span>
+                                  <div className={styles.fieldModeToggle} role="group" aria-label="선택지 방식">
+                                    <button
+                                      type="button"
+                                      className={`${styles.fieldModeBtn}${eq.optionsMode === "manual" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                      onClick={() => patchEvalQuestion(ui, eq.id, { optionsMode: "manual" })}
+                                    >
+                                      직접 입력
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`${styles.fieldModeBtn}${eq.optionsMode === "ai" ? ` ${styles.fieldModeBtnActive}` : ""}`}
+                                      onClick={() => patchEvalQuestion(ui, eq.id, { optionsMode: "ai" })}
+                                    >
+                                      AI 생성
+                                    </button>
+                                  </div>
+                                </div>
+                                {eq.optionsMode === "ai" ? (
+                                  <div className={styles.fieldAiRow}>
+                                    <button
+                                      type="button"
+                                      className={styles.btnMini}
+                                      disabled={evBlocked}
+                                      onClick={() => void runUnitEvalOptionsAi(ui, eq, ord)}
+                                    >
+                                      {sourceFieldAiBusyKey === optBk ? "생성 중…" : "선택지 AI"}
+                                    </button>
+                                  </div>
+                                ) : null}
+                                <textarea
+                                  className={styles.textarea}
+                                  rows={4}
+                                  value={eq.options}
+                                  onChange={(e) => patchEvalQuestion(ui, eq.id, { options: e.target.value })}
+                                  placeholder={"① …\n② …\n③ …\n④ …\n⑤ …"}
+                                />
+                              </>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+
                     <p className={styles.hint}>
                       합계 약 {combineUnitPassage(unitState).length.toLocaleString()}자 / 단원 상한{" "}
                       {MAX_UNIT_PASSAGE_CHARS.toLocaleString()}자

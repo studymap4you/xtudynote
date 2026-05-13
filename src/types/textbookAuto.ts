@@ -132,45 +132,136 @@ export type TextbookSetupFileSegment = {
   text: string;
 };
 
-/** 모듈 내 각 입력 칸의 소스 종류 */
-export type SourceModuleFieldKey =
-  | "passageNo"
-  | "passage"
-  | "question"
-  | "options"
-  | "passageAnalysis"
-  | "keySummary"
-  | "reviewStudy";
+/** 모듈 내 문제·선택지 (복수 문항) */
+export type SetupQuestionKind = "mcq" | "short";
+export type SetupContentLang = "ko" | "en";
 
-export const SOURCE_MODULE_FIELD_KEYS: SourceModuleFieldKey[] = [
-  "passageNo",
-  "passage",
-  "question",
-  "options",
-  "passageAnalysis",
-  "keySummary",
-  "reviewStudy",
-];
+export type TextbookModuleSubQuestion = {
+  id: string;
+  kind: SetupQuestionKind;
+  lang: SetupContentLang;
+  stem: string;
+  options: string;
+  stemMode: "manual" | "ai";
+  optionsMode: "manual" | "ai";
+};
+
+export type TextbookUnitReviewStudySetup = {
+  /** 생성·작성할 확인학습 문항 수 (1–20) */
+  questionCount: number;
+  lang: SetupContentLang;
+  fieldMode: "manual" | "ai";
+  body: string;
+};
+
+export type TextbookUnitEvalQuestionSetup = {
+  id: string;
+  kind: "mcq" | "short";
+  lang: SetupContentLang;
+  stemMode: "manual" | "ai";
+  /** 객관식 선택지 칸만 */
+  optionsMode: "manual" | "ai";
+  stem: string;
+  /** 5지선다: ①… 한 줄씩 */
+  options: string;
+};
+
+export type TextbookUnitEvaluationSetup = {
+  mcqCount: number;
+  shortCount: number;
+  questions: TextbookUnitEvalQuestionSetup[];
+};
+
+export function emptySubQuestion(): TextbookModuleSubQuestion {
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `sq-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return {
+    id,
+    kind: "mcq",
+    lang: "ko",
+    stem: "",
+    options: "",
+    stemMode: "manual",
+    optionsMode: "manual",
+  };
+}
+
+export function defaultReviewStudySetup(): TextbookUnitReviewStudySetup {
+  return { questionCount: 3, lang: "ko", fieldMode: "manual", body: "" };
+}
+
+function newEvalQuestion(kind: "mcq" | "short"): TextbookUnitEvalQuestionSetup {
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `ev-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return {
+    id,
+    kind,
+    lang: "ko",
+    stemMode: "manual",
+    optionsMode: "manual",
+    stem: "",
+    options: "",
+  };
+}
+
+export function normalizeEvalQuestionSlots(mcq: number, short: number, prev: TextbookUnitEvalQuestionSetup[]): TextbookUnitEvalQuestionSetup[] {
+  const next: TextbookUnitEvalQuestionSetup[] = [];
+  for (let i = 0; i < mcq; i++) {
+    const old = prev[i];
+    next.push(old && old.kind === "mcq" ? old : newEvalQuestion("mcq"));
+  }
+  for (let j = 0; j < short; j++) {
+    const idx = mcq + j;
+    const old = prev[idx];
+    next.push(old && old.kind === "short" ? old : newEvalQuestion("short"));
+  }
+  return next;
+}
+
+export function defaultUnitEvaluationSetup(): TextbookUnitEvaluationSetup {
+  const mcq = 2;
+  const short = 1;
+  return { mcqCount: mcq, shortCount: short, questions: normalizeEvalQuestionSlots(mcq, short, []) };
+}
+
+export function normalizeUnitEvaluationSetup(raw: Partial<TextbookUnitEvaluationSetup> | undefined): TextbookUnitEvaluationSetup {
+  const mcq = Math.min(20, Math.max(0, Math.floor(raw?.mcqCount ?? 2)));
+  const short = Math.min(20, Math.max(0, Math.floor(raw?.shortCount ?? 1)));
+  const prev = Array.isArray(raw?.questions) ? raw!.questions! : [];
+  return { mcqCount: mcq, shortCount: short, questions: normalizeEvalQuestionSlots(mcq, short, prev) };
+}
+
+export function normalizeReviewStudySetup(raw: Partial<TextbookUnitReviewStudySetup> | undefined): TextbookUnitReviewStudySetup {
+  const d = defaultReviewStudySetup();
+  const n = Math.min(20, Math.max(1, Math.floor(raw?.questionCount ?? d.questionCount)));
+  const lang = raw?.lang === "en" ? "en" : "ko";
+  const fieldMode = raw?.fieldMode === "ai" ? "ai" : "manual";
+  const body = typeof raw?.body === "string" ? raw.body : "";
+  return { questionCount: n, lang, fieldMode, body };
+}
+
+/** 모듈 내 각 입력 칸의 소스 종류 */
+export type SourceModuleFieldKey = "passageNo" | "passage" | "passageAnalysis" | "keySummary";
+
+export const SOURCE_MODULE_FIELD_KEYS: SourceModuleFieldKey[] = ["passageNo", "passage", "passageAnalysis", "keySummary"];
 
 export const SOURCE_MODULE_FIELD_LABELS: Record<SourceModuleFieldKey, string> = {
   passageNo: "지문번호",
   passage: "지문",
-  question: "문제",
-  options: "선택지",
   passageAnalysis: "지문분석",
   keySummary: "핵심정리",
-  reviewStudy: "확인학습",
 };
 
 export function defaultSourceModuleFieldModes(): Record<SourceModuleFieldKey, "manual" | "ai"> {
   return {
     passageNo: "manual",
     passage: "manual",
-    question: "manual",
-    options: "manual",
     passageAnalysis: "manual",
     keySummary: "manual",
-    reviewStudy: "manual",
   };
 }
 
@@ -181,11 +272,10 @@ export type TextbookUnitSourceModule = {
   fieldModes: Record<SourceModuleFieldKey, "manual" | "ai">;
   passageNo: string;
   passage: string;
-  question: string;
-  options: string;
+  /** 복수 문항(발문·선택지 통합 UI) */
+  subQuestions: TextbookModuleSubQuestion[];
   passageAnalysis: string;
   keySummary: string;
-  reviewStudy: string;
 };
 
 export type TextbookUnitSetupState = {
@@ -194,4 +284,7 @@ export type TextbookUnitSetupState = {
   modules: TextbookUnitSourceModule[];
   fileSegments: TextbookSetupFileSegment[];
   pendingFiles: TextbookSetupPendingFile[];
+  /** 단원 단위 확인학습 */
+  reviewStudy: TextbookUnitReviewStudySetup;
+  unitEvaluation: TextbookUnitEvaluationSetup;
 };

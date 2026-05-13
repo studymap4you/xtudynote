@@ -12,6 +12,18 @@ function readOpenAiModel(): string {
   return m || TEXTBOOK_AUTO_OPENAI_MODEL_FALLBACK;
 }
 
+function buildSubQuestionContext(mod: TextbookUnitSourceModule, excludeSqId: string | null): string {
+  const lines: string[] = [];
+  mod.subQuestions.forEach((sq, i) => {
+    if (excludeSqId && sq.id === excludeSqId) return;
+    const stem = sq.stem.trim();
+    const opts = sq.options.trim();
+    if (!stem && !opts) return;
+    lines.push(`(기타 문항 ${i + 1} ${sq.kind}/${sq.lang})\n발문: ${stem}\n선택지: ${opts}`);
+  });
+  return lines.join("\n\n");
+}
+
 function buildSiblingContext(mod: TextbookUnitSourceModule, exclude: SourceModuleFieldKey): string {
   const lines: string[] = [];
   for (const key of SOURCE_MODULE_FIELD_KEYS) {
@@ -20,6 +32,8 @@ function buildSiblingContext(mod: TextbookUnitSourceModule, exclude: SourceModul
     if (!v) continue;
     lines.push(`${SOURCE_MODULE_FIELD_LABELS[key]}:\n${v}`);
   }
+  const sub = buildSubQuestionContext(mod, null);
+  if (sub) lines.push(`같은 모듈의 다른 문항:\n${sub}`);
   return lines.length > 0 ? lines.join("\n\n—\n\n") : "(이 모듈에는 다른 칸에 아직 입력된 내용이 없습니다. 지문·문제 등이 비어 있으면, 교재 맥락 안에서 합리적으로 채웁니다.)";
 }
 
@@ -29,30 +43,18 @@ function fieldInstructions(field: SourceModuleFieldKey): string {
       return "짧은 지문/세트 식별 번호·코드(예: 01, A-3). 기호나 접두만, 장문 금지.";
     case "passage":
       return "학습용 지문 본문. 사실 왜곡 없이, 같은 모듈의 다른 칸과 논리적으로 맞출 것.";
-    case "question":
-      return "발문 한 개(또는 한 세트의 핵심 질문). 선택지·정답 문구는 넣지 말 것.";
-    case "options":
-      return "객관식 선택지. ①②… 또는 줄바꿈으로 4개 전후가自然. 질문과 대응.";
     case "passageAnalysis":
       return [
-        "「지문」칸에 있는 본문을 **문장 단위로 모두** 나누어 분석한다. 한 문장도 빠뜨리지 말 것(제목·표 구분이 있으면 문맥상 한 덩어리씩 처리).",
-        "각 문장마다 아래 **네 항목**을 반드시 같은 순서·라벨로 쓴다(라벨은 정확히):",
-        "1) 영문 — 해당 문장의 **영어 원문** 그대로",
-        "2) 해석 — 한국어 직역·자연스러운 풀이",
-        "3) 함축적 의미 — 문맥·화법·저자 의도 등 **함축된 뜻**",
-        "4) 핵심표현 분석 — 관용구·문법·난해한 연결·핵심 어휘 등 **표현 단위** 짧은 분석",
-        "문장이 여러 개면, 문장마다 위 네 줄 블록을 반복하고, 블록 사이에는 빈 줄 한 줄로 구분한다.",
-        "지문이 비어 있으면 같은 모듈의 다른 참고만으로는 추정하지 말고, 짧게 ‘지문이 비어 있어 분석할 수 없습니다’만 쓴다.",
+        "출력은 **《지문분석 보고서》** 서식에 맞춘 본문(머리말·■ 번호 목차·분석 본문)으로 작성한다.",
+        "「지문」칸 본문을 **문장 단위로 모두** 나누어 분석한다.",
+        "각 문장마다: 영문 / 해석 / 함축적 의미 / 핵심표현 분석 을 같은 순서로 반복한다.",
+        "지문이 비어 있으면 ‘지문이 비어 있어 분석할 수 없습니다’만 짧게 쓴다.",
       ].join(" ");
     case "keySummary":
       return [
-        "핵심을 **여러 항목**으로 정리한다. 항목마다 반드시 **‘제목 - 내용’** 형식을 쓴다(‘제목:’ ‘내용:’ 줄바꿈 형태도 가능).",
-        "**내용**에는 (1) 반드시 **영어 원문 문장 또는 핵심 표현을 인용**하고 (2) 이어서 한국어로 요점을 설명한다. 영어 인용과 한국어 설명의 구분이 보이게 쓴다.",
-        "가능하면 같은 모듈 「지문」에 나온 표현을 그대로 인용하고, 지문이 없으면 다른 칸과 모순되지 않게 요약한다.",
-        "두세 단어 수준의 짧은 표현이라도 **영어 병기**를 생략하지 말 것.",
+        "출력은 **《핵심정리 보고서》** 서식에 맞춘 본문으로 작성한다.",
+        "항목마다 **제목 — 내용** 형식. 내용에 영어 인용 후 한국어 설명을 덧붙인다.",
       ].join(" ");
-    case "reviewStudy":
-      return "확인학습용 질문·과제 문장. 정답·해설은 생략.";
     default: {
       const _e: never = field;
       return _e;
@@ -83,9 +85,9 @@ export async function requestSourceModuleFieldAi(params: {
   const guide = fieldInstructions(field);
   const fieldExtra =
     field === "passageAnalysis"
-      ? "\n\n[중요] 참고 블록의 「지문」에 적힌 문장을 **전부** 문장 단위로 쪼개어 위 네 항목(영문·해석·함축적 의미·핵심표현 분석) 형식으로만 출력한다. 통째 요약으로 대체하지 말 것."
+      ? "\n\n[중요] 《지문분석 보고서》 형식의 보고서 본문만 출력. 문장별 네 항목 구조를 지킬 것."
       : field === "keySummary"
-        ? "\n\n[중요] 항목마다 **제목 - 내용** 구조를 지키고, **내용**에 영어 원문/표현 병기 후 한국어 설명을 덧붙인다."
+        ? "\n\n[중요] 《핵심정리 보고서》 형식. 항목마다 제목 — 내용."
         : "";
 
   const userContent = `교재 제목(참고): ${bookTitle.trim() || "교재"}

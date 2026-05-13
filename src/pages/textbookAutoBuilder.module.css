@@ -462,6 +462,57 @@
   flex: 1 1 200px;
 }
 
+.fieldHeadExtras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  flex: 1 1 200px;
+}
+
+.subQuestionsWrap {
+  margin: 0.75rem 0 1rem;
+}
+
+.subQuestionsHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.subQuestionCard {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 0.85rem 0.95rem;
+  margin-bottom: 0.85rem;
+  background: #fff;
+}
+
+.subQuestionToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+
+.setupSectionBlock {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.setupSectionTitle {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e40af;
+}
+
 .setupUnitToolbar {
   display: flex;
   flex-wrap: wrap;
