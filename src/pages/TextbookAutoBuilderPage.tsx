@@ -20,6 +20,8 @@ import {
   requestUnitEvalStemAi,
 } from "@/lib/textbookAuto/requestTextbookSetupExtras";
 import {
+  ensureKeySummaryReportFormat,
+  ensurePassageAnalysisReportFormat,
   KEY_SUMMARY_REPORT_HEAD,
   PASSAGE_ANALYSIS_REPORT_HEAD,
 } from "@/lib/textbookAuto/reportTemplates";
@@ -576,13 +578,19 @@ export function TextbookAutoBuilderPage() {
       setSourceFieldAiBusyKey(busyKey);
       try {
         const title = bookTitle.trim() || "교재";
-        const text = await requestSourceModuleFieldAi({
+        const raw = await requestSourceModuleFieldAi({
           bookTitle: title,
           unitIndex: ui,
           moduleOrdinal,
           field,
           module: mod,
         });
+        const text =
+          field === "passageAnalysis"
+            ? ensurePassageAnalysisReportFormat(raw)
+            : field === "keySummary"
+              ? ensureKeySummaryReportFormat(raw)
+              : raw;
         patchSourceModule(ui, mod.id, { [field]: text } as Partial<Omit<TextbookUnitSourceModule, "id">>);
         setMsg(
           `제 ${ui + 1}단원 · 모듈 ${moduleOrdinal} · ${SOURCE_MODULE_FIELD_LABELS[field]}: AI 결과를 넣었습니다. 필요하면 바로 고칠 수 있습니다.`,

@@ -53,7 +53,8 @@ function fieldInstructions(field: SourceModuleFieldKey): string {
     case "keySummary":
       return [
         "출력은 **《핵심정리 보고서》** 서식에 맞춘 본문으로 작성한다.",
-        "항목마다 **제목 — 내용** 형식. 내용에 영어 인용 후 한국어 설명을 덧붙인다.",
+        "■ 3. 본문 이하의 각 항목은 줄 맨 앞에 **번호 목록(1. 2. 3. …)** 또는 **글머리 기호(- )** 중 하나로 통일해 표기한다(기호와 제목 사이 공백 한 칸).",
+        "각 항목은 **제목 — 내용** 형식. 내용에 영어 인용 후 한국어 설명을 덧붙인다. 항목과 항목 사이는 빈 줄 한 줄로 구분한다.",
       ].join(" ");
     default: {
       const _e: never = field;
@@ -87,7 +88,7 @@ export async function requestSourceModuleFieldAi(params: {
     field === "passageAnalysis"
       ? "\n\n[중요] 《지문분석 보고서》 형식의 보고서 본문만 출력. 문장별 네 항목 구조를 지킬 것."
       : field === "keySummary"
-        ? "\n\n[중요] 《핵심정리 보고서》 형식. 항목마다 제목 — 내용."
+        ? "\n\n[중요] 《핵심정리 보고서》 형식. 본문 항목마다 줄 앞에 1. 2. … 또는 - 로 목록을 표시하고, 항목마다 제목 — 내용. 번호/기호 없이 제목만 **굵게**만 쓰지 말 것."
         : "";
 
   const userContent = `교재 제목(참고): ${bookTitle.trim() || "교재"}

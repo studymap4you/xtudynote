@@ -19,9 +19,10 @@ export const KEY_SUMMARY_REPORT_HEAD = `《핵심정리 보고서》
 
 ■ 2. 서식 원칙
 항목마다 "제목 — 내용" 형식. 내용에는 반드시 영어 원문(또는 핵심 표현) 인용 후 한국어 설명을 덧붙입니다.
+각 항목 줄 시작에는 번호 목록(1. 2. 3. …) 또는 글머리 기호(- )로 구분합니다(한 문서 안에서는 한 방식으로 통일).
 
 ■ 3. 본문
-(이하부터 항목별 핵심정리를 작성합니다.)
+(이하부터 항목별 핵심정리를 작성합니다. 각 항목은 1. 또는 - 로 시작합니다.)
 `;
 
 export function hasPassageAnalysisReportEnvelope(body: string): boolean {
