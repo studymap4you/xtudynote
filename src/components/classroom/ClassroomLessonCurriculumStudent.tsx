@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ClassroomLessonDocument } from "@/types/classroomLesson";
+import {
+  effectiveLessonMaterialItems,
+  effectiveLessonVideoItems,
+} from "@/lib/classroom/lessonMedia";
 import "@/pages/pages.css";
 
 type LessonRow = { id: string; data: ClassroomLessonDocument };
@@ -29,9 +33,9 @@ export function ClassroomLessonCurriculumStudent({
         {lessons.map((row, idx) => {
           const done = completedLessonIds.has(row.id);
           const expanded = openId === row.id;
-          const { unitTitle, title, summary, videoUrl, contentId } = row.data;
-          const v = videoUrl?.trim() ?? "";
-          const cid = contentId?.trim() ?? "";
+          const { unitTitle, title, summary } = row.data;
+          const videoItems = effectiveLessonVideoItems(row.data);
+          const materialItems = effectiveLessonMaterialItems(row.data);
 
           return (
             <li
@@ -74,22 +78,66 @@ export function ClassroomLessonCurriculumStudent({
                 <div className="classroom-lesson-acc__detail" id={`lesson-detail-${row.id}`}>
                   {summary?.trim() ? <p className="classroom-lesson-acc__summary">{summary.trim()}</p> : null}
                   <div className="classroom-lesson-acc__actions">
-                    {v ? (
-                      <a
-                        href={v}
-                        className="btn btn--primary btn--stack"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        영상 열기 (새 창)
-                      </a>
+                    {videoItems.length > 0 ? (
+                      <div className="classroom-lesson-acc__media-group">
+                        <p className="classroom-lesson-acc__media-label">영상</p>
+                        <ul className="classroom-lesson-acc__media-list">
+                          {videoItems.map((item, vi) => (
+                            <li key={item.id}>
+                              <a
+                                href={item.url}
+                                className="btn btn--primary btn--stack"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {item.label?.trim()
+                                  ? `${item.label.trim()} (새 창)`
+                                  : `영상 ${vi + 1} (새 창)`}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     ) : null}
-                    {cid ? (
-                      <Link to={`/content/${cid}`} className="btn btn--ghost btn--stack">
-                        강의 자료·상세
-                      </Link>
+                    {materialItems.length > 0 ? (
+                      <div className="classroom-lesson-acc__media-group">
+                        <p className="classroom-lesson-acc__media-label">학습 자료</p>
+                        <ul className="classroom-lesson-acc__media-list">
+                          {materialItems.map((item, mi) => {
+                            const cid = item.contentId?.trim() ?? "";
+                            const u = item.url?.trim() ?? "";
+                            const label = item.label?.trim();
+                            return (
+                              <li key={item.id}>
+                                {cid ? (
+                                  <Link
+                                    to={`/content/${encodeURIComponent(cid)}`}
+                                    className="btn btn--ghost btn--stack"
+                                  >
+                                    {label || `강의 자료·상세 (${mi + 1})`}
+                                  </Link>
+                                ) : null}
+                                {u ? (
+                                  <a
+                                    href={u}
+                                    className="btn btn--ghost btn--stack"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    {cid
+                                      ? label
+                                        ? `${label.trim()} (첨부 파일)`
+                                        : "첨부·링크 자료 (새 창)"
+                                      : label || `학습 자료 열기 (${mi + 1})`}
+                                  </a>
+                                ) : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
                     ) : null}
-                    {!v && !cid ? (
+                    {videoItems.length === 0 && materialItems.length === 0 ? (
                       <p className="classroom-lesson-acc__no-link">연결된 링크가 없습니다. 선생님께 문의해 주세요.</p>
                     ) : null}
                   </div>

@@ -230,6 +230,29 @@ service firebase.storage {
       allow delete: if (isActiveTeacher() || isActiveSuperAdmin()) && isOwnerTeacher();
     }
 
+    /**
+     * 강의실 레슨 목차 — 영상·학습자료 파일 (소유 교사만 업로드/삭제, 로그인 사용자 읽기)
+     */
+    match /classroom_lesson_media/{classroomId}/{allPaths=**} {
+      function classroomLessonDoc() {
+        return firestore.get(/databases/(default)/documents/classrooms/$(classroomId));
+      }
+      function isLessonMediaOwnerTeacher() {
+        return request.auth != null
+          && firestore.exists(/databases/(default)/documents/classrooms/$(classroomId))
+          && classroomLessonDoc().data.teacherId == request.auth.uid;
+      }
+
+      allow create, update: if (isActiveTeacher() || isActiveSuperAdmin())
+        && isLessonMediaOwnerTeacher()
+        && request.resource.size < 120 * 1024 * 1024;
+
+      allow read: if request.auth != null
+        && (isActiveSuperAdmin() || isActiveTeacher() || isActiveStudent());
+
+      allow delete: if (isActiveTeacher() || isActiveSuperAdmin()) && isLessonMediaOwnerTeacher();
+    }
+
     /** 디지털마켓 상품 이미지 — 마스터만 업로드, 공개 읽기 */
     match /digital_market_images/{uid}/{allPaths=**} {
       allow create, update: if isActiveSuperAdmin()

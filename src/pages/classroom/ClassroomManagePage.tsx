@@ -1,7 +1,7 @@
 import { FirebaseError } from "firebase/app";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import {
   addDoc,
   collection,
@@ -37,7 +37,20 @@ import type {
   ClassroomMemberEnrollmentDocument,
   ClassroomNoticeDocument,
 } from "@/types/classroom";
-import type { ClassroomLessonDocument } from "@/types/classroomLesson";
+import type {
+  ClassroomLessonDocument,
+  LessonMaterialItem,
+  LessonVideoItem,
+} from "@/types/classroomLesson";
+import {
+  collectLessonStoragePaths,
+  effectiveLessonMaterialItems,
+  effectiveLessonVideoItems,
+  newLessonMediaId,
+  serializeMaterialItemsForFirestore,
+  serializeVideoItemsForFirestore,
+  uploadLessonMediaFile,
+} from "@/lib/classroom/lessonMedia";
 import type { MaterialRequestDocument } from "@/types/materialRequest";
 import type { VideoMaterialRequestDocument } from "@/types/videoMaterialRequest";
 import { collectVideoUrlsFromRequest } from "@/lib/videoMaterialUrls";
@@ -45,6 +58,9 @@ import { ensureTeacherRosterForStudent, listWorksheetRoster, syncTeacherRosterFo
 import "@/pages/pages.css";
 
 type TabId = "intro" | "notices" | "materials" | "video" | "qa" | "members";
+
+const LESSON_VIDEO_BYTES_MAX = 100 * 1024 * 1024;
+const LESSON_MATERIAL_BYTES_MAX = 50 * 1024 * 1024;
 
 function tsLabel(t: unknown): string {
   if (t && typeof t === "object" && "toMillis" in t && typeof (t as { toMillis: () => number }).toMillis === "function") {
@@ -109,8 +125,16 @@ function Inner() {
   const [newUnit, setNewUnit] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [newSummary, setNewSummary] = useState("");
-  const [newVideoUrl, setNewVideoUrl] = useState("");
-  const [newContentId, setNewContentId] = useState("");
+  const newLessonDraftSegmentRef = useRef(`_draft_${newLessonMediaId()}`);
+  const [pendingNewVideos, setPendingNewVideos] = useState<LessonVideoItem[]>([]);
+  const [pendingNewMaterials, setPendingNewMaterials] = useState<LessonMaterialItem[]>([]);
+  const [newVideoUrlDraft, setNewVideoUrlDraft] = useState("");
+  const [newMaterialCidDraft, setNewMaterialCidDraft] = useState("");
+  const [newMaterialUrlDraft, setNewMaterialUrlDraft] = useState("");
+  const [lessonMediaBusy, setLessonMediaBusy] = useState(false);
+  const [videoUrlDraftByLesson, setVideoUrlDraftByLesson] = useState<Record<string, string>>({});
+  const [matCidDraftByLesson, setMatCidDraftByLesson] = useState<Record<string, string>>({});
+  const [matUrlDraftByLesson, setMatUrlDraftByLesson] = useState<Record<string, string>>({});
 
   const [studentChatUrlDraft, setStudentChatUrlDraft] = useState("");
   const [tuitionPaymentUrlDraft, setTuitionPaymentUrlDraft] = useState("");
@@ -772,6 +796,308 @@ function Inner() {
     }
   }
 
+  function rotateNewLessonDraftSegment() {
+    newLessonDraftSegmentRef.current = `_draft_${newLessonMediaId()}`;
+  }
+
+  async function persistLessonAttachments(
+    lessonId: string,
+    videos: LessonVideoItem[],
+    materials: LessonMaterialItem[],
+  ) {
+    if (!id) return;
+    const v = serializeVideoItemsForFirestore(videos);
+    const m = serializeMaterialItemsForFirestore(materials);
+    await updateDoc(doc(db, "classrooms", id, "lessons", lessonId), {
+      videoItems: v,
+      materialItems: m,
+      videoUrl: deleteField(),
+      contentId: deleteField(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  async function removePendingNewVideo(itemId: string) {
+    const item = pendingNewVideos.find((x) => x.id === itemId);
+    if (item?.storagePath?.trim()) {
+      try {
+        await deleteObject(ref(storage, item.storagePath.trim()));
+      } catch {
+        /* Storage 이미 삭제됨 등 */
+      }
+    }
+    setPendingNewVideos((prev) => prev.filter((x) => x.id !== itemId));
+  }
+
+  async function removePendingNewMaterial(itemId: string) {
+    const item = pendingNewMaterials.find((x) => x.id === itemId);
+    if (item?.storagePath?.trim()) {
+      try {
+        await deleteObject(ref(storage, item.storagePath.trim()));
+      } catch {
+        /* */
+      }
+    }
+    setPendingNewMaterials((prev) => prev.filter((x) => x.id !== itemId));
+  }
+
+  function addPendingNewVideoUrl() {
+    const raw = newVideoUrlDraft.trim();
+    if (!raw) return;
+    const norm = normalizeExternalUrl(raw) || raw;
+    if (!isHttpUrl(norm)) {
+      setLessonErr("영상 URL은 http(s)://로 시작하는 주소를 입력해 주세요.");
+      return;
+    }
+    setLessonErr(null);
+    setPendingNewVideos((prev) => [...prev, { id: newLessonMediaId(), url: norm.slice(0, 2048) }]);
+    setNewVideoUrlDraft("");
+  }
+
+  function addPendingNewMaterialFromFields() {
+    const cid = newMaterialCidDraft.trim();
+    const uRaw = newMaterialUrlDraft.trim();
+    const u = uRaw ? normalizeExternalUrl(uRaw) || uRaw : "";
+    if (!cid && !u) {
+      setLessonErr("학습 자료는 콘텐츠 ID 또는 자료 URL 중 하나를 입력해 주세요.");
+      return;
+    }
+    if (u && !isHttpUrl(u)) {
+      setLessonErr("자료 URL은 http(s)://로 시작하는 주소를 입력해 주세요.");
+      return;
+    }
+    setLessonErr(null);
+    setPendingNewMaterials((prev) => [
+      ...prev,
+      {
+        id: newLessonMediaId(),
+        contentId: cid ? cid.slice(0, 128) : undefined,
+        url: u ? u.slice(0, 2048) : undefined,
+      },
+    ]);
+    setNewMaterialCidDraft("");
+    setNewMaterialUrlDraft("");
+  }
+
+  async function handleNewLessonVideoFiles(files: FileList | null) {
+    if (!files?.length || !id) return;
+    setLessonMediaBusy(true);
+    setLessonErr(null);
+    try {
+      for (const file of [...files]) {
+        if (file.size > LESSON_VIDEO_BYTES_MAX) {
+          setLessonErr(`영상 파일은 ${LESSON_VIDEO_BYTES_MAX / (1024 * 1024)}MB 이하로 올려 주세요: ${file.name}`);
+          continue;
+        }
+        const { url, storagePath, label } = await uploadLessonMediaFile(
+          storage,
+          id,
+          newLessonDraftSegmentRef.current,
+          file,
+        );
+        setPendingNewVideos((prev) => [...prev, { id: newLessonMediaId(), url, storagePath, label }]);
+      }
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "영상 업로드에 실패했습니다.");
+    } finally {
+      setLessonMediaBusy(false);
+    }
+  }
+
+  async function handleNewLessonMaterialFiles(files: FileList | null) {
+    if (!files?.length || !id) return;
+    setLessonMediaBusy(true);
+    setLessonErr(null);
+    try {
+      for (const file of [...files]) {
+        if (file.size > LESSON_MATERIAL_BYTES_MAX) {
+          setLessonErr(`학습 자료 파일은 ${LESSON_MATERIAL_BYTES_MAX / (1024 * 1024)}MB 이하: ${file.name}`);
+          continue;
+        }
+        const { url, storagePath, label } = await uploadLessonMediaFile(
+          storage,
+          id,
+          newLessonDraftSegmentRef.current,
+          file,
+        );
+        setPendingNewMaterials((prev) => [...prev, { id: newLessonMediaId(), url, storagePath, label }]);
+      }
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "학습 자료 업로드에 실패했습니다.");
+    } finally {
+      setLessonMediaBusy(false);
+    }
+  }
+
+  async function handleLessonVideoFiles(lessonId: string, files: FileList | null) {
+    if (!files?.length || !id) return;
+    const row = lessonRows.find((r) => r.id === lessonId);
+    if (!row) return;
+    setLessonMediaBusy(true);
+    setLessonErr(null);
+    let nextV = [...effectiveLessonVideoItems(row.data)];
+    const curM = [...effectiveLessonMaterialItems(row.data)];
+    try {
+      for (const file of [...files]) {
+        if (file.size > LESSON_VIDEO_BYTES_MAX) {
+          setLessonErr(`영상 파일은 ${LESSON_VIDEO_BYTES_MAX / (1024 * 1024)}MB 이하: ${file.name}`);
+          continue;
+        }
+        const { url, storagePath, label } = await uploadLessonMediaFile(storage, id, lessonId, file);
+        nextV = [...nextV, { id: newLessonMediaId(), url, storagePath, label }];
+      }
+      await persistLessonAttachments(lessonId, nextV, curM);
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "영상 업로드에 실패했습니다.");
+    } finally {
+      setLessonMediaBusy(false);
+    }
+  }
+
+  async function handleLessonMaterialFiles(lessonId: string, files: FileList | null) {
+    if (!files?.length || !id) return;
+    const row = lessonRows.find((r) => r.id === lessonId);
+    if (!row) return;
+    setLessonMediaBusy(true);
+    setLessonErr(null);
+    const curV = [...effectiveLessonVideoItems(row.data)];
+    let nextM = [...effectiveLessonMaterialItems(row.data)];
+    try {
+      for (const file of [...files]) {
+        if (file.size > LESSON_MATERIAL_BYTES_MAX) {
+          setLessonErr(`학습 자료 파일은 ${LESSON_MATERIAL_BYTES_MAX / (1024 * 1024)}MB 이하: ${file.name}`);
+          continue;
+        }
+        const { url, storagePath, label } = await uploadLessonMediaFile(storage, id, lessonId, file);
+        nextM = [...nextM, { id: newLessonMediaId(), url, storagePath, label }];
+      }
+      await persistLessonAttachments(lessonId, curV, nextM);
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "학습 자료 업로드에 실패했습니다.");
+    } finally {
+      setLessonMediaBusy(false);
+    }
+  }
+
+  async function addLessonVideoUrlField(lessonId: string) {
+    const raw = (videoUrlDraftByLesson[lessonId] ?? "").trim();
+    if (!id) return;
+    const row = lessonRows.find((r) => r.id === lessonId);
+    if (!row) return;
+    if (!raw) {
+      setLessonErr("영상 URL을 입력해 주세요.");
+      return;
+    }
+    const norm = normalizeExternalUrl(raw) || raw;
+    if (!isHttpUrl(norm)) {
+      setLessonErr("영상 URL은 http(s)://로 시작하는 주소를 입력해 주세요.");
+      return;
+    }
+    setLessonErr(null);
+    setLessonMediaBusy(true);
+    try {
+      const nextV = [...effectiveLessonVideoItems(row.data), { id: newLessonMediaId(), url: norm.slice(0, 2048) }];
+      await persistLessonAttachments(lessonId, nextV, effectiveLessonMaterialItems(row.data));
+      setVideoUrlDraftByLesson((prev) => ({ ...prev, [lessonId]: "" }));
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "저장에 실패했습니다.");
+    } finally {
+      setLessonMediaBusy(false);
+    }
+  }
+
+  async function addLessonMaterialFields(lessonId: string) {
+    if (!id) return;
+    const row = lessonRows.find((r) => r.id === lessonId);
+    if (!row) return;
+    const cid = (matCidDraftByLesson[lessonId] ?? "").trim();
+    const uRaw = (matUrlDraftByLesson[lessonId] ?? "").trim();
+    const u = uRaw ? normalizeExternalUrl(uRaw) || uRaw : "";
+    if (!cid && !u) {
+      setLessonErr("학습 자료는 콘텐츠 ID 또는 자료 URL 중 하나를 입력해 주세요.");
+      return;
+    }
+    if (u && !isHttpUrl(u)) {
+      setLessonErr("자료 URL은 http(s)://로 시작하는 주소를 입력해 주세요.");
+      return;
+    }
+    setLessonErr(null);
+    setLessonMediaBusy(true);
+    try {
+      const nextM = [
+        ...effectiveLessonMaterialItems(row.data),
+        {
+          id: newLessonMediaId(),
+          contentId: cid ? cid.slice(0, 128) : undefined,
+          url: u ? u.slice(0, 2048) : undefined,
+        },
+      ];
+      await persistLessonAttachments(lessonId, effectiveLessonVideoItems(row.data), nextM);
+      setMatCidDraftByLesson((prev) => ({ ...prev, [lessonId]: "" }));
+      setMatUrlDraftByLesson((prev) => ({ ...prev, [lessonId]: "" }));
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "저장에 실패했습니다.");
+    } finally {
+      setLessonMediaBusy(false);
+    }
+  }
+
+  async function removeLessonVideo(lessonId: string, itemId: string) {
+    if (!id) return;
+    const row = lessonRows.find((r) => r.id === lessonId);
+    if (!row) return;
+    const cur = effectiveLessonVideoItems(row.data);
+    const item = cur.find((x) => x.id === itemId);
+    if (item?.storagePath?.trim()) {
+      try {
+        await deleteObject(ref(storage, item.storagePath.trim()));
+      } catch {
+        /* */
+      }
+    }
+    setLessonMediaBusy(true);
+    setLessonErr(null);
+    try {
+      await persistLessonAttachments(
+        lessonId,
+        cur.filter((x) => x.id !== itemId),
+        effectiveLessonMaterialItems(row.data),
+      );
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+    } finally {
+      setLessonMediaBusy(false);
+    }
+  }
+
+  async function removeLessonMaterial(lessonId: string, itemId: string) {
+    if (!id) return;
+    const row = lessonRows.find((r) => r.id === lessonId);
+    if (!row) return;
+    const cur = effectiveLessonMaterialItems(row.data);
+    const item = cur.find((x) => x.id === itemId);
+    if (item?.storagePath?.trim()) {
+      try {
+        await deleteObject(ref(storage, item.storagePath.trim()));
+      } catch {
+        /* */
+      }
+    }
+    setLessonMediaBusy(true);
+    setLessonErr(null);
+    try {
+      await persistLessonAttachments(
+        lessonId,
+        effectiveLessonVideoItems(row.data),
+        cur.filter((x) => x.id !== itemId),
+      );
+    } catch (err) {
+      setLessonErr(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+    } finally {
+      setLessonMediaBusy(false);
+    }
+  }
+
   async function addClassroomLesson(e: React.FormEvent) {
     e.preventDefault();
     if (!id || !room) return;
@@ -788,8 +1114,6 @@ function Inner() {
       const payload: Record<string, unknown> = {
         orderIndex: nextOrder,
         title: t.slice(0, 400),
-        videoUrl: newVideoUrl.trim() ? newVideoUrl.trim().slice(0, 2048) : null,
-        contentId: newContentId.trim() ? newContentId.trim().slice(0, 128) : null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -797,12 +1121,20 @@ function Inner() {
       if (u) payload.unitTitle = u.slice(0, 200);
       const s = newSummary.trim();
       if (s) payload.summary = s.slice(0, 4000);
+      const vs = serializeVideoItemsForFirestore(pendingNewVideos);
+      const ms = serializeMaterialItemsForFirestore(pendingNewMaterials);
+      if (vs.length) payload.videoItems = vs;
+      if (ms.length) payload.materialItems = ms;
       await addDoc(collection(db, "classrooms", id, "lessons"), payload);
       setNewTitle("");
       setNewUnit("");
       setNewSummary("");
-      setNewVideoUrl("");
-      setNewContentId("");
+      setPendingNewVideos([]);
+      setPendingNewMaterials([]);
+      setNewVideoUrlDraft("");
+      setNewMaterialCidDraft("");
+      setNewMaterialUrlDraft("");
+      rotateNewLessonDraftSegment();
     } catch (err) {
       setLessonErr(err instanceof Error ? err.message : "레슨을 추가하지 못했습니다.");
     } finally {
@@ -817,6 +1149,15 @@ function Inner() {
     setLessonBusy(true);
     setLessonErr(null);
     try {
+      const row = lessonRows.find((r) => r.id === lessonId);
+      const paths = row ? collectLessonStoragePaths(row.data) : [];
+      for (const p of paths) {
+        try {
+          await deleteObject(ref(storage, p));
+        } catch {
+          /* */
+        }
+      }
       await deleteDoc(doc(db, "classrooms", id, "lessons", lessonId));
     } catch (err) {
       setLessonErr(err instanceof Error ? err.message : "삭제에 실패했습니다.");
@@ -1585,7 +1926,8 @@ function Inner() {
             </h2>
             <p className="classroom-manage-lessons__lede">
               여기서 추가한 레슨은 <strong>학생 입장 화면</strong> 강의 목차에 실시간으로 표시됩니다. 단원명·요약·영상
-              URL·라이브러리 콘텐츠 ID를 연결할 수 있습니다. 순서는 위아래 버튼으로 바꿀 수 있습니다.
+              (URL 또는 파일)·학습 자료(라이브러리 콘텐츠 ID·URL·파일)를 여러 개 연결할 수 있으며, 각 항목은 삭제할 수
+              있습니다. 순서는 위아래 버튼으로 바꿉니다.
             </p>
             {lessonErr ? <p className="auth-error">{lessonErr}</p> : null}
             <form className="classroom-hub__form classroom-manage-lessons__form-grid" onSubmit={(e) => void addClassroomLesson(e)}>
@@ -1596,7 +1938,7 @@ function Inner() {
                   value={newUnit}
                   onChange={(e) => setNewUnit(e.target.value)}
                   placeholder="예: 1단원 독해"
-                  disabled={lessonBusy}
+                  disabled={lessonBusy || lessonMediaBusy}
                   maxLength={200}
                 />
               </label>
@@ -1607,7 +1949,7 @@ function Inner() {
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="예: 2024년 9월 모의고사 지문 분석"
-                  disabled={lessonBusy}
+                  disabled={lessonBusy || lessonMediaBusy}
                   required
                   maxLength={400}
                 />
@@ -1619,37 +1961,153 @@ function Inner() {
                   rows={3}
                   value={newSummary}
                   onChange={(e) => setNewSummary(e.target.value)}
-                  disabled={lessonBusy}
+                  disabled={lessonBusy || lessonMediaBusy}
                   maxLength={4000}
                 />
               </label>
-              <label className="auth-field">
-                <span className="classroom-hub__field-label">영상 URL (선택)</span>
-                <input
-                  className="add-passage__control"
-                  value={newVideoUrl}
-                  onChange={(e) => setNewVideoUrl(e.target.value)}
-                  placeholder="https://…"
-                  inputMode="url"
-                  disabled={lessonBusy}
-                  maxLength={2048}
-                />
-              </label>
-              <label className="auth-field">
-                <span className="classroom-hub__field-label">콘텐츠 ID (선택)</span>
-                <input
-                  className="add-passage__control"
-                  value={newContentId}
-                  onChange={(e) => setNewContentId(e.target.value)}
-                  placeholder="contents 문서 ID"
-                  disabled={lessonBusy}
-                  maxLength={128}
-                  spellCheck={false}
-                />
-              </label>
+              <div className="classroom-manage-lessons__attach-block" style={{ gridColumn: "1 / -1" }}>
+                <p className="classroom-manage-lessons__attach-heading">이 레슨에 넣을 영상 (선택, 여러 개)</p>
+                {pendingNewVideos.length > 0 ? (
+                  <ul className="classroom-manage-lessons__attach-list">
+                    {pendingNewVideos.map((item) => (
+                      <li key={item.id} className="classroom-manage-lessons__attach-item">
+                        <div className="classroom-manage-lessons__attach-item-main">
+                          <span className="classroom-manage-lessons__attach-name">
+                            {item.label ?? (item.storagePath ? "업로드 영상" : "외부 URL")}
+                          </span>
+                          <span className="classroom-manage-lessons__attach-url" title={item.url}>
+                            {item.url.length > 96 ? `${item.url.slice(0, 96)}…` : item.url}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                          disabled={lessonBusy || lessonMediaBusy}
+                          onClick={() => void removePendingNewVideo(item.id)}
+                        >
+                          삭제
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                <div className="classroom-manage-lessons__attach-controls">
+                  <input
+                    className="add-passage__control"
+                    value={newVideoUrlDraft}
+                    onChange={(e) => setNewVideoUrlDraft(e.target.value)}
+                    placeholder="https://… 외부 영상 주소"
+                    disabled={lessonBusy || lessonMediaBusy}
+                    maxLength={2048}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                    disabled={lessonBusy || lessonMediaBusy}
+                    onClick={addPendingNewVideoUrl}
+                  >
+                    URL 추가
+                  </button>
+                  <label className="classroom-manage-lessons__file-pick">
+                    <span className="classroom-hub__field-label">영상 파일 (다중)</span>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      multiple
+                      className="classroom-manage-lessons__file-input"
+                      disabled={lessonBusy || lessonMediaBusy}
+                      onChange={(e) => {
+                        void handleNewLessonVideoFiles(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+              <div className="classroom-manage-lessons__attach-block" style={{ gridColumn: "1 / -1" }}>
+                <p className="classroom-manage-lessons__attach-heading">학습 자료 (선택, 여러 개)</p>
+                {pendingNewMaterials.length > 0 ? (
+                  <ul className="classroom-manage-lessons__attach-list">
+                    {pendingNewMaterials.map((item) => (
+                      <li key={item.id} className="classroom-manage-lessons__attach-item">
+                        <div className="classroom-manage-lessons__attach-item-main">
+                          <span className="classroom-manage-lessons__attach-name">
+                            {item.label ??
+                              (item.contentId?.trim()
+                                ? `콘텐츠 ID: ${item.contentId.trim()}`
+                                : item.storagePath
+                                  ? "업로드 파일"
+                                  : "URL 자료")}
+                          </span>
+                          {item.url?.trim() ? (
+                            <span className="classroom-manage-lessons__attach-url" title={item.url.trim()}>
+                              {item.url.trim().length > 96 ? `${item.url.trim().slice(0, 96)}…` : item.url.trim()}
+                            </span>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                          disabled={lessonBusy || lessonMediaBusy}
+                          onClick={() => void removePendingNewMaterial(item.id)}
+                        >
+                          삭제
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                <div className="classroom-manage-lessons__attach-controls classroom-manage-lessons__attach-controls--stack">
+                  <label className="auth-field" style={{ flex: "1 1 140px" }}>
+                    <span className="classroom-hub__field-label">콘텐츠 ID</span>
+                    <input
+                      className="add-passage__control"
+                      value={newMaterialCidDraft}
+                      onChange={(e) => setNewMaterialCidDraft(e.target.value)}
+                      placeholder="contents 문서 ID"
+                      disabled={lessonBusy || lessonMediaBusy}
+                      maxLength={128}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="auth-field" style={{ flex: "2 1 200px" }}>
+                    <span className="classroom-hub__field-label">자료 URL</span>
+                    <input
+                      className="add-passage__control"
+                      value={newMaterialUrlDraft}
+                      onChange={(e) => setNewMaterialUrlDraft(e.target.value)}
+                      placeholder="https://… PDF 등"
+                      disabled={lessonBusy || lessonMediaBusy}
+                      maxLength={2048}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                    style={{ alignSelf: "flex-end" }}
+                    disabled={lessonBusy || lessonMediaBusy}
+                    onClick={addPendingNewMaterialFromFields}
+                  >
+                    자료 추가
+                  </button>
+                  <label className="classroom-manage-lessons__file-pick" style={{ flex: "1 1 100%" }}>
+                    <span className="classroom-hub__field-label">자료 파일 업로드 (다중)</span>
+                    <input
+                      type="file"
+                      multiple
+                      className="classroom-manage-lessons__file-input"
+                      disabled={lessonBusy || lessonMediaBusy}
+                      onChange={(e) => {
+                        void handleNewLessonMaterialFiles(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
               <div className="add-passage__actions classroom-hub__form-actions" style={{ gridColumn: "1 / -1" }}>
-                <button type="submit" className="btn btn--primary btn--stack" disabled={lessonBusy}>
-                  {lessonBusy ? "처리 중…" : "레슨 추가"}
+                <button type="submit" className="btn btn--primary btn--stack" disabled={lessonBusy || lessonMediaBusy}>
+                  {lessonBusy || lessonMediaBusy ? "처리 중…" : "레슨 추가"}
                 </button>
               </div>
             </form>
@@ -1657,7 +2115,10 @@ function Inner() {
               <p className="classroom-hub__hint">등록된 레슨이 없습니다. 위 폼에서 첫 레슨을 추가해 보세요.</p>
             ) : (
               <ul className="classroom-manage-lessons__lesson-list">
-                {lessonRows.map((row, idx) => (
+                {lessonRows.map((row, idx) => {
+                  const lessonVideos = effectiveLessonVideoItems(row.data);
+                  const lessonMaterials = effectiveLessonMaterialItems(row.data);
+                  return (
                   <li key={row.id} className="classroom-manage-lessons__lesson">
                     <div className="classroom-manage-lessons__lesson-head">
                       <div>
@@ -1671,7 +2132,7 @@ function Inner() {
                         <button
                           type="button"
                           className="btn btn--ghost classroom-manage-lessons__btn-sm"
-                          disabled={lessonBusy || idx === 0}
+                          disabled={lessonBusy || lessonMediaBusy || idx === 0}
                           onClick={() => void moveClassroomLesson(row.id, -1)}
                         >
                           위로
@@ -1679,7 +2140,7 @@ function Inner() {
                         <button
                           type="button"
                           className="btn btn--ghost classroom-manage-lessons__btn-sm"
-                          disabled={lessonBusy || idx >= lessonRows.length - 1}
+                          disabled={lessonBusy || lessonMediaBusy || idx >= lessonRows.length - 1}
                           onClick={() => void moveClassroomLesson(row.id, 1)}
                         >
                           아래로
@@ -1687,7 +2148,7 @@ function Inner() {
                         <button
                           type="button"
                           className="btn btn--ghost classroom-manage-lessons__btn-sm"
-                          disabled={lessonBusy}
+                          disabled={lessonBusy || lessonMediaBusy}
                           onClick={() => void removeClassroomLesson(row.id)}
                         >
                           삭제
@@ -1701,8 +2162,167 @@ function Inner() {
                           : row.data.summary.trim()}
                       </p>
                     ) : null}
+                    <div className="classroom-manage-lessons__lesson-attach">
+                      <div className="classroom-manage-lessons__attach-block">
+                        <p className="classroom-manage-lessons__attach-heading">영상</p>
+                        {lessonVideos.length > 0 ? (
+                          <ul className="classroom-manage-lessons__attach-list">
+                            {lessonVideos.map((item) => (
+                              <li key={item.id} className="classroom-manage-lessons__attach-item">
+                                <div className="classroom-manage-lessons__attach-item-main">
+                                  <span className="classroom-manage-lessons__attach-name">
+                                    {item.label ?? (item.storagePath ? "업로드 영상" : "외부 URL")}
+                                  </span>
+                                  <span className="classroom-manage-lessons__attach-url" title={item.url}>
+                                    {item.url.length > 96 ? `${item.url.slice(0, 96)}…` : item.url}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                                  disabled={lessonBusy || lessonMediaBusy}
+                                  onClick={() => void removeLessonVideo(row.id, item.id)}
+                                >
+                                  삭제
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="classroom-hub__hint" style={{ margin: 0 }}>
+                            등록된 영상이 없습니다.
+                          </p>
+                        )}
+                        <div className="classroom-manage-lessons__attach-controls">
+                          <input
+                            className="add-passage__control"
+                            value={videoUrlDraftByLesson[row.id] ?? ""}
+                            onChange={(e) =>
+                              setVideoUrlDraftByLesson((prev) => ({ ...prev, [row.id]: e.target.value }))
+                            }
+                            placeholder="https://…"
+                            disabled={lessonBusy || lessonMediaBusy}
+                            maxLength={2048}
+                          />
+                          <button
+                            type="button"
+                            className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                            disabled={lessonBusy || lessonMediaBusy}
+                            onClick={() => void addLessonVideoUrlField(row.id)}
+                          >
+                            URL 추가
+                          </button>
+                          <label className="classroom-manage-lessons__file-pick">
+                            <span className="classroom-hub__field-label">파일 (다중)</span>
+                            <input
+                              type="file"
+                              accept="video/*"
+                              multiple
+                              className="classroom-manage-lessons__file-input"
+                              disabled={lessonBusy || lessonMediaBusy}
+                              onChange={(e) => {
+                                void handleLessonVideoFiles(row.id, e.target.files);
+                                e.target.value = "";
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                      <div className="classroom-manage-lessons__attach-block">
+                        <p className="classroom-manage-lessons__attach-heading">학습 자료</p>
+                        {lessonMaterials.length > 0 ? (
+                          <ul className="classroom-manage-lessons__attach-list">
+                            {lessonMaterials.map((item) => (
+                              <li key={item.id} className="classroom-manage-lessons__attach-item">
+                                <div className="classroom-manage-lessons__attach-item-main">
+                                  <span className="classroom-manage-lessons__attach-name">
+                                    {item.label ??
+                                      (item.contentId?.trim()
+                                        ? `콘텐츠: ${item.contentId.trim()}`
+                                        : item.storagePath
+                                          ? "업로드 파일"
+                                          : "URL")}
+                                  </span>
+                                  {item.url?.trim() ? (
+                                    <span className="classroom-manage-lessons__attach-url" title={item.url.trim()}>
+                                      {item.url.trim().length > 96
+                                        ? `${item.url.trim().slice(0, 96)}…`
+                                        : item.url.trim()}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                                  disabled={lessonBusy || lessonMediaBusy}
+                                  onClick={() => void removeLessonMaterial(row.id, item.id)}
+                                >
+                                  삭제
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="classroom-hub__hint" style={{ margin: 0 }}>
+                            등록된 학습 자료가 없습니다.
+                          </p>
+                        )}
+                        <div className="classroom-manage-lessons__attach-controls classroom-manage-lessons__attach-controls--stack">
+                          <label className="auth-field" style={{ flex: "1 1 140px" }}>
+                            <span className="classroom-hub__field-label">콘텐츠 ID</span>
+                            <input
+                              className="add-passage__control"
+                              value={matCidDraftByLesson[row.id] ?? ""}
+                              onChange={(e) =>
+                                setMatCidDraftByLesson((prev) => ({ ...prev, [row.id]: e.target.value }))
+                              }
+                              placeholder="contents ID"
+                              disabled={lessonBusy || lessonMediaBusy}
+                              maxLength={128}
+                              spellCheck={false}
+                            />
+                          </label>
+                          <label className="auth-field" style={{ flex: "2 1 200px" }}>
+                            <span className="classroom-hub__field-label">자료 URL</span>
+                            <input
+                              className="add-passage__control"
+                              value={matUrlDraftByLesson[row.id] ?? ""}
+                              onChange={(e) =>
+                                setMatUrlDraftByLesson((prev) => ({ ...prev, [row.id]: e.target.value }))
+                              }
+                              placeholder="https://…"
+                              disabled={lessonBusy || lessonMediaBusy}
+                              maxLength={2048}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="btn btn--ghost classroom-manage-lessons__btn-sm"
+                            style={{ alignSelf: "flex-end" }}
+                            disabled={lessonBusy || lessonMediaBusy}
+                            onClick={() => void addLessonMaterialFields(row.id)}
+                          >
+                            자료 추가
+                          </button>
+                          <label className="classroom-manage-lessons__file-pick" style={{ flex: "1 1 100%" }}>
+                            <span className="classroom-hub__field-label">파일 (다중)</span>
+                            <input
+                              type="file"
+                              multiple
+                              className="classroom-manage-lessons__file-input"
+                              disabled={lessonBusy || lessonMediaBusy}
+                              onChange={(e) => {
+                                void handleLessonMaterialFiles(row.id, e.target.files);
+                                e.target.value = "";
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </section>
