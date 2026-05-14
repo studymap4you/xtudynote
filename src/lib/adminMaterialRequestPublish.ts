@@ -109,6 +109,7 @@ export async function approveFileMaterialRequest(db: Firestore, requestId: strin
 
   const baseContent = {
     authorId,
+    teacherId: authorId,
     subject,
     audience,
     section,
@@ -146,6 +147,7 @@ export async function approveFileMaterialRequest(db: Firestore, requestId: strin
       contentId: contentRef.id,
       homeworkCode,
       shortCode,
+      teacherId: authorId,
       authorId,
       subject,
       learningTopic,
@@ -222,8 +224,11 @@ export async function approveVideoMaterialRequest(db: Firestore, requestId: stri
       ? raw.classroomId.trim()
       : null;
 
+  const teacherIdForContent = (raw.teacherId ?? "").trim() || authorId;
+
   const baseContent = {
     authorId,
+    teacherId: teacherIdForContent,
     subject,
     audience,
     section,
@@ -260,6 +265,7 @@ export async function approveVideoMaterialRequest(db: Firestore, requestId: stri
       contentId: contentRef.id,
       homeworkCode,
       shortCode,
+      teacherId: teacherIdForContent,
       authorId,
       subject,
       learningTopic,
@@ -383,6 +389,7 @@ export async function publishEducationalClassroomMaterial(
 
   const baseContent = {
     authorId,
+    teacherId: authorId,
     subject,
     audience,
     section,
@@ -422,6 +429,7 @@ export async function publishEducationalClassroomMaterial(
       contentId: contentRef.id,
       homeworkCode,
       shortCode,
+      teacherId: authorId,
       authorId,
       subject,
       learningTopic,
@@ -453,6 +461,8 @@ export async function publishEducationalClassroomMaterial(
 /** 강의실 동영상(링크) — 교육용으로 즉시 contents 승인 반영 (video_material_requests 없음) */
 export type EducationalClassroomVideoPublishInput = {
   authorId: string;
+  /** 강사별 필터용 — 비우면 authorId 사용 */
+  teacherId?: string | null;
   classroomId: string;
   classroomTitle: string | null;
   materialType: Extract<ContentType, "share" | "homework">;
@@ -497,9 +507,11 @@ export async function publishEducationalClassroomVideoMaterial(
   const themes = [] as LearningThemeId[];
   const classroomId = input.classroomId.trim();
   const classroomTitle = input.classroomTitle?.trim() || null;
+  const teacherIdForContent = (input.teacherId ?? "").trim() || authorId;
 
   const baseContent = {
     authorId,
+    teacherId: teacherIdForContent,
     subject,
     audience,
     section,
@@ -538,6 +550,7 @@ export async function publishEducationalClassroomVideoMaterial(
       contentId: contentRef.id,
       homeworkCode,
       shortCode,
+      teacherId: teacherIdForContent,
       authorId,
       subject,
       learningTopic,

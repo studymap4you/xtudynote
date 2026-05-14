@@ -149,6 +149,7 @@ export function VideoLectureRegisterPage() {
       ) {
         await publishEducationalClassroomVideoMaterial(db, {
           authorId: firebaseUser.uid,
+          teacherId: firebaseUser.uid,
           classroomId,
           classroomTitle: (classroomDoc.title ?? "").trim() || null,
           materialType,
@@ -183,6 +184,9 @@ export function VideoLectureRegisterPage() {
       const requestId = reqRef.id;
       const t0 = performance.now();
       const role = resolveSubmitterRole(profile);
+      const teacherIdForRequest =
+        (classroomDoc?.teacherId ?? "").trim() ||
+        (profile.role === "teacher" || profile.role === "super_admin" ? firebaseUser.uid : null);
 
       let thumbnailPendingPath: string | null = null;
       if (!isClassroomTeacherFlow && materialType === "paid" && thumbnailFile) {
@@ -195,6 +199,7 @@ export function VideoLectureRegisterPage() {
       await setDoc(reqRef, {
         submitterId: firebaseUser.uid,
         submitterRole: role,
+        ...(teacherIdForRequest ? { teacherId: teacherIdForRequest } : {}),
         title: title.trim(),
         subject: subject.trim(),
         audienceGrade: audienceGrade.trim(),
@@ -433,6 +438,10 @@ export function VideoLectureRegisterPage() {
 
                 <div className="classroom-hub__card">
                   <h3 className="classroom-hub__card-title">동영상 링크</h3>
+                  <p className="classroom-hub__hint" style={{ marginTop: 0 }}>
+                    YouTube 주소는 Firestore에 그대로 저장되며, 강의 자료 상세·강의실·강의 목차 화면에서는 자동으로
+                    임베드 플레이어로 재생됩니다.
+                  </p>
                   <div className="reg-form__field">
                     <span className="reg-form__label-line">
                       <span className="reg-form__label-en">Video URL(s)</span>

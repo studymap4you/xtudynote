@@ -2207,6 +2207,10 @@ button.intro-landing-tile {
   gap: 0.4rem;
 }
 
+.classroom-lesson-acc__media-group--yt {
+  margin-bottom: 0.35rem;
+}
+
 .classroom-lesson-acc__no-link {
   margin: 0;
   font-size: 0.82rem;
@@ -9908,6 +9912,151 @@ a.educator-btn.educator-btn--primary:any-link:hover {
   text-decoration-thickness: var(--xu-link-ul-thick, max(1.25px, 0.065em));
   text-underline-offset: var(--xu-link-ul-offset, 0.28em);
 }
+
+/* —— YouTube 임베드 플레이어 (강의 영상·목차·카탈로그 공통) —— */
+.lecture-yt-player {
+  margin: 0;
+}
+
+.lecture-yt-player--compact {
+  margin-top: 0.35rem;
+}
+
+.lecture-yt-player__title {
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.lecture-yt-player__title--sm {
+  font-size: 0.88rem;
+  margin-bottom: 0.45rem;
+}
+
+.lecture-yt-player__player-block {
+  margin: 0 0 0.5rem;
+}
+
+.lecture-yt-player__frame-wrap {
+  position: relative;
+  width: 100%;
+  max-width: min(960px, 100%);
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0f172a;
+  aspect-ratio: 16 / 9;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.18);
+}
+
+.lecture-yt-player__iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.lecture-yt-player__hint {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.lecture-yt-player__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.lecture-yt-player__list-item {
+  margin: 0;
+}
+
+.lecture-yt-player__pick {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.lecture-yt-player__pick:hover {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: #f8fafc;
+}
+
+.lecture-yt-player__pick--active {
+  border-color: rgba(37, 99, 235, 0.65);
+  background: rgba(239, 246, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.lecture-yt-player__pick-label {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.lecture-yt-player__pick-id {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-family: ui-monospace, monospace;
+}
+
+.lecture-yt-player__others {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.lecture-yt-player__others-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.lecture-yt-player__other-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.lecture-yt-player__other-link {
+  color: #2563eb;
+  text-decoration-line: underline;
+  text-underline-offset: 0.2em;
+}
+
+@media (max-width: 520px) {
+  .lecture-yt-player__frame-wrap {
+    border-radius: 10px;
+  }
+
+  .lecture-yt-player__pick {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 .content-detail__qa-list {
   list-style: none;
   padding: 0;

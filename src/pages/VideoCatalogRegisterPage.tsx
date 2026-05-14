@@ -72,6 +72,7 @@ export function VideoCatalogRegisterPage() {
           description: description.trim() || undefined,
           thumbnailUrl: thumbUrl,
           createdBy: uid,
+          teacherId: uid,
         });
         showToast("ok", "동영상이 등록되었습니다.");
         navigate("/admin/storefront?tab=videos", { replace: true });

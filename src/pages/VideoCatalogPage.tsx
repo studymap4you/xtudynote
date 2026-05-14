@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PublicShell } from "@/components/PublicShell";
+import { LectureYoutubePlaylist } from "@/components/media/LectureYoutubePlaylist";
 import { subscribeVideoCatalog } from "@/lib/videoCatalog/videoCatalogApi";
+import { extractYouTubeVideoId } from "@/lib/youtubeEmbed";
 import type { VideoCatalogDoc } from "@/types/videoCatalog";
 import styles from "@/pages/videoCatalog.module.css";
+import "@/pages/pages.css";
 
 function formatCreated(at: unknown): string {
   if (at && typeof at === "object" && at !== null && "toDate" in at) {
@@ -18,6 +21,7 @@ function formatCreated(at: unknown): string {
 export function VideoCatalogPage() {
   const [rows, setRows] = useState<{ id: string; data: VideoCatalogDoc }[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = subscribeVideoCatalog(
@@ -30,6 +34,13 @@ export function VideoCatalogPage() {
     return () => unsub();
   }, []);
 
+  const selectedWatchUrl = useMemo(() => {
+    if (!selectedCatalogId) return null;
+    const row = rows.find((r) => r.id === selectedCatalogId);
+    const u = row?.data.watchUrl?.trim();
+    return u || null;
+  }, [rows, selectedCatalogId]);
+
   return (
     <PublicShell light>
       <main className={styles.catalogMain}>
@@ -37,13 +48,29 @@ export function VideoCatalogPage() {
           <div className={styles.catalogTopText}>
             <h1 className={styles.catalogH1}>동영상 강의</h1>
             <p className={styles.lead}>
-              카드를 누르면 새 창에서 시청 페이지로 이동합니다. 목록은 실시간으로 갱신됩니다. 이 영상들은 강의실
-              자료와 별도로 운영됩니다.
+              YouTube 링크는 아래 카드를 누르면 이 페이지에서 임베드로 바로 재생됩니다. 그 외 링크는 새 창으로
+              열립니다. 목록은 실시간으로 갱신됩니다.
             </p>
           </div>
         </header>
 
         {loadErr ? <p className={styles.err}>{loadErr}</p> : null}
+
+        {selectedWatchUrl ? (
+          <div className={styles.embedPanel}>
+            <div className={styles.embedPanelHead}>
+              <p className={styles.embedPanelTitle}>선택한 영상</p>
+              <button type="button" className={styles.embedClose} onClick={() => setSelectedCatalogId(null)}>
+                닫기
+              </button>
+            </div>
+            <LectureYoutubePlaylist
+              urls={[selectedWatchUrl]}
+              heading="재생"
+              idPrefix={selectedCatalogId ? `vc-${selectedCatalogId}` : "vc"}
+            />
+          </div>
+        ) : null}
 
         {rows.length === 0 && !loadErr ? (
           <div className={styles.emptyState}>
@@ -52,14 +79,11 @@ export function VideoCatalogPage() {
           </div>
         ) : (
           <ul className={styles.cardGrid}>
-            {rows.map(({ id, data }) => (
-              <li key={id} className={styles.cardCell}>
-                <a
-                  className={styles.videoCard}
-                  href={data.watchUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+            {rows.map(({ id, data }) => {
+              const ytId = extractYouTubeVideoId(data.watchUrl);
+              const isYoutube = !!ytId;
+              const cardInner = (
+                <>
                   <div className={styles.videoCardThumb}>
                     {data.thumbnailUrl ? (
                       <img
@@ -79,11 +103,36 @@ export function VideoCatalogPage() {
                     <h2 className={styles.videoCardTitle}>{data.title}</h2>
                     <p className={styles.videoCardMeta}>{formatCreated(data.createdAt)}</p>
                     {data.description ? <p className={styles.videoCardDesc}>{data.description}</p> : null}
-                    <span className={styles.videoCardCta}>새 창에서 시청</span>
+                    <span className={styles.videoCardCta}>
+                      {isYoutube ? "이 페이지에서 재생" : "새 창에서 시청"}
+                    </span>
                   </div>
-                </a>
-              </li>
-            ))}
+                </>
+              );
+              return (
+                <li key={id} className={styles.cardCell}>
+                  {isYoutube ? (
+                    <button
+                      type="button"
+                      className={`${styles.videoCard} ${styles.videoCardButton}`}
+                      onClick={() => setSelectedCatalogId(id)}
+                      aria-pressed={selectedCatalogId === id}
+                    >
+                      {cardInner}
+                    </button>
+                  ) : (
+                    <a
+                      className={styles.videoCard}
+                      href={data.watchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {cardInner}
+                    </a>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
 

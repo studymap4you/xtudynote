@@ -382,6 +382,56 @@
   color: #64748b;
 }
 
+.embedPanel {
+  margin: 0 0 1.35rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.95) 0%, #fff 55%);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+}
+
+.embedPanelHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.embedPanelTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.embedClose {
+  border: none;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
+
+.embedClose:hover {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.videoCardButton {
+  width: 100%;
+  cursor: pointer;
+  appearance: none;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  margin: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .videoCard {
     transition: none;

@@ -5,6 +5,8 @@ export type ContentStatus = "pending" | "approved" | "rejected";
 
 export interface ContentDocument {
   authorId: string;
+  /** 강의 소유·관리 단위(일반적으로 authorId와 동일, 다강사 조회·필터용) */
+  teacherId?: string | null;
   subject: string;
   audience: string;
   section: string;
@@ -43,6 +45,8 @@ export interface ContentDocument {
 export interface HomeworkCodeDocument {
   contentId: string;
   homeworkCode: string;
+  /** 출제 강사 UID (contents.authorId 와 동기) */
+  teacherId?: string | null;
   /** 학생·선생님 안내용 4자리 숫자 (신규 등록부터) */
   shortCode?: string;
   subject: string;

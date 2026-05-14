@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ClassroomLessonDocument } from "@/types/classroomLesson";
+import { LectureYoutubePlaylist } from "@/components/media/LectureYoutubePlaylist";
 import {
   effectiveLessonMaterialItems,
   effectiveLessonVideoItems,
@@ -36,6 +37,7 @@ export function ClassroomLessonCurriculumStudent({
           const { unitTitle, title, summary } = row.data;
           const videoItems = effectiveLessonVideoItems(row.data);
           const materialItems = effectiveLessonMaterialItems(row.data);
+          const lessonVideoUrls = videoItems.map((v) => v.url).filter(Boolean);
 
           return (
             <li
@@ -78,25 +80,14 @@ export function ClassroomLessonCurriculumStudent({
                 <div className="classroom-lesson-acc__detail" id={`lesson-detail-${row.id}`}>
                   {summary?.trim() ? <p className="classroom-lesson-acc__summary">{summary.trim()}</p> : null}
                   <div className="classroom-lesson-acc__actions">
-                    {videoItems.length > 0 ? (
-                      <div className="classroom-lesson-acc__media-group">
-                        <p className="classroom-lesson-acc__media-label">영상</p>
-                        <ul className="classroom-lesson-acc__media-list">
-                          {videoItems.map((item, vi) => (
-                            <li key={item.id}>
-                              <a
-                                href={item.url}
-                                className="btn btn--primary btn--stack"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {item.label?.trim()
-                                  ? `${item.label.trim()} (새 창)`
-                                  : `영상 ${vi + 1} (새 창)`}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
+                    {lessonVideoUrls.length > 0 ? (
+                      <div className="classroom-lesson-acc__media-group classroom-lesson-acc__media-group--yt">
+                        <LectureYoutubePlaylist
+                          urls={lessonVideoUrls}
+                          heading="영상"
+                          idPrefix={`lesson-${row.id}`}
+                          variant="compact"
+                        />
                       </div>
                     ) : null}
                     {materialItems.length > 0 ? (
@@ -137,7 +128,7 @@ export function ClassroomLessonCurriculumStudent({
                         </ul>
                       </div>
                     ) : null}
-                    {videoItems.length === 0 && materialItems.length === 0 ? (
+                    {lessonVideoUrls.length === 0 && materialItems.length === 0 ? (
                       <p className="classroom-lesson-acc__no-link">연결된 링크가 없습니다. 선생님께 문의해 주세요.</p>
                     ) : null}
                   </div>

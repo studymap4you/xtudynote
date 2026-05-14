@@ -59,11 +59,15 @@ export async function addVideoCatalogEntry(input: {
   thumbnailUrl?: string;
   description?: string;
   createdBy: string;
+  /** 강사·등록자 UID (미입력 시 createdBy) */
+  teacherId?: string;
 }): Promise<string> {
   const thumb = input.thumbnailUrl?.trim();
+  const teacherId = (input.teacherId ?? "").trim() || input.createdBy;
   const docRef = await addDoc(collection(db, COL), {
     title: input.title.trim(),
     watchUrl: input.watchUrl.trim(),
+    teacherId,
     ...(thumb ? { thumbnailUrl: thumb } : {}),
     ...(input.description?.trim() ? { description: input.description.trim() } : {}),
     createdBy: input.createdBy,

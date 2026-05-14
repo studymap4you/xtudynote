@@ -7,6 +7,8 @@ export type VideoMaterialRequestStatus = "pending" | "approved" | "rejected";
 /** 동영상 학습자료 등록 신청 (링크 방식) */
 export interface VideoMaterialRequestDocument {
   submitterId: string;
+  /** 강의실 연동 시 개설 강사 UID 등 — 강사별 영상 관리 기준 */
+  teacherId?: string | null;
   submitterRole: Extract<UserRole, "student" | "teacher" | "super_admin">;
   title: string;
   subject: string;

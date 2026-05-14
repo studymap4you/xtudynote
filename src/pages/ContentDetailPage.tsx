@@ -20,6 +20,7 @@ import { downloadStoragePathsSequentially } from "@/lib/downloads";
 import { recordStudentDownload } from "@/lib/studentDownloads";
 import { PublicShell } from "@/components/PublicShell";
 import { CollapsibleRichHtml } from "@/components/CollapsibleRichHtml";
+import { LectureYoutubePlaylist } from "@/components/media/LectureYoutubePlaylist";
 import { RichHtmlView } from "@/components/RichHtmlView";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { isEmptyRichText } from "@/lib/richTextUtils";
@@ -282,18 +283,13 @@ export function ContentDetailPage() {
           />
         </div>
         {lectureUrls.length > 0 && (
-          <section className="content-detail__lecture-links" aria-label="강의 영상 링크">
-            <h2 className="content-detail__lecture-links-title">강의 영상 링크</h2>
-            <ul className="content-detail__lecture-url-list">
-              {lectureUrls.map((u, i) => (
-                <li key={`lecture-${i}-${u.slice(0, 48)}`}>
-                  <a href={u} target="_blank" rel="noreferrer">
-                    {u}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <div className="content-detail__lecture-links">
+            <LectureYoutubePlaylist
+              urls={lectureUrls}
+              heading="강의 영상"
+              idPrefix={id ? `content-${id}` : "content-lecture"}
+            />
+          </div>
         )}
         {(content.type ?? "share") === "paid" && content.purchaseLink && (
           <p>
