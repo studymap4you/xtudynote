@@ -2217,6 +2217,46 @@ button.intro-landing-tile {
   color: #94a3b8;
 }
 
+.classroom-create-rec-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, #fff 55%);
+}
+
+.classroom-create-rec-banner__eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.classroom-create-rec-banner__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.classroom-create-rec-banner__lede {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.classroom-create-rec-banner__cta {
+  flex-shrink: 0;
+}
+
 .classroom-manage-lessons {
   margin-top: 1.25rem;
   padding-top: 1.25rem;

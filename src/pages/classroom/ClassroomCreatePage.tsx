@@ -171,6 +171,21 @@ function Inner() {
               </span>
             </p>
 
+            <div className="classroom-create-rec-banner">
+              <div>
+                <p className="classroom-create-rec-banner__eyebrow">강의 제작</p>
+                <h2 className="classroom-create-rec-banner__title">강의녹화 스튜디오</h2>
+                <p className="classroom-create-rec-banner__lede">
+                  화이트보드에 PDF·이미지를 올리고 판서한 뒤, 화면과 마이크를 녹화해 PC에 WebM으로 저장할 수 있습니다.
+                  API 키 없이 브라우저만으로 동작합니다.
+                </p>
+              </div>
+              <Link to="/lecture/recording" className="btn btn--primary btn--stack classroom-create-rec-banner__cta">
+                <span className="ui-en">Open lecture recorder</span>
+                <span className="ui-ko">강의녹화 열기</span>
+              </Link>
+            </div>
+
             <p className="classroom-hub__preview-label classroom-hub__preview-label--hero">개설 후 사용할 영역 (미리보기)</p>
             <div className="classroom-hub__tabs" role="presentation" aria-hidden="true">
               {(
@@ -178,6 +193,7 @@ function Inner() {
                   ["intro", "강의 소개", "이름·요약·본문"],
                   ["materials", "강의 자료", "파일·신청"],
                   ["video", "강의 영상", "URL·신청"],
+                  ["record", "강의 녹화", "화이트보드·로컬"],
                   ["qa", "질의응답", "게시판"],
                 ] as const
               ).map(([key, label, sub]) => (

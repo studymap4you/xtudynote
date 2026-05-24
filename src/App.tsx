@@ -57,6 +57,7 @@ import { ExamTakePage } from "@/pages/exam/ExamTakePage";
 import { EnglishPassageLabPage } from "@/pages/english-passage/EnglishPassageLabPage";
 import { NewsletterBuilderPage } from "@/pages/NewsletterBuilder";
 import { TextbookAutoBuilderPage } from "@/pages/TextbookAutoBuilderPage";
+import { LectureRecordingPage } from "@/pages/lecture/LectureRecordingPage";
 
 export default function App() {
   return (
@@ -294,6 +295,14 @@ export default function App() {
           <ProtectedRoute>
             <VideoLectureRegisterPage />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/lecture/recording"
+        element={
+          <TeacherRoute>
+            <LectureRecordingPage />
+          </TeacherRoute>
         }
       />
       <Route

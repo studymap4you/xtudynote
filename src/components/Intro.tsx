@@ -26,7 +26,7 @@ const SHORTCUTS: ShortcutDef[] = [
   { to: "/english-passage-lab", label: "영어지문변환학습", tone: "j", gateAuth: true },
   { to: "/logic-dashboard", label: "시그널로직", tone: "h", gateAuth: true },
   { to: "/material/register", label: "새자료 등록", tone: "e" },
-  { to: "/videos", label: "동영상 강의", tone: "f" },
+  { to: "/lecture/recording", label: "강의녹화", tone: "f", gateAuth: true },
   { to: "/digital-market", label: "디지털마켓", tone: "d" },
 ];
 
