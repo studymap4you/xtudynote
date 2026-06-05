@@ -56,7 +56,7 @@ import { ClassroomTodayExamPage } from "@/pages/exam/ClassroomTodayExamPage";
 import { ExamTakePage } from "@/pages/exam/ExamTakePage";
 import { EnglishPassageLabPage } from "@/pages/english-passage/EnglishPassageLabPage";
 import { NewsletterBuilderPage } from "@/pages/NewsletterBuilder";
-import { TextbookAutoBuilderPage } from "@/pages/TextbookAutoBuilderPage";
+import { TextbookAutoSimplePage } from "@/pages/TextbookAutoSimplePage";
 import { LectureRecordingPage } from "@/pages/lecture/LectureRecordingPage";
 
 export default function App() {
@@ -373,7 +373,7 @@ export default function App() {
         path="/tools/textbook-auto"
         element={
           <ProtectedRoute>
-            <TextbookAutoBuilderPage />
+            <TextbookAutoSimplePage />
           </ProtectedRoute>
         }
       />
