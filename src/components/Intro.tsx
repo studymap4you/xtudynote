@@ -21,7 +21,7 @@ type ShortcutDef = {
 
 const SHORTCUTS: ShortcutDef[] = [
   { to: "/library", label: "라이브러리", tone: "a" },
-  { to: "/worksheet/create", label: "학습지 자동생성", tone: "i", gateAuth: true },
+  { to: "/korean-education", label: "한국어 교육", tone: "i", gateAuth: true },
   { to: "/tools/textbook-auto", label: "교재 자동생성", tone: "k", gateAuth: true },
   { to: "/english-passage-lab", label: "영어지문변환학습", tone: "j", gateAuth: true },
   { to: "/logic-dashboard", label: "시그널로직", tone: "h", gateAuth: true },
@@ -475,17 +475,16 @@ function IconShortcutLibrary() {
   );
 }
 
-/** 학습지 자동생성 — 문서·줄 */
-function IconShortcutWorksheet() {
+/** 한국어 교육 — 지구·책 */
+function IconShortcutKoreanEducation() {
   return (
     <svg {...shortcutIconProps}>
       <path
-        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+        d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"
         stroke="currentColor"
         strokeWidth="1.5"
-        strokeLinejoin="round"
       />
-      <path d="M14 2v6h6M8 13h8M8 17h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M3.6 9h16.8M3.6 15h16.8M12 3c2.1 2.2 3.1 5.2 3.1 9s-1 6.8-3.1 9M12 3c-2.1 2.2-3.1 5.2-3.1 9s1 6.8 3.1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
@@ -602,7 +601,7 @@ function ShortcutOrbIcon({ tone }: { tone: ShortcutTone }) {
     case "h":
       return <IconShortcutSignal />;
     case "i":
-      return <IconShortcutWorksheet />;
+      return <IconShortcutKoreanEducation />;
     case "j":
       return <IconShortcutEnglishPassage />;
     case "k":

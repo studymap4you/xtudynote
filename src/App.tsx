@@ -57,6 +57,7 @@ import { ExamTakePage } from "@/pages/exam/ExamTakePage";
 import { EnglishPassageLabPage } from "@/pages/english-passage/EnglishPassageLabPage";
 import { NewsletterBuilderPage } from "@/pages/NewsletterBuilder";
 import { TextbookAutoSimplePage } from "@/pages/TextbookAutoSimplePage";
+import { KoreanEducationPage } from "@/pages/KoreanEducationPage";
 import { LectureRecordingPage } from "@/pages/lecture/LectureRecordingPage";
 
 export default function App() {
@@ -366,6 +367,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <EnglishPassageLabPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/korean-education"
+        element={
+          <ProtectedRoute>
+            <KoreanEducationPage />
           </ProtectedRoute>
         }
       />
