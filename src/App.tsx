@@ -40,6 +40,7 @@ import {
   SuperAdminRoute,
 } from "@/components/ProtectedRoute";
 import { TeacherRoute } from "@/components/TeacherRoute";
+import { WoohyukmonChatbot } from "@/components/WoohyukmonChatbot";
 import { ClassroomListPage } from "@/pages/classroom/ClassroomListPage";
 import { ClassroomCatalogPage } from "@/pages/classroom/ClassroomCatalogPage";
 import { ClassroomDetailPage } from "@/pages/classroom/ClassroomDetailPage";
@@ -62,6 +63,7 @@ import { LectureRecordingPage } from "@/pages/lecture/LectureRecordingPage";
 
 export default function App() {
   return (
+    <>
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/library" element={<LibraryPage />} />
@@ -389,5 +391,7 @@ export default function App() {
       <Route path="/teacher/english-passage-lab" element={<Navigate to="/english-passage-lab" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <WoohyukmonChatbot />
+    </>
   );
 }
