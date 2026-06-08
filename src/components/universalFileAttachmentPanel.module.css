@@ -1,0 +1,179 @@
+.panel {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.9rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.96rem;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.header p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.addButton,
+.removeButton,
+.itemAction {
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1d4ed8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.addButton {
+  min-height: 2.25rem;
+  padding: 0 0.85rem;
+}
+
+.removeButton,
+.itemAction {
+  min-height: 2rem;
+  padding: 0 0.65rem;
+}
+
+.addButton:hover,
+.removeButton:hover,
+.itemAction:hover {
+  background: #eff6ff;
+}
+
+.addButton:disabled,
+.removeButton:disabled,
+.itemAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.dropZone {
+  display: grid;
+  place-items: center;
+  min-height: 5.5rem;
+  margin-top: 0.85rem;
+  border: 1px dashed rgba(100, 116, 139, 0.45);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #475569;
+  text-align: center;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.dropZone strong {
+  color: #334155;
+  font-size: 0.88rem;
+  letter-spacing: 0;
+}
+
+.dropZone span {
+  margin-top: 0.2rem;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.dropZoneActive {
+  border-color: rgba(37, 99, 235, 0.72);
+  background: #eff6ff;
+}
+
+.fileInput {
+  display: none;
+}
+
+.list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 0.72rem;
+}
+
+.itemMain {
+  min-width: 0;
+}
+
+.fileName,
+.fileMeta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileName {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.fileMeta {
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.itemActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.empty {
+  margin: 0.85rem 0 0;
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+@media (max-width: 680px) {
+  .header,
+  .item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .addButton,
+  .itemActions {
+    width: 100%;
+  }
+
+  .itemActions {
+    justify-content: stretch;
+  }
+
+  .removeButton,
+  .itemAction {
+    flex: 1;
+  }
+}

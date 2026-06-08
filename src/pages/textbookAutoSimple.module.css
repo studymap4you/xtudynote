@@ -82,6 +82,41 @@
   margin-top: 0.9rem;
 }
 
+.attachmentBlock {
+  margin-top: 0.9rem;
+}
+
+.attachmentNotice {
+  margin: 0.55rem 0 0;
+  color: #475569;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.extractButton {
+  min-height: 2rem;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  border-radius: 10px;
+  background: #fff;
+  color: #1d4ed8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  padding: 0 0.65rem;
+  white-space: nowrap;
+}
+
+.extractButton:hover {
+  background: #eff6ff;
+}
+
+.extractButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .button {
   min-height: 2.75rem;
   border: none;

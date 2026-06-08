@@ -1,7 +1,9 @@
 import { useCallback, useState } from "react";
 import { DashboardShell } from "@/components/DashboardShell";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
+import { UniversalFileAttachmentPanel, type UniversalAttachmentItem } from "@/components/UniversalFileAttachmentPanel";
 import { BRAND_APP_NAME } from "@/lib/brand";
+import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import { parseManuscriptToModules } from "@/lib/localDocumentAuto/manuscriptModules";
 import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextbookUnitGeneration";
 import { DEFAULT_SECTION_INCLUSION, type TextbookAnswerKeyLayout, type TextbookUnitContent } from "@/types/textbookAuto";
@@ -68,11 +70,54 @@ function modeLabel(mode: GenerationMode): string {
   return "프리미엄 교재";
 }
 
+function canExtractText(file: File): boolean {
+  const name = file.name.toLowerCase();
+  const type = (file.type || "").toLowerCase();
+  return (
+    name.endsWith(".txt") ||
+    name.endsWith(".pdf") ||
+    name.endsWith(".docx") ||
+    type === "text/plain" ||
+    type === "application/pdf" ||
+    type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  );
+}
+
 export function TextbookAutoSimplePage() {
   const [sourceText, setSourceText] = useState("");
+  const [attachments, setAttachments] = useState<UniversalAttachmentItem[]>([]);
+  const [extractingId, setExtractingId] = useState<string | null>(null);
+  const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [busyMode, setBusyMode] = useState<GenerationMode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerationResult | null>(null);
+
+  const appendAttachmentText = useCallback(async (item: UniversalAttachmentItem) => {
+    if (!canExtractText(item.file)) {
+      setAttachmentNotice("텍스트 추출은 TXT, PDF, DOCX 파일만 지원합니다. 다른 파일도 첨부 목록에는 추가할 수 있습니다.");
+      return;
+    }
+
+    setExtractingId(item.id);
+    setAttachmentNotice(null);
+    try {
+      const extracted = (await extractPlainTextFromLocalFile(item.file)).trim();
+      if (!extracted) {
+        setAttachmentNotice(`${item.file.name}에서 추출할 텍스트를 찾지 못했습니다.`);
+        return;
+      }
+      setSourceText((current) => {
+        const prefix = current.trim() ? `${current.trim()}\n\n` : "";
+        return `${prefix}[첨부 파일: ${item.file.name}]\n${extracted}`;
+      });
+      setAttachmentNotice(`${item.file.name}의 텍스트를 원문 입력창에 추가했습니다.`);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "파일 텍스트 추출에 실패했습니다.";
+      setAttachmentNotice(message);
+    } finally {
+      setExtractingId(null);
+    }
+  }, []);
 
   const generate = useCallback(
     async (mode: GenerationMode) => {
@@ -151,6 +196,30 @@ export function TextbookAutoSimplePage() {
                 placeholder="여기에 교재로 만들 원문을 붙여넣으세요. 예: 영어 지문, 문법 설명, 수업 필기, 기사, 단어 목록 등"
               />
             </label>
+            <div className={styles.attachmentBlock}>
+              <UniversalFileAttachmentPanel
+                title="자료 파일 추가"
+                description="PDF, Word, 이미지, 압축파일 등 모든 파일을 첨부 목록에 추가할 수 있습니다. TXT/PDF/DOCX는 원문 입력창으로 텍스트 추출이 가능합니다."
+                items={attachments}
+                onChange={(next) => {
+                  setAttachments(next);
+                  setAttachmentNotice(null);
+                }}
+                disabled={busyMode !== null || extractingId !== null}
+                emptyLabel="교재 생성에 참고할 파일을 추가해 주세요."
+                renderItemAction={(item) => (
+                  <button
+                    type="button"
+                    className={styles.extractButton}
+                    disabled={!canExtractText(item.file) || extractingId !== null || busyMode !== null}
+                    onClick={() => void appendAttachmentText(item)}
+                  >
+                    {extractingId === item.id ? "추출 중..." : "텍스트 추출"}
+                  </button>
+                )}
+              />
+              {attachmentNotice ? <p className={styles.attachmentNotice}>{attachmentNotice}</p> : null}
+            </div>
             <div className={styles.actions}>
               <button type="button" className={styles.button} disabled={busyMode !== null} onClick={() => void generate("worksheet")}>
                 {busyMode === "worksheet" ? "생성 중..." : "학습지 자동생성"}

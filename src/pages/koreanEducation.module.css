@@ -103,6 +103,10 @@
   text-align: center;
 }
 
+.resourceUpload {
+  margin-top: 18px;
+}
+
 @media (max-width: 760px) {
   .page {
     width: min(100% - 24px, 1120px);
