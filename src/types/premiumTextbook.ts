@@ -27,6 +27,7 @@ export type PremiumTextbookUnit = {
   unitSubtitle?: string;
   learningGoals: string[];
   conceptSummary: string;
+  conceptPages?: PremiumConceptPage[];
   keyVocabulary?: {
     term: string;
     meaning: string;
@@ -35,6 +36,13 @@ export type PremiumTextbookUnit = {
   grammarPoints?: string[];
   examples?: string[];
   questions: PremiumQuestion[];
+};
+
+export type PremiumConceptPage = {
+  heading: string;
+  bodyParagraphs: string[];
+  keyTakeaway?: string;
+  example?: string;
 };
 
 export type PremiumQuestion = {

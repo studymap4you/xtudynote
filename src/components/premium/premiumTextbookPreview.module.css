@@ -269,6 +269,9 @@
 .academyLayout .unitIntro,
 .academyLayout .goalBox,
 .academyLayout .conceptBox,
+.academyLayout .conceptPageBody,
+.academyLayout .questionPageBody,
+.academyLayout .answerPageBody,
 .academyLayout .questions,
 .academyLayout .twoColumn,
 .academyLayout .learningGrid {
@@ -276,7 +279,10 @@
 }
 
 .academyLayout .sectionBlock h3,
-.academyLayout .unitIntro h3 {
+.academyLayout .unitIntro h3,
+.academyLayout .conceptPageBody h3,
+.academyLayout .questionPageBody h3,
+.academyLayout .answerPageBody h3 {
   border-bottom: 5px solid #111827;
   padding-bottom: 0.55rem;
   color: #111827;
@@ -286,6 +292,8 @@
 .academyLayout .questionCard,
 .academyLayout .goalBox,
 .academyLayout .conceptBox,
+.academyLayout .takeawayBox,
+.academyLayout .exampleBox,
 .academyLayout .infoBox,
 .academyLayout .tableBox,
 .academyLayout .listBox {
@@ -297,6 +305,14 @@
 
 .academyLayout .questionCard {
   border-bottom: 4px solid #111827;
+}
+
+.academyLayout .questionPageBody {
+  padding-top: 2.25rem;
+}
+
+.academyLayout .questions {
+  gap: 1.35rem;
 }
 
 .academyLayout .answerBox {
@@ -476,16 +492,58 @@
 .unitIntro,
 .goalBox,
 .conceptBox,
+.conceptPageBody,
+.questionPageBody,
+.answerPageBody,
 .questions {
   margin-top: 1.4rem;
 }
 
 .sectionBlock h3,
-.unitIntro h3 {
+.unitIntro h3,
+.conceptPageBody h3,
+.questionPageBody h3,
+.answerPageBody h3 {
   margin: 0;
   color: #0f172a;
   font-size: 1.55rem;
   letter-spacing: -0.03em;
+}
+
+.conceptPageBody,
+.questionPageBody,
+.answerPageBody {
+  min-height: 850px;
+}
+
+.conceptPageBody {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.questionPageBody {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 3rem;
+}
+
+.answerPageBody {
+  padding-top: 2rem;
+}
+
+.conceptParagraphs {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1.1rem;
+}
+
+.conceptParagraphs p {
+  margin: 0;
+  color: #334155;
+  font-size: 0.96rem;
+  line-height: 1.9;
 }
 
 .sectionPills {
@@ -506,10 +564,13 @@
 .infoBox,
 .goalBox,
 .conceptBox,
+.takeawayBox,
+.exampleBox,
 .tableBox,
 .listBox,
 .questionCard {
   break-inside: avoid;
+  page-break-inside: avoid;
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.82);
@@ -518,12 +579,27 @@
 
 .infoBox p,
 .conceptBox p,
+.takeawayBox p,
+.exampleBox p,
 .unitIntro p,
 .answerBox p,
 .answerItem p {
   margin: 0;
   color: #475569;
   line-height: 1.7;
+}
+
+.takeawayBox,
+.exampleBox {
+  margin-top: 1rem;
+}
+
+.takeawayBox strong,
+.exampleBox strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #0f172a;
+  font-size: 0.9rem;
 }
 
 .fileList,
@@ -581,6 +657,10 @@
   gap: 0.85rem;
 }
 
+.questionPageBody .questions {
+  margin-top: 1.25rem;
+}
+
 .questionMeta {
   display: flex;
   flex-wrap: wrap;
@@ -605,6 +685,18 @@
   color: #0f172a;
   font-weight: 800;
   line-height: 1.65;
+}
+
+.questionCard {
+  min-height: 8.5rem;
+}
+
+.questionPageBody .questionCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 1.15rem;
+  padding-bottom: 1.15rem;
 }
 
 .choices {

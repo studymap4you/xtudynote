@@ -1,9 +1,16 @@
 import type { CSSProperties } from "react";
-import { useMemo, useRef } from "react";
+import { Fragment, useMemo, useRef } from "react";
 import { BRAND_APP_NAME, BRAND_APP_NAME_KO } from "@/lib/brand";
 import type { XUniversePremiumTemplate } from "@/data/xuniversePremiumTemplates";
 import { printPremiumTextbookElement } from "@/lib/premiumTextbookPrint";
-import type { PremiumTextbook, PremiumUploadedFileMetadata } from "@/types/premiumTextbook";
+import type {
+  PremiumAnswerItem,
+  PremiumConceptPage,
+  PremiumQuestion,
+  PremiumTextbook,
+  PremiumTextbookUnit,
+  PremiumUploadedFileMetadata,
+} from "@/types/premiumTextbook";
 import styles from "@/components/premium/premiumTextbookPreview.module.css";
 
 type PremiumTextbookPreviewProps = {
@@ -36,13 +43,95 @@ function formatBytes(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function paragraphsFromSummary(summary: string): string[] {
+  const parts = summary
+    .split(/\n{2,}|(?<=[.!?。！？])\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : [summary || "제공된 자료를 바탕으로 핵심 개념을 정리합니다."];
+}
+
+function conceptPagesForUnit(unit: PremiumTextbookUnit): PremiumConceptPage[] {
+  const existing = unit.conceptPages?.filter((page) => page.bodyParagraphs?.length);
+  if (existing?.length) {
+    return existing;
+  }
+
+  return [
+    {
+      heading: `${unit.unitTitle} 핵심 개념`,
+      bodyParagraphs: paragraphsFromSummary(unit.conceptSummary),
+      keyTakeaway: unit.learningGoals[0],
+      example: unit.examples?.[0],
+    },
+  ];
+}
+
+type NumberedQuestion = PremiumQuestion & {
+  questionNumber: number;
+};
+
+function questionCard(question: NumberedQuestion, showAnswer: boolean) {
+  return (
+    <div key={`${question.questionNumber}-${question.question}`} className={styles.questionCard}>
+      <div className={styles.questionMeta}>
+        <span>Q{question.questionNumber}</span>
+        <em>{questionTypeLabel(question.type)}</em>
+        <strong>{difficultyLabel(question.difficulty)}</strong>
+      </div>
+      <p className={styles.questionText}>{question.question}</p>
+      {question.choices?.length ? (
+        <ol className={styles.choices}>
+          {question.choices.map((choice) => (
+            <li key={choice}>{choice}</li>
+          ))}
+        </ol>
+      ) : null}
+      {showAnswer ? (
+        <div className={styles.answerBox}>
+          <strong>정답</strong> {question.answer}
+          <p>{question.explanation}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function PremiumTextbookPreview({ textbook, template, uploadedFiles = [] }: PremiumTextbookPreviewProps) {
   const printRef = useRef<HTMLElement | null>(null);
-  const allQuestions = textbook.units.flatMap((unit) => unit.questions);
   const layoutClass = useMemo(
     () => (template.layoutStyle === "academy-pro" ? styles.academyLayout : styles.logicCodeLayout),
     [template.layoutStyle],
   );
+  const renderedUnits = useMemo(() => {
+    let questionNumber = 0;
+    return textbook.units.map((unit) => {
+      const numberedQuestions = unit.questions.map((question) => ({
+        ...question,
+        questionNumber: (questionNumber += 1),
+      }));
+      return {
+        unit,
+        conceptPages: conceptPagesForUnit(unit),
+        questionChunks: chunkArray(numberedQuestions, template.layoutStyle === "academy-pro" ? 3 : 4),
+      };
+    });
+  }, [template.layoutStyle, textbook.units]);
+  const allQuestions = renderedUnits.flatMap((unit) => unit.questionChunks.flat());
+  const answerItems: PremiumAnswerItem[] = allQuestions.map((question) => ({
+    questionNumber: question.questionNumber,
+    answer: question.answer,
+    explanation: question.explanation,
+  }));
+  const answerChunks = chunkArray(textbook.answerKey?.length ? textbook.answerKey : answerItems, template.layoutStyle === "academy-pro" ? 7 : 8);
 
   return (
     <section
@@ -131,121 +220,134 @@ export function PremiumTextbookPreview({ textbook, template, uploadedFiles = [] 
         <footer className={styles.pageFooter}>XUniverse Premium Textbook</footer>
       </article>
 
-      {textbook.units.map((unit, unitIndex) => (
-        <article key={`${unit.unitTitle}-${unitIndex}`} className={`${styles.page} page-break`}>
-          <header className={styles.pageHeader}>
-            <span>{BRAND_APP_NAME}</span>
-            <strong>Unit {unitIndex + 1}</strong>
-          </header>
-          <section className={styles.unitIntro}>
-            <p className={styles.kicker}>Unit {unitIndex + 1}</p>
-            <h3>{unit.unitTitle}</h3>
-            {unit.unitSubtitle ? <p>{unit.unitSubtitle}</p> : null}
-          </section>
-
-          <section className={styles.goalBox}>
-            <p className={styles.kicker}>Learning Goals</p>
-            <ul>
-              {unit.learningGoals.map((goal) => (
-                <li key={goal}>{goal}</li>
-              ))}
-            </ul>
-          </section>
-
-          <section className={styles.conceptBox}>
-            <p className={styles.kicker}>Core Concept</p>
-            <p>{unit.conceptSummary}</p>
-          </section>
-
-          {(unit.keyVocabulary?.length || unit.grammarPoints?.length || unit.examples?.length) ? (
-            <section className={styles.learningGrid}>
-              {unit.keyVocabulary?.length ? (
-                <div className={styles.tableBox}>
-                  <p className={styles.kicker}>Vocabulary</p>
-                  <table>
-                    <tbody>
-                      {unit.keyVocabulary.map((item) => (
-                        <tr key={`${item.term}-${item.meaning}`}>
-                          <th>{item.term}</th>
-                          <td>
-                            {item.meaning}
-                            {item.example ? <small>{item.example}</small> : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-              {unit.grammarPoints?.length ? (
-                <div className={styles.listBox}>
-                  <p className={styles.kicker}>Grammar / Key Points</p>
-                  <ul>
-                    {unit.grammarPoints.map((point) => (
-                      <li key={point}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              {unit.examples?.length ? (
-                <div className={styles.listBox}>
-                  <p className={styles.kicker}>Examples</p>
-                  <ul>
-                    {unit.examples.map((example) => (
-                      <li key={example}>{example}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+      {renderedUnits.map(({ unit, conceptPages, questionChunks }, unitIndex) => (
+        <Fragment key={`${unit.unitTitle}-${unitIndex}`}>
+          <article className={`${styles.page} page-break`}>
+            <header className={styles.pageHeader}>
+              <span>{BRAND_APP_NAME}</span>
+              <strong>Unit {unitIndex + 1}</strong>
+            </header>
+            <section className={styles.unitIntro}>
+              <p className={styles.kicker}>Unit {unitIndex + 1}</p>
+              <h3>{unit.unitTitle}</h3>
+              {unit.unitSubtitle ? <p>{unit.unitSubtitle}</p> : null}
             </section>
-          ) : null}
 
-          <section className={styles.questions}>
-            <p className={styles.kicker}>Practice & Assessment</p>
-            {unit.questions.map((question, questionIndex) => (
-              <div key={`${question.question}-${questionIndex}`} className={styles.questionCard}>
-                <div className={styles.questionMeta}>
-                  <span>Q{questionIndex + 1}</span>
-                  <em>{questionTypeLabel(question.type)}</em>
-                  <strong>{difficultyLabel(question.difficulty)}</strong>
-                </div>
-                <p className={styles.questionText}>{question.question}</p>
-                {question.choices?.length ? (
-                  <ol className={styles.choices}>
-                    {question.choices.map((choice) => (
-                      <li key={choice}>{choice}</li>
-                    ))}
-                  </ol>
+            <section className={styles.goalBox}>
+              <p className={styles.kicker}>Learning Goals</p>
+              <ul>
+                {unit.learningGoals.map((goal) => (
+                  <li key={goal}>{goal}</li>
+                ))}
+              </ul>
+            </section>
+
+            {(unit.keyVocabulary?.length || unit.grammarPoints?.length || unit.examples?.length) ? (
+              <section className={styles.learningGrid}>
+                {unit.keyVocabulary?.length ? (
+                  <div className={styles.tableBox}>
+                    <p className={styles.kicker}>Vocabulary</p>
+                    <table>
+                      <tbody>
+                        {unit.keyVocabulary.map((item) => (
+                          <tr key={`${item.term}-${item.meaning}`}>
+                            <th>{item.term}</th>
+                            <td>
+                              {item.meaning}
+                              {item.example ? <small>{item.example}</small> : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : null}
-                <div className={styles.answerBox}>
-                  <strong>정답</strong> {question.answer}
-                  <p>{question.explanation}</p>
+                {unit.grammarPoints?.length ? (
+                  <div className={styles.listBox}>
+                    <p className={styles.kicker}>Grammar / Key Points</p>
+                    <ul>
+                      {unit.grammarPoints.map((point) => (
+                        <li key={point}>{point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {unit.examples?.length ? (
+                  <div className={styles.listBox}>
+                    <p className={styles.kicker}>Examples</p>
+                    <ul>
+                      {unit.examples.map((example) => (
+                        <li key={example}>{example}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+            <footer className={styles.pageFooter}>XUniverse Premium Textbook · {unit.unitTitle}</footer>
+          </article>
+
+          {conceptPages.map((page, pageIndex) => (
+            <article key={`${page.heading}-${pageIndex}`} className={`${styles.page} page-break`}>
+              <header className={styles.pageHeader}>
+                <span>{BRAND_APP_NAME}</span>
+                <strong>Concept {pageIndex + 1}</strong>
+              </header>
+              <section className={styles.conceptPageBody}>
+                <p className={styles.kicker}>Concept Explanation</p>
+                <h3>{page.heading}</h3>
+                <div className={styles.conceptParagraphs}>
+                  {page.bodyParagraphs.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
                 </div>
-              </div>
-            ))}
-          </section>
-          <footer className={styles.pageFooter}>XUniverse Premium Textbook · {unit.unitTitle}</footer>
-        </article>
+                {page.keyTakeaway ? (
+                  <div className={styles.takeawayBox}>
+                    <strong>핵심 정리</strong>
+                    <p>{page.keyTakeaway}</p>
+                  </div>
+                ) : null}
+                {page.example ? (
+                  <div className={styles.exampleBox}>
+                    <strong>적용 예시</strong>
+                    <p>{page.example}</p>
+                  </div>
+                ) : null}
+              </section>
+              <footer className={styles.pageFooter}>XUniverse Premium Textbook · {unit.unitTitle}</footer>
+            </article>
+          ))}
+
+          {questionChunks.map((questions, chunkIndex) => (
+            <article key={`${unit.unitTitle}-questions-${chunkIndex}`} className={`${styles.page} page-break`}>
+              <header className={styles.pageHeader}>
+                <span>{BRAND_APP_NAME}</span>
+                <strong>Practice</strong>
+              </header>
+              <section className={styles.questionPageBody}>
+                <p className={styles.kicker}>Practice & Assessment</p>
+                <h3>
+                  실전 문제 {questions[0]?.questionNumber} - {questions[questions.length - 1]?.questionNumber}
+                </h3>
+                <div className={styles.questions}>{questions.map((question) => questionCard(question, false))}</div>
+              </section>
+              <footer className={styles.pageFooter}>XUniverse Premium Textbook · Questions</footer>
+            </article>
+          ))}
+        </Fragment>
       ))}
 
-      {textbook.answerKey?.length || allQuestions.length ? (
-        <article className={styles.page}>
+      {answerChunks.map((answers, chunkIndex) => (
+        <article key={`answers-${chunkIndex}`} className={`${styles.page}${chunkIndex < answerChunks.length - 1 ? " page-break" : ""}`}>
           <header className={styles.pageHeader}>
             <span>{BRAND_APP_NAME}</span>
             <strong>Answer Key</strong>
           </header>
-          <section className={styles.sectionBlock}>
+          <section className={styles.answerPageBody}>
             <p className={styles.kicker}>Answers & Explanations</p>
-            <h3>정답 및 해설</h3>
+            <h3>정답 및 해설 {chunkIndex + 1}</h3>
             <div className={styles.answerList}>
-              {(textbook.answerKey?.length
-                ? textbook.answerKey
-                : allQuestions.map((question, index) => ({
-                    questionNumber: index + 1,
-                    answer: question.answer,
-                    explanation: question.explanation,
-                  }))
-              ).map((item) => (
+              {answers.map((item) => (
                 <div key={item.questionNumber} className={styles.answerItem}>
                   <strong>{item.questionNumber}</strong>
                   <span>{item.answer}</span>
@@ -254,9 +356,9 @@ export function PremiumTextbookPreview({ textbook, template, uploadedFiles = [] 
               ))}
             </div>
           </section>
-          <footer className={styles.pageFooter}>XUniverse Premium Textbook</footer>
+          <footer className={styles.pageFooter}>XUniverse Premium Textbook · Answer Key</footer>
         </article>
-      ) : null}
+      ))}
     </section>
   );
 }

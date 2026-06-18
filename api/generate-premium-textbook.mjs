@@ -29,12 +29,222 @@ function sanitizeText(value, maxLength) {
   return String(value ?? "").trim().slice(0, maxLength);
 }
 
-function mockTextbook({ templateId, template, userInstruction, pastedText, uploadedFiles }) {
-  const seedTitle = userInstruction.split(/[.!?\n]/).map((line) => line.trim()).find(Boolean);
-  const sourceLine = pastedText.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
-  const title = seedTitle?.slice(0, 54) || sourceLine?.slice(0, 54) || "XUniverse Premium Textbook";
+function firstNumberNear(text, patterns) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const value = Number(match[1] ?? match[2]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return undefined;
+}
+
+function buildGenerationPlan(userInstruction) {
+  const normalized = userInstruction.replace(/\s+/g, " ");
+  const conceptPages =
+    firstNumberNear(normalized, [
+      /개념\s*설명\D{0,12}(\d+)\s*페이지/i,
+      /개념\D{0,12}(\d+)\s*페이지/i,
+      /(\d+)\s*페이지\D{0,12}개념/i,
+    ]) ?? 4;
+  const multipleChoiceCount =
+    firstNumberNear(normalized, [
+      /객관식\D{0,12}(\d+)\s*(?:개|문제|문항)/i,
+      /(\d+)\s*(?:개|문제|문항)\D{0,12}객관식/i,
+    ]) ?? 12;
+  const shortAnswerCount =
+    firstNumberNear(normalized, [
+      /주관식\D{0,12}(\d+)\s*(?:개|문제|문항)/i,
+      /서술형\D{0,12}(\d+)\s*(?:개|문제|문항)/i,
+      /단답형\D{0,12}(\d+)\s*(?:개|문제|문항)/i,
+      /(\d+)\s*(?:개|문제|문항)\D{0,12}(?:주관식|서술형|단답형)/i,
+    ]) ?? 4;
+  const targetPages =
+    firstNumberNear(normalized, [
+      /총\s*페이지\D{0,12}(\d+)\s*페이지/i,
+      /전체\D{0,12}(\d+)\s*페이지/i,
+      /(\d+)\s*페이지\D{0,12}정도/i,
+    ]) ?? undefined;
 
   return {
+    conceptPages: Math.min(Math.max(conceptPages, 1), 20),
+    multipleChoiceCount: Math.min(Math.max(multipleChoiceCount, 0), 80),
+    shortAnswerCount: Math.min(Math.max(shortAnswerCount, 0), 40),
+    targetPages: targetPages ? Math.min(Math.max(targetPages, 4), 120) : undefined,
+  };
+}
+
+function deriveSourceTitle({ userInstruction, pastedText, uploadedFiles }) {
+  const sourceLine = pastedText
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^#{1,6}\s*/, ""))
+    .find((line) => line.length >= 4 && line.length <= 80 && !/^(page|copyright|contents?)$/i.test(line));
+  if (sourceLine) return sourceLine.slice(0, 60);
+
+  const fileTitle = uploadedFiles[0]?.name?.replace(/\.[^.]+$/, "").trim();
+  if (fileTitle) return fileTitle.slice(0, 60);
+
+  const instructionTopic = userInstruction
+    .replace(/객관식\D+\d+\s*(?:개|문제|문항)/g, "")
+    .replace(/주관식\D+\d+\s*(?:개|문제|문항)/g, "")
+    .replace(/개념\s*설명\D+\d+\s*페이지/g, "")
+    .replace(/총\s*페이지\D+\d+\s*페이지/g, "")
+    .split(/[.!?\n]/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  return instructionTopic?.slice(0, 60) || "XUniverse Premium Textbook";
+}
+
+function isBadGeneratedTitle(title) {
+  return /^(프리미엄\s*교재\s*생성|sample preview|pre-test|the old way|logic bankruptcy|untitled)$/i.test(
+    String(title ?? "").trim(),
+  );
+}
+
+function normalizeQuestionType(type, fallback) {
+  const raw = String(type ?? "").toLowerCase();
+  if (raw === "multiple-choice" || raw === "mcq" || raw.includes("객관")) return "multiple-choice";
+  if (raw === "short-answer" || raw.includes("주관") || raw.includes("서술") || raw.includes("단답")) return "short-answer";
+  if (raw === "blank" || raw.includes("빈칸")) return "blank";
+  if (raw === "essay") return "essay";
+  return fallback;
+}
+
+function buildFallbackQuestion({ index, type, sourceTitle }) {
+  const isMcq = type === "multiple-choice";
+  return {
+    type,
+    question: isMcq
+      ? `${sourceTitle}의 핵심 개념을 가장 알맞게 설명한 것은?`
+      : `${sourceTitle}의 핵심 개념을 한 문장으로 설명하시오.`,
+    choices: isMcq
+      ? [
+          `${sourceTitle}의 중심 원리를 파악하고 적용한다.`,
+          "본문의 모든 표현을 순서 없이 암기한다.",
+          "문제 선택지만 보고 답을 정한다.",
+          "해설 없이 정답 번호만 확인한다.",
+        ]
+      : undefined,
+    answer: isMcq ? `${sourceTitle}의 중심 원리를 파악하고 적용한다.` : `${sourceTitle}의 핵심 원리와 적용 방식을 설명한다.`,
+    explanation: `생성 문항 수가 주문보다 부족해 보강된 문항입니다. ${sourceTitle}의 중심 개념과 적용 과정을 확인하도록 구성했습니다.`,
+    difficulty: index % 5 === 0 ? "hard" : index % 2 === 0 ? "medium" : "easy",
+  };
+}
+
+function ensureQuestionCounts(questions, plan, sourceTitle) {
+  const normalized = Array.isArray(questions)
+    ? questions.map((question, index) => ({
+        type: normalizeQuestionType(question?.type, index % 2 === 0 ? "multiple-choice" : "short-answer"),
+        question: sanitizeText(question?.question, 1200) || buildFallbackQuestion({ index, type: "short-answer", sourceTitle }).question,
+        choices: Array.isArray(question?.choices) ? question.choices.map((choice) => sanitizeText(choice, 240)).filter(Boolean).slice(0, 5) : undefined,
+        answer: sanitizeText(question?.answer, 800) || "정답은 해설을 참고하세요.",
+        explanation: sanitizeText(question?.explanation, 1200) || "핵심 개념을 근거로 정답을 판단합니다.",
+        difficulty: ["easy", "medium", "hard"].includes(question?.difficulty) ? question.difficulty : "medium",
+      }))
+    : [];
+
+  const mcq = normalized.filter((question) => question.type === "multiple-choice").slice(0, plan.multipleChoiceCount);
+  const short = normalized
+    .filter((question) => question.type !== "multiple-choice")
+    .map((question) => ({ ...question, type: "short-answer", choices: undefined }))
+    .slice(0, plan.shortAnswerCount);
+
+  while (mcq.length < plan.multipleChoiceCount) {
+    mcq.push(buildFallbackQuestion({ index: mcq.length + 1, type: "multiple-choice", sourceTitle }));
+  }
+  while (short.length < plan.shortAnswerCount) {
+    short.push(buildFallbackQuestion({ index: short.length + 1, type: "short-answer", sourceTitle }));
+  }
+
+  return [...mcq, ...short];
+}
+
+function ensureConceptPages(unit, plan, sourceTitle) {
+  const existing = Array.isArray(unit?.conceptPages)
+    ? unit.conceptPages
+        .map((page, index) => ({
+          heading: sanitizeText(page?.heading, 120) || `${sourceTitle} 개념 ${index + 1}`,
+          bodyParagraphs: Array.isArray(page?.bodyParagraphs)
+            ? page.bodyParagraphs.map((paragraph) => sanitizeText(paragraph, 1000)).filter(Boolean).slice(0, 6)
+            : [],
+          keyTakeaway: sanitizeText(page?.keyTakeaway, 500),
+          example: sanitizeText(page?.example, 700),
+        }))
+        .filter((page) => page.bodyParagraphs.length > 0 || page.keyTakeaway || page.example)
+    : [];
+
+  const summary = sanitizeText(unit?.conceptSummary, 3000);
+  while (existing.length < plan.conceptPages) {
+    const index = existing.length + 1;
+    existing.push({
+      heading: `${sourceTitle} 핵심 개념 ${index}`,
+      bodyParagraphs: [
+        summary ||
+          `${sourceTitle}의 핵심 개념을 원문 내용과 연결해 정리합니다. 이 페이지는 개념 설명 분량을 사용자의 주문에 맞추기 위해 보강되었습니다.`,
+        `학습자는 이 개념을 단순 암기가 아니라 문제 풀이의 판단 기준으로 사용해야 합니다. 원문에서 반복되는 표현, 정의, 대조, 원인과 결과를 확인하며 적용합니다.`,
+        `다음 문제 풀이에서는 이 개념이 선택지 판단, 주관식 서술, 정답 근거 제시로 연결됩니다.`,
+      ],
+      keyTakeaway: `${sourceTitle}의 핵심어를 문제 판단 기준으로 바꾸는 것이 중요합니다.`,
+      example: `예: '${sourceTitle}' 관련 문장을 읽고, 중심 개념과 근거 표현을 분리해 설명한다.`,
+    });
+  }
+
+  return existing.slice(0, plan.conceptPages);
+}
+
+function normalizePremiumTextbook(textbook, { templateId, plan, sourceTitle }) {
+  const units = Array.isArray(textbook.units) && textbook.units.length > 0 ? textbook.units : [{}];
+  const firstUnit = units[0] ?? {};
+  const questions = ensureQuestionCounts(
+    units.flatMap((unit) => (Array.isArray(unit?.questions) ? unit.questions : [])),
+    plan,
+    sourceTitle,
+  );
+  const normalizedUnit = {
+    unitTitle: isBadGeneratedTitle(firstUnit.unitTitle) ? `${sourceTitle} 핵심 개념` : sanitizeText(firstUnit.unitTitle, 120) || `${sourceTitle} 핵심 개념`,
+    unitSubtitle: sanitizeText(firstUnit.unitSubtitle, 160) || "개념 설명과 실전 문제",
+    learningGoals:
+      Array.isArray(firstUnit.learningGoals) && firstUnit.learningGoals.length > 0
+        ? firstUnit.learningGoals.map((goal) => sanitizeText(goal, 240)).filter(Boolean).slice(0, 8)
+        : [`${sourceTitle}의 핵심 개념을 설명할 수 있다.`, "객관식과 주관식 문항에서 정답 근거를 제시할 수 있다."],
+    conceptSummary:
+      sanitizeText(firstUnit.conceptSummary, 3000) ||
+      `${sourceTitle}의 핵심 개념을 사용자의 주문에 맞춰 긴 설명형 교재 구조로 정리합니다.`,
+    conceptPages: [],
+    keyVocabulary: Array.isArray(firstUnit.keyVocabulary) ? firstUnit.keyVocabulary.slice(0, 20) : [],
+    grammarPoints: Array.isArray(firstUnit.grammarPoints) ? firstUnit.grammarPoints.slice(0, 20) : [],
+    examples: Array.isArray(firstUnit.examples) ? firstUnit.examples.slice(0, 20) : [],
+    questions,
+  };
+  normalizedUnit.conceptPages = ensureConceptPages(normalizedUnit, plan, sourceTitle);
+
+  const answerKey = questions.map((question, index) => ({
+    questionNumber: index + 1,
+    answer: question.answer,
+    explanation: question.explanation,
+  }));
+
+  return {
+    ...textbook,
+    title: isBadGeneratedTitle(textbook.title) ? sourceTitle : sanitizeText(textbook.title, 120) || sourceTitle,
+    subtitle: sanitizeText(textbook.subtitle, 180) || "개념 설명 · 실전 문제 · 정답 및 해설",
+    brandLabel: textbook.brandLabel || "Xtudy-Universe · AI Learning Platform",
+    templateId,
+    overview:
+      sanitizeText(textbook.overview, 1200) ||
+      `${sourceTitle}를 바탕으로 개념 설명 ${plan.conceptPages}페이지, 객관식 ${plan.multipleChoiceCount}문항, 주관식 ${plan.shortAnswerCount}문항, 답안지를 포함해 구성했습니다.`,
+    units: [normalizedUnit],
+    answerKey,
+    generationPlan: plan,
+  };
+}
+
+function mockTextbook({ templateId, template, userInstruction, pastedText, uploadedFiles, plan, sourceTitle }) {
+  const seedTitle = userInstruction.split(/[.!?\n]/).map((line) => line.trim()).find(Boolean);
+  const sourceLine = pastedText.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
+  const title = sourceTitle || sourceLine?.slice(0, 54) || seedTitle?.slice(0, 54) || "XUniverse Premium Textbook";
+
+  return normalizePremiumTextbook({
     title,
     subtitle: `${template.name} sample preview`,
     brandLabel: "Xtudy-Universe · AI Learning Platform",
@@ -75,14 +285,10 @@ function mockTextbook({ templateId, template, userInstruction, pastedText, uploa
         ],
       },
     ],
-    answerKey: [
-      { questionNumber: 1, answer: "핵심 개념을 이해하고 적용하기", explanation: "교재형 출력의 목적은 학습 흐름 전체를 만드는 것입니다." },
-      { questionNumber: 2, answer: "해설", explanation: "정답 및 해설 박스를 별도로 렌더링합니다." },
-    ],
-  };
+  }, { templateId, plan, sourceTitle });
 }
 
-function buildPrompt({ templateId, template, userInstruction, pastedText, uploadedFiles }) {
+function buildPrompt({ templateId, template, userInstruction, pastedText, uploadedFiles, plan, sourceTitle }) {
   const fileLines =
     uploadedFiles.length > 0
       ? uploadedFiles.map((file) => `- ${file.name} (${file.type || "unknown"}, ${file.size} bytes)`).join("\n")
@@ -98,6 +304,13 @@ function buildPrompt({ templateId, template, userInstruction, pastedText, upload
 - sections: ${template.sections.join(" / ")}
 - templateInstruction: ${template.promptInstruction}
 
+생성 계획(반드시 준수):
+- 교재 주제/제목 기준어: ${sourceTitle}
+- 개념 설명 페이지 수: 정확히 ${plan.conceptPages}개 conceptPages 생성
+- 객관식 문제 수: 정확히 ${plan.multipleChoiceCount}개
+- 주관식/서술형 문제 수: 정확히 ${plan.shortAnswerCount}개
+${plan.targetPages ? `- 사용자가 기대한 총 페이지 수: 약 ${plan.targetPages}페이지. 렌더링 단계에서 페이지가 나뉘도록 conceptPages와 questions를 충분히 자세히 작성.` : ""}
+
 사용자 주문:
 ${userInstruction}
 
@@ -111,12 +324,14 @@ ${pastedText || "(붙여넣은 원문 없음. 업로드 파일 메타데이터�
 
 반드시 포함할 내용:
 1. 표지 느낌의 title, subtitle, overview
-2. 단원별 learningGoals, conceptSummary
+2. 단원별 learningGoals, conceptSummary, conceptPages
 3. 필요 시 keyVocabulary, grammarPoints, examples
-4. questions에는 객관식, 빈칸, 단답형, 서술형 등을 사용자 주문에 맞춰 섞기
+4. questions에는 multiple-choice를 정확히 ${plan.multipleChoiceCount}개, short-answer 또는 essay를 정확히 ${plan.shortAnswerCount}개 포함
 5. 모든 questions에는 answer와 explanation 포함
 6. answerKey 포함
 7. templateId는 "${templateId}" 그대로 사용
+8. title, unitTitle, conceptPages.heading은 원문과 사용자 주문의 주제에 맞는 단어만 사용. 교재 내용과 무관한 극적인 제목, 임의의 영어 제목, Pre-Test, The Old Way 같은 제목을 만들지 말 것.
+9. conceptPages 각 페이지는 bodyParagraphs 3~5개로 충분히 길게 작성. 짧은 요약 한 문장으로 끝내지 말 것.
 
 JSON 구조:
 {
@@ -132,6 +347,14 @@ JSON 구조:
       "unitSubtitle": string,
       "learningGoals": string[],
       "conceptSummary": string,
+      "conceptPages": [
+        {
+          "heading": string,
+          "bodyParagraphs": string[],
+          "keyTakeaway": string,
+          "example": string
+        }
+      ],
       "keyVocabulary": [{ "term": string, "meaning": string, "example": string }],
       "grammarPoints": string[],
       "examples": string[],
@@ -184,6 +407,8 @@ export default async function handler(req, res) {
     const userInstruction = sanitizeText(body.userInstruction, 6000);
     const pastedText = sanitizeText(body.pastedText, TEXT_SLICE_LIMIT);
     const uploadedFiles = normalizeFiles(body.uploadedFiles);
+    const plan = buildGenerationPlan(userInstruction);
+    const sourceTitle = deriveSourceTitle({ userInstruction, pastedText, uploadedFiles });
 
     if (generationType !== "premium") {
       res.status(400).json({ error: "Invalid generation type" });
@@ -208,7 +433,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       res.status(200).json({
-        textbook: mockTextbook({ templateId, template, userInstruction, pastedText, uploadedFiles }),
+        textbook: mockTextbook({ templateId, template, userInstruction, pastedText, uploadedFiles, plan, sourceTitle }),
         meta: { model: "mock", source: "mock" },
       });
       return;
@@ -224,6 +449,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model,
         temperature: 0.35,
+        max_tokens: 16000,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -231,7 +457,7 @@ export default async function handler(req, res) {
             content:
               "You are an expert educational textbook editor for Xtudy-Universe. Return only valid JSON. Never copy EBS or any publisher's logo, proprietary layout, or exact branding.",
           },
-          { role: "user", content: buildPrompt({ templateId, template, userInstruction, pastedText, uploadedFiles }) },
+          { role: "user", content: buildPrompt({ templateId, template, userInstruction, pastedText, uploadedFiles, plan, sourceTitle }) },
         ],
       }),
     });
@@ -253,11 +479,7 @@ export default async function handler(req, res) {
     }
 
     res.status(200).json({
-      textbook: {
-        ...textbook,
-        templateId,
-        brandLabel: textbook.brandLabel || "Xtudy-Universe · AI Learning Platform",
-      },
+      textbook: normalizePremiumTextbook(textbook, { templateId, plan, sourceTitle }),
       meta: { model, source: "openai" },
     });
   } catch (error) {
