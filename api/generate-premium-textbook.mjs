@@ -723,23 +723,25 @@ function normalizePremiumTextbook(textbook, { templateId, plan, sourceTitle, que
   const units = Array.isArray(textbook.units) && textbook.units.length > 0 ? textbook.units : [{}];
   const firstUnit = units[0] ?? {};
   const questions = questionResult.questions;
+  const normalizedTitle = isBadGeneratedTitle(textbook.title) ? sourceTitle : sanitizeText(textbook.title, 120) || sourceTitle;
+  const unitTitle = isBadGeneratedTitle(firstUnit.unitTitle) ? `${normalizedTitle} 핵심 개념` : sanitizeText(firstUnit.unitTitle, 120) || `${normalizedTitle} 핵심 개념`;
   const normalizedUnit = {
-    unitTitle: isBadGeneratedTitle(firstUnit.unitTitle) ? `${sourceTitle} 핵심 개념` : sanitizeText(firstUnit.unitTitle, 120) || `${sourceTitle} 핵심 개념`,
+    unitTitle,
     unitSubtitle: sanitizeText(firstUnit.unitSubtitle, 160) || "개념 설명과 실전 문제",
     learningGoals:
       Array.isArray(firstUnit.learningGoals) && firstUnit.learningGoals.length > 0
         ? firstUnit.learningGoals.map((goal) => sanitizeText(goal, 240)).filter(Boolean).slice(0, 8)
-        : [`${sourceTitle}의 핵심 개념을 설명할 수 있다.`, "문항에서 정답 근거를 제시할 수 있다."],
+        : [`${normalizedTitle}의 핵심 개념을 설명할 수 있다.`, "문항에서 정답 근거를 제시할 수 있다."],
     conceptSummary:
       sanitizeText(firstUnit.conceptSummary, 3000) ||
-      `${sourceTitle}의 핵심 개념을 사용자의 주문에 맞춰 긴 설명형 교재 구조로 정리합니다.`,
-    conceptPages: [],
+      `${normalizedTitle}의 핵심 개념을 사용자의 주문에 맞춰 긴 설명형 교재 구조로 정리합니다.`,
+    conceptPages: Array.isArray(firstUnit.conceptPages) ? firstUnit.conceptPages : [],
     keyVocabulary: Array.isArray(firstUnit.keyVocabulary) ? firstUnit.keyVocabulary.slice(0, 20) : [],
     grammarPoints: Array.isArray(firstUnit.grammarPoints) ? firstUnit.grammarPoints.slice(0, 20) : [],
     examples: Array.isArray(firstUnit.examples) ? firstUnit.examples.slice(0, 20) : [],
     questions,
   };
-  normalizedUnit.conceptPages = ensureConceptPages(normalizedUnit, plan, sourceTitle);
+  normalizedUnit.conceptPages = ensureConceptPages(normalizedUnit, plan, normalizedTitle);
 
   const answerKey = questions.map((question, index) => ({
     questionNumber: index + 1,
@@ -749,13 +751,13 @@ function normalizePremiumTextbook(textbook, { templateId, plan, sourceTitle, que
 
   return {
     ...textbook,
-    title: isBadGeneratedTitle(textbook.title) ? sourceTitle : sanitizeText(textbook.title, 120) || sourceTitle,
+    title: normalizedTitle,
     subtitle: sanitizeText(textbook.subtitle, 180) || "개념 설명 · 실전 문제 · 정답 및 해설",
     brandLabel: textbook.brandLabel || "Xtudy-Universe · AI Learning Platform",
     templateId,
     overview:
       sanitizeText(textbook.overview, 1200) ||
-      `${sourceTitle}를 바탕으로 개념 설명 ${plan.conceptPages}페이지와 ${questions.length}개 문항 및 답안지를 구성했습니다.`,
+      `${normalizedTitle}를 바탕으로 개념 설명 ${plan.conceptPages}페이지와 ${questions.length}개 문항 및 답안지를 구성했습니다.`,
     units: [normalizedUnit],
     answerKey,
     generationPlan: {
