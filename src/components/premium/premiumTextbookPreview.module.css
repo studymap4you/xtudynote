@@ -1,0 +1,423 @@
+.shell {
+  --premium-accent: #2563eb;
+  display: grid;
+  gap: 1rem;
+  background: #eef2ff;
+  padding: 1rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 0.85rem 1rem;
+}
+
+.toolbar strong,
+.toolbar span {
+  display: block;
+}
+
+.toolbar strong {
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.toolbar span {
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.printButton {
+  min-height: 2.35rem;
+  border: none;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 850;
+  padding: 0 1rem;
+}
+
+.page {
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.98)),
+    radial-gradient(circle at 90% 5%, color-mix(in srgb, var(--premium-accent) 12%, transparent), transparent 35%);
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.1);
+  color: #0f172a;
+  padding: 2rem;
+}
+
+.cover {
+  display: grid;
+  min-height: 34rem;
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.logoMark {
+  display: grid;
+  width: 2.8rem;
+  height: 2.8rem;
+  place-items: center;
+  border-radius: 13px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 1.4rem;
+  font-weight: 950;
+}
+
+.brandRow strong,
+.brandRow em {
+  display: block;
+}
+
+.brandRow em {
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-style: normal;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.coverBody {
+  align-self: center;
+  max-width: 44rem;
+}
+
+.coverKicker,
+.kicker {
+  margin: 0 0 0.45rem;
+  color: var(--premium-accent);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cover h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(2rem, 6vw, 4.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.06em;
+}
+
+.subtitle,
+.overview {
+  color: #334155;
+  line-height: 1.75;
+}
+
+.subtitle {
+  margin: 1rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.overview {
+  margin: 0.8rem 0 0;
+  max-width: 42rem;
+  font-size: 0.98rem;
+}
+
+.coverMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-self: end;
+  gap: 0.5rem;
+}
+
+.coverMeta span,
+.sectionPills span,
+.questionMeta em,
+.questionMeta strong {
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.35rem 0.65rem;
+}
+
+.pageHeader,
+.pageFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.pageHeader {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+  padding-bottom: 0.75rem;
+}
+
+.pageFooter {
+  border-top: 1px solid rgba(148, 163, 184, 0.24);
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+}
+
+.sectionBlock,
+.unitIntro,
+.goalBox,
+.conceptBox,
+.questions {
+  margin-top: 1.4rem;
+}
+
+.sectionBlock h3,
+.unitIntro h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.55rem;
+  letter-spacing: -0.03em;
+}
+
+.sectionPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+}
+
+.twoColumn,
+.learningGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.infoBox,
+.goalBox,
+.conceptBox,
+.tableBox,
+.listBox,
+.questionCard {
+  break-inside: avoid;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 1rem;
+}
+
+.infoBox p,
+.conceptBox p,
+.unitIntro p,
+.answerBox p,
+.answerItem p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.7;
+}
+
+.fileList,
+.goalBox ul,
+.listBox ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: #334155;
+  line-height: 1.65;
+}
+
+.fileList span {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.learningGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tableBox table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tableBox th,
+.tableBox td {
+  border-top: 1px solid rgba(148, 163, 184, 0.24);
+  padding: 0.55rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tableBox th {
+  width: 36%;
+  color: #0f172a;
+  font-size: 0.82rem;
+}
+
+.tableBox td,
+.tableBox small {
+  color: #475569;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.tableBox small {
+  display: block;
+  margin-top: 0.25rem;
+  color: #64748b;
+}
+
+.questions {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.questionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.questionMeta span {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--premium-accent);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.questionText {
+  margin: 0.8rem 0 0;
+  color: #0f172a;
+  font-weight: 800;
+  line-height: 1.65;
+}
+
+.choices {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0;
+  padding-left: 1.4rem;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.answerBox {
+  margin-top: 0.85rem;
+  border-left: 4px solid var(--premium-accent);
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  padding: 0.8rem 0.9rem;
+}
+
+.answerList {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.answerItem {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr;
+  gap: 0.35rem 0.75rem;
+  break-inside: avoid;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding-bottom: 0.7rem;
+}
+
+.answerItem strong {
+  grid-row: span 2;
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  place-items: center;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.answerItem span {
+  color: #0f172a;
+  font-weight: 850;
+}
+
+@media (max-width: 860px) {
+  .toolbar,
+  .twoColumn,
+  .learningGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .printButton {
+    width: 100%;
+  }
+
+  .page {
+    padding: 1.2rem;
+  }
+}
+
+@media print {
+  :global(.no-print) {
+    display: none !important;
+  }
+
+  :global(.print-area) {
+    box-shadow: none !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+  }
+
+  :global(.page-break) {
+    break-after: page;
+  }
+
+  .shell {
+    display: block;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .page {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: auto;
+    padding: 1.2cm;
+  }
+
+  .questionCard,
+  .goalBox,
+  .conceptBox,
+  .infoBox,
+  .tableBox,
+  .listBox {
+    break-inside: avoid;
+  }
+}

@@ -5,6 +5,9 @@
     },
     "api/woohyukmon-chat.mjs": {
       "maxDuration": 30
+    },
+    "api/generate-premium-textbook.mjs": {
+      "maxDuration": 60
     }
   },
   "headers": [

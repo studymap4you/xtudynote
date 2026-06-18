@@ -1,23 +1,48 @@
 import { useCallback, useState } from "react";
 import { DashboardShell } from "@/components/DashboardShell";
+import { PremiumTemplateSelector } from "@/components/premium/PremiumTemplateSelector";
+import { PremiumTextbookPreview } from "@/components/premium/PremiumTextbookPreview";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
 import { UniversalFileAttachmentPanel, type UniversalAttachmentItem } from "@/components/UniversalFileAttachmentPanel";
+import {
+  getXUniversePremiumTemplate,
+  xuniversePremiumTemplates,
+  type XUniversePremiumTemplateId,
+} from "@/data/xuniversePremiumTemplates";
 import { BRAND_APP_NAME } from "@/lib/brand";
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import { parseManuscriptToModules } from "@/lib/localDocumentAuto/manuscriptModules";
+import {
+  generatePremiumTextbook,
+  toPremiumUploadedFileMetadata,
+  type GeneratePremiumTextbookResult,
+} from "@/lib/premiumTextbookGenerator";
 import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextbookUnitGeneration";
+import type { PremiumUploadedFileMetadata } from "@/types/premiumTextbook";
 import { DEFAULT_SECTION_INCLUSION, type TextbookAnswerKeyLayout, type TextbookUnitContent } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoSimple.module.css";
 
 type GenerationMode = "worksheet" | "workbook" | "premium";
 
-type GenerationResult = {
-  mode: GenerationMode;
+type StandardGenerationResult = {
+  mode: Exclude<GenerationMode, "premium">;
   title: string;
   model: string;
   answerKeyLayout: TextbookAnswerKeyLayout;
   units: { unitIndex: number; unit: TextbookUnitContent }[];
 };
+
+type PremiumGenerationResult = {
+  mode: "premium";
+  title: string;
+  model: string;
+  source: GeneratePremiumTextbookResult["meta"]["source"];
+  templateId: XUniversePremiumTemplateId;
+  uploadedFiles: PremiumUploadedFileMetadata[];
+  textbook: GeneratePremiumTextbookResult["textbook"];
+};
+
+type GenerationResult = StandardGenerationResult | PremiumGenerationResult;
 
 const AI_SOURCE_SLICE = 24_000;
 
@@ -86,6 +111,8 @@ function canExtractText(file: File): boolean {
 export function TextbookAutoSimplePage() {
   const [sourceText, setSourceText] = useState("");
   const [attachments, setAttachments] = useState<UniversalAttachmentItem[]>([]);
+  const [userInstruction, setUserInstruction] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<XUniversePremiumTemplateId>("xuniverse-premium-basic");
   const [extractingId, setExtractingId] = useState<string | null>(null);
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [busyMode, setBusyMode] = useState<GenerationMode | null>(null);
@@ -122,10 +149,28 @@ export function TextbookAutoSimplePage() {
   const generate = useCallback(
     async (mode: GenerationMode) => {
       const source = sourceText.trim();
+      const instruction = userInstruction.trim();
+      const uploadedFiles = attachments.map((item) => toPremiumUploadedFileMetadata(item.file));
       setError(null);
-      if (!source) {
+
+      if (mode !== "premium" && !source) {
         setError("교재로 만들 텍스트를 먼저 입력해주세요.");
         return;
+      }
+
+      if (mode === "premium") {
+        if (!instruction) {
+          setError("어떤 교재를 만들지 주문을 입력해주세요.");
+          return;
+        }
+        if (!selectedTemplateId) {
+          setError("프리미엄 교재 템플릿을 선택해주세요.");
+          return;
+        }
+        if (!source && uploadedFiles.length === 0) {
+          setError("교재 제작에 사용할 원문을 붙여넣거나 파일을 업로드해주세요.");
+          return;
+        }
       }
 
       const title = inferTitle(source, mode);
@@ -138,6 +183,25 @@ export function TextbookAutoSimplePage() {
             model: "module-rule",
             answerKeyLayout: "appendix",
             units: [{ unitIndex: 0, unit: buildWorksheetUnit(source, title) }],
+          });
+          return;
+        }
+
+        if (mode === "premium") {
+          const premiumResult = await generatePremiumTextbook({
+            templateId: selectedTemplateId,
+            userInstruction: instruction,
+            pastedText: sliceForAi(source),
+            uploadedFiles,
+          });
+          setResult({
+            mode,
+            title: premiumResult.textbook.title || title,
+            model: premiumResult.meta.model,
+            source: premiumResult.meta.source,
+            templateId: selectedTemplateId,
+            uploadedFiles,
+            textbook: premiumResult.textbook,
           });
           return;
         }
@@ -171,8 +235,10 @@ export function TextbookAutoSimplePage() {
         setBusyMode(null);
       }
     },
-    [sourceText],
+    [attachments, selectedTemplateId, sourceText, userInstruction],
   );
+
+  const selectedTemplate = getXUniversePremiumTemplate(selectedTemplateId) ?? xuniversePremiumTemplates[0];
 
   return (
     <DashboardShell light>
@@ -188,7 +254,7 @@ export function TextbookAutoSimplePage() {
 
           <section className={styles.composer} aria-label="AI 교재 자동 생성">
             <label className={styles.field}>
-              <span className={styles.label}>원문 입력</span>
+              <span className={styles.label}>원문/수업자료 텍스트 붙여넣기</span>
               <textarea
                 className={styles.textarea}
                 value={sourceText}
@@ -198,8 +264,8 @@ export function TextbookAutoSimplePage() {
             </label>
             <div className={styles.attachmentBlock}>
               <UniversalFileAttachmentPanel
-                title="자료 파일 추가"
-                description="PDF, Word, 이미지, 압축파일 등 모든 파일을 첨부 목록에 추가할 수 있습니다. TXT/PDF/DOCX는 원문 입력창으로 텍스트 추출이 가능합니다."
+                title="파일/소스 업로드"
+                description="교재 제작에 사용할 수업자료, 원문, 문제, 단어장, PDF, DOCX, PPTX, TXT, 이미지 등을 업로드하세요. TXT/PDF/DOCX는 원문 입력창으로 텍스트 추출이 가능합니다."
                 items={attachments}
                 onChange={(next) => {
                   setAttachments(next);
@@ -231,6 +297,68 @@ export function TextbookAutoSimplePage() {
                 {busyMode === "premium" ? "생성 중..." : "프리미엄 교재 생성"}
               </button>
             </div>
+
+            <section className={styles.premiumPanel} aria-label="프리미엄 교재 생성">
+              <div className={styles.premiumHeader}>
+                <div>
+                  <p className={styles.eyebrow}>XUniverse Premium Textbook</p>
+                  <h2>프리미엄 교재 생성</h2>
+                  <p>
+                    파일/소스 업로드 → 사용자 주문 입력 → XUniverse 프리미엄 템플릿 선택 → 교재 내지 미리보기 → PDF 저장 /
+                    인쇄 흐름으로 완성형 교재를 만듭니다.
+                  </p>
+                </div>
+                <span className={styles.premiumBadge}>표지 · 단원 · 문제 · 정답 · 해설</span>
+              </div>
+
+              <label className={styles.field}>
+                <span className={styles.label}>사용자 주문 입력</span>
+                <textarea
+                  className={styles.instructionTextarea}
+                  value={userInstruction}
+                  onChange={(event) => setUserInstruction(event.target.value)}
+                  placeholder="예: 영어 1단원, 2단원, 3단원의 핵심 개념을 설명하고 객관식 30문제, 빈칸 15문제, 서술형 15문제를 만들어줘. 정답과 해설도 포함해줘."
+                />
+              </label>
+
+              <div className={styles.premiumUploadSummary}>
+                <strong>업로드된 자료</strong>
+                {attachments.length > 0 ? (
+                  <ul>
+                    {attachments.map((item) => (
+                      <li key={item.id}>
+                        {item.file.name} <span>{item.file.type || "unknown"} · {item.file.size.toLocaleString()} bytes</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>아직 업로드된 파일이 없습니다. 붙여넣은 원문만으로도 생성할 수 있습니다.</p>
+                )}
+                <small>
+                  TODO: PDF/DOCX/PPTX 파일 본문 전체 추출은 서버 측 파싱으로 확장 예정입니다. 현재 프리미엄 생성에는 파일명,
+                  타입, 크기 메타데이터와 붙여넣은 원문이 포함됩니다.
+                </small>
+              </div>
+
+              <div className={styles.templateBlock}>
+                <div className={styles.templateTitleRow}>
+                  <div>
+                    <span className={styles.label}>XUniverse 프리미엄 템플릿 선택</span>
+                    <p>{selectedTemplate.name} · {selectedTemplate.designTone}</p>
+                  </div>
+                </div>
+                <PremiumTemplateSelector
+                  templates={xuniversePremiumTemplates}
+                  selectedId={selectedTemplateId}
+                  onSelect={setSelectedTemplateId}
+                  disabled={busyMode !== null}
+                />
+              </div>
+
+              <button type="button" className={styles.premiumButton} disabled={busyMode !== null} onClick={() => void generate("premium")}>
+                {busyMode === "premium" ? "XUniverse 프리미엄 교재를 생성하는 중입니다..." : "프리미엄 교재 생성"}
+              </button>
+            </section>
           </section>
 
           <section className={styles.resultArea} aria-live="polite">
@@ -248,14 +376,23 @@ export function TextbookAutoSimplePage() {
                   <strong>{result.title}</strong>
                   <span>
                     {modeLabel(result.mode)} · {result.model}
+                    {result.mode === "premium" ? ` · ${result.source}` : ""}
                   </span>
                 </div>
-                <TextbookAutoPrintView
-                  bookTitle={result.title}
-                  units={result.units}
-                  answerKeyLayout={result.answerKeyLayout}
-                  answerKeyItems={[]}
-                />
+                {result.mode === "premium" ? (
+                  <PremiumTextbookPreview
+                    textbook={result.textbook}
+                    template={getXUniversePremiumTemplate(result.templateId) ?? selectedTemplate}
+                    uploadedFiles={result.uploadedFiles}
+                  />
+                ) : (
+                  <TextbookAutoPrintView
+                    bookTitle={result.title}
+                    units={result.units}
+                    answerKeyLayout={result.answerKeyLayout}
+                    answerKeyItems={[]}
+                  />
+                )}
               </article>
             ) : (
               <div className={styles.emptyCard}>원문을 입력한 뒤 원하는 생성 버튼을 눌러주세요.</div>
