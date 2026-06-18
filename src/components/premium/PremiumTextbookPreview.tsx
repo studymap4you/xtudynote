@@ -157,6 +157,11 @@ export function PremiumTextbookPreview({ textbook, template, uploadedFiles = [] 
           완성 교재 PDF 저장 / 인쇄
         </button>
       </div>
+      {textbook.generationWarning ? (
+        <div className={`${styles.warningCard} no-print`} role="status">
+          {textbook.generationWarning}
+        </div>
+      ) : null}
 
       <article className={`${styles.page} ${styles.cover} page-break`}>
         <span className={styles.coverLineVertical} aria-hidden="true" />

@@ -20,6 +20,19 @@ export type PremiumTextbook = {
   overview: string;
   units: PremiumTextbookUnit[];
   answerKey?: PremiumAnswerItem[];
+  generationWarning?: string;
+  generationPlan?: PremiumGenerationPlan;
+};
+
+export type PremiumGenerationPlan = {
+  conceptPages?: number;
+  targetPages?: number;
+  questionPlan?: {
+    totalCount: number;
+    typeCounts?: Partial<Record<PremiumQuestionType, number>>;
+  };
+  completed?: boolean;
+  missingCount?: number;
 };
 
 export type PremiumTextbookUnit = {

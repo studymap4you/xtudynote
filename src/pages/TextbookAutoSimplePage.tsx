@@ -366,7 +366,11 @@ export function TextbookAutoSimplePage() {
             {busyMode ? (
               <div className={styles.statusCard}>
                 <span className={styles.spinner} aria-hidden="true" />
-                <p>교재를 생성하고 있습니다. 잠시만 기다려 주세요.</p>
+                <p>
+                  {busyMode === "premium"
+                    ? "XUniverse 프리미엄 교재를 생성하는 중입니다. 문항을 10개 단위로 나누어 생성하고, 중복과 누락을 검토한 뒤 교재 내지에 배치합니다."
+                    : "교재를 생성하고 있습니다. 잠시만 기다려 주세요."}
+                </p>
               </div>
             ) : error ? (
               <div className={styles.errorCard}>{error}</div>

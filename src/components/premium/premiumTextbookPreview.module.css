@@ -53,6 +53,17 @@
   padding: 0 1rem;
 }
 
+.warningCard {
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  border-radius: 14px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.55;
+  padding: 0.9rem 1rem;
+}
+
 .page {
   position: relative;
   width: min(100%, 794px);
