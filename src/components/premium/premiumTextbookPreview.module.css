@@ -6,6 +6,12 @@
   padding: 1rem;
 }
 
+.shell,
+.page,
+.toolbar {
+  font-family: "Inter", "Pretendard", "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -48,6 +54,10 @@
 }
 
 .page {
+  position: relative;
+  width: min(100%, 794px);
+  min-height: 1123px;
+  margin: 0 auto;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.32);
   border-radius: 18px;
@@ -62,6 +72,290 @@
 .cover {
   display: grid;
   min-height: 34rem;
+}
+
+.logicCodeLayout {
+  background:
+    radial-gradient(circle at top left, rgba(185, 244, 95, 0.16), transparent 28rem),
+    linear-gradient(180deg, #e8ecff 0%, #dce7ff 100%);
+}
+
+.logicCodeLayout .cover,
+.logicCodeLayout .page:first-of-type + .page {
+  background:
+    radial-gradient(circle at 75% 15%, rgba(59, 130, 246, 0.34), transparent 24rem),
+    linear-gradient(145deg, #11103d 0%, #3039a3 52%, #0c1236 100%);
+  color: #ffffff;
+}
+
+.logicCodeLayout .cover {
+  border-color: rgba(185, 244, 95, 0.22);
+}
+
+.logicCodeLayout .coverBody {
+  text-align: center;
+}
+
+.logicCodeLayout .cover h2 {
+  color: #ffffff;
+  font-size: clamp(2.25rem, 6.4vw, 4.8rem);
+  letter-spacing: -0.08em;
+  text-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.logicCodeLayout .cover h2::first-line {
+  color: #b9f45f;
+}
+
+.logicCodeLayout .subtitle {
+  color: #ccfbf1;
+}
+
+.logicCodeLayout .overview,
+.logicCodeLayout .brandRow em,
+.logicCodeLayout .page:first-of-type + .page .infoBox p,
+.logicCodeLayout .page:first-of-type + .page .sectionBlock h3 {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.logicCodeLayout .coverKicker,
+.logicCodeLayout .page:first-of-type + .page .kicker {
+  color: #b9f45f;
+}
+
+.logicCodeLayout .logoMark {
+  background: #ffffff;
+  color: #11103d;
+}
+
+.logicCodeLayout .brandRow strong,
+.logicCodeLayout .page:first-of-type + .page .pageHeader,
+.logicCodeLayout .page:first-of-type + .page .pageFooter {
+  color: #ffffff;
+}
+
+.logicCodeLayout .coverMeta span,
+.logicCodeLayout .sectionPills span {
+  border-color: rgba(185, 244, 95, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.logicCodeLayout .infoBox {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.logicCodeLayout .pageHeader {
+  border-bottom-color: rgba(185, 244, 95, 0.4);
+}
+
+.logicCodeLayout .pageFooter {
+  border-top-color: rgba(185, 244, 95, 0.28);
+}
+
+.logicCodeLayout .unitIntro h3,
+.logicCodeLayout .sectionBlock h3 {
+  color: #111827;
+}
+
+.logicCodeLayout .questionMeta span,
+.logicCodeLayout .answerBox {
+  background: #11103d;
+}
+
+.logicCodeLayout .answerBox {
+  color: #ffffff;
+}
+
+.logicCodeLayout .answerBox p {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.academyLayout {
+  background: #f4f6fb;
+}
+
+.academyLayout .page {
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.09);
+  padding: 0;
+}
+
+.academyLayout .page::before,
+.academyLayout .page::after {
+  content: "";
+  display: block;
+  height: 72px;
+  background: #1d1b68;
+}
+
+.academyLayout .page > :not(.coverLineVertical):not(.coverLineHorizontal):not(.coverOrbTop):not(.coverOrbBottom) {
+  margin-left: 86px;
+  margin-right: 86px;
+}
+
+.academyLayout .pageHeader {
+  justify-content: center;
+  border-bottom: 0;
+  padding: 0;
+  color: #fff7bb;
+  transform: translateY(-47px);
+}
+
+.academyLayout .pageHeader span {
+  display: none;
+}
+
+.academyLayout .pageHeader strong {
+  color: #fff7bb;
+  font-size: 1.15rem;
+}
+
+.academyLayout .pageFooter {
+  justify-content: center;
+  border-top: 0;
+  margin-top: 2rem;
+  padding: 0;
+  color: #ffffff;
+  transform: translateY(48px);
+}
+
+.academyLayout .cover {
+  background: #ffffff;
+}
+
+.academyLayout .cover::before {
+  height: 0;
+}
+
+.academyLayout .cover::after {
+  margin-top: auto;
+}
+
+.academyLayout .coverBody {
+  align-self: center;
+  margin-top: 80px;
+}
+
+.academyLayout .cover h2 {
+  color: #111827;
+  font-size: clamp(2.1rem, 5.4vw, 4rem);
+  line-height: 1.08;
+}
+
+.academyLayout .coverKicker,
+.academyLayout .kicker {
+  color: #1d1b68;
+}
+
+.academyLayout .subtitle,
+.academyLayout .overview {
+  color: #111827;
+}
+
+.academyLayout .logoMark,
+.academyLayout .questionMeta span,
+.academyLayout .answerItem strong {
+  background: #1d1b68;
+}
+
+.academyLayout .brandRow {
+  padding-top: 56px;
+}
+
+.academyLayout .sectionBlock,
+.academyLayout .unitIntro,
+.academyLayout .goalBox,
+.academyLayout .conceptBox,
+.academyLayout .questions,
+.academyLayout .twoColumn,
+.academyLayout .learningGrid {
+  margin-top: 1.55rem;
+}
+
+.academyLayout .sectionBlock h3,
+.academyLayout .unitIntro h3 {
+  border-bottom: 5px solid #111827;
+  padding-bottom: 0.55rem;
+  color: #111827;
+  font-size: 1.65rem;
+}
+
+.academyLayout .questionCard,
+.academyLayout .goalBox,
+.academyLayout .conceptBox,
+.academyLayout .infoBox,
+.academyLayout .tableBox,
+.academyLayout .listBox {
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+  padding: 0.8rem 0;
+}
+
+.academyLayout .questionCard {
+  border-bottom: 4px solid #111827;
+}
+
+.academyLayout .answerBox {
+  border-left: 0;
+  border-radius: 0;
+  background: #f8fafc;
+}
+
+.coverLineVertical,
+.coverLineHorizontal,
+.coverOrbTop,
+.coverOrbBottom {
+  display: none;
+}
+
+.logicCodeLayout .coverLineVertical,
+.logicCodeLayout .coverLineHorizontal,
+.logicCodeLayout .coverOrbTop,
+.logicCodeLayout .coverOrbBottom {
+  position: absolute;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.logicCodeLayout .coverLineVertical {
+  inset: 6% auto 0 50%;
+  width: 3px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.logicCodeLayout .coverLineHorizontal {
+  inset: 58% 9% auto 9%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(185, 244, 95, 0.8), transparent);
+}
+
+.logicCodeLayout .coverOrbTop,
+.logicCodeLayout .coverOrbBottom {
+  left: calc(50% - 16px);
+  width: 32px;
+  height: 32px;
+  border: 8px solid #ffffff;
+  border-radius: 999px;
+  background: #2e3192;
+}
+
+.logicCodeLayout .coverOrbTop {
+  top: 34%;
+}
+
+.logicCodeLayout .coverOrbBottom {
+  bottom: 27%;
+}
+
+.logicCodeLayout .cover > *,
+.logicCodeLayout .page:first-of-type + .page > * {
+  position: relative;
+  z-index: 1;
 }
 
 .brandRow {
@@ -408,8 +702,15 @@
     border: none;
     border-radius: 0;
     box-shadow: none;
-    min-height: auto;
+    box-sizing: border-box;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
     padding: 1.2cm;
+  }
+
+  .academyLayout .page {
+    padding: 0;
   }
 
   .questionCard,

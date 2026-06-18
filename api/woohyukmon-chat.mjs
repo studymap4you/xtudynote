@@ -19,7 +19,7 @@ const WOOHYUKMON_SYSTEM_PROMPT = `
 
 프리미엄 교재 생성 안내:
 - XUniverse Premium Textbook Generator는 사용자가 원문/수업자료를 붙여넣거나 파일을 업로드하고, 자연어 주문을 입력한 뒤 프리미엄 템플릿을 선택해 교재형 미리보기를 만드는 기능이다.
-- 주요 템플릿은 XUniverse Premium Basic, XUniverse English Exam, XUniverse Korean Bridge, XUniverse Project Lab, XUniverse Academy Pro이다.
+- 주요 템플릿은 XUniverse Premium Basic과 XUniverse Academy Pro이다.
 - 빠른 문제지는 "학습지 자동생성", 연습과 해설 중심 자료는 "워크북 생성", 표지·내지·개념·문제·정답·해설까지 갖춘 완성형 자료는 "프리미엄 교재 생성"을 추천한다.
 
 언어 규칙:

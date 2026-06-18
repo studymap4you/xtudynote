@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
+import { useMemo, useRef } from "react";
 import { BRAND_APP_NAME, BRAND_APP_NAME_KO } from "@/lib/brand";
 import type { XUniversePremiumTemplate } from "@/data/xuniversePremiumTemplates";
+import { printPremiumTextbookElement } from "@/lib/premiumTextbookPrint";
 import type { PremiumTextbook, PremiumUploadedFileMetadata } from "@/types/premiumTextbook";
 import styles from "@/components/premium/premiumTextbookPreview.module.css";
 
@@ -35,11 +37,17 @@ function formatBytes(size: number): string {
 }
 
 export function PremiumTextbookPreview({ textbook, template, uploadedFiles = [] }: PremiumTextbookPreviewProps) {
+  const printRef = useRef<HTMLElement | null>(null);
   const allQuestions = textbook.units.flatMap((unit) => unit.questions);
+  const layoutClass = useMemo(
+    () => (template.layoutStyle === "academy-pro" ? styles.academyLayout : styles.logicCodeLayout),
+    [template.layoutStyle],
+  );
 
   return (
     <section
-      className={`${styles.shell} print-area`}
+      ref={printRef}
+      className={`${styles.shell} ${layoutClass} print-area`}
       style={{ "--premium-accent": template.accent } as CSSProperties}
       aria-label="XUniverse 프리미엄 교재 미리보기"
     >
@@ -52,15 +60,20 @@ export function PremiumTextbookPreview({ textbook, template, uploadedFiles = [] 
           type="button"
           className={styles.printButton}
           onClick={() => {
-            // TODO: Replace browser print with server-side PDF generation for stable textbook export.
-            window.print();
+            if (printRef.current) {
+              printPremiumTextbookElement(printRef.current, textbook.title);
+            }
           }}
         >
-          PDF로 저장 / 인쇄
+          완성 교재 PDF 저장 / 인쇄
         </button>
       </div>
 
       <article className={`${styles.page} ${styles.cover} page-break`}>
+        <span className={styles.coverLineVertical} aria-hidden="true" />
+        <span className={styles.coverLineHorizontal} aria-hidden="true" />
+        <span className={styles.coverOrbTop} aria-hidden="true" />
+        <span className={styles.coverOrbBottom} aria-hidden="true" />
         <div className={styles.brandRow}>
           <span className={styles.logoMark}>X</span>
           <span>

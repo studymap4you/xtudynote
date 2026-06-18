@@ -7,24 +7,6 @@ const templates = {
     promptInstruction:
       "XUniverse의 고급 학습 교재처럼 학습 목표, 핵심 개념, 대표 예제, 단계별 문제, 정답 및 해설을 포함하라. 설명은 명확하고 교재 내지에 바로 배치될 수 있도록 구조화하라.",
   },
-  "xuniverse-english-exam": {
-    name: "XUniverse English Exam",
-    sections: ["단원 개요", "핵심 어휘", "본문 해석", "구문 분석", "문법 포인트", "내신 예상 문제", "고난도 변형 문제", "정답 및 해설"],
-    promptInstruction:
-      "영어 내신 대비 교재처럼 핵심 어휘, 본문 해석, 구문 분석, 문법 포인트, 내신 예상 문제, 고난도 변형 문제, 정답 및 해설을 포함하라. 문제 유형은 객관식, 빈칸, 어법, 순서, 삽입, 서술형을 적절히 섞어라.",
-  },
-  "xuniverse-korean-bridge": {
-    name: "XUniverse Korean Bridge",
-    sections: ["오늘의 표현", "상황 대화문", "단어", "문법", "발음 팁", "문화 설명", "연습 문제", "말하기 과제"],
-    promptInstruction:
-      "외국인을 위한 한국어 교재처럼 쉬운 영어 설명, 한국어 예문, 단어, 문법, 발음 팁, 문화 설명, 연습 문제, 말하기 과제를 포함하라. 한국어 초급자도 이해할 수 있도록 영어 설명을 함께 제공하라.",
-  },
-  "xuniverse-project-lab": {
-    name: "XUniverse Project Lab",
-    sections: ["프로젝트 목표", "배경 지식", "탐구 질문", "활동 단계", "팀 과제", "발표 준비", "평가 기준"],
-    promptInstruction:
-      "프로젝트형 수업 교재처럼 프로젝트 목표, 배경 지식, 탐구 질문, 활동 단계, 팀 과제, 발표 준비, 평가 기준을 포함하라. 학생들이 실제로 활동지를 작성할 수 있도록 구성하라.",
-  },
   "xuniverse-academy-pro": {
     name: "XUniverse Academy Pro",
     sections: ["개념 압축", "킬러 포인트", "대표 유형", "실전 적용", "고난도 문제", "오답 유도 포인트", "선생님 설명 노트", "정답 및 해설"],
