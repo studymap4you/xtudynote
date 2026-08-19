@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /admin/
+Disallow: /assignment/
+Disallow: /classroom
+Allow: /classrooms
+Disallow: /dashboard
+Disallow: /english-passage-lab
+Disallow: /exam/
+Disallow: /homework/
+Disallow: /korean-education
+Disallow: /lecture/
+Disallow: /login
+Disallow: /material/
+Disallow: /register
+Disallow: /teacher/
+Disallow: /tools/
+Disallow: /worksheet/create
+
+Sitemap: https://xtudynote.vercel.app/sitemap.xml
