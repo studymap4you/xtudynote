@@ -217,7 +217,7 @@ function academyResultFromJob(job: AcademyTextbookJob): PremiumGenerationResult 
     mode: "premium",
     title: textbook.title,
     model: job.model || "academy-batch",
-    source: job.source || "openai",
+    source: job.source || "mock",
     templateId: job.templateId,
     uploadedFiles: job.uploadedFiles,
     textbook,

@@ -63,7 +63,7 @@ export type AcademyTextbookJob = {
   activeUnitIndex: number;
   error?: string;
   model?: string;
-  source?: "openai" | "mock";
+  source?: "nvidia" | "openai" | "mock";
 };
 
 export type AcademyTextbookHistoryItem = {

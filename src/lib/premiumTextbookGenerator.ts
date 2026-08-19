@@ -12,7 +12,7 @@ export type GeneratePremiumTextbookResult = {
   textbook: PremiumTextbook;
   meta: {
     model: string;
-    source: "openai" | "mock";
+    source: "nvidia" | "openai" | "mock";
   };
 };
 

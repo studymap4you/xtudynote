@@ -1,8 +1,11 @@
 import admin from "firebase-admin";
+import { englishReferenceSeedProfiles } from "./_data/english-reference-profiles.mjs";
+import { requestTextbookJson, resolveTextbookAiProvider } from "./_lib/textbook-ai-provider.mjs";
 
 const PLAN_SOURCE_LIMIT = 60_000;
 const UNIT_SOURCE_LIMIT = 28_000;
 const CSAT_PATTERN_LIMIT = 24;
+const ENGLISH_REFERENCE_LIMIT = 6;
 const VALID_TARGET_PAGES = new Set([50, 100, 150, 200]);
 const VALID_LEVELS = new Set([
   "auto",
@@ -163,6 +166,141 @@ async function loadPersistedCsatPatterns(ids) {
   }
 }
 
+function normalizeEnglishReferenceProfile(docSnap) {
+  const raw = docSnap.data() || {};
+  return normalizeEnglishReferenceProfileData(docSnap.id, raw);
+}
+
+function normalizeEnglishReferenceProfileData(id, raw) {
+  return {
+    id,
+    category: sanitizeText(raw.category, 80),
+    focus: sanitizeText(raw.focus, 180),
+    summary: sanitizeText(raw.summary, 1_000),
+    learnerLevels: sanitizeStringArray(raw.learnerLevels, 8, 120),
+    keywords: sanitizeStringArray(raw.keywords, 24, 100),
+    unitFlow: sanitizeStringArray(raw.unitFlow, 12, 320),
+    explanationPatterns: sanitizeStringArray(raw.explanationPatterns, 12, 360),
+    questionPatterns: sanitizeStringArray(raw.questionPatterns, 12, 360),
+    answerExplanationPatterns: sanitizeStringArray(raw.answerExplanationPatterns, 10, 360),
+    difficultyRules: sanitizeStringArray(raw.difficultyRules, 10, 320),
+    teacherUsePatterns: sanitizeStringArray(raw.teacherUsePatterns, 10, 320),
+    layoutPrinciples: sanitizeStringArray(raw.layoutPrinciples, 10, 320),
+    qualityChecks: sanitizeStringArray(raw.qualityChecks, 12, 320),
+    avoid: sanitizeStringArray(raw.avoid, 12, 320),
+  };
+}
+
+async function seedEnglishReferenceProfiles() {
+  const firestore = admin.firestore();
+  const batch = firestore.batch();
+  const updatedAt = admin.firestore.FieldValue.serverTimestamp();
+  for (const profile of englishReferenceSeedProfiles) {
+    batch.set(
+      firestore.doc(`english_reference_profiles/${profile.id}`),
+      { ...profile, active: true, updatedAt },
+      { merge: true },
+    );
+  }
+  batch.set(
+    firestore.doc("english_reference_meta/current"),
+    {
+      schemaVersion: "english-reference-profile-v1",
+      profileCount: englishReferenceSeedProfiles.length,
+      profileIds: englishReferenceSeedProfiles.map((profile) => profile.id),
+      copyrightPolicy: "derived-structure-only-no-source-republication",
+      active: true,
+      updatedAt,
+    },
+    { merge: true },
+  );
+  await batch.commit();
+  return englishReferenceSeedProfiles.map((profile) => normalizeEnglishReferenceProfileData(profile.id, profile));
+}
+
+function englishReferenceScore(profile, instruction) {
+  const normalized = instruction.toLowerCase();
+  const tokens = normalized
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+  const profileText = [
+    profile.category,
+    profile.focus,
+    profile.summary,
+    ...profile.learnerLevels,
+    ...profile.keywords,
+  ]
+    .join(" ")
+    .toLowerCase();
+  let score = tokens.reduce((total, token) => total + (profileText.includes(token) ? 30 : 0), 0);
+  if (/구문|문법|독해|syntax|grammar/i.test(instruction) && profile.category === "syntax-answer-guide") score += 500;
+  if (/교과서|수업|단원|프로젝트|teacher|lesson/i.test(instruction) && profile.category === "teacher-guide") score += 500;
+  if (/단어|어휘|vocabulary|word/i.test(instruction) && profile.category.startsWith("vocabulary-")) score += 500;
+  return score;
+}
+
+async function loadEnglishReferenceProfiles(instruction) {
+  try {
+    const snapshot = await admin.firestore().collection("english_reference_profiles").where("active", "==", true).get();
+    const profiles = snapshot.empty
+      ? await seedEnglishReferenceProfiles()
+      : snapshot.docs.map(normalizeEnglishReferenceProfile);
+    return profiles
+      .filter((profile) => profile.unitFlow.length && profile.explanationPatterns.length)
+      .sort((a, b) => englishReferenceScore(b, instruction) - englishReferenceScore(a, instruction))
+      .slice(0, ENGLISH_REFERENCE_LIMIT);
+  } catch (error) {
+    console.warn("[generate-academy-textbook] English reference lookup skipped", error instanceof Error ? error.message : error);
+    return englishReferenceSeedProfiles
+      .map((profile) => normalizeEnglishReferenceProfileData(profile.id, profile))
+      .sort((a, b) => englishReferenceScore(b, instruction) - englishReferenceScore(a, instruction))
+      .slice(0, ENGLISH_REFERENCE_LIMIT);
+  }
+}
+
+async function loadPersistedEnglishReferenceProfiles(ids) {
+  const cleanIds = Array.isArray(ids)
+    ? ids.map((id) => sanitizeText(id, 100)).filter(Boolean).slice(0, ENGLISH_REFERENCE_LIMIT)
+    : [];
+  if (!cleanIds.length) return [];
+  try {
+    const refs = cleanIds.map((id) => admin.firestore().doc(`english_reference_profiles/${id}`));
+    const snapshots = await admin.firestore().getAll(...refs);
+    return snapshots.filter((snapshot) => snapshot.exists).map(normalizeEnglishReferenceProfile);
+  } catch (error) {
+    console.warn("[generate-academy-textbook] persisted English reference lookup skipped", error instanceof Error ? error.message : error);
+    return [];
+  }
+}
+
+function formatEnglishReferenceCorpus(profiles, maxLength) {
+  if (!profiles.length) return "";
+  const sections = profiles.map((profile, index) => {
+    const list = (label, items) =>
+      items.length ? `${label}:\n${items.map((item) => `  - ${item}`).join("\n")}` : "";
+    return [
+      `[영어 교수설계 프로필 ${index + 1} · ${profile.category} · ${profile.focus}]`,
+      `일반화 요약: ${profile.summary}`,
+      list("단원 학습 흐름", profile.unitFlow),
+      list("개념·구문 설명 원리", profile.explanationPatterns),
+      list("문항 구성 원리", profile.questionPatterns),
+      list("정답·해설 원리", profile.answerExplanationPatterns),
+      list("난이도 조절", profile.difficultyRules),
+      list("수업 활용", profile.teacherUsePatterns),
+      list("내지 구성 원리", profile.layoutPrinciples),
+      list("품질 검사", profile.qualityChecks),
+      list("금지 사항", profile.avoid),
+    ]
+      .filter(Boolean)
+      .join("\n");
+  });
+  return sanitizeText(
+    `영어 교육 자료에서 파생한 XUniverse 교수설계 규칙이다. 원자료의 문구나 고유 편집을 재현하지 말고, 아래 원리를 새 콘텐츠에만 적용한다.\n\n${sections.join("\n\n")}`,
+    maxLength,
+  );
+}
+
 function sanitizeText(value, maxLength) {
   return String(value ?? "").trim().slice(0, maxLength);
 }
@@ -197,46 +335,6 @@ function stripUndefined(value) {
     );
   }
   return value;
-}
-
-function extractJsonObject(text) {
-  const trimmed = String(text ?? "").trim();
-  if (!trimmed) return null;
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const match = trimmed.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    return JSON.parse(match[0]);
-  }
-}
-
-async function requestOpenAiJson({ apiKey, model, messages, maxTokens }) {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.28,
-      max_tokens: maxTokens,
-      response_format: { type: "json_object" },
-      messages,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    console.error("[generate-academy-textbook] OpenAI request failed", response.status, detail.slice(0, 500));
-    throw new Error("openai-request-failed");
-  }
-
-  const data = await response.json();
-  const parsed = extractJsonObject(data?.choices?.[0]?.message?.content);
-  if (!parsed) throw new Error("openai-json-parse-failed");
-  return parsed;
 }
 
 function pageRules(templateId) {
@@ -610,24 +708,25 @@ export default async function handler(req, res) {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const action = sanitizeText(body.action, 20);
     const common = validateCommonBody(body);
-    const apiKey = process.env.OPENAI_API_KEY;
-    const model = process.env.OPENAI_MODEL_ACADEMY || process.env.OPENAI_MODEL || "gpt-4o-mini";
+    const provider = resolveTextbookAiProvider(process.env, "academy");
+    const model = provider.model;
 
     if (action === "plan") {
       const fixedPlan = createFixedPagePlan(common.targetPages, common.templateId);
       const csatPatterns = await loadCsatReferencePatterns(common.userInstruction);
-      const csatCorpus = formatCsatReferenceCorpus(csatPatterns, 18_000);
+      const csatCorpus = formatCsatReferenceCorpus(csatPatterns, 16_000);
+      const englishReferenceProfiles = await loadEnglishReferenceProfiles(common.userInstruction);
+      const englishReferenceCorpus = formatEnglishReferenceCorpus(englishReferenceProfiles, 10_000);
       const planCommon = {
         ...common,
         sourceText: sanitizeText(
-          [sanitizeText(common.sourceText, 42_000), csatCorpus].filter(Boolean).join("\n\n---\n\n"),
+          [sanitizeText(common.sourceText, 34_000), englishReferenceCorpus, csatCorpus].filter(Boolean).join("\n\n---\n\n"),
           PLAN_SOURCE_LIMIT,
         ),
       };
-      const rawPlan = apiKey
-        ? await requestOpenAiJson({
-            apiKey,
-            model,
+      const rawPlan = provider.kind !== "mock"
+        ? await requestTextbookJson({
+            provider,
             maxTokens: 5_000,
             messages: [
               {
@@ -640,7 +739,7 @@ export default async function handler(req, res) {
           })
         : mockPlan({ ...planCommon, fixedPlan });
       const plan = normalizePlan(rawPlan, planCommon, fixedPlan);
-      const meta = { model: apiKey ? model : "mock", source: apiKey ? "openai" : "mock" };
+      const meta = { model, source: provider.kind };
       await admin.firestore().doc(`academy_textbook_jobs/${plan.id}`).set({
         ownerUid: authUser.uid,
         status: "planned",
@@ -654,6 +753,9 @@ export default async function handler(req, res) {
         csatDatabaseVersion: csatPatterns.length ? "csat-english-v1" : null,
         csatReferenceIds: csatPatterns.map((pattern) => pattern.id),
         csatPatternCorpus: csatCorpus,
+        englishReferenceVersion: englishReferenceProfiles.length ? "english-reference-profile-v1" : null,
+        englishReferenceIds: englishReferenceProfiles.map((profile) => profile.id),
+        englishReferenceCorpus,
         completedUnitIndexes: [],
         model: meta.model,
         source: meta.source,
@@ -666,6 +768,8 @@ export default async function handler(req, res) {
           ...meta,
           csatDatabaseVersion: csatPatterns.length ? "csat-english-v1" : null,
           csatReferenceCount: csatPatterns.length,
+          englishReferenceVersion: englishReferenceProfiles.length ? "english-reference-profile-v1" : null,
+          englishReferenceCount: englishReferenceProfiles.length,
         },
       });
       return;
@@ -702,12 +806,18 @@ export default async function handler(req, res) {
         conceptPageCount: Math.min(Math.max(Number(persistedUnit.conceptPageCount) || 5, 3), 8),
         questionCount: Math.min(Math.max(Number(persistedUnit.questionCount) || 6, 4), 10),
       };
-      const persistedCsatCorpus = sanitizeText(jobData?.csatPatternCorpus, 10_000);
+      const persistedCsatCorpus = sanitizeText(jobData?.csatPatternCorpus, 8_000);
       const csatPatterns = persistedCsatCorpus ? [] : await loadPersistedCsatPatterns(jobData?.csatReferenceIds);
-      const csatCorpus = persistedCsatCorpus || formatCsatReferenceCorpus(csatPatterns, 10_000);
-      const requestedSourceExcerpt = sanitizeText(body.sourceExcerpt, 18_000) || common.sourceText.slice(0, 18_000);
+      const csatCorpus = persistedCsatCorpus || formatCsatReferenceCorpus(csatPatterns, 8_000);
+      const persistedEnglishReferenceCorpus = sanitizeText(jobData?.englishReferenceCorpus, 7_500);
+      const englishReferenceProfiles = persistedEnglishReferenceCorpus
+        ? []
+        : await loadPersistedEnglishReferenceProfiles(jobData?.englishReferenceIds);
+      const englishReferenceCorpus =
+        persistedEnglishReferenceCorpus || formatEnglishReferenceCorpus(englishReferenceProfiles, 7_500);
+      const requestedSourceExcerpt = sanitizeText(body.sourceExcerpt, 12_000) || common.sourceText.slice(0, 12_000);
       const sourceExcerpt = sanitizeText(
-        [requestedSourceExcerpt, csatCorpus].filter(Boolean).join("\n\n---\n\n"),
+        [requestedSourceExcerpt, englishReferenceCorpus, csatCorpus].filter(Boolean).join("\n\n---\n\n"),
         UNIT_SOURCE_LIMIT,
       );
       const previousQuestionSignatures = sanitizeStringArray(body.previousQuestionSignatures, 80, 220);
@@ -719,16 +829,15 @@ export default async function handler(req, res) {
           unit: cached.unit,
           meta: {
             model: sanitizeText(cached?.model, 120) || model,
-            source: cached?.source === "mock" ? "mock" : "openai",
+            source: ["nvidia", "openai", "mock"].includes(cached?.source) ? cached.source : provider.kind,
             cached: true,
           },
         });
         return;
       }
-      const rawUnit = apiKey
-        ? await requestOpenAiJson({
-            apiKey,
-            model,
+      const rawUnit = provider.kind !== "mock"
+        ? await requestTextbookJson({
+            provider,
             maxTokens: 8_000,
             messages: [
               {
@@ -752,7 +861,7 @@ export default async function handler(req, res) {
           })
         : mockUnit(normalizedUnitPlan, sourceExcerpt);
       const generatedUnit = normalizeUnit(rawUnit, normalizedUnitPlan, sourceExcerpt);
-      const meta = { model: apiKey ? model : "mock", source: apiKey ? "openai" : "mock" };
+      const meta = { model, source: provider.kind };
       await unitRef.set({
         unitIndex: normalizedUnitPlan.unitIndex,
         unit: stripUndefined(generatedUnit),
@@ -781,7 +890,7 @@ export default async function handler(req, res) {
       res.status(503).json({ error: "서버 로그인 검증 설정이 필요합니다." });
       return;
     }
-    const userMessage = message.startsWith("openai-")
+    const userMessage = message.startsWith("ai-provider-")
       ? "AI가 응답하지 않았습니다. 잠시 후 현재 단원부터 다시 시도해주세요."
       : message;
     res.status(500).json({ error: userMessage });

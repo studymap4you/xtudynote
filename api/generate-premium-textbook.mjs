@@ -1,3 +1,5 @@
+import { requestTextbookJson, resolveTextbookAiProvider } from "./_lib/textbook-ai-provider.mjs";
+
 const TEXT_SLICE_LIMIT = 28000;
 const DEFAULT_QUESTION_BATCH_SIZE = 10;
 const MAX_RETRY_FOR_MISSING_QUESTIONS = 3;
@@ -427,43 +429,14 @@ JSON 구조:
 }`;
 }
 
-async function requestOpenAiJson({ apiKey, model, messages, maxTokens = 7000 }) {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.35,
-      max_tokens: maxTokens,
-      response_format: { type: "json_object" },
-      messages,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    console.error("[generate-premium-textbook] OpenAI request failed", response.status, detail.slice(0, 600));
-    throw new Error("openai-request-failed");
-  }
-
-  const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content;
-  const parsed = extractJsonObject(content);
-  if (!parsed) throw new Error("openai-json-parse-failed");
-  return parsed;
-}
-
-async function generateSkeleton({ apiKey, model, templateId, template, userInstruction, pastedText, uploadedFiles, plan, sourceTitle }) {
-  if (!apiKey) {
+async function generateSkeleton({ provider, templateId, template, userInstruction, pastedText, uploadedFiles, plan, sourceTitle }) {
+  if (provider.kind === "mock") {
     return mockSkeleton({ templateId, template, userInstruction, pastedText, uploadedFiles, plan, sourceTitle });
   }
 
-  return requestOpenAiJson({
-    apiKey,
-    model,
+  return requestTextbookJson({
+    provider,
+    temperature: 0.35,
     maxTokens: 6500,
     messages: [
       {
@@ -548,14 +521,14 @@ function mockQuestions({ count, questionType, sourceText, existingQuestions }) {
   });
 }
 
-async function generateQuestionBatch({ apiKey, model, count, questionType, templateId, userInstruction, sourceText, uploadedFiles, existingQuestions }) {
-  if (!apiKey) {
+async function generateQuestionBatch({ provider, count, questionType, templateId, userInstruction, sourceText, uploadedFiles, existingQuestions }) {
+  if (provider.kind === "mock") {
     return mockQuestions({ count, questionType, sourceText, existingQuestions });
   }
 
-  const parsed = await requestOpenAiJson({
-    apiKey,
-    model,
+  const parsed = await requestTextbookJson({
+    provider,
+    temperature: 0.35,
     maxTokens: 6000,
     messages: [
       {
@@ -623,15 +596,14 @@ function trimQuestionsToPlan(questions, plan) {
   return out;
 }
 
-async function ensureQuestionCount({ apiKey, model, plan, templateId, userInstruction, sourceText, uploadedFiles }) {
+async function ensureQuestionCount({ provider, plan, templateId, userInstruction, sourceText, uploadedFiles }) {
   let questions = [];
   let retries = 0;
 
   for (const batch of plan.batches) {
     try {
       const raw = await generateQuestionBatch({
-        apiKey,
-        model,
+        provider,
         count: batch.count,
         questionType: batch.questionType,
         templateId,
@@ -656,8 +628,7 @@ async function ensureQuestionCount({ apiKey, model, plan, templateId, userInstru
     for (const batch of missingBatches) {
       try {
         const raw = await generateQuestionBatch({
-          apiKey,
-          model,
+          provider,
           count: batch.count,
           questionType: batch.questionType,
           templateId,
@@ -817,12 +788,10 @@ export default async function handler(req, res) {
       return;
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-    const skeleton = await generateSkeleton({ apiKey, model, templateId, template, userInstruction, pastedText, uploadedFiles, plan, sourceTitle });
+    const provider = resolveTextbookAiProvider(process.env, "premium");
+    const skeleton = await generateSkeleton({ provider, templateId, template, userInstruction, pastedText, uploadedFiles, plan, sourceTitle });
     const questionResult = await ensureQuestionCount({
-      apiKey,
-      model,
+      provider,
       plan: plan.questionPlan,
       templateId,
       userInstruction,
@@ -832,7 +801,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       textbook: normalizePremiumTextbook(skeleton, { templateId, plan, sourceTitle, questionResult }),
-      meta: { model: apiKey ? model : "mock", source: apiKey ? "openai" : "mock" },
+      meta: { model: provider.model, source: provider.kind },
     });
   } catch (error) {
     console.error("[generate-premium-textbook]", error instanceof Error ? error.message : error);

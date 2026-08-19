@@ -8,7 +8,7 @@ import { auth } from "@/firebase/config";
 
 type ApiMeta = {
   model: string;
-  source: "openai" | "mock";
+  source: "nvidia" | "openai" | "mock";
 };
 
 type PlanResponse = {

@@ -102,7 +102,7 @@ async function loadHistoryJob(uid, id) {
     generatedUnits: units,
     activeUnitIndex: units.length,
     model: sanitizeText(data.model, 120) || undefined,
-    source: data.source === "mock" ? "mock" : "openai",
+    source: ["nvidia", "openai", "mock"].includes(data.source) ? data.source : "mock",
   };
 }
 
