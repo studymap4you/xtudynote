@@ -136,14 +136,18 @@ export function PremiumTextbookPreview({ textbook, template, uploadedFiles = [] 
   return (
     <section
       ref={printRef}
-      className={`${styles.shell} ${layoutClass} print-area`}
+      className={`${styles.shell} ${layoutClass}${textbook.generationPlan?.longForm ? ` ${styles.fixedPageBook}` : ""} print-area`}
       style={{ "--premium-accent": template.accent } as CSSProperties}
       aria-label="XUniverse 프리미엄 교재 미리보기"
     >
       <div className={`${styles.toolbar} no-print`}>
         <div>
           <strong>교재 내지 미리보기</strong>
-          <span>{template.name} · 인쇄/PDF 저장 최적화</span>
+          <span>
+            {template.name}
+            {textbook.generationPlan?.targetPages ? ` · 목표 ${textbook.generationPlan.targetPages}쪽` : ""}
+            {` · 인쇄/PDF 저장 최적화`}
+          </span>
         </div>
         <button
           type="button"
@@ -194,15 +198,23 @@ export function PremiumTextbookPreview({ textbook, template, uploadedFiles = [] 
           <strong>Premium Learning Map</strong>
         </header>
         <section className={styles.sectionBlock}>
-          <p className={styles.kicker}>Template Structure</p>
-          <h3>교재 구성</h3>
+          <p className={styles.kicker}>Table of Contents</p>
+          <h3>교재 목차</h3>
+          <ol className={styles.tocGrid}>
+            {textbook.units.map((unit, index) => (
+              <li key={`${unit.unitTitle}-${index}`}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong>{unit.unitTitle}</strong>
+              </li>
+            ))}
+          </ol>
           <div className={styles.sectionPills}>
             {template.sections.map((section) => (
               <span key={section}>{section}</span>
             ))}
           </div>
         </section>
-        <section className={styles.twoColumn}>
+        <section className={styles.twoColumnCompact}>
           <div className={styles.infoBox}>
             <p className={styles.kicker}>Design Tone</p>
             <p>{template.designTone}</p>
@@ -211,11 +223,12 @@ export function PremiumTextbookPreview({ textbook, template, uploadedFiles = [] 
             <p className={styles.kicker}>Uploaded Sources</p>
             {uploadedFiles.length > 0 ? (
               <ul className={styles.fileList}>
-                {uploadedFiles.map((file) => (
+                {uploadedFiles.slice(0, 4).map((file) => (
                   <li key={`${file.name}-${file.size}`}>
                     {file.name} <span>{file.type || "unknown"} · {formatBytes(file.size)}</span>
                   </li>
                 ))}
+                {uploadedFiles.length > 4 ? <li>그 외 {uploadedFiles.length - 4}개 자료</li> : null}
               </ul>
             ) : (
               <p>붙여넣은 원문을 중심으로 구성되었습니다.</p>

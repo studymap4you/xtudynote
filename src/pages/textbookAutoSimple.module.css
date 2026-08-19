@@ -46,6 +46,11 @@
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
 }
 
+.composer {
+  display: grid;
+  gap: 1rem;
+}
+
 .resultArea {
   margin-top: 1rem;
 }
@@ -63,7 +68,7 @@
 }
 
 .textarea {
-  min-height: 18rem;
+  min-height: 12rem;
   resize: vertical;
   font: inherit;
   font-size: 0.95rem;
@@ -79,11 +84,10 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.6rem;
-  margin-top: 0.9rem;
 }
 
 .attachmentBlock {
-  margin-top: 0.9rem;
+  margin-top: 0;
 }
 
 .attachmentNotice {
@@ -94,6 +98,10 @@
 }
 
 .extractButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
   min-height: 2rem;
   border: 1px solid rgba(37, 99, 235, 0.28);
   border-radius: 10px;
@@ -106,6 +114,333 @@
   letter-spacing: 0;
   padding: 0 0.65rem;
   white-space: nowrap;
+}
+
+.academyHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.academyTitleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  color: #0f766e;
+}
+
+.academyTitleRow svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.academyTitleRow h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.academyTitleRow p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.academyBadge {
+  flex: 0 0 auto;
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  padding: 0.42rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.academyControls {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.8fr) minmax(20rem, 1.2fr);
+  gap: 1rem;
+  align-items: end;
+}
+
+.selectField {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.selectField select {
+  width: 100%;
+  min-height: 2.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.pageField {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pageField legend {
+  margin-bottom: 0.35rem;
+}
+
+.pageSegments {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-height: 2.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pageSegment,
+.pageSegmentActive {
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.pageSegment:last-child,
+.pageSegmentActive:last-child {
+  border-right: 0;
+}
+
+.pageSegmentActive {
+  background: #0f766e;
+  color: #fff;
+}
+
+.pageField:disabled .pageSegment,
+.pageField:disabled .pageSegmentActive {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sourcePolicy {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border-left: 3px solid #0f766e;
+  background: #f0fdfa;
+  color: #115e59;
+  padding: 0.75rem 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.sourcePolicy svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.academyButton,
+.resumeButton,
+.secondaryButton,
+.cancelButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+}
+
+.academyButton {
+  width: 100%;
+  border: 0;
+  background: #0f766e;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(15, 118, 110, 0.18);
+}
+
+.academyButton:hover,
+.resumeButton:hover {
+  background: #115e59;
+}
+
+.academyButton:disabled,
+.resumeButton:disabled,
+.secondaryButton:disabled,
+.cancelButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.jobPanel {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  background: #f8fffd;
+  padding: 0.95rem;
+}
+
+.jobTopline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.jobTopline > div {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.jobTopline strong {
+  overflow-wrap: anywhere;
+  color: #0f172a;
+  font-size: 0.94rem;
+}
+
+.jobTopline span {
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.jobTopline em {
+  flex: 0 0 auto;
+  color: #0f766e;
+  font-size: 1.05rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 0.55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ccfbf1;
+}
+
+.progressTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #0f766e;
+  transition: width 180ms ease;
+}
+
+.pageAllocation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.pageAllocation span {
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.jobActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.resumeButton,
+.secondaryButton,
+.cancelButton {
+  min-height: 2.55rem;
+  padding: 0 0.85rem;
+}
+
+.resumeButton {
+  border: 0;
+  background: #0f766e;
+  color: #fff;
+}
+
+.secondaryButton {
+  border: 1px solid #94a3b8;
+  background: #fff;
+  color: #334155;
+}
+
+.cancelButton {
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #b91c1c;
+}
+
+.quickSection {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.quickSection > div:first-child {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.quickSection strong {
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.quickSection span {
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.fileStatus {
+  display: inline-block;
+  max-width: 15rem;
+  overflow-wrap: anywhere;
+  color: #64748b;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.fileStatus_ready {
+  color: #047857;
+}
+
+.fileStatus_error {
+  color: #b91c1c;
+}
+
+.fileStatus_extracting {
+  color: #1d4ed8;
+}
+
+.fileStatus_unsupported {
+  color: #a16207;
 }
 
 .extractButton:hover {
@@ -157,7 +492,7 @@
   color: #0f172a;
   font-size: 1.2rem;
   font-weight: 900;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .premiumHeader p {
@@ -258,7 +593,7 @@
   cursor: pointer;
   font: inherit;
   font-weight: 900;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   box-shadow: 0 16px 34px rgba(37, 99, 235, 0.2);
 }
 
@@ -357,6 +692,38 @@
   .templateTitleRow {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .academyHeader,
+  .jobTopline {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .academyBadge {
+    width: fit-content;
+  }
+
+  .academyControls {
+    grid-template-columns: 1fr;
+  }
+
+  .pageSegments {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pageSegment:nth-child(2),
+  .pageSegmentActive:nth-child(2) {
+    border-right: 0;
+  }
+
+  .pageSegment:nth-child(-n + 2),
+  .pageSegmentActive:nth-child(-n + 2) {
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .jobActions > button {
+    width: 100%;
   }
 
   .premiumBadge {

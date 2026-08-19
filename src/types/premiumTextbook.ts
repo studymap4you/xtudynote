@@ -25,6 +25,7 @@ export type PremiumTextbook = {
 };
 
 export type PremiumGenerationPlan = {
+  longForm?: boolean;
   conceptPages?: number;
   targetPages?: number;
   questionPlan?: {

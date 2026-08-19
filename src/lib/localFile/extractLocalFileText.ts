@@ -1,4 +1,5 @@
 import mammoth from "mammoth";
+import * as XLSX from "xlsx";
 import { extractPdfPlainTextFromBuffer } from "@/lib/pdf/extractPdfPlainTextFromBuffer";
 
 const MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -10,13 +11,13 @@ function extensionLower(file: File): string {
 }
 
 /**
- * 로컬 파일(.txt / .pdf / .docx)에서 본문 텍스트만 추출합니다.
+ * 로컬 문서에서 AI 입력에 사용할 본문 텍스트를 추출합니다.
  */
 export async function extractPlainTextFromLocalFile(file: File): Promise<string> {
   const ext = extensionLower(file);
   const mime = (file.type || "").toLowerCase();
 
-  if (ext === ".txt" || mime === "text/plain") {
+  if ([".txt", ".md", ".csv", ".tsv", ".json", ".html", ".htm"].includes(ext) || mime.startsWith("text/")) {
     return (await file.text()).replace(/^\uFEFF/, "");
   }
 
@@ -31,5 +32,13 @@ export async function extractPlainTextFromLocalFile(file: File): Promise<string>
     return (value || "").trim();
   }
 
-  throw new Error("지원 형식은 .txt, .pdf, .docx 입니다.");
+  if ([".xlsx", ".xls"].includes(ext) || mime.includes("spreadsheet") || mime.includes("excel")) {
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    return workbook.SheetNames.map((sheetName) => {
+      const sheet = workbook.Sheets[sheetName];
+      return `[시트: ${sheetName}]\n${XLSX.utils.sheet_to_csv(sheet, { FS: "\t" })}`;
+    }).join("\n\n");
+  }
+
+  throw new Error("자동 본문 추출은 TXT, MD, CSV, JSON, PDF, DOCX, XLS, XLSX 파일을 지원합니다.");
 }

@@ -68,6 +68,7 @@
   position: relative;
   width: min(100%, 794px);
   min-height: 1123px;
+  box-sizing: border-box;
   margin: 0 auto;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.32);
@@ -78,6 +79,51 @@
   box-shadow: 0 22px 48px rgba(15, 23, 42, 0.1);
   color: #0f172a;
   padding: 2rem;
+}
+
+.fixedPageBook .page {
+  height: 1123px;
+}
+
+.tocGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 1rem;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tocGrid li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+  padding: 0.35rem 0;
+}
+
+.tocGrid li span {
+  color: var(--premium-accent);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.tocGrid li strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.twoColumnCompact {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
 }
 
 .cover {
