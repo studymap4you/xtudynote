@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, CheckCircle2, FileCheck2, Pause, Play, RotateCcw, Sparkles, Square } from "lucide-react";
+import { type DragEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUp, BookOpenCheck, LoaderCircle, Paperclip, Pause, Play, Square, X } from "lucide-react";
 import { DashboardShell } from "@/components/DashboardShell";
-import { PremiumTemplateSelector } from "@/components/premium/PremiumTemplateSelector";
 import { PremiumTextbookPreview } from "@/components/premium/PremiumTextbookPreview";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
-import { UniversalFileAttachmentPanel, type UniversalAttachmentItem } from "@/components/UniversalFileAttachmentPanel";
+import type { UniversalAttachmentItem } from "@/components/UniversalFileAttachmentPanel";
 import {
   getXUniversePremiumTemplate,
   xuniversePremiumTemplates,
@@ -15,7 +14,6 @@ import {
   generateAcademyTextbookUnit,
   selectRelevantSourceExcerpt,
 } from "@/lib/academyTextbookGenerator";
-import { BRAND_APP_NAME } from "@/lib/brand";
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import { parseManuscriptToModules } from "@/lib/localDocumentAuto/manuscriptModules";
 import {
@@ -65,15 +63,39 @@ const AI_SOURCE_SLICE = 24_000;
 const ACADEMY_SOURCE_LIMIT = 240_000;
 const ACADEMY_JOB_STORAGE_KEY = "xtudy-academy-textbook-job-v1";
 const TARGET_PAGE_OPTIONS: AcademyTargetPages[] = [50, 100, 150, 200];
-const LEARNER_LEVEL_OPTIONS: { value: AcademyLearnerLevel; label: string }[] = [
-  { value: "auto", label: "자료를 분석해 자동 결정" },
-  { value: "middle-basic", label: "중학생 기초" },
-  { value: "middle-advanced", label: "중학생 심화" },
-  { value: "high-1", label: "고등학교 1학년" },
-  { value: "high-2", label: "고등학교 2학년" },
-  { value: "csat-foundation", label: "고3 수능 기초" },
-  { value: "csat-intensive", label: "고3 수능 실전·심화" },
-];
+
+function inferTargetPagesFromPrompt(prompt: string): AcademyTargetPages {
+  const match = prompt.match(/(\d{2,3})\s*(?:쪽|페이지|pages?)/i);
+  if (!match) return 50;
+  const requested = Number(match[1]);
+  return TARGET_PAGE_OPTIONS.reduce((closest, option) =>
+    Math.abs(option - requested) < Math.abs(closest - requested) ? option : closest,
+  );
+}
+
+function inferLearnerLevelFromPrompt(prompt: string): AcademyLearnerLevel {
+  const normalized = prompt.replace(/\s+/g, " ");
+  if (/(고3|수능).*(실전|심화|고난도)|(?:실전|심화|고난도).*(고3|수능)/i.test(normalized)) return "csat-intensive";
+  if (/(고3|수능)/i.test(normalized)) return "csat-foundation";
+  if (/고등?(?:학교)?\s*2|고2/i.test(normalized)) return "high-2";
+  if (/고등?(?:학교)?\s*1|고1/i.test(normalized)) return "high-1";
+  if (/중학.*심화|중등.*심화|중학생.*심화/i.test(normalized)) return "middle-advanced";
+  if (/중학|중등|중학생/i.test(normalized)) return "middle-basic";
+  return "auto";
+}
+
+function inferTemplateFromPrompt(prompt: string): XUniversePremiumTemplateId {
+  return /(기본|베이직|basic|깔끔한\s*시험지)/i.test(prompt)
+    ? "xuniverse-premium-basic"
+    : "xuniverse-academy-pro";
+}
+
+function attachmentItem(file: File): UniversalAttachmentItem {
+  return {
+    id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
+    file,
+  };
+}
 
 function sliceForAi(source: string): string {
   return source.length <= AI_SOURCE_SLICE ? source : source.slice(0, AI_SOURCE_SLICE);
@@ -127,12 +149,6 @@ function buildWorksheetUnit(source: string, title: string): TextbookUnitContent 
       unitTest: false,
     },
   };
-}
-
-function modeLabel(mode: GenerationMode): string {
-  if (mode === "worksheet") return "학습지 자동생성";
-  if (mode === "workbook") return "워크북";
-  return "프리미엄 교재";
 }
 
 function canExtractText(file: File): boolean {
@@ -209,7 +225,7 @@ function persistAcademyJob(job: AcademyTextbookJob | null) {
 }
 
 export function TextbookAutoSimplePage() {
-  const [sourceText, setSourceText] = useState("");
+  const [sourceText] = useState("");
   const [attachments, setAttachments] = useState<UniversalAttachmentItem[]>([]);
   const [attachmentSources, setAttachmentSources] = useState<Record<string, AttachmentSource>>({});
   const [userInstruction, setUserInstruction] = useState("");
@@ -222,9 +238,12 @@ export function TextbookAutoSimplePage() {
   const [academyJob, setAcademyJob] = useState<AcademyTextbookJob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerationResult | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const attachmentIdsRef = useRef(new Set<string>());
   const academyControlRef = useRef({ pause: false, cancel: false });
   const academyAbortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const sourceCorpus = useMemo(() => {
     const fileSections = attachments.flatMap((item) => {
@@ -242,7 +261,6 @@ export function TextbookAutoSimplePage() {
   );
 
   const selectedTemplate = getXUniversePremiumTemplate(selectedTemplateId) ?? xuniversePremiumTemplates[0];
-  const isBusy = busyMode !== null || academyRunning;
 
   useEffect(() => {
     try {
@@ -308,25 +326,26 @@ export function TextbookAutoSimplePage() {
     [attachments, extractAttachment],
   );
 
-  const appendAttachmentText = useCallback(
-    async (item: UniversalAttachmentItem) => {
-      let extracted = attachmentSources[item.id]?.text?.trim();
-      if (!extracted && canExtractText(item.file)) {
-        try {
-          extracted = (await extractPlainTextFromLocalFile(item.file)).trim();
-        } catch (caught) {
-          setAttachmentNotice(caught instanceof Error ? caught.message : "파일 텍스트 추출에 실패했습니다.");
-          return;
-        }
-      }
-      if (!extracted) {
-        setAttachmentNotice(`${item.file.name}에서 원문에 추가할 텍스트를 찾지 못했습니다.`);
-        return;
-      }
-      setSourceText((current) => `${current.trim() ? `${current.trim()}\n\n` : ""}[첨부 파일: ${item.file.name}]\n${extracted}`);
-      setAttachmentNotice(`${item.file.name}의 본문을 원문 입력창에도 추가했습니다.`);
+  const addFiles = useCallback(
+    (files: FileList | File[]) => {
+      const added = Array.from(files).map(attachmentItem);
+      if (added.length > 0) handleAttachmentsChange([...attachments, ...added]);
     },
-    [attachmentSources],
+    [attachments, handleAttachmentsChange],
+  );
+
+  const removeAttachment = useCallback(
+    (id: string) => handleAttachmentsChange(attachments.filter((item) => item.id !== id)),
+    [attachments, handleAttachmentsChange],
+  );
+
+  const handleComposerDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragging(false);
+      if (!academyRunning && event.dataTransfer.files.length > 0) addFiles(event.dataTransfer.files);
+    },
+    [academyRunning, addFiles],
   );
 
   const generate = useCallback(
@@ -544,10 +563,10 @@ export function TextbookAutoSimplePage() {
       setError("첨부 파일 본문을 읽고 있습니다. 분석이 끝난 뒤 다시 눌러주세요.");
       return;
     }
-    if (!sourceCorpus.trim()) {
-      setError("교재 제작에 사용할 텍스트 또는 자동 분석 가능한 파일을 추가해주세요.");
-      return;
-    }
+    const inferredLevel = inferLearnerLevelFromPrompt(instruction);
+    const inferredPages = inferTargetPagesFromPrompt(instruction);
+    const inferredTemplate = inferTemplateFromPrompt(instruction);
+    const sourceForJob = sourceCorpus.trim() || instruction;
     const now = new Date().toISOString();
     const nextJob: AcademyTextbookJob = {
       id: `academy-job-${Date.now()}`,
@@ -555,19 +574,23 @@ export function TextbookAutoSimplePage() {
       updatedAt: now,
       status: "planning",
       userInstruction: instruction,
-      learnerLevel,
-      targetPages,
-      templateId: selectedTemplateId,
-      sourceText: sourceCorpus,
+      learnerLevel: inferredLevel,
+      targetPages: inferredPages,
+      templateId: inferredTemplate,
+      sourceText: sourceForJob,
       uploadedFiles: attachments.map((item) => toPremiumUploadedFileMetadata(item.file)),
       generatedUnits: [],
       activeUnitIndex: 0,
     };
+    setLearnerLevel(inferredLevel);
+    setTargetPages(inferredPages);
+    setSelectedTemplateId(inferredTemplate);
+    setPreviewOpen(false);
     setResult(null);
     setAcademyJob(nextJob);
     persistAcademyJob(nextJob);
     void runAcademyJob(nextJob);
-  }, [attachments, extractingCount, learnerLevel, runAcademyJob, selectedTemplateId, sourceCorpus, targetPages, userInstruction]);
+  }, [attachments, extractingCount, runAcademyJob, sourceCorpus, userInstruction]);
 
   const pauseAcademyGeneration = useCallback(() => {
     academyControlRef.current.pause = true;
@@ -591,6 +614,188 @@ export function TextbookAutoSimplePage() {
       ? 3
       : 0;
 
+  const handlePromptKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !academyRunning && !academyJob) {
+        event.preventDefault();
+        startAcademyGeneration();
+      }
+    },
+    [academyJob, academyRunning, startAcademyGeneration],
+  );
+
+  return (
+    <DashboardShell>
+      <main className={styles.studioMain}>
+        <section className={styles.studioStage} aria-label="AI 교재 자동 생성">
+          <div
+            className={`${styles.neonComposer}${isDragging ? ` ${styles.neonComposerDragging}` : ""}`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              if (!academyRunning) setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleComposerDrop}
+          >
+            <div className={styles.studioSignal} aria-hidden="true">
+              <span />
+              <b>AI TEXTBOOK STUDIO</b>
+            </div>
+
+            <textarea
+              className={styles.neonTextarea}
+              value={userInstruction}
+              onChange={(event) => {
+                setUserInstruction(event.target.value);
+                setError(null);
+              }}
+              onKeyDown={handlePromptKeyDown}
+              placeholder="예: 고2 영어 중위권 학생이 수능 빈칸과 순서 문제를 단계적으로 익히는 100쪽 교재를 만들어줘. 각 개념은 쉬운 설명과 대표 예시로 시작하고, 단원 마지막에는 실전 문제와 자세한 오답 해설을 넣어줘."
+              aria-label="만들고 싶은 교재"
+              disabled={academyRunning || academyJob !== null}
+            />
+
+            {attachments.length > 0 ? (
+              <div className={styles.neonFiles} aria-label="첨부 파일">
+                {attachments.map((item) => {
+                  const source = attachmentSources[item.id];
+                  return (
+                    <span key={item.id} className={styles.neonFileChip}>
+                      {source?.status === "extracting" ? <LoaderCircle className={styles.inlineSpinner} size={13} aria-hidden="true" /> : <Paperclip size={13} aria-hidden="true" />}
+                      <b>{item.file.name}</b>
+                      <em>{source?.message || "첨부 완료"}</em>
+                      {!academyRunning && !academyJob ? (
+                        <button type="button" onClick={() => removeAttachment(item.id)} aria-label={`${item.file.name} 제거`} title="파일 제거">
+                          <X size={13} aria-hidden="true" />
+                        </button>
+                      ) : null}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {academyJob ? (
+              <div className={styles.neonJob} aria-live="polite">
+                <div className={styles.neonJobCopy}>
+                  {academyRunning ? <LoaderCircle className={styles.jobSpinner} size={18} aria-hidden="true" /> : <BookOpenCheck size={18} aria-hidden="true" />}
+                  <div>
+                    <strong>
+                      {academyJob.status === "completed"
+                        ? "교재 제작이 완료되었습니다"
+                        : academyJob.plan
+                          ? `${academyJob.plan.title} 제작 중`
+                          : "교재의 전체 구조를 설계하고 있습니다"}
+                    </strong>
+                    <span>
+                      {academyJob.plan
+                        ? `${academyJob.generatedUnits.length}/${academyJob.plan.unitCount}개 단원 · ${academyJob.plan.targetPages}쪽 · ${academyProgress}%`
+                        : `${academyJob.targetPages}쪽 · ${academyProgress}%`}
+                    </span>
+                  </div>
+                </div>
+                <div className={styles.neonProgress} aria-label={`교재 생성 진행률 ${academyProgress}%`}>
+                  <span style={{ width: `${academyProgress}%` }} />
+                </div>
+                <div className={styles.neonJobActions}>
+                  {academyRunning ? (
+                    <button type="button" className={styles.neonIconButton} onClick={pauseAcademyGeneration} aria-label="현재 단원 후 일시정지" title="현재 단원 후 일시정지">
+                      <Pause size={17} aria-hidden="true" />
+                    </button>
+                  ) : academyJob.status !== "completed" ? (
+                    <button type="button" className={styles.neonCommandButton} onClick={() => void runAcademyJob(academyJob)}>
+                      <Play size={17} aria-hidden="true" /> 남은 단원 이어서 생성
+                    </button>
+                  ) : result ? (
+                    <button type="button" className={styles.neonCommandButton} onClick={() => setPreviewOpen(true)}>
+                      <BookOpenCheck size={17} aria-hidden="true" /> 완성 교재 열기
+                    </button>
+                  ) : null}
+                  <button type="button" className={styles.neonIconButton} onClick={cancelAcademyGeneration} aria-label="현재 작업 지우기" title="현재 작업 지우기">
+                    {academyRunning ? <Square size={15} aria-hidden="true" /> : <X size={17} aria-hidden="true" />}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {error || attachmentNotice ? (
+              <p className={error ? styles.neonError : styles.neonNotice}>{error || attachmentNotice}</p>
+            ) : null}
+
+            <div className={styles.neonFooter}>
+              <input
+                ref={fileInputRef}
+                className={styles.hiddenFileInput}
+                type="file"
+                multiple
+                onChange={(event) => {
+                  if (event.target.files) addFiles(event.target.files);
+                  event.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                className={styles.neonIconButton}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={academyRunning || academyJob !== null}
+                aria-label="참고 자료 첨부"
+                title="참고 자료 첨부"
+              >
+                <Paperclip size={18} aria-hidden="true" />
+              </button>
+              <span className={styles.neonHint}>
+                {extractingCount > 0 ? `파일 ${extractingCount}개 분석 중` : attachments.length > 0 ? `자료 ${attachments.length}개 준비됨` : "자료 첨부"}
+              </span>
+              {!academyJob ? (
+                <button
+                  type="button"
+                  className={styles.neonSendButton}
+                  onClick={startAcademyGeneration}
+                  disabled={!userInstruction.trim() || academyRunning || extractingCount > 0}
+                  aria-label="교재 생성 시작"
+                  title="교재 생성 시작"
+                >
+                  {extractingCount > 0 ? <LoaderCircle className={styles.inlineSpinner} size={19} aria-hidden="true" /> : <ArrowUp size={20} aria-hidden="true" />}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </section>
+
+        {previewOpen && result ? (
+          <div className={styles.previewOverlay} role="dialog" aria-modal="true" aria-label="완성 교재 미리보기">
+            <button type="button" className={styles.previewClose} onClick={() => setPreviewOpen(false)} aria-label="미리보기 닫기" title="닫기">
+              <X size={22} aria-hidden="true" />
+            </button>
+            <div className={styles.previewScroll}>
+              {result.mode === "premium" ? (
+                <PremiumTextbookPreview
+                  textbook={result.textbook}
+                  template={getXUniversePremiumTemplate(result.templateId) ?? selectedTemplate}
+                  uploadedFiles={result.uploadedFiles}
+                />
+              ) : (
+                <TextbookAutoPrintView
+                  bookTitle={result.title}
+                  units={result.units}
+                  answerKeyLayout={result.answerKeyLayout}
+                  answerKeyItems={[]}
+                />
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        <div hidden aria-hidden="true">
+          <button type="button" onClick={() => void generate("worksheet")}>{busyMode}</button>
+          <button type="button" onClick={() => void generate("workbook")}>{learnerLevel}</button>
+          <button type="button" onClick={() => void generate("premium")}>{targetPages}</button>
+        </div>
+      </main>
+    </DashboardShell>
+  );
+
+  /* Legacy multi-control editor kept in source for rollback, intentionally not rendered.
   return (
     <DashboardShell light>
       <main className={styles.main}>
@@ -828,4 +1033,5 @@ export function TextbookAutoSimplePage() {
       </main>
     </DashboardShell>
   );
+  */
 }

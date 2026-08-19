@@ -1,3 +1,399 @@
+.studioMain {
+  min-height: calc(100vh - 72px);
+  box-sizing: border-box;
+  background: #02050b;
+  color: #e8f2ff;
+}
+
+.studioStage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 72px);
+  box-sizing: border-box;
+  padding: clamp(1rem, 4vw, 3.5rem);
+}
+
+.neonComposer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(980px, 100%);
+  min-height: min(580px, calc(100vh - 150px));
+  overflow: hidden;
+  border: 1px solid #168aff;
+  border-radius: 8px;
+  background: #050914;
+  box-shadow:
+    0 0 0 1px rgba(22, 138, 255, 0.2),
+    0 0 24px rgba(22, 138, 255, 0.34),
+    0 0 72px rgba(0, 87, 255, 0.16),
+    inset 0 0 32px rgba(10, 83, 178, 0.08);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.neonComposer:focus-within,
+.neonComposerDragging {
+  border-color: #53c8ff;
+  box-shadow:
+    0 0 0 1px rgba(83, 200, 255, 0.32),
+    0 0 32px rgba(22, 138, 255, 0.5),
+    0 0 96px rgba(0, 87, 255, 0.24),
+    inset 0 0 38px rgba(10, 83, 178, 0.12);
+}
+
+.studioSignal {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 3rem;
+  padding: 0 1.1rem;
+  border-bottom: 1px solid rgba(70, 147, 255, 0.18);
+  color: #7bc7ff;
+}
+
+.studioSignal span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #46b9ff;
+  box-shadow: 0 0 10px #168aff;
+}
+
+.studioSignal b {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.neonTextarea {
+  flex: 1;
+  width: 100%;
+  min-height: 280px;
+  box-sizing: border-box;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #eaf4ff;
+  caret-color: #55c6ff;
+  padding: 1.45rem 1.5rem;
+  font: inherit;
+  font-size: 1.02rem;
+  line-height: 1.78;
+  letter-spacing: 0;
+}
+
+.neonTextarea::placeholder {
+  color: #6d819b;
+  opacity: 1;
+}
+
+.neonTextarea:disabled {
+  color: #a8b9cc;
+  cursor: default;
+  opacity: 1;
+}
+
+.neonFiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  max-height: 8rem;
+  overflow-y: auto;
+  padding: 0 1.1rem 0.85rem;
+}
+
+.neonFileChip {
+  display: grid;
+  grid-template-columns: auto minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  min-height: 2rem;
+  box-sizing: border-box;
+  border: 1px solid rgba(66, 169, 255, 0.3);
+  border-radius: 6px;
+  background: #081323;
+  color: #9bd7ff;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.73rem;
+}
+
+.neonFileChip b {
+  overflow: hidden;
+  color: #d9efff;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neonFileChip em {
+  overflow: hidden;
+  color: #6f9cc1;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neonFileChip button {
+  display: grid;
+  width: 1.6rem;
+  height: 1.6rem;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #6f9cc1;
+  cursor: pointer;
+}
+
+.neonFileChip button:hover {
+  background: #10243c;
+  color: #d9efff;
+}
+
+.neonJob {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0 1.1rem 0.9rem;
+  border: 1px solid rgba(51, 154, 255, 0.34);
+  border-radius: 7px;
+  background: #07101e;
+  padding: 0.9rem;
+}
+
+.neonJobCopy {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+  color: #54bdff;
+}
+
+.neonJobCopy > svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.neonJobCopy > div {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.neonJobCopy strong {
+  overflow-wrap: anywhere;
+  color: #eaf5ff;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.neonJobCopy span {
+  color: #78a4c7;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.neonProgress {
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  background: #10243a;
+}
+
+.neonProgress span {
+  display: block;
+  height: 100%;
+  background: #39b7ff;
+  box-shadow: 0 0 12px #168aff;
+  transition: width 180ms ease;
+}
+
+.neonJobActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.neonFooter {
+  display: grid;
+  grid-template-columns: 2.65rem minmax(0, 1fr) 2.65rem;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 4rem;
+  padding: 0 0.8rem;
+  border-top: 1px solid rgba(70, 147, 255, 0.18);
+  background: #040812;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
+.neonIconButton,
+.neonSendButton,
+.neonCommandButton,
+.previewClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.neonIconButton,
+.neonSendButton {
+  width: 2.65rem;
+  height: 2.65rem;
+  border: 1px solid rgba(65, 162, 255, 0.35);
+  background: #091528;
+  color: #8bd2ff;
+}
+
+.neonIconButton:hover {
+  border-color: #41a2ff;
+  background: #0d2038;
+  color: #ffffff;
+}
+
+.neonSendButton {
+  border-color: #2c9fff;
+  background: #087ee5;
+  color: #ffffff;
+  box-shadow: 0 0 18px rgba(8, 126, 229, 0.62);
+}
+
+.neonSendButton:hover {
+  background: #1597ff;
+}
+
+.neonIconButton:disabled,
+.neonSendButton:disabled,
+.neonCommandButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+  box-shadow: none;
+}
+
+.neonCommandButton {
+  min-height: 2.45rem;
+  gap: 0.45rem;
+  border: 1px solid #2c9fff;
+  background: #0b6fc5;
+  color: #ffffff;
+  padding: 0 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.neonCommandButton:hover {
+  background: #128eea;
+}
+
+.neonHint {
+  min-width: 0;
+  overflow: hidden;
+  color: #5f7895;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neonError,
+.neonNotice {
+  margin: 0 1.1rem 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.neonError {
+  color: #ff7e9d;
+}
+
+.neonNotice {
+  color: #75c8ff;
+}
+
+.inlineSpinner,
+.jobSpinner {
+  animation: studioSpin 0.85s linear infinite;
+}
+
+@keyframes studioSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.previewOverlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  background: rgba(1, 4, 10, 0.96);
+}
+
+.previewScroll {
+  overflow: auto;
+  padding: 4.5rem 1rem 2rem;
+}
+
+.previewClose {
+  position: fixed;
+  z-index: 1001;
+  top: 1rem;
+  right: 1rem;
+  width: 2.8rem;
+  height: 2.8rem;
+  border: 1px solid #2c9fff;
+  background: #071424;
+  color: #a9ddff;
+  box-shadow: 0 0 20px rgba(22, 138, 255, 0.38);
+}
+
+.previewClose:hover {
+  background: #0c2845;
+  color: #ffffff;
+}
+
+@media (max-width: 640px) {
+  .studioStage {
+    align-items: stretch;
+    min-height: calc(100vh - 128px);
+    padding: 0.75rem;
+  }
+
+  .neonComposer {
+    min-height: calc(100vh - 150px);
+  }
+
+  .neonTextarea {
+    min-height: 220px;
+    padding: 1.15rem;
+    font-size: 0.94rem;
+  }
+
+  .neonFileChip {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    width: 100%;
+  }
+
+  .neonFileChip em {
+    display: none;
+  }
+
+  .neonJobActions {
+    justify-content: stretch;
+  }
+
+  .neonCommandButton {
+    flex: 1;
+  }
+}
+
 .main {
   min-height: 100vh;
   padding: 1.5rem 1rem 3rem;

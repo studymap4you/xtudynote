@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { StorefrontManagePage } from "@/pages/admin/StorefrontManagePage";
 import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
@@ -62,6 +62,8 @@ import { KoreanEducationPage } from "@/pages/KoreanEducationPage";
 import { LectureRecordingPage } from "@/pages/lecture/LectureRecordingPage";
 
 export default function App() {
+  const { pathname } = useLocation();
+
   return (
     <>
     <Routes>
@@ -391,7 +393,7 @@ export default function App() {
       <Route path="/teacher/english-passage-lab" element={<Navigate to="/english-passage-lab" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-    <WoohyukmonChatbot />
+    {pathname !== "/tools/textbook-auto" ? <WoohyukmonChatbot /> : null}
     </>
   );
 }
