@@ -12,7 +12,7 @@ export function PublicShell({
   /** Library·상세·과제 검색 등 라이트 테마 (기본 true) */
   light?: boolean;
 }) {
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, logOut } = useAuth();
 
   return (
     <div className={light ? "app-shell app-shell--light" : "app-shell"}>
@@ -25,14 +25,19 @@ export function PublicShell({
         </nav>
         <div className="top-nav__tail">
           {firebaseUser ? (
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) => `nav-pill nav-pill--cta${isActive ? " nav-pill--active" : ""}`}
-              end
-            >
-              <span className="nav-pill__title">대시보드</span>
-              <span className="nav-pill__sub">Dashboard</span>
-            </NavLink>
+            <>
+              <span className="top-nav__email" title={firebaseUser.email ?? ""}>
+                {firebaseUser.email}
+              </span>
+              <button
+                type="button"
+                className="nav-pill nav-pill--tail nav-pill--button"
+                onClick={() => void logOut()}
+              >
+                <span className="nav-pill__title">로그아웃</span>
+                <span className="nav-pill__sub">Log out</span>
+              </button>
+            </>
           ) : (
             <NavLink to="/login" className="nav-pill nav-pill--cta">
               <span className="nav-pill__title">로그인</span>

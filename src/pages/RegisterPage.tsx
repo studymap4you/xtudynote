@@ -23,7 +23,7 @@ export function RegisterPage() {
   }, [roleParam]);
 
   if (!loading && firebaseUser && profile) {
-    let dest = "/dashboard";
+    let dest = "/";
     try {
       const pending = sessionStorage.getItem(PENDING_ENROLL_STORAGE_KEY)?.trim();
       if (profile.role === "student" && pending) dest = "/classrooms";
@@ -124,7 +124,7 @@ export function RegisterPage() {
     setBusy(true);
     try {
       await signUp(email, password, choice as RoleParam);
-      let dest = "/dashboard";
+      let dest = "/";
       try {
         const pending = sessionStorage.getItem(PENDING_ENROLL_STORAGE_KEY)?.trim();
         if (choice === "student" && pending) dest = "/classrooms";

@@ -62,7 +62,7 @@ export function LoginPage() {
     if (fromPath) return fromPath;
     const next = nextFromQuery?.trim();
     if (next && next.startsWith("/") && !next.startsWith("//")) return next;
-    return "/dashboard";
+    return "/";
   }, [fromPath, nextFromQuery]);
 
   const audienceHint = useMemo(() => {

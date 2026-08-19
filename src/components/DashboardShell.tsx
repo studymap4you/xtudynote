@@ -1,4 +1,4 @@
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
 import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,8 +16,6 @@ export function DashboardShell({
   adminChrome?: boolean;
 }) {
   const { firebaseUser, logOut } = useAuth();
-  const { pathname } = useLocation();
-  const showDashboardLink = pathname !== "/dashboard";
 
   const shellClass = [light ? "app-shell app-shell--light" : "app-shell", adminChrome ? "app-shell--admin" : ""]
     .filter(Boolean)
@@ -30,19 +28,9 @@ export function DashboardShell({
           <BrandLockup />
         </Link>
         <nav className="top-nav__center" aria-label="주요 메뉴">
-          <TopNavMainLinks homeworkKo="과제함" />
+          <TopNavMainLinks />
         </nav>
         <div className="top-nav__tail">
-          {showDashboardLink ? (
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) => `nav-pill nav-pill--tail${isActive ? " nav-pill--active" : ""}`}
-              end
-            >
-              <span className="nav-pill__title">대시보드</span>
-              <span className="nav-pill__sub">Dashboard</span>
-            </NavLink>
-          ) : null}
           <span className="top-nav__email" title={firebaseUser?.email ?? ""}>
             {firebaseUser?.email}
           </span>

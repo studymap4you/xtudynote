@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { StorefrontManagePage } from "@/pages/admin/StorefrontManagePage";
-import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { DashboardPage } from "@/pages/DashboardPage";
@@ -67,7 +66,14 @@ export default function App() {
   return (
     <>
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <TextbookAutoSimplePage />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/library" element={<LibraryPage />} />
       <Route path="/library/themes" element={<LibraryThemesPage />} />
       <Route path="/content/:id" element={<ContentDetailPage />} />
