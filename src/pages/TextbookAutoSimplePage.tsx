@@ -1,5 +1,17 @@
 import { type DragEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, BookOpenCheck, LoaderCircle, Paperclip, Pause, Play, Square, X } from "lucide-react";
+import {
+  ArrowUp,
+  BookOpenCheck,
+  LoaderCircle,
+  PanelLeft,
+  Paperclip,
+  Pause,
+  Play,
+  Plus,
+  Square,
+  Trash2,
+  X,
+} from "lucide-react";
 import { DashboardShell } from "@/components/DashboardShell";
 import { PremiumTextbookPreview } from "@/components/premium/PremiumTextbookPreview";
 import { TextbookAutoPrintView } from "@/components/textbookAuto/TextbookAutoPrintView";
@@ -14,6 +26,7 @@ import {
   generateAcademyTextbookUnit,
   selectRelevantSourceExcerpt,
 } from "@/lib/academyTextbookGenerator";
+import { useAuth } from "@/contexts/AuthContext";
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import { parseManuscriptToModules } from "@/lib/localDocumentAuto/manuscriptModules";
 import {
@@ -22,10 +35,18 @@ import {
   type GeneratePremiumTextbookResult,
 } from "@/lib/premiumTextbookGenerator";
 import { requestTextbookUnitGeneration } from "@/lib/textbookAuto/requestTextbookUnitGeneration";
+import {
+  deleteTextbookHistoryJob,
+  getTextbookHistoryJob,
+  listTextbookHistory,
+  updateTextbookHistoryStatus,
+} from "@/lib/textbookHistory";
 import type {
   AcademyLearnerLevel,
   AcademyTargetPages,
+  AcademyTextbookHistoryItem,
   AcademyTextbookJob,
+  AcademyTextbookJobStatus,
 } from "@/types/academyTextbook";
 import type { PremiumTextbook, PremiumUploadedFileMetadata } from "@/types/premiumTextbook";
 import { DEFAULT_SECTION_INCLUSION, type TextbookAnswerKeyLayout, type TextbookUnitContent } from "@/types/textbookAuto";
@@ -224,7 +245,27 @@ function persistAcademyJob(job: AcademyTextbookJob | null) {
   }
 }
 
+function historyStatusLabel(status: AcademyTextbookJobStatus): string {
+  if (status === "completed") return "완료";
+  if (status === "failed") return "확인 필요";
+  if (status === "paused") return "일시정지";
+  if (status === "generating") return "제작 중";
+  return "설계 중";
+}
+
+function historyDateLabel(value: string): string {
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp) || timestamp === 0) return "방금 전";
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(timestamp);
+}
+
 export function TextbookAutoSimplePage() {
+  const { firebaseUser } = useAuth();
   const [sourceText] = useState("");
   const [attachments, setAttachments] = useState<UniversalAttachmentItem[]>([]);
   const [attachmentSources, setAttachmentSources] = useState<Record<string, AttachmentSource>>({});
@@ -240,6 +281,12 @@ export function TextbookAutoSimplePage() {
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [historyItems, setHistoryItems] = useState<AcademyTextbookHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historySelectionLoading, setHistorySelectionLoading] = useState<string | null>(null);
+  const [historyDeletingId, setHistoryDeletingId] = useState<string | null>(null);
   const attachmentIdsRef = useRef(new Set<string>());
   const academyControlRef = useRef({ pause: false, cancel: false });
   const academyAbortRef = useRef<AbortController | null>(null);
@@ -261,6 +308,27 @@ export function TextbookAutoSimplePage() {
   );
 
   const selectedTemplate = getXUniversePremiumTemplate(selectedTemplateId) ?? xuniversePremiumTemplates[0];
+
+  const refreshHistory = useCallback(async () => {
+    if (!firebaseUser) {
+      setHistoryItems([]);
+      setHistoryLoading(false);
+      return;
+    }
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      setHistoryItems(await listTextbookHistory());
+    } catch (caught) {
+      setHistoryError(caught instanceof Error ? caught.message : "교재 기록을 불러오지 못했습니다.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [firebaseUser]);
+
+  useEffect(() => {
+    void refreshHistory();
+  }, [refreshHistory]);
 
   useEffect(() => {
     try {
@@ -463,6 +531,7 @@ export function TextbookAutoSimplePage() {
         );
         working = {
           ...working,
+          id: planResponse.plan.id,
           status: "generating",
           plan: planResponse.plan,
           model: planResponse.meta.model,
@@ -471,6 +540,7 @@ export function TextbookAutoSimplePage() {
         };
         setAcademyJob(working);
         persistAcademyJob(working);
+        void refreshHistory();
       } else {
         working = { ...working, status: "generating", updatedAt: new Date().toISOString() };
         setAcademyJob(working);
@@ -482,6 +552,10 @@ export function TextbookAutoSimplePage() {
           working = { ...working, status: "paused", updatedAt: new Date().toISOString() };
           setAcademyJob(working);
           persistAcademyJob(working);
+          if (working.plan) {
+            await updateTextbookHistoryStatus(working.plan.id, "paused").catch(() => {});
+            void refreshHistory();
+          }
           break;
         }
 
@@ -526,6 +600,7 @@ export function TextbookAutoSimplePage() {
         persistAcademyJob(working);
         const partialResult = academyResultFromJob(working);
         if (partialResult) setResult(partialResult);
+        void refreshHistory();
       }
 
       if (working.plan && working.generatedUnits.length === working.plan.units.length) {
@@ -534,6 +609,7 @@ export function TextbookAutoSimplePage() {
         persistAcademyJob(working);
         const completedResult = academyResultFromJob(working);
         if (completedResult) setResult(completedResult);
+        void refreshHistory();
       }
     } catch (caught) {
       if (academyControlRef.current.cancel) return;
@@ -546,12 +622,16 @@ export function TextbookAutoSimplePage() {
       };
       setAcademyJob(failed);
       persistAcademyJob(failed);
+      if (working.plan) {
+        await updateTextbookHistoryStatus(working.plan.id, "failed", message).catch(() => {});
+        void refreshHistory();
+      }
       setError(`장편 교재 생성이 중단되었습니다. ${message} 완성된 단원 다음부터 다시 시작할 수 있습니다.`);
     } finally {
       academyAbortRef.current = null;
       setAcademyRunning(false);
     }
-  }, []);
+  }, [refreshHistory]);
 
   const startAcademyGeneration = useCallback(() => {
     const instruction = userInstruction.trim();
@@ -598,21 +678,115 @@ export function TextbookAutoSimplePage() {
   }, []);
 
   const cancelAcademyGeneration = useCallback(() => {
+    const storedId = academyJob?.plan?.id;
     academyControlRef.current = { pause: false, cancel: true };
     academyAbortRef.current?.abort();
     setAcademyRunning(false);
     setAcademyJob(null);
     setResult(null);
     setError(null);
-    setAttachmentNotice("장편 교재 작업을 취소했습니다.");
+    setAttachmentNotice("작업 화면을 닫았습니다. 교재 기록은 저장되어 있습니다.");
     persistAcademyJob(null);
-  }, []);
+    if (storedId) {
+      void updateTextbookHistoryStatus(storedId, "paused")
+        .catch(() => {})
+        .finally(() => void refreshHistory());
+    }
+  }, [academyJob, refreshHistory]);
+
+  const startNewTextbook = useCallback(() => {
+    if (academyRunning) return;
+    setAcademyJob(null);
+    setResult(null);
+    setPreviewOpen(false);
+    setUserInstruction("");
+    setAttachments([]);
+    setAttachmentSources({});
+    attachmentIdsRef.current = new Set();
+    setError(null);
+    setAttachmentNotice(null);
+    setHistoryOpen(false);
+    persistAcademyJob(null);
+  }, [academyRunning]);
+
+  const openHistoryItem = useCallback(
+    async (id: string) => {
+      if (academyRunning) return;
+      setHistorySelectionLoading(id);
+      setHistoryError(null);
+      try {
+        const storedJob = await getTextbookHistoryJob(id);
+        setAcademyJob(storedJob);
+        setResult(academyResultFromJob(storedJob));
+        setPreviewOpen(false);
+        setUserInstruction(storedJob.userInstruction);
+        setLearnerLevel(storedJob.learnerLevel);
+        setTargetPages(storedJob.targetPages);
+        setSelectedTemplateId(storedJob.templateId);
+        setAttachments([]);
+        setAttachmentSources({});
+        attachmentIdsRef.current = new Set();
+        setError(null);
+        setAttachmentNotice(null);
+        setHistoryOpen(false);
+        persistAcademyJob(storedJob);
+      } catch (caught) {
+        setHistoryError(caught instanceof Error ? caught.message : "저장된 교재를 열지 못했습니다.");
+      } finally {
+        setHistorySelectionLoading(null);
+      }
+    },
+    [academyRunning],
+  );
+
+  const removeHistoryItem = useCallback(
+    async (id: string, title: string) => {
+      const activeId = academyJob?.plan?.id || academyJob?.id;
+      if (academyRunning && activeId === id) {
+        setHistoryError("제작 중인 교재는 일시정지한 뒤 삭제해주세요.");
+        return;
+      }
+      if (!window.confirm(`'${title}' 교재 기록을 삭제할까요?`)) return;
+      setHistoryDeletingId(id);
+      setHistoryError(null);
+      try {
+        await deleteTextbookHistoryJob(id);
+        if (activeId === id) startNewTextbook();
+        await refreshHistory();
+      } catch (caught) {
+        setHistoryError(caught instanceof Error ? caught.message : "교재 기록을 삭제하지 못했습니다.");
+      } finally {
+        setHistoryDeletingId(null);
+      }
+    },
+    [academyJob, academyRunning, refreshHistory, startNewTextbook],
+  );
 
   const academyProgress = academyJob?.plan
     ? Math.round((academyJob.generatedUnits.length / academyJob.plan.unitCount) * 100)
     : academyJob
       ? 3
       : 0;
+
+  const activeHistoryId = academyJob?.plan?.id || academyJob?.id || null;
+  const displayedHistoryItems = useMemo(() => {
+    if (!academyJob?.plan) return historyItems;
+    const activeItem: AcademyTextbookHistoryItem = {
+      id: academyJob.plan.id,
+      title: academyJob.plan.title,
+      subtitle: academyJob.plan.subtitle,
+      status: academyJob.status,
+      userInstruction: academyJob.userInstruction,
+      targetPages: academyJob.targetPages,
+      completedUnitCount: academyJob.generatedUnits.length,
+      totalUnitCount: academyJob.plan.unitCount,
+      createdAt: academyJob.createdAt,
+      updatedAt: academyJob.updatedAt,
+    };
+    return [activeItem, ...historyItems.filter((item) => item.id !== activeItem.id)].sort(
+      (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+    );
+  }, [academyJob, historyItems]);
 
   const handlePromptKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -627,16 +801,110 @@ export function TextbookAutoSimplePage() {
   return (
     <DashboardShell>
       <main className={styles.studioMain}>
-        <section className={styles.studioStage} aria-label="AI 교재 자동 생성">
-          <div
-            className={`${styles.neonComposer}${isDragging ? ` ${styles.neonComposerDragging}` : ""}`}
-            onDragOver={(event) => {
-              event.preventDefault();
-              if (!academyRunning) setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleComposerDrop}
-          >
+        <button
+          type="button"
+          className={styles.mobileHistoryButton}
+          onClick={() => setHistoryOpen(true)}
+          aria-label="교재 기록 열기"
+          title="교재 기록"
+        >
+          <PanelLeft size={19} aria-hidden="true" />
+        </button>
+
+        <div className={styles.studioWorkspace}>
+          <aside className={`${styles.historySidebar}${historyOpen ? ` ${styles.historySidebarOpen}` : ""}`} aria-label="내 교재 기록">
+            <div className={styles.historyHeader}>
+              <strong>내 교재</strong>
+              <button
+                type="button"
+                className={styles.historyNewButton}
+                onClick={startNewTextbook}
+                disabled={academyRunning}
+                aria-label="새 교재 만들기"
+                title="새 교재"
+              >
+                <Plus size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className={styles.historyList}>
+              {historyLoading && displayedHistoryItems.length === 0 ? (
+                <div className={styles.historyState}>
+                  <LoaderCircle className={styles.inlineSpinner} size={18} aria-hidden="true" />
+                  <span>교재 기록 불러오는 중</span>
+                </div>
+              ) : displayedHistoryItems.length === 0 ? (
+                <p className={styles.historyEmpty}>아직 저장된 교재가 없습니다.</p>
+              ) : (
+                displayedHistoryItems.map((item) => {
+                  const selected = activeHistoryId === item.id;
+                  const isLoading = historySelectionLoading === item.id;
+                  const progress = item.totalUnitCount > 0
+                    ? Math.round((item.completedUnitCount / item.totalUnitCount) * 100)
+                    : 3;
+                  return (
+                    <div key={item.id} className={`${styles.historyRow}${selected ? ` ${styles.historyRowActive}` : ""}`}>
+                      <button
+                        type="button"
+                        className={styles.historyItemButton}
+                        onClick={() => void openHistoryItem(item.id)}
+                        disabled={academyRunning || historyDeletingId === item.id}
+                        aria-current={selected ? "page" : undefined}
+                      >
+                        <span className={styles.historyItemTitle}>
+                          {isLoading ? <LoaderCircle className={styles.inlineSpinner} size={14} aria-hidden="true" /> : null}
+                          <b>{item.title}</b>
+                        </span>
+                        <span className={styles.historyItemMeta}>
+                          <em data-status={item.status}>{historyStatusLabel(item.status)}</em>
+                          <span>{item.completedUnitCount}/{item.totalUnitCount || "-"}단원</span>
+                        </span>
+                        <span className={styles.historyItemDate}>{historyDateLabel(item.updatedAt)}</span>
+                        <span className={styles.historyItemProgress} aria-hidden="true">
+                          <span style={{ width: `${progress}%` }} />
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.historyDeleteButton}
+                        onClick={() => void removeHistoryItem(item.id, item.title)}
+                        disabled={historyDeletingId === item.id}
+                        aria-label={`${item.title} 기록 삭제`}
+                        title="기록 삭제"
+                      >
+                        {historyDeletingId === item.id ? (
+                          <LoaderCircle className={styles.inlineSpinner} size={14} aria-hidden="true" />
+                        ) : (
+                          <Trash2 size={14} aria-hidden="true" />
+                        )}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            {historyError ? <p className={styles.historyError}>{historyError}</p> : null}
+          </aside>
+
+          {historyOpen ? (
+            <button
+              type="button"
+              className={styles.historyBackdrop}
+              onClick={() => setHistoryOpen(false)}
+              aria-label="교재 기록 닫기"
+            />
+          ) : null}
+
+          <section className={styles.studioStage} aria-label="AI 교재 자동 생성">
+            <div
+              className={`${styles.neonComposer}${isDragging ? ` ${styles.neonComposerDragging}` : ""}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                if (!academyRunning) setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleComposerDrop}
+            >
             <div className={styles.studioSignal} aria-hidden="true">
               <span />
               <b>AI TEXTBOOK STUDIO</b>
@@ -759,8 +1027,9 @@ export function TextbookAutoSimplePage() {
                 </button>
               ) : null}
             </div>
-          </div>
-        </section>
+            </div>
+          </section>
+        </div>
 
         {previewOpen && result ? (
           <div className={styles.previewOverlay} role="dialog" aria-modal="true" aria-label="완성 교재 미리보기">

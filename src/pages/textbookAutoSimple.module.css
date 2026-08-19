@@ -1,8 +1,213 @@
 .studioMain {
+  position: relative;
   min-height: calc(100vh - 72px);
   box-sizing: border-box;
   background: #02050b;
   color: #e8f2ff;
+}
+
+.studioWorkspace {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: calc(100vh - 72px);
+}
+
+.historySidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: calc(100vh - 72px);
+  box-sizing: border-box;
+  overflow: hidden;
+  border-right: 1px solid rgba(74, 145, 230, 0.18);
+  background: #040812;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 4rem;
+  padding: 0 0.8rem 0 1rem;
+  border-bottom: 1px solid rgba(74, 145, 230, 0.14);
+}
+
+.historyHeader strong {
+  color: #dbeeff;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.historyNewButton,
+.historyDeleteButton,
+.mobileHistoryButton {
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #7fa6c8;
+  cursor: pointer;
+}
+
+.historyNewButton {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.historyNewButton:hover,
+.historyDeleteButton:hover {
+  border-color: rgba(65, 162, 255, 0.28);
+  background: #0b1b2e;
+  color: #dff2ff;
+}
+
+.historyNewButton:disabled,
+.historyDeleteButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.36;
+}
+
+.historyList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.55rem;
+  scrollbar-color: #173454 transparent;
+  scrollbar-width: thin;
+}
+
+.historyRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.8rem;
+  align-items: center;
+  min-height: 5.65rem;
+  border-bottom: 1px solid rgba(74, 145, 230, 0.1);
+}
+
+.historyRowActive {
+  background: #09172a;
+  box-shadow: inset 2px 0 #32a9ff;
+}
+
+.historyItemButton {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  min-height: 5.65rem;
+  box-sizing: border-box;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.7rem 0.25rem 0.65rem 0.65rem;
+  text-align: left;
+}
+
+.historyItemButton:hover:not(:disabled) {
+  background: rgba(24, 80, 133, 0.12);
+}
+
+.historyItemButton:disabled {
+  cursor: default;
+}
+
+.historyItemTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.historyItemTitle b {
+  overflow: hidden;
+  color: #d9e9f8;
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyItemMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #6685a3;
+  font-size: 0.66rem;
+}
+
+.historyItemMeta em {
+  color: #6fc9ff;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.historyItemMeta em[data-status="completed"] {
+  color: #5fe0a3;
+}
+
+.historyItemMeta em[data-status="failed"] {
+  color: #ff8ba8;
+}
+
+.historyItemDate {
+  color: #4e6c88;
+  font-size: 0.63rem;
+}
+
+.historyItemProgress {
+  width: 100%;
+  height: 2px;
+  overflow: hidden;
+  background: #10243a;
+}
+
+.historyItemProgress span {
+  display: block;
+  height: 100%;
+  background: #279fff;
+  box-shadow: 0 0 7px rgba(39, 159, 255, 0.75);
+}
+
+.historyDeleteButton {
+  width: 1.8rem;
+  height: 1.8rem;
+  opacity: 0;
+}
+
+.historyRow:hover .historyDeleteButton,
+.historyDeleteButton:focus-visible,
+.historyRowActive .historyDeleteButton {
+  opacity: 1;
+}
+
+.historyState,
+.historyEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 8rem;
+  margin: 0;
+  color: #63809d;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.historyError {
+  margin: 0;
+  border-top: 1px solid rgba(255, 92, 132, 0.16);
+  color: #ff8ba8;
+  padding: 0.8rem;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.mobileHistoryButton,
+.historyBackdrop {
+  display: none;
 }
 
 .studioStage {
@@ -10,6 +215,7 @@
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 72px);
+  min-width: 0;
   box-sizing: border-box;
   padding: clamp(1rem, 4vw, 3.5rem);
 }
@@ -359,11 +565,67 @@
   color: #ffffff;
 }
 
+@media (max-width: 900px) {
+  .studioWorkspace {
+    display: block;
+  }
+
+  .historySidebar {
+    position: fixed;
+    z-index: 1002;
+    inset: 0 auto 0 0;
+    width: min(320px, 88vw);
+    height: 100dvh;
+    border-right-color: rgba(80, 171, 255, 0.32);
+    box-shadow: 24px 0 70px rgba(0, 0, 0, 0.56);
+    transform: translateX(-104%);
+    transition: transform 180ms ease;
+  }
+
+  .historySidebarOpen {
+    transform: translateX(0);
+  }
+
+  .historyBackdrop {
+    position: fixed;
+    z-index: 1001;
+    inset: 0;
+    display: block;
+    border: 0;
+    background: rgba(0, 3, 9, 0.72);
+    cursor: pointer;
+  }
+
+  .mobileHistoryButton {
+    position: absolute;
+    z-index: 4;
+    top: 0.8rem;
+    left: 0.8rem;
+    display: inline-grid;
+    width: 2.65rem;
+    height: 2.65rem;
+    border-color: rgba(65, 162, 255, 0.35);
+    background: #091528;
+    color: #8bd2ff;
+    box-shadow: 0 0 16px rgba(22, 138, 255, 0.24);
+  }
+
+  .mobileHistoryButton:hover {
+    border-color: #41a2ff;
+    background: #0d2038;
+    color: #ffffff;
+  }
+
+  .studioStage {
+    padding-top: 4.15rem;
+  }
+}
+
 @media (max-width: 640px) {
   .studioStage {
     align-items: stretch;
     min-height: calc(100vh - 128px);
-    padding: 0.75rem;
+    padding: 4rem 0.75rem 0.75rem;
   }
 
   .neonComposer {

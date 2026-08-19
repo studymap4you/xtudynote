@@ -632,6 +632,7 @@ export default async function handler(req, res) {
         learnerLevel: common.learnerLevel,
         targetPages: common.targetPages,
         templateId: common.templateId,
+        sourceText: common.sourceText,
         uploadedFiles: common.uploadedFiles,
         csatDatabaseVersion: csatPatterns.length ? "csat-english-v1" : null,
         csatReferenceIds: csatPatterns.map((pattern) => pattern.id),

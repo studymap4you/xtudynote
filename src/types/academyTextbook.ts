@@ -66,6 +66,19 @@ export type AcademyTextbookJob = {
   source?: "openai" | "mock";
 };
 
+export type AcademyTextbookHistoryItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  status: AcademyTextbookJobStatus;
+  userInstruction: string;
+  targetPages: AcademyTargetPages;
+  completedUnitCount: number;
+  totalUnitCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CreateAcademyTextbookPlanParams = {
   userInstruction: string;
   learnerLevel: AcademyLearnerLevel;
