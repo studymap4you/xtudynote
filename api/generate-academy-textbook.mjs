@@ -174,12 +174,29 @@ function sanitizeStringArray(value, maxItems, maxLength) {
 
 function normalizeFiles(input) {
   if (!Array.isArray(input)) return [];
-  return input.slice(0, 30).map((file) => ({
-    name: sanitizeText(file?.name, 240) || "untitled",
-    type: sanitizeText(file?.type, 120) || "unknown",
-    size: Number.isFinite(Number(file?.size)) ? Number(file.size) : 0,
-    lastModified: Number.isFinite(Number(file?.lastModified)) ? Number(file.lastModified) : undefined,
-  }));
+  return input.slice(0, 30).map((file) => {
+    const lastModified = Number(file?.lastModified);
+    return {
+      name: sanitizeText(file?.name, 240) || "untitled",
+      type: sanitizeText(file?.type, 120) || "unknown",
+      size: Number.isFinite(Number(file?.size)) ? Number(file.size) : 0,
+      ...(Number.isFinite(lastModified) ? { lastModified } : {}),
+    };
+  });
+}
+
+function stripUndefined(value) {
+  if (Array.isArray(value)) {
+    return value.filter((item) => item !== undefined).map(stripUndefined);
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, item]) => item !== undefined)
+        .map(([key, item]) => [key, stripUndefined(item)]),
+    );
+  }
+  return value;
 }
 
 function extractJsonObject(text) {
@@ -483,7 +500,7 @@ function normalizeQuestion(raw, index, unitTitle, sourceSeed) {
       (type === "multiple-choice"
         ? `${unitTitle}의 핵심 개념을 ${sourceSeed}에 적용한 설명으로 가장 적절한 것은?`
         : `${unitTitle}의 핵심 개념을 ${sourceSeed}의 근거와 함께 설명하시오.`),
-    choices: validChoices,
+    ...(validChoices ? { choices: validChoices } : {}),
     answer:
       sanitizeText(raw?.answer, 240) ||
       (type === "multiple-choice" ? validChoices?.[0] : `${unitTitle}의 핵심 개념과 자료 근거를 함께 제시한다.`),
@@ -738,7 +755,7 @@ export default async function handler(req, res) {
       const meta = { model: apiKey ? model : "mock", source: apiKey ? "openai" : "mock" };
       await unitRef.set({
         unitIndex: normalizedUnitPlan.unitIndex,
-        unit: generatedUnit,
+        unit: stripUndefined(generatedUnit),
         model: meta.model,
         source: meta.source,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),

@@ -85,15 +85,6 @@ const ACADEMY_SOURCE_LIMIT = 240_000;
 const ACADEMY_JOB_STORAGE_KEY = "xtudy-academy-textbook-job-v1";
 const TARGET_PAGE_OPTIONS: AcademyTargetPages[] = [50, 100, 150, 200];
 
-function inferTargetPagesFromPrompt(prompt: string): AcademyTargetPages {
-  const match = prompt.match(/(\d{2,3})\s*(?:쪽|페이지|pages?)/i);
-  if (!match) return 50;
-  const requested = Number(match[1]);
-  return TARGET_PAGE_OPTIONS.reduce((closest, option) =>
-    Math.abs(option - requested) < Math.abs(closest - requested) ? option : closest,
-  );
-}
-
 function inferLearnerLevelFromPrompt(prompt: string): AcademyLearnerLevel {
   const normalized = prompt.replace(/\s+/g, " ");
   if (/(고3|수능).*(실전|심화|고난도)|(?:실전|심화|고난도).*(고3|수능)/i.test(normalized)) return "csat-intensive";
@@ -271,7 +262,7 @@ export function TextbookAutoSimplePage() {
   const [attachmentSources, setAttachmentSources] = useState<Record<string, AttachmentSource>>({});
   const [userInstruction, setUserInstruction] = useState("");
   const [learnerLevel, setLearnerLevel] = useState<AcademyLearnerLevel>("auto");
-  const [targetPages, setTargetPages] = useState<AcademyTargetPages>(50);
+  const [targetPages, setTargetPages] = useState<AcademyTargetPages | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<XUniversePremiumTemplateId>("xuniverse-academy-pro");
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [busyMode, setBusyMode] = useState<GenerationMode | null>(null);
@@ -339,6 +330,9 @@ export function TextbookAutoSimplePage() {
         ? { ...stored, status: "paused" as const, updatedAt: new Date().toISOString() }
         : stored;
       setAcademyJob(restored);
+      setLearnerLevel(restored.learnerLevel);
+      setTargetPages(restored.targetPages);
+      setSelectedTemplateId(restored.templateId);
       persistAcademyJob(restored);
       const restoredResult = academyResultFromJob(restored);
       if (restoredResult) setResult(restoredResult);
@@ -639,12 +633,15 @@ export function TextbookAutoSimplePage() {
       setError("학생 수준과 만들고 싶은 교재를 자연어로 입력해주세요.");
       return;
     }
+    if (!targetPages) {
+      setError("원하는 교재 분량을 50쪽, 100쪽, 150쪽, 200쪽 중에서 선택해주세요.");
+      return;
+    }
     if (extractingCount > 0) {
       setError("첨부 파일 본문을 읽고 있습니다. 분석이 끝난 뒤 다시 눌러주세요.");
       return;
     }
     const inferredLevel = inferLearnerLevelFromPrompt(instruction);
-    const inferredPages = inferTargetPagesFromPrompt(instruction);
     const inferredTemplate = inferTemplateFromPrompt(instruction);
     const sourceForJob = sourceCorpus.trim() || instruction;
     const now = new Date().toISOString();
@@ -655,7 +652,7 @@ export function TextbookAutoSimplePage() {
       status: "planning",
       userInstruction: instruction,
       learnerLevel: inferredLevel,
-      targetPages: inferredPages,
+      targetPages,
       templateId: inferredTemplate,
       sourceText: sourceForJob,
       uploadedFiles: attachments.map((item) => toPremiumUploadedFileMetadata(item.file)),
@@ -663,14 +660,13 @@ export function TextbookAutoSimplePage() {
       activeUnitIndex: 0,
     };
     setLearnerLevel(inferredLevel);
-    setTargetPages(inferredPages);
     setSelectedTemplateId(inferredTemplate);
     setPreviewOpen(false);
     setResult(null);
     setAcademyJob(nextJob);
     persistAcademyJob(nextJob);
     void runAcademyJob(nextJob);
-  }, [attachments, extractingCount, runAcademyJob, sourceCorpus, userInstruction]);
+  }, [attachments, extractingCount, runAcademyJob, sourceCorpus, targetPages, userInstruction]);
 
   const pauseAcademyGeneration = useCallback(() => {
     academyControlRef.current.pause = true;
@@ -700,6 +696,7 @@ export function TextbookAutoSimplePage() {
     setResult(null);
     setPreviewOpen(false);
     setUserInstruction("");
+    setTargetPages(null);
     setAttachments([]);
     setAttachmentSources({});
     attachmentIdsRef.current = new Set();
@@ -918,10 +915,32 @@ export function TextbookAutoSimplePage() {
                 setError(null);
               }}
               onKeyDown={handlePromptKeyDown}
-              placeholder="예: 고2 영어 중위권 학생이 수능 빈칸과 순서 문제를 단계적으로 익히는 100쪽 교재를 만들어줘. 각 개념은 쉬운 설명과 대표 예시로 시작하고, 단원 마지막에는 실전 문제와 자세한 오답 해설을 넣어줘."
+              placeholder="예: 고2 영어 중위권 학생이 수능 빈칸과 순서 문제를 단계적으로 익히는 교재를 만들어줘. 각 개념은 쉬운 설명과 대표 예시로 시작하고, 단원 마지막에는 실전 문제와 자세한 오답 해설을 넣어줘."
               aria-label="만들고 싶은 교재"
               disabled={academyRunning || academyJob !== null}
             />
+
+            {!academyJob ? (
+              <fieldset className={styles.neonPageSelector} disabled={academyRunning}>
+                <legend>원하는 교재 분량을 선택하세요</legend>
+                <div className={styles.neonPageOptions}>
+                  {TARGET_PAGE_OPTIONS.map((pageCount) => (
+                    <button
+                      key={pageCount}
+                      type="button"
+                      className={targetPages === pageCount ? styles.neonPageOptionActive : styles.neonPageOption}
+                      onClick={() => {
+                        setTargetPages(pageCount);
+                        setError(null);
+                      }}
+                      aria-pressed={targetPages === pageCount}
+                    >
+                      {pageCount}쪽
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
 
             {attachments.length > 0 ? (
               <div className={styles.neonFiles} aria-label="첨부 파일">
@@ -1019,7 +1038,7 @@ export function TextbookAutoSimplePage() {
                   type="button"
                   className={styles.neonSendButton}
                   onClick={startAcademyGeneration}
-                  disabled={!userInstruction.trim() || academyRunning || extractingCount > 0}
+                  disabled={!userInstruction.trim() || !targetPages || academyRunning || extractingCount > 0}
                   aria-label="교재 생성 시작"
                   title="교재 생성 시작"
                 >

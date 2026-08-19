@@ -301,6 +301,63 @@
   opacity: 1;
 }
 
+.neonPageSelector {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid rgba(70, 147, 255, 0.14);
+  padding: 0.8rem 1.1rem 0.9rem;
+}
+
+.neonPageSelector legend {
+  width: 100%;
+  box-sizing: border-box;
+  color: #88a9c7;
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.neonPageOptions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.neonPageOption,
+.neonPageOptionActive {
+  min-width: 0;
+  min-height: 2.45rem;
+  border: 1px solid rgba(65, 162, 255, 0.28);
+  border-radius: 6px;
+  background: #081323;
+  color: #83a4c1;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.neonPageOption:hover {
+  border-color: #329fff;
+  background: #0b1d33;
+  color: #e5f4ff;
+}
+
+.neonPageOptionActive {
+  border-color: #3eb5ff;
+  background: #0b6fc5;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(22, 138, 255, 0.42);
+}
+
+.neonPageSelector:disabled .neonPageOption,
+.neonPageSelector:disabled .neonPageOptionActive {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .neonFiles {
   display: flex;
   flex-wrap: wrap;
