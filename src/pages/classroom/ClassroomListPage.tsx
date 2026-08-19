@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Activity,
+  BookOpenCheck,
+  FilePlus2,
+  FileText,
+  GraduationCap,
+  Languages,
+  LayoutDashboard,
+  Library,
+  Store,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
+import {
   collection,
   onSnapshot,
   orderBy,
@@ -16,6 +29,26 @@ import type { ClassroomDocument } from "@/types/classroom";
 import "@/pages/pages.css";
 
 type Row = ClassroomDocument & { id: string };
+
+type ClassroomHubMenu = {
+  to: string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+};
+
+const CLASSROOM_HUB_MENUS: ClassroomHubMenu[] = [
+  { to: "/tools/textbook-auto", title: "교재 자동제작", description: "수능 DB 기반 AI 교재", icon: BookOpenCheck },
+  { to: "/library", title: "라이브러리", description: "승인 자료와 수능 기출 DB", icon: Library },
+  { to: "/korean-education", title: "한국어 교육", description: "Korean teaching resources", icon: Languages },
+  { to: "/english-passage-lab", title: "영어지문변환학습", description: "지문 분석과 변형 학습", icon: FileText },
+  { to: "/logic-dashboard", title: "시그널로직", description: "논리 기반 지문 분석", icon: Activity },
+  { to: "/material/register", title: "새자료 등록", description: "수업 자료와 파일 등록", icon: FilePlus2 },
+  { to: "/lecture/recording", title: "강의녹화", description: "강의 영상 제작 도구", icon: Video },
+  { to: "/digital-market", title: "디지털마켓", description: "디지털 학습 자료", icon: Store },
+  { to: "/classrooms", title: "강의 신청", description: "전체 강의실 카탈로그", icon: GraduationCap },
+  { to: "/dashboard", title: "대시보드", description: "계정과 수업 운영 현황", icon: LayoutDashboard },
+];
 
 function formatAt(raw: unknown): string {
   if (raw && typeof raw === "object" && "toDate" in raw && typeof (raw as Timestamp).toDate === "function") {
@@ -242,6 +275,33 @@ export function ClassroomListPage({ embedInAdminShell = false }: { embedInAdminS
             <Link to="/classrooms">강의 신청·카탈로그</Link>는 일반 메뉴에서도 이용할 수 있습니다.
           </p>
         )}
+        {!embedInAdminShell ? (
+          <section className="classroom-hub" aria-labelledby="classroom-hub-title">
+            <div className="classroom-hub__heading">
+              <div>
+                <p className="classroom-hub__eyebrow">Workspace</p>
+                <h2 id="classroom-hub-title">수업 도구</h2>
+              </div>
+              <span>필요한 메뉴를 한곳에서 엽니다.</span>
+            </div>
+            <nav className="classroom-hub__grid" aria-label="수업 도구 메뉴">
+              {CLASSROOM_HUB_MENUS.map((menu) => {
+                const Icon = menu.icon;
+                return (
+                  <Link key={menu.to} to={menu.to} className="classroom-hub__item">
+                    <span className="classroom-hub__icon" aria-hidden="true">
+                      <Icon size={20} />
+                    </span>
+                    <span className="classroom-hub__copy">
+                      <strong>{menu.title}</strong>
+                      <small>{menu.description}</small>
+                    </span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </section>
+        ) : null}
         {isTeacherApproved && (
           <p className="classroom-page__teacher-hint">
             <Link to="/classroom/new" className="btn btn--primary btn--stack">

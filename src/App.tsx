@@ -393,7 +393,7 @@ export default function App() {
       <Route path="/teacher/english-passage-lab" element={<Navigate to="/english-passage-lab" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-    {pathname !== "/tools/textbook-auto" ? <WoohyukmonChatbot /> : null}
+    {pathname !== "/" && pathname !== "/tools/textbook-auto" ? <WoohyukmonChatbot /> : null}
     </>
   );
 }

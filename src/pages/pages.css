@@ -12934,3 +12934,189 @@ a.educator-btn.educator-btn--primary:any-link:hover {
   min-width: 8rem;
   line-height: 1.4;
 }
+
+/* 첫 화면은 두 개의 핵심 진입점만 유지한다. */
+.app-shell--landing .intro-hero--simple {
+  max-width: min(68rem, 100%);
+  margin-top: clamp(1rem, 4vh, 3rem);
+}
+
+.intro-hero__grid--simple {
+  display: block;
+}
+
+.app-shell--landing .intro-hero__main-card--simple {
+  max-width: 64rem;
+  margin: 0 auto;
+  border-radius: 8px;
+}
+
+.app-shell--landing .intro-hero__main-card-body--simple {
+  padding: clamp(1.25rem, 3vw, 2.4rem);
+}
+
+.app-shell--landing .intro-hero__action-stack--simple {
+  max-width: min(48rem, 100%);
+  margin-top: 1.35rem;
+}
+
+.app-shell--landing .intro-hero__action-grid--simple {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.intro-landing-tile--primary-simple {
+  min-height: 9rem;
+  border-radius: 8px;
+}
+
+.intro-landing-tile--primary-simple .intro-landing-tile__inner {
+  min-height: 9rem;
+}
+
+.intro-landing-tile--textbook {
+  border-color: rgba(59, 130, 246, 0.22);
+  background: linear-gradient(160deg, #f8fbff 0%, #eaf3ff 54%, #dbeafe 100%);
+  color: #123a67;
+}
+
+.intro-landing-tile--textbook .intro-landing-tile__badge {
+  border-color: rgba(59, 130, 246, 0.16);
+  background: rgba(255, 255, 255, 0.76);
+  color: #2563eb;
+}
+
+.intro-landing-tile__subtitle {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* 내 강의실 안에서 기존 첫 화면 메뉴를 모두 제공한다. */
+.classroom-hub {
+  margin: 0 0 1.4rem;
+  padding: 1.1rem 0 1.25rem;
+  border-top: 1px solid #dbe5f0;
+  border-bottom: 1px solid #dbe5f0;
+}
+
+.classroom-hub__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.classroom-hub__heading h2,
+.classroom-hub__eyebrow {
+  margin: 0;
+}
+
+.classroom-hub__heading h2 {
+  color: #0f172a;
+  font-size: 1.05rem;
+  letter-spacing: 0;
+}
+
+.classroom-hub__eyebrow {
+  margin-bottom: 0.2rem;
+  color: #2563eb;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.classroom-hub__heading > span {
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.classroom-hub__grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.classroom-hub__item {
+  display: flex;
+  min-width: 0;
+  min-height: 4.65rem;
+  align-items: center;
+  gap: 0.65rem;
+  box-sizing: border-box;
+  border: 1px solid #dde6f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1e293b;
+  padding: 0.75rem;
+  text-decoration: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.classroom-hub__item:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.09);
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.classroom-hub__icon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 7px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.classroom-hub__copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.classroom-hub__copy strong,
+.classroom-hub__copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.classroom-hub__copy strong {
+  font-size: 0.82rem;
+}
+
+.classroom-hub__copy small {
+  color: #718096;
+  font-size: 0.68rem;
+}
+
+@media (max-width: 1050px) {
+  .classroom-hub__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell--landing .intro-hero__action-grid--simple {
+    grid-template-columns: 1fr;
+  }
+
+  .classroom-hub__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .classroom-hub__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .classroom-hub__item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
