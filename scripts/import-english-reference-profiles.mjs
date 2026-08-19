@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { createRequire } from "node:module";
-import { readFile, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   requestTextbookJson,
@@ -9,11 +10,15 @@ import {
 } from "../api/_lib/textbook-ai-provider.mjs";
 
 const PROJECT_ID = "xtudynote";
+const STORAGE_BUCKET = "xtudynote.firebasestorage.app";
 const DATASET_PATH = process.env.ENGLISH_REFERENCE_DATASET_PATH || "/tmp/xtudy-english-reference-db.json";
+const DOWNLOADS_ROOT = process.env.ENGLISH_REFERENCE_SOURCE_ROOT || path.join(process.env.HOME || "", "Downloads");
 const args = new Set(process.argv.slice(2));
 const shouldAnalyze = args.has("--analyze");
 const shouldImport = args.has("--import");
 const verifyOnly = args.has("--verify-only");
+const publishLibrary = args.has("--publish-library");
+const verifyLibrary = args.has("--verify-library");
 const dryRun = args.has("--dry-run");
 const exportSeed = args.has("--export-seed");
 
@@ -258,6 +263,194 @@ async function verifyProfiles(dataset) {
   console.log(`Verified Firebase DB: ${count} English reference profiles`);
 }
 
+function safeFileName(name) {
+  return String(name).normalize("NFC").replace(/[^\w.\-가-힣]+/g, "_").slice(0, 180) || "file";
+}
+
+function mimeTypeFor(document) {
+  if (document.mediaType === "hwp") return "application/x-hwp";
+  return "application/pdf";
+}
+
+function librarySection(category) {
+  if (category === "syntax-answer-guide") return "영어 구문·독해";
+  if (category === "teacher-guide") return "영어 교과서·수업 자료";
+  return "수능 영단어";
+}
+
+function libraryAudience(category) {
+  if (category === "teacher-guide") return "중·고등 영어 강사 · 교사";
+  return "고등학생 · 수능 영어 강사";
+}
+
+function libraryDocument(document, storagePath) {
+  const title = sanitizeText(document.title, 240).normalize("NFC");
+  return {
+    authorId: "system-english-reference",
+    teacherId: "system-english-reference",
+    subject: title,
+    audience: libraryAudience(document.category),
+    section: librarySection(document.category),
+    identifier: `english-reference-${document.id}`,
+    learningTopic: `${document.focus} · AI 교재 교수설계 DB`,
+    introduction: `<p><strong>${title}</strong> 영어 교육 자료입니다.</p><p>원본 파일은 라이브러리에서 열람할 수 있으며, 별도로 추출한 교수설계 프로필은 설명 단계, 학습 흐름, 문항 구성, 해설 논리와 품질 검수 기준에 활용됩니다.</p>`,
+    lectureLink: null,
+    learningMaterialFilePaths: [storagePath],
+    referenceMaterialFilePaths: [],
+    type: "share",
+    status: "approved",
+    themes: ["k_entrance"],
+    thumbnailPath: null,
+    previewUrl: null,
+    clickCount: 0,
+    purchaseLink: null,
+    homeworkCode: null,
+    shortCode: null,
+    homeworkInstruction: null,
+    classroomId: null,
+    classroomTitle: null,
+    educationalInstantPublish: true,
+    sourceDatabase: "english_reference_profiles",
+    sourceDatabaseVersion: "english-reference-profile-v1",
+    sourceProfileRef: `english_reference_profiles/${document.id}`,
+    sourceFingerprint: document.sha256,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+async function sourceFileIndex() {
+  const entries = await readdir(DOWNLOADS_ROOT, { recursive: true });
+  return entries.map((entry) => path.join(DOWNLOADS_ROOT, entry));
+}
+
+async function resolveSourcePath(document, fileIndex) {
+  if (document.localPath) return path.resolve(document.localPath);
+  const expectedName = String(document.sourceFileName).normalize("NFC");
+  const candidates = fileIndex.filter(
+    (candidate) => path.basename(candidate).normalize("NFC") === expectedName,
+  );
+  for (const candidate of candidates) {
+    const sourceStat = await stat(candidate).catch(() => null);
+    if (sourceStat?.isFile() && sourceStat.size === Number(document.byteSize)) return candidate;
+  }
+  throw new Error(`Source file was not found or changed: ${document.sourceFileName}`);
+}
+
+function storagePathFor(document) {
+  const originalName = safeFileName(document.sourceFileName);
+  return `contents/system-english-reference/${document.id}/lm_library_0_${originalName}`;
+}
+
+async function getStorageMetadata(accessToken, storagePath) {
+  const response = await fetch(
+    `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(STORAGE_BUCKET)}/o/${encodeURIComponent(storagePath)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Storage metadata check failed (${response.status})`);
+  return response.json();
+}
+
+async function ensureDownloadMetadata(accessToken, storagePath, document, downloadToken) {
+  const response = await fetch(
+    `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(STORAGE_BUCKET)}/o/${encodeURIComponent(storagePath)}`,
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contentType: mimeTypeFor(document),
+        metadata: {
+          firebaseStorageDownloadTokens: downloadToken,
+          sourceFingerprint: document.sha256,
+          sourceProfileId: document.id,
+        },
+      }),
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Storage metadata update failed (${response.status}): ${detail.slice(0, 500)}`);
+  }
+}
+
+async function uploadLibraryAsset(document, sourcePath, accessToken) {
+  const storagePath = storagePathFor(document);
+  const current = await getStorageMetadata(accessToken, storagePath);
+  const currentToken = current?.metadata?.firebaseStorageDownloadTokens;
+  if (
+    current &&
+    Number(current.size) === Number(document.byteSize) &&
+    current.metadata?.sourceFingerprint === document.sha256
+  ) {
+    if (!currentToken) await ensureDownloadMetadata(accessToken, storagePath, document, randomUUID());
+    console.log(`Kept existing ${storagePath}`);
+    return storagePath;
+  }
+
+  const bytes = await readFile(sourcePath);
+  const fingerprint = createHash("sha256").update(bytes).digest("hex");
+  if (fingerprint !== document.sha256) throw new Error(`Source fingerprint changed: ${document.sourceFileName}`);
+  const uploadUrl = new URL(`https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(STORAGE_BUCKET)}/o`);
+  uploadUrl.searchParams.set("uploadType", "media");
+  uploadUrl.searchParams.set("name", storagePath);
+  const response = await fetch(uploadUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": mimeTypeFor(document) },
+    body: bytes,
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Storage upload failed (${response.status}): ${detail.slice(0, 500)}`);
+  }
+  await ensureDownloadMetadata(accessToken, storagePath, document, randomUUID());
+  console.log(`Uploaded ${storagePath}`);
+  return storagePath;
+}
+
+async function publishLibraryDocuments(dataset) {
+  const accessToken = await createCliAccessToken();
+  const fileIndex = await sourceFileIndex();
+  const writes = [];
+  for (const document of dataset.documents) {
+    const sourcePath = await resolveSourcePath(document, fileIndex);
+    const storagePath = await uploadLibraryAsset(document, sourcePath, accessToken);
+    writes.push(documentWrite(`contents/english-reference-${document.id}`, libraryDocument(document, storagePath)));
+  }
+  await commitWrites(accessToken, writes);
+  console.log(`Published ${writes.length} English reference files to Library`);
+}
+
+async function verifyLibraryDocuments(dataset) {
+  const accessToken = await createCliAccessToken();
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  let documentsFound = 0;
+  let assetsFound = 0;
+  for (const document of dataset.documents) {
+    const [contentResponse, storageMetadata] = await Promise.all([
+      fetch(
+        `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/contents/english-reference-${document.id}`,
+        { headers },
+      ),
+      getStorageMetadata(accessToken, storagePathFor(document)),
+    ]);
+    if (contentResponse.ok) documentsFound += 1;
+    if (
+      storageMetadata &&
+      Number(storageMetadata.size) === Number(document.byteSize) &&
+      storageMetadata.metadata?.firebaseStorageDownloadTokens
+    ) {
+      assetsFound += 1;
+    }
+  }
+  if (documentsFound !== dataset.documents.length || assetsFound !== dataset.documents.length) {
+    throw new Error(
+      `Library verification failed: ${documentsFound}/${dataset.documents.length} documents, ${assetsFound}/${dataset.documents.length} downloadable files`,
+    );
+  }
+  console.log(`Verified Library: ${documentsFound} documents and ${assetsFound} downloadable files`);
+}
+
 async function exportSeedModule(dataset) {
   const profiles = dataset.documents.map((document) => document.profile).filter(Boolean);
   if (profiles.length !== dataset.documents.length) throw new Error("Run --analyze before --export-seed");
@@ -279,11 +472,15 @@ const dataset = JSON.parse(await readFile(path.resolve(DATASET_PATH), "utf8"));
 if (dataset.schemaVersion !== "english-reference-profile-v1") throw new Error("Unsupported dataset schema");
 if (shouldAnalyze) await analyzeDataset(dataset);
 if (dryRun) {
-  console.log(JSON.stringify({ documents: dataset.documents.length, profiles: dataset.documents.filter((item) => item.profile).length }));
+  const fileIndex = await sourceFileIndex();
+  const sources = await Promise.all(dataset.documents.map((document) => resolveSourcePath(document, fileIndex)));
+  console.log(JSON.stringify({ documents: dataset.documents.length, profiles: dataset.documents.filter((item) => item.profile).length, sources }));
 }
 if (shouldImport) await importProfiles(dataset);
 if (verifyOnly) await verifyProfiles(dataset);
+if (publishLibrary) await publishLibraryDocuments(dataset);
+if (verifyLibrary) await verifyLibraryDocuments(dataset);
 if (exportSeed) await exportSeedModule(dataset);
-if (!shouldAnalyze && !shouldImport && !verifyOnly && !dryRun && !exportSeed) {
-  throw new Error("Choose --analyze, --import, --verify-only, --export-seed, or --dry-run");
+if (!shouldAnalyze && !shouldImport && !verifyOnly && !publishLibrary && !verifyLibrary && !dryRun && !exportSeed) {
+  throw new Error("Choose --analyze, --import, --verify-only, --publish-library, --verify-library, --export-seed, or --dry-run");
 }
