@@ -49,6 +49,7 @@ export type AcademyTextbookJobStatus = "planning" | "generating" | "paused" | "c
 
 export type AcademyTextbookJob = {
   id: string;
+  generationVersion?: string;
   createdAt: string;
   updatedAt: string;
   status: AcademyTextbookJobStatus;
@@ -64,6 +65,8 @@ export type AcademyTextbookJob = {
   error?: string;
   model?: string;
   source?: "nvidia" | "openai" | "mock";
+  csatReferenceCount?: number;
+  englishReferenceCount?: number;
 };
 
 export type AcademyTextbookHistoryItem = {
@@ -92,5 +95,5 @@ export type GenerateAcademyTextbookUnitParams = CreateAcademyTextbookPlanParams 
   plan: AcademyTextbookPlan;
   unit: AcademyTextbookUnitPlan;
   sourceExcerpt: string;
-  previousQuestionSignatures: string[];
+  previousContentSignatures: string[];
 };

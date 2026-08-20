@@ -10,7 +10,7 @@
       "maxDuration": 60
     },
     "api/generate-academy-textbook.mjs": {
-      "maxDuration": 60
+      "maxDuration": 300
     }
   },
   "headers": [

@@ -9,6 +9,9 @@ import { auth } from "@/firebase/config";
 type ApiMeta = {
   model: string;
   source: "nvidia" | "openai" | "mock";
+  generationVersion?: string;
+  csatReferenceCount?: number;
+  englishReferenceCount?: number;
 };
 
 type PlanResponse = {
@@ -18,6 +21,18 @@ type PlanResponse = {
 
 type UnitResponse = {
   unit: PremiumTextbookUnit;
+  meta: ApiMeta;
+};
+
+type ConceptPageResponse = {
+  conceptPage: NonNullable<PremiumTextbookUnit["conceptPages"]>[number];
+  pageIndex: number;
+  meta: ApiMeta;
+};
+
+type QuestionPartResponse = {
+  question: PremiumTextbookUnit["questions"][number];
+  questionIndex: number;
   meta: ApiMeta;
 };
 
@@ -50,11 +65,23 @@ export function createAcademyTextbookPlan(
   return postAcademyRequest<PlanResponse>({ action: "plan", ...params }, signal);
 }
 
-export function generateAcademyTextbookUnit(
+export async function generateAcademyTextbookUnit(
   params: GenerateAcademyTextbookUnitParams,
   signal?: AbortSignal,
 ): Promise<UnitResponse> {
-  return postAcademyRequest<UnitResponse>({ action: "unit", ...params }, signal);
+  for (let partIndex = 0; partIndex < params.unit.conceptPageCount; partIndex += 1) {
+    await postAcademyRequest<ConceptPageResponse>(
+      { action: "unit-concept", partIndex, ...params },
+      signal,
+    );
+  }
+  for (let partIndex = 0; partIndex < params.unit.questionCount; partIndex += 1) {
+    await postAcademyRequest<QuestionPartResponse>(
+      { action: "unit-question", partIndex, ...params },
+      signal,
+    );
+  }
+  return postAcademyRequest<UnitResponse>({ action: "unit-finalize", ...params }, signal);
 }
 
 function keywordsForUnit(unit: GenerateAcademyTextbookUnitParams["unit"]): string[] {

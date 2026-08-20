@@ -217,7 +217,7 @@ function academyResultFromJob(job: AcademyTextbookJob): PremiumGenerationResult 
     mode: "premium",
     title: textbook.title,
     model: job.model || "academy-batch",
-    source: job.source || "mock",
+    source: job.source || "nvidia",
     templateId: job.templateId,
     uploadedFiles: job.uploadedFiles,
     textbook,
@@ -526,10 +526,13 @@ export function TextbookAutoSimplePage() {
         working = {
           ...working,
           id: planResponse.plan.id,
+          generationVersion: planResponse.meta.generationVersion,
           status: "generating",
           plan: planResponse.plan,
           model: planResponse.meta.model,
           source: planResponse.meta.source,
+          csatReferenceCount: planResponse.meta.csatReferenceCount,
+          englishReferenceCount: planResponse.meta.englishReferenceCount,
           updatedAt: new Date().toISOString(),
         };
         setAcademyJob(working);
@@ -564,9 +567,12 @@ export function TextbookAutoSimplePage() {
         setAcademyJob(working);
         persistAcademyJob(working);
         const sourceExcerpt = selectRelevantSourceExcerpt(working.sourceText, unitPlan);
-        const previousQuestionSignatures = working.generatedUnits.flatMap((unit) =>
-          unit.questions.map((question) => question.question.slice(0, 220)),
-        );
+        const previousContentSignatures = working.generatedUnits
+          .flatMap((unit) => [
+            ...(unit.conceptPages ?? []).flatMap((page) => page.bodyParagraphs.map((paragraph) => `concept:${paragraph.slice(0, 700)}`)),
+            ...unit.questions.map((question) => `question:${question.question.slice(0, 700)}`),
+          ])
+          .slice(-160);
         const unitResponse = await generateAcademyTextbookUnit(
           {
             userInstruction: working.userInstruction,
@@ -578,7 +584,7 @@ export function TextbookAutoSimplePage() {
             plan,
             unit: unitPlan,
             sourceExcerpt,
-            previousQuestionSignatures,
+            previousContentSignatures,
           },
           controller.signal,
         );
@@ -588,6 +594,9 @@ export function TextbookAutoSimplePage() {
           activeUnitIndex: unitPlan.unitIndex + 1,
           model: unitResponse.meta.model,
           source: unitResponse.meta.source,
+          generationVersion: unitResponse.meta.generationVersion || working.generationVersion,
+          csatReferenceCount: unitResponse.meta.csatReferenceCount ?? working.csatReferenceCount,
+          englishReferenceCount: unitResponse.meta.englishReferenceCount ?? working.englishReferenceCount,
           updatedAt: new Date().toISOString(),
         };
         setAcademyJob(working);
@@ -643,7 +652,7 @@ export function TextbookAutoSimplePage() {
     }
     const inferredLevel = inferLearnerLevelFromPrompt(instruction);
     const inferredTemplate = inferTemplateFromPrompt(instruction);
-    const sourceForJob = sourceCorpus.trim() || instruction;
+    const sourceForJob = sourceCorpus.trim();
     const now = new Date().toISOString();
     const nextJob: AcademyTextbookJob = {
       id: `academy-job-${Date.now()}`,
@@ -976,7 +985,7 @@ export function TextbookAutoSimplePage() {
                     </strong>
                     <span>
                       {academyJob.plan
-                        ? `${academyJob.generatedUnits.length}/${academyJob.plan.unitCount}개 단원 · ${academyJob.plan.targetPages}쪽 · ${academyProgress}%`
+                        ? `${academyJob.generatedUnits.length}/${academyJob.plan.unitCount}개 단원 · ${academyJob.plan.targetPages}쪽 · 수능 DB ${academyJob.csatReferenceCount ?? 0}문항 · 교육자료 ${academyJob.englishReferenceCount ?? 0}개 · ${academyProgress}%`
                         : `${academyJob.targetPages}쪽 · ${academyProgress}%`}
                     </span>
                   </div>

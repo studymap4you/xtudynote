@@ -89,6 +89,7 @@ async function loadHistoryJob(uid, id) {
   const totalUnitCount = Number(data.plan?.unitCount) || (Array.isArray(data.plan?.units) ? data.plan.units.length : 0);
   return {
     id: owned.snapshot.id,
+    generationVersion: sanitizeText(data.generationVersion, 80) || undefined,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
     status: normalizeStatus(data.status, units.length, totalUnitCount, true),
@@ -96,13 +97,15 @@ async function loadHistoryJob(uid, id) {
     learnerLevel: sanitizeText(data.learnerLevel, 40) || "auto",
     targetPages: Number(data.targetPages) || Number(data.plan?.targetPages) || 50,
     templateId: sanitizeText(data.templateId, 80) || "xuniverse-academy-pro",
-    sourceText: sanitizeText(data.sourceText, 60_000) || sanitizeText(data.userInstruction, 8_000),
+    sourceText: sanitizeText(data.sourceText, 60_000),
     uploadedFiles: Array.isArray(data.uploadedFiles) ? data.uploadedFiles : [],
     plan: data.plan,
     generatedUnits: units,
     activeUnitIndex: units.length,
     model: sanitizeText(data.model, 120) || undefined,
     source: ["nvidia", "openai", "mock"].includes(data.source) ? data.source : "mock",
+    csatReferenceCount: Array.isArray(data.csatReferenceIds) ? data.csatReferenceIds.length : 0,
+    englishReferenceCount: Array.isArray(data.englishReferenceIds) ? data.englishReferenceIds.length : 0,
   };
 }
 
