@@ -46,6 +46,11 @@ export type PremiumTextbookUnit = {
     term: string;
     meaning: string;
     example?: string;
+    definitionEn?: string;
+    senseId?: string;
+    source?: string;
+    sourceUrl?: string;
+    license?: string;
   }[];
   grammarPoints?: string[];
   examples?: string[];

@@ -106,6 +106,7 @@ async function loadHistoryJob(uid, id) {
     source: ["nvidia", "openai", "mock"].includes(data.source) ? data.source : "mock",
     csatReferenceCount: Array.isArray(data.csatReferenceIds) ? data.csatReferenceIds.length : 0,
     englishReferenceCount: Array.isArray(data.englishReferenceIds) ? data.englishReferenceIds.length : 0,
+    wordnetReferenceCount: Array.isArray(data.wordnetReferenceLemmas) ? data.wordnetReferenceLemmas.length : 0,
   };
 }
 

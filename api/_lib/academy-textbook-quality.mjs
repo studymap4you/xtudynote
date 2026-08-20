@@ -245,6 +245,11 @@ export function normalizeAndValidateAcademyUnit(raw, unitPlan, previousContentSi
             term: text(item?.term, 120),
             meaning: text(item?.meaning, 360),
             example: text(item?.example, 500),
+            definitionEn: text(item?.definitionEn, 500),
+            senseId: text(item?.senseId, 80),
+            source: text(item?.source, 120),
+            sourceUrl: text(item?.sourceUrl, 500),
+            license: text(item?.license, 80),
           }))
           .filter((item) => item.term && item.meaning)
           .slice(0, 16)

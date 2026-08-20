@@ -709,6 +709,13 @@
   color: #64748b;
 }
 
+.lexiconAttribution {
+  margin: 0.65rem 0 0;
+  color: #64748b;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
 .questions {
   display: grid;
   gap: 0.85rem;

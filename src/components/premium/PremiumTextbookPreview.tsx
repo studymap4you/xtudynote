@@ -278,6 +278,11 @@ export function PremiumTextbookPreview({ textbook, template, uploadedFiles = [] 
                         ))}
                       </tbody>
                     </table>
+                    {unit.keyVocabulary.some((item) => item.source === "Open English WordNet") ? (
+                      <p className={styles.lexiconAttribution}>
+                        Lexical data: Open English WordNet (CC BY 4.0)
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
                 {unit.grammarPoints?.length ? (

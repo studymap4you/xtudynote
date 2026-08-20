@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test:textbook-ai": "node scripts/smoke-test-textbook-provider.mjs",
     "test:textbook-quality": "node --test scripts/test-academy-textbook-quality.mjs",
-    "test:academy-live": "node scripts/smoke-test-academy-generation.mjs"
+    "test:academy-live": "node scripts/smoke-test-academy-generation.mjs",
+    "test:wordnet": "node --test scripts/test-wordnet-lexicon.mjs",
+    "test:wordnet-live": "node scripts/smoke-test-wordnet.mjs"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",

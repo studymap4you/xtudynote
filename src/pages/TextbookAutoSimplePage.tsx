@@ -533,6 +533,7 @@ export function TextbookAutoSimplePage() {
           source: planResponse.meta.source,
           csatReferenceCount: planResponse.meta.csatReferenceCount,
           englishReferenceCount: planResponse.meta.englishReferenceCount,
+          wordnetReferenceCount: planResponse.meta.wordnetReferenceCount,
           updatedAt: new Date().toISOString(),
         };
         setAcademyJob(working);
@@ -597,6 +598,7 @@ export function TextbookAutoSimplePage() {
           generationVersion: unitResponse.meta.generationVersion || working.generationVersion,
           csatReferenceCount: unitResponse.meta.csatReferenceCount ?? working.csatReferenceCount,
           englishReferenceCount: unitResponse.meta.englishReferenceCount ?? working.englishReferenceCount,
+          wordnetReferenceCount: unitResponse.meta.wordnetReferenceCount ?? working.wordnetReferenceCount,
           updatedAt: new Date().toISOString(),
         };
         setAcademyJob(working);
@@ -985,7 +987,7 @@ export function TextbookAutoSimplePage() {
                     </strong>
                     <span>
                       {academyJob.plan
-                        ? `${academyJob.generatedUnits.length}/${academyJob.plan.unitCount}개 단원 · ${academyJob.plan.targetPages}쪽 · 수능 DB ${academyJob.csatReferenceCount ?? 0}문항 · 교육자료 ${academyJob.englishReferenceCount ?? 0}개 · ${academyProgress}%`
+                        ? `${academyJob.generatedUnits.length}/${academyJob.plan.unitCount}개 단원 · ${academyJob.plan.targetPages}쪽 · 수능 DB ${academyJob.csatReferenceCount ?? 0}문항 · 교육자료 ${academyJob.englishReferenceCount ?? 0}개 · WordNet ${academyJob.wordnetReferenceCount ?? 0}어휘 · ${academyProgress}%`
                         : `${academyJob.targetPages}쪽 · ${academyProgress}%`}
                     </span>
                   </div>

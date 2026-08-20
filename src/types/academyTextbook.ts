@@ -67,6 +67,7 @@ export type AcademyTextbookJob = {
   source?: "nvidia" | "openai" | "mock";
   csatReferenceCount?: number;
   englishReferenceCount?: number;
+  wordnetReferenceCount?: number;
 };
 
 export type AcademyTextbookHistoryItem = {

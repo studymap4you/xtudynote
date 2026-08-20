@@ -12,6 +12,7 @@ type ApiMeta = {
   generationVersion?: string;
   csatReferenceCount?: number;
   englishReferenceCount?: number;
+  wordnetReferenceCount?: number;
 };
 
 type PlanResponse = {
