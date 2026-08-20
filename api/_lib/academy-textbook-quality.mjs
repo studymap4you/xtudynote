@@ -58,6 +58,33 @@ function includesPlaceholder(value) {
   return PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(String(value ?? "")));
 }
 
+export function instructionLeakageIssues(value, userInstruction, label = "생성 결과") {
+  const instruction = comparable(userInstruction);
+  const output = comparable(value);
+  if (instruction.length < 12 || output.length < 12) return [];
+  if (output.includes(instruction)) return [`${label}에 사용자 주문 문장이 그대로 복사되었습니다.`];
+  return [];
+}
+
+function englishWordCount(value) {
+  return String(value ?? "").match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g)?.length ?? 0;
+}
+
+export function validateCsatBlankInferenceQuestion(raw, label = "빈칸 추론 문항") {
+  const issues = [];
+  const question = text(raw?.question, 12_000);
+  const choices = stringArray(raw?.choices, 6, 500);
+  const explanation = text(raw?.explanation, 2_000);
+  if (englishWordCount(question) < 120) issues.push(`${label}의 영어 지문은 최소 120단어 이상이어야 합니다.`);
+  if (!/_{4,}|\[\s*BLANK\s*\]|\(\s*blank\s*\)/i.test(question)) {
+    issues.push(`${label}의 지문에 명확한 빈칸 표시가 없습니다.`);
+  }
+  if (choices.length !== 5) issues.push(`${label}의 선택지는 평가원 형식에 맞게 정확히 5개여야 합니다.`);
+  if (new Set(choices.map(comparable)).size !== choices.length) issues.push(`${label}의 선택지가 중복됩니다.`);
+  if (explanation.length < 100) issues.push(`${label}의 해설은 정답 근거와 주요 오답 이유를 충분히 설명해야 합니다.`);
+  return issues;
+}
+
 function collectNearDuplicates(values, threshold, label) {
   const issues = [];
   for (let left = 0; left < values.length; left += 1) {
@@ -96,6 +123,7 @@ export function normalizeAndValidateAcademyPlan(raw, {
   targetLearner,
   fallbackTitle,
   pageRules,
+  userInstruction = "",
 }) {
   const issues = [];
   const rawUnits = Array.isArray(raw?.units) ? raw.units : [];
@@ -138,6 +166,11 @@ export function normalizeAndValidateAcademyPlan(raw, {
   if (subtitle.length < 8) issues.push("교재 부제가 비어 있거나 너무 짧습니다.");
   if (overview.length < 80) issues.push("교재 개요가 충분히 구체적이지 않습니다.");
   if (includesPlaceholder([title, subtitle, overview].join(" "))) issues.push("교재 개요에 임시 보충 문구가 포함되어 있습니다.");
+  issues.push(...instructionLeakageIssues(
+    [title, subtitle, overview, ...units.flatMap((unit) => [unit.title, unit.subtitle, ...unit.learningObjectives, ...unit.sourceFocus])].join("\n"),
+    userInstruction,
+    "교재 설계",
+  ));
 
   if (issues.length) throw new AcademyTextbookQualityError("교재 설계가 품질 기준을 충족하지 못했습니다.", issues);
   return {
@@ -155,9 +188,9 @@ export function normalizeAndValidateAcademyPlan(raw, {
   };
 }
 
-function normalizeQuestion(raw, index, issues) {
+function normalizeQuestion(raw, index, issues, options = {}) {
   const type = text(raw?.type, 40).toLowerCase();
-  const question = text(raw?.question, 700);
+  const question = text(raw?.question, 6_000);
   const answer = text(raw?.answer, 320);
   const explanation = text(raw?.explanation, 700);
   const difficulty = text(raw?.difficulty, 20).toLowerCase();
@@ -168,22 +201,26 @@ function normalizeQuestion(raw, index, issues) {
   if (!DIFFICULTIES.has(difficulty)) issues.push(`${index + 1}번 난이도가 올바르지 않습니다.`);
   if (includesPlaceholder([question, answer, explanation].join(" "))) issues.push(`${index + 1}번 문항에 임시 보충 문구가 포함되어 있습니다.`);
 
-  const choices = type === "multiple-choice" ? stringArray(raw?.choices, 6, 220) : [];
+  const hasSelectableChoices = type === "multiple-choice" || type === "blank";
+  const choices = hasSelectableChoices ? stringArray(raw?.choices, 6, 500) : [];
   if (type === "multiple-choice") {
     if (choices.length < 4) issues.push(`${index + 1}번 객관식 선택지가 4개 미만입니다.`);
     if (new Set(choices.map(comparable)).size !== choices.length) issues.push(`${index + 1}번 객관식 선택지가 중복됩니다.`);
   }
+  if (options.requireCsatReading && type === "blank") {
+    issues.push(...validateCsatBlankInferenceQuestion(raw, `${index + 1}번 빈칸 추론 문항`));
+  }
   return {
     type,
     question,
-    ...(type === "multiple-choice" ? { choices } : {}),
+    ...(choices.length ? { choices } : {}),
     answer,
     explanation,
     difficulty,
   };
 }
 
-export function normalizeAndValidateAcademyUnit(raw, unitPlan, previousContentSignatures = []) {
+export function normalizeAndValidateAcademyUnit(raw, unitPlan, previousContentSignatures = [], options = {}) {
   const issues = [];
   const rawConceptPages = Array.isArray(raw?.conceptPages) ? raw.conceptPages : [];
   const rawQuestions = Array.isArray(raw?.questions) ? raw.questions : [];
@@ -217,7 +254,9 @@ export function normalizeAndValidateAcademyUnit(raw, unitPlan, previousContentSi
   const allParagraphs = conceptPages.flatMap((page) => page.bodyParagraphs);
   issues.push(...collectNearDuplicates(allParagraphs, 0.78, "개념 설명 문단"));
 
-  const questions = rawQuestions.slice(0, unitPlan.questionCount).map((question, index) => normalizeQuestion(question, index, issues));
+  const questions = rawQuestions
+    .slice(0, unitPlan.questionCount)
+    .map((question, index) => normalizeQuestion(question, index, issues, options));
   issues.push(...collectNearDuplicates(questions.map((question) => question.question), 0.72, "문항"));
   assertDistinctFromPrevious(allParagraphs, previousByKind(previousContentSignatures, "concept"), 0.78, "개념 설명", issues);
   assertDistinctFromPrevious(questions.map((question) => question.question), previousByKind(previousContentSignatures, "question"), 0.72, "문항", issues);
@@ -231,6 +270,18 @@ export function normalizeAndValidateAcademyUnit(raw, unitPlan, previousContentSi
   if (learningGoals.length < 2) issues.push("단원 학습 목표가 2개 미만입니다.");
   if (conceptSummary.length < 80) issues.push("단원 개념 요약이 충분히 구체적이지 않습니다.");
   if (includesPlaceholder([unitTitle, unitSubtitle, conceptSummary].join(" "))) issues.push("단원 요약에 임시 보충 문구가 포함되어 있습니다.");
+  issues.push(...instructionLeakageIssues(
+    [
+      unitTitle,
+      unitSubtitle,
+      conceptSummary,
+      ...learningGoals,
+      ...allParagraphs,
+      ...questions.flatMap((question) => [question.question, question.answer, question.explanation, ...(question.choices || [])]),
+    ].join("\n"),
+    options.userInstruction,
+    "단원 원고",
+  ));
 
   if (issues.length) throw new AcademyTextbookQualityError("생성된 단원이 품질 기준을 충족하지 못했습니다.", issues);
   return {

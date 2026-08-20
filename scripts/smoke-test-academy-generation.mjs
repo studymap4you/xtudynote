@@ -7,12 +7,14 @@ import {
   formatEnglishReferenceCorpus,
   generateAcademyConceptPageDraft,
   generateAcademyQuestionDraft,
+  generateAcademyQuestionPartDraft,
   generateAcademyUnitDraft,
   pageRules,
 } from "../api/generate-academy-textbook.mjs";
 import {
   normalizeAndValidateAcademyPlan,
   normalizeAndValidateAcademyUnit,
+  validateCsatBlankInferenceQuestion,
 } from "../api/_lib/academy-textbook-quality.mjs";
 import { requestTextbookJson, resolveTextbookAiProvider } from "../api/_lib/textbook-ai-provider.mjs";
 
@@ -21,6 +23,7 @@ if (provider.kind !== "nvidia") throw new Error("NVIDIA_API_KEY and TEXTBOOK_AI_
 const unitOnly = process.argv.includes("--unit-only");
 const singlePage = process.argv.includes("--single-page");
 const questionsOnly = process.argv.includes("--questions-only");
+const singleQuestion = process.argv.includes("--single-question");
 
 const templateId = "xuniverse-academy-pro";
 const targetPages = 50;
@@ -142,6 +145,35 @@ const fixtureConceptPages = [
     example: "새로운 과학 소재 지문에서도 문장 구조와 연결어를 먼저 표시하면 배경지식 없이 글 내부 근거로 정답을 결정할 수 있다.",
   },
 ];
+if (singleQuestion) {
+  const part = await generateAcademyQuestionPartDraft({
+    provider,
+    common,
+    plan,
+    unit: unitPlan,
+    questionIndex: 0,
+    conceptPages: fixtureConceptPages,
+    priorQuestions: [],
+    sourceExcerpt: "",
+    csatCorpus,
+    englishReferenceCorpus,
+    wordnetCorpus: "",
+    wordnetEntries: [],
+    previousContentSignatures: [],
+  });
+  const issues = validateCsatBlankInferenceQuestion(part.question);
+  if (part.question.type !== "blank" || issues.length) {
+    throw new Error(`CSAT blank question quality failed: ${issues.join(" ")}`);
+  }
+  console.log(JSON.stringify({
+    provider: provider.kind,
+    model: provider.model,
+    questionType: part.question.type,
+    choices: part.question.choices?.length || 0,
+    qualityCheck: "passed",
+  }));
+  process.exit(0);
+}
 if (questionsOnly) {
   const questionDraft = await generateAcademyQuestionDraft({
     provider,

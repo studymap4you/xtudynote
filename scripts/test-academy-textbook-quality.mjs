@@ -2,9 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   AcademyTextbookQualityError,
+  instructionLeakageIssues,
   normalizeAndValidateAcademyPlan,
   normalizeAndValidateAcademyUnit,
+  validateCsatBlankInferenceQuestion,
 } from "../api/_lib/academy-textbook-quality.mjs";
+import {
+  buildUnitPrompt,
+  isCsatEnglishReadingRequest,
+  selectCsatReferencePatterns,
+} from "../api/generate-academy-textbook.mjs";
 
 const fixedPlan = {
   unitCount: 2,
@@ -147,4 +154,58 @@ test("accepts a complete unit and rejects similarity to prior units", () => {
     () => normalizeAndValidateAcademyUnit(raw, { conceptPageCount: 3, questionCount: 4 }, [`concept:${distinctParagraphs[0][0]}`]),
     AcademyTextbookQualityError,
   );
+});
+
+test("keeps the user order out of the printable unit-writing prompt", () => {
+  const userInstruction = "고등학교 3학년 중위권 학생을 위한 영어 독해 교재 제작해줘";
+  const prompt = buildUnitPrompt({
+    userInstruction,
+    learnerLevel: "csat-foundation",
+    plan: { title: "근거 중심 수능 독해", targetLearner: "고3 중위권" },
+    unit: {
+      unitIndex: 0,
+      title: "빈칸의 논리 기능",
+      subtitle: "인과와 대조를 근거로 판단하기",
+      learningObjectives: ["빈칸의 기능을 판별한다.", "오답의 범위 오류를 찾는다."],
+      sourceFocus: ["평가원 빈칸 정답 결정 논리", "장문 독해 오답 설계"],
+      conceptPageCount: 1,
+      questionCount: 1,
+    },
+    sourceExcerpt: "",
+    csatCorpus: "빈칸 앞뒤의 인과와 반복 개념을 대조한다.",
+    englishReferenceCorpus: "정의, 예시, 적용 순서로 설명한다.",
+    wordnetCorpus: "",
+    previousContentSignatures: [],
+  });
+  assert.equal(prompt.includes(userInstruction), false);
+  assert.deepEqual(instructionLeakageIssues(`교재 본문: ${userInstruction}`, userInstruction), [
+    "생성 결과에 사용자 주문 문장이 그대로 복사되었습니다.",
+  ]);
+});
+
+test("prioritizes blank-inference references for a general high-school reading request", () => {
+  const instruction = "고등학교 3학년 중위권 학생을 위한 영어 독해 교재";
+  assert.equal(isCsatEnglishReadingRequest(instruction), true);
+  const patterns = [
+    { id: "topic", questionType: "topic", examYear: 2026, score: 2 },
+    { id: "blank-2026", questionType: "blank-inference", examYear: 2026, score: 3 },
+    { id: "blank-2025", questionType: "blank-inference", examYear: 2025, score: 3 },
+    { id: "grammar", questionType: "grammar", examYear: 2026, score: 3 },
+  ];
+  const selected = selectCsatReferencePatterns(patterns, instruction, 2);
+  assert.deepEqual(selected.map((item) => item.id), ["blank-2026", "blank-2025"]);
+});
+
+test("accepts only long five-choice CSAT blank-inference questions", () => {
+  const passage = Array.from(
+    { length: 135 },
+    (_, index) => (index === 70 ? "__________" : `word${index}`),
+  ).join(" ");
+  const valid = {
+    question: `다음 글의 빈칸에 들어갈 말로 가장 적절한 것을 고르시오.\n\n${passage}`,
+    choices: ["a careful generalization", "an unrelated detail", "a reversed cause", "an extreme claim", "a partial repetition"],
+    explanation: "빈칸 앞의 사례와 뒤의 결론이 같은 일반화 원리를 가리키므로 첫 번째 선택지가 정답이다. 두 번째는 무관한 세부 정보이고, 세 번째는 인과를 뒤집으며, 네 번째는 범위를 과장하고, 다섯 번째는 일부 사례만 반복한다.",
+  };
+  assert.deepEqual(validateCsatBlankInferenceQuestion(valid), []);
+  assert.ok(validateCsatBlankInferenceQuestion({ ...valid, question: "Short __________ passage", choices: valid.choices.slice(0, 4) }).length >= 2);
 });

@@ -588,11 +588,28 @@ export function TextbookAutoSimplePage() {
             previousContentSignatures,
           },
           controller.signal,
+          {
+            shouldPause: () => academyControlRef.current.pause,
+            onProgress: (part) => {
+              working = {
+                ...working,
+                activePartLabel: part.label,
+                activeUnitPartCompleted: part.completed,
+                activeUnitPartTotal: part.total,
+                updatedAt: new Date().toISOString(),
+              };
+              setAcademyJob(working);
+              persistAcademyJob(working);
+            },
+          },
         );
         working = {
           ...working,
           generatedUnits: [...working.generatedUnits, unitResponse.unit],
           activeUnitIndex: unitPlan.unitIndex + 1,
+          activePartLabel: undefined,
+          activeUnitPartCompleted: undefined,
+          activeUnitPartTotal: undefined,
           model: unitResponse.meta.model,
           source: unitResponse.meta.source,
           generationVersion: unitResponse.meta.generationVersion || working.generationVersion,
@@ -619,6 +636,21 @@ export function TextbookAutoSimplePage() {
     } catch (caught) {
       if (academyControlRef.current.cancel) return;
       const message = caught instanceof Error ? caught.message : "장편 교재 생성 중 문제가 발생했습니다.";
+      if (message === "academy-generation-paused") {
+        const paused = {
+          ...working,
+          status: "paused" as const,
+          activePartLabel: "현재 페이지까지 저장하고 일시정지했습니다",
+          updatedAt: new Date().toISOString(),
+        };
+        setAcademyJob(paused);
+        persistAcademyJob(paused);
+        if (working.plan) {
+          await updateTextbookHistoryStatus(working.plan.id, "paused").catch(() => {});
+          void refreshHistory();
+        }
+        return;
+      }
       const failed = {
         ...working,
         status: "failed" as const,
@@ -681,7 +713,7 @@ export function TextbookAutoSimplePage() {
 
   const pauseAcademyGeneration = useCallback(() => {
     academyControlRef.current.pause = true;
-    setAttachmentNotice("현재 단원 생성을 마치면 안전하게 일시정지합니다.");
+    setAttachmentNotice("현재 페이지 조각을 저장한 뒤 안전하게 일시정지합니다.");
   }, []);
 
   const cancelAcademyGeneration = useCallback(() => {
@@ -771,7 +803,21 @@ export function TextbookAutoSimplePage() {
   );
 
   const academyProgress = academyJob?.plan
-    ? Math.round((academyJob.generatedUnits.length / academyJob.plan.unitCount) * 100)
+    ? (() => {
+        if (academyJob.status === "completed") return 100;
+        const totalParts = academyJob.plan.units.reduce(
+          (total, unit) => total + unit.conceptPageCount + unit.questionCount,
+          0,
+        );
+        const completedUnitParts = academyJob.plan.units
+          .slice(0, academyJob.generatedUnits.length)
+          .reduce((total, unit) => total + unit.conceptPageCount + unit.questionCount, 0);
+        const currentUnitParts = Math.min(
+          academyJob.activeUnitPartCompleted ?? 0,
+          academyJob.activeUnitPartTotal ?? Number.POSITIVE_INFINITY,
+        );
+        return totalParts > 0 ? Math.min(99, Math.round(((completedUnitParts + currentUnitParts) / totalParts) * 100)) : 3;
+      })()
     : academyJob
       ? 3
       : 0;
@@ -990,6 +1036,7 @@ export function TextbookAutoSimplePage() {
                         ? `${academyJob.generatedUnits.length}/${academyJob.plan.unitCount}개 단원 · ${academyJob.plan.targetPages}쪽 · 수능 DB ${academyJob.csatReferenceCount ?? 0}문항 · 교육자료 ${academyJob.englishReferenceCount ?? 0}개 · WordNet ${academyJob.wordnetReferenceCount ?? 0}어휘 · ${academyProgress}%`
                         : `${academyJob.targetPages}쪽 · ${academyProgress}%`}
                     </span>
+                    {academyJob.activePartLabel ? <small>{academyJob.activePartLabel}</small> : null}
                   </div>
                 </div>
                 <div className={styles.neonProgress} aria-label={`교재 생성 진행률 ${academyProgress}%`}>
@@ -997,7 +1044,7 @@ export function TextbookAutoSimplePage() {
                 </div>
                 <div className={styles.neonJobActions}>
                   {academyRunning ? (
-                    <button type="button" className={styles.neonIconButton} onClick={pauseAcademyGeneration} aria-label="현재 단원 후 일시정지" title="현재 단원 후 일시정지">
+                    <button type="button" className={styles.neonIconButton} onClick={pauseAcademyGeneration} aria-label="현재 페이지 후 일시정지" title="현재 페이지 후 일시정지">
                       <Pause size={17} aria-hidden="true" />
                     </button>
                   ) : academyJob.status !== "completed" ? (

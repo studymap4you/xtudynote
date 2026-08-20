@@ -62,6 +62,9 @@ export type AcademyTextbookJob = {
   plan?: AcademyTextbookPlan;
   generatedUnits: PremiumTextbookUnit[];
   activeUnitIndex: number;
+  activePartLabel?: string;
+  activeUnitPartCompleted?: number;
+  activeUnitPartTotal?: number;
   error?: string;
   model?: string;
   source?: "nvidia" | "openai" | "mock";
