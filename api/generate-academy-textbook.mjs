@@ -1,5 +1,6 @@
 import admin from "firebase-admin";
 import { englishReferenceSeedProfiles } from "./_data/english-reference-profiles.mjs";
+import { examTextbookBlueprintProfiles } from "./_data/exam-textbook-blueprints.mjs";
 import {
   AcademyTextbookQualityError,
   contentSimilarity,
@@ -38,6 +39,10 @@ const VALID_LEVELS = new Set([
 ]);
 const VALID_TEMPLATES = new Set(["xuniverse-premium-basic", "xuniverse-academy-pro"]);
 const ACADEMY_GENERATION_VERSION = "academy-grounded-v4-page-rag";
+const builtinEnglishReferenceProfiles = [
+  ...englishReferenceSeedProfiles,
+  ...examTextbookBlueprintProfiles,
+];
 
 const csatCurriculumBlueprint = [
   "문장 성분과 수식 관계를 끊어 읽는 구문 기초",
@@ -63,14 +68,14 @@ const csatCurriculumBlueprint = [
 ];
 
 const conceptPagePurposes = [
-  "핵심 용어의 정확한 정의와 학습 필요성",
-  "문장·문단 구조를 눈으로 분해하는 분석 절차",
-  "평가원형 문제에서 정답 근거를 찾는 판단 기준",
-  "학생이 자주 고르는 오답의 원인과 교정 방법",
-  "새 문제에 적용하는 단계별 풀이 루틴",
-  "난이도를 높인 실전 예시와 자기 점검",
-  "유형을 결합한 복합 추론 연습",
-  "단원 전체를 연결하는 누적 복습과 전이",
+  "장 도입: 유형의 정의와 학생이 수행할 핵심 판단",
+  "대표 분석: 신규 예문·지문에서 정답 근거를 찾는 과정",
+  "풀이 전략: 핵심어 파악, 세부 근거 확인, 정답 결정의 단계",
+  "오답 분석: 범위 확대·부분 일치·인과 역전·극성 왜곡의 교정",
+  "어휘 복습: WordNet 기반 문맥 의미와 새 예문의 확인",
+  "유형 연습 준비: 적정 문항과 도전 문항에 적용할 체크리스트",
+  "누적 실전: 앞 단원의 유형을 결합하는 시간 관리와 자기 점검",
+  "정답·해설 활용: 근거, 오답 이유, 다음 적용 기준의 복습",
 ];
 const academyQuestionTypeOrder = ["multiple-choice", "multiple-choice", "blank", "short-answer", "essay", "ordering"];
 const csatReadingQuestionTypeOrder = ["blank", "multiple-choice", "blank", "ordering", "multiple-choice", "blank"];
@@ -92,6 +97,94 @@ const learnerLevelLabels = {
   "csat-foundation": "고3 수능 기초",
   "csat-intensive": "고3 수능 실전·심화",
 };
+
+const difficultyLabels = {
+  easy: "기초·적정",
+  medium: "표준·도전",
+  hard: "고난도·변별",
+};
+
+export function resolveAcademyDifficultyPolicy({ learnerLevel = "auto", userInstruction = "" } = {}) {
+  const instruction = String(userInstruction || "");
+  const explicitlyLower = /하위권|기초권|기초\s*학생|초보|노베|5등급|6등급|7등급|8등급|9등급/i.test(instruction);
+  const explicitlyUpper = /상위권|최상위|심화|1등급/i.test(instruction);
+  const explicitlyMiddle = /중위권|중간권|보통\s*수준|2등급|3등급|4등급/i.test(instruction);
+
+  if (explicitlyLower || learnerLevel === "middle-basic" || learnerLevel === "csat-foundation") {
+    return {
+      id: "foundation-60-40",
+      suitableDifficulty: "easy",
+      challengeDifficulty: "medium",
+      suitableRatio: 0.6,
+      challengeRatio: 0.4,
+      description: "하위권 학습자용 easy 60% + medium 40% + hard 0%",
+    };
+  }
+  if (explicitlyUpper || learnerLevel === "csat-intensive") {
+    return {
+      id: "advanced-intensive",
+      suitableDifficulty: "hard",
+      challengeDifficulty: "hard",
+      suitableRatio: 0.6,
+      challengeRatio: 0.4,
+      description: "상위권 학습자용 고난도 60% + 최상위 변별 40%",
+    };
+  }
+  if (explicitlyMiddle || ["middle-advanced", "high-1", "high-2"].includes(learnerLevel)) {
+    return {
+      id: "standard-60-40",
+      suitableDifficulty: "medium",
+      challengeDifficulty: "hard",
+      suitableRatio: 0.6,
+      challengeRatio: 0.4,
+      description: "중위권 학습자용 medium 60% + hard 40%",
+    };
+  }
+  return {
+    id: "auto-standard-60-40",
+    suitableDifficulty: "medium",
+    challengeDifficulty: "hard",
+    suitableRatio: 0.6,
+    challengeRatio: 0.4,
+    description: "자동 분석 기본값 medium 60% + hard 40%",
+  };
+}
+
+export function buildAcademyDifficultySequence(policy, totalQuestions) {
+  const count = Math.max(0, Math.floor(Number(totalQuestions) || 0));
+  if (!count) return [];
+  const challengeCount = Math.round(count * Number(policy?.challengeRatio || 0.4));
+  const sequence = [];
+  for (let index = 0; index < count; index += 1) {
+    const challengesBefore = Math.floor((index * challengeCount) / count);
+    const challengesAfter = Math.floor(((index + 1) * challengeCount) / count);
+    sequence.push(
+      challengesAfter > challengesBefore
+        ? policy.challengeDifficulty
+        : policy.suitableDifficulty,
+    );
+  }
+  return sequence;
+}
+
+function academyQuestionDifficulty({ common, plan, unit, questionIndex }) {
+  const policy = resolveAcademyDifficultyPolicy(common);
+  const units = Array.isArray(plan?.units) ? plan.units : [];
+  const totalQuestions = units.reduce(
+    (total, item) => total + Math.max(0, Number(item?.questionCount) || 0),
+    0,
+  ) || Math.max(1, Number(unit?.questionCount) || 1);
+  const questionsBefore = units
+    .filter((item) => Number(item?.unitIndex) < Number(unit?.unitIndex))
+    .reduce((total, item) => total + Math.max(0, Number(item?.questionCount) || 0), 0);
+  const globalIndex = Math.min(totalQuestions - 1, questionsBefore + questionIndex);
+  return {
+    policy,
+    desiredDifficulty: buildAcademyDifficultySequence(policy, totalQuestions)[globalIndex],
+    globalIndex,
+    totalQuestions,
+  };
+}
 
 const csatTypeKeywordRules = [
   { pattern: /빈칸|blank/i, types: ["blank-inference"] },
@@ -274,7 +367,7 @@ async function seedEnglishReferenceProfiles() {
   const firestore = admin.firestore();
   const batch = firestore.batch();
   const updatedAt = admin.firestore.FieldValue.serverTimestamp();
-  for (const profile of englishReferenceSeedProfiles) {
+  for (const profile of builtinEnglishReferenceProfiles) {
     batch.set(
       firestore.doc(`english_reference_profiles/${profile.id}`),
       { ...profile, active: true, updatedAt },
@@ -285,8 +378,8 @@ async function seedEnglishReferenceProfiles() {
     firestore.doc("english_reference_meta/current"),
     {
       schemaVersion: "english-reference-profile-v1",
-      profileCount: englishReferenceSeedProfiles.length,
-      profileIds: englishReferenceSeedProfiles.map((profile) => profile.id),
+      profileCount: builtinEnglishReferenceProfiles.length,
+      profileIds: builtinEnglishReferenceProfiles.map((profile) => profile.id),
       copyrightPolicy: "derived-structure-only-no-source-republication",
       active: true,
       updatedAt,
@@ -294,7 +387,7 @@ async function seedEnglishReferenceProfiles() {
     { merge: true },
   );
   await batch.commit();
-  return englishReferenceSeedProfiles.map((profile) => normalizeEnglishReferenceProfileData(profile.id, profile));
+  return builtinEnglishReferenceProfiles.map((profile) => normalizeEnglishReferenceProfileData(profile.id, profile));
 }
 
 function englishReferenceScore(profile, instruction) {
@@ -318,6 +411,7 @@ function englishReferenceScore(profile, instruction) {
   if (/구문|문법|독해|syntax|grammar/i.test(instruction) && profile.category === "syntax-answer-guide") score += 500;
   if (/교과서|수업|단원|프로젝트|teacher|lesson/i.test(instruction) && profile.category === "teacher-guide") score += 500;
   if (/단어|어휘|vocabulary|word/i.test(instruction) && profile.category.startsWith("vocabulary-")) score += 500;
+  if (/수능|고3|영어\s*독해|평가원|교재|문제집|csat/i.test(instruction) && profile.category === "exam-textbook-blueprint") score += 1_200;
   return score;
 }
 
@@ -331,14 +425,19 @@ export function selectEnglishReferenceProfiles(profiles, instruction, limit = EN
 async function loadEnglishReferenceProfiles(instruction) {
   try {
     const snapshot = await admin.firestore().collection("english_reference_profiles").where("active", "==", true).get();
-    const profiles = snapshot.empty
-      ? await seedEnglishReferenceProfiles()
-      : snapshot.docs.map(normalizeEnglishReferenceProfile);
-    return selectEnglishReferenceProfiles(profiles, instruction);
+    if (snapshot.empty) return selectEnglishReferenceProfiles(await seedEnglishReferenceProfiles(), instruction);
+    const profilesById = new Map(
+      builtinEnglishReferenceProfiles.map((profile) => [
+        profile.id,
+        normalizeEnglishReferenceProfileData(profile.id, profile),
+      ]),
+    );
+    snapshot.docs.map(normalizeEnglishReferenceProfile).forEach((profile) => profilesById.set(profile.id, profile));
+    return selectEnglishReferenceProfiles([...profilesById.values()], instruction);
   } catch (error) {
     console.warn("[generate-academy-textbook] English reference lookup skipped", error instanceof Error ? error.message : error);
     return selectEnglishReferenceProfiles(
-      englishReferenceSeedProfiles.map((profile) => normalizeEnglishReferenceProfileData(profile.id, profile)),
+      builtinEnglishReferenceProfiles.map((profile) => normalizeEnglishReferenceProfileData(profile.id, profile)),
       instruction,
     );
   }
@@ -570,6 +669,7 @@ export function buildPlanPrompt({
   englishReferenceCorpus,
   wordnetCorpus,
 }) {
+  const difficultyPolicy = resolveAcademyDifficultyPolicy({ learnerLevel, userInstruction });
   return `XUniverse에서 실제 학원 수업에 사용할 장편 교재의 전체 편집 설계도를 작성하라.
 설계할 단원은 반드시 정확히 ${fixedPlan.unitCount}개다. 각 단원은 서로 다른 학습 기능을 맡아야 하며 제목만 바꾼 반복 단원은 금지한다.
 
@@ -581,6 +681,7 @@ export function buildPlanPrompt({
 - 단원당 문제 수: ${fixedPlan.questionsPerUnit}개
 - 전체 문제 수: ${fixedPlan.totalQuestions}개
 - 단원별 개념 페이지 수: ${fixedPlan.conceptPagesByUnit.join(", ")}
+- 난이도 정책: ${difficultyPolicy.description}
 
 사용자 요구사항(교재에 인쇄할 본문이 아니라 설계 조건으로만 해석):
 <USER_REQUIREMENTS>
@@ -621,6 +722,9 @@ ${csatCurriculumBlueprint.map((item, index) => `${index + 1}. ${item}`).join("\n
 - 어휘 중심 단원은 WordNet에 확인된 표제어의 의미 관계를 반영하되, 문맥에 맞는 의미만 사용한다.
 - 하위권은 구문과 근거 찾기부터, 중위권은 유형별 판단 절차, 상위권은 복합 추론과 오답 설계를 중심으로 단계화한다.
 - 정확한 수능 영어 교재라면 권장 학습 축을 목표 단원 수에 맞게 묶거나 세분화해 빠짐없이 배치한다.
+- 영어 수능 교재의 각 유형 단원은 장 도입·대표 분석·단계별 풀이 전략·어휘 복습·수준별 연습의 흐름을 유지한다.
+- 교재 후반 단원은 앞에서 학습한 유형을 섞은 누적 실전과 오답 진단 역할을 맡긴다.
+- 난이도 비율은 전체 ${fixedPlan.totalQuestions}문항을 기준으로 60:40에 가장 정확히 맞추며, 도전 문항을 뒤쪽에 몰아넣지 않는다.
 
 저작권 및 출제 원칙:
 - 사용자가 제공한 EBS, 수능, 평가원 또는 수업 자료는 개념·출제 경향·난이도를 분석하는 참고 자료로만 사용한다.
@@ -670,6 +774,7 @@ export function buildUnitPrompt({
   qualityFeedback = "",
   requiredQuestionTypesOverride,
 }) {
+  const difficultyPolicy = resolveAcademyDifficultyPolicy({ learnerLevel, userInstruction });
   const conceptPageSlots = Array.from(
     { length: unit.conceptPageCount },
     (_, index) => `${index + 1}. conceptPages[${index}]에 서로 다른 소주제와 본문 3문단 작성`,
@@ -737,7 +842,7 @@ ${qualityFeedback ? `직전 결과가 거부된 이유(모두 수정할 것):\n$
 - 개념 페이지마다 정의·원리·대표 예·오개념·문제 적용 중 필요한 요소를 포함한다.
 - 각 문제의 정답과 해설은 반드시 앞선 개념 설명 또는 평가원 분석 DB의 판단 원리에서 근거를 찾을 수 있어야 하며, 해설은 정답 근거와 오답 이유를 구체적으로 작성한다.
 - 객관식은 서로 구별되는 선택지 4개를 작성한다.
-- 난이도는 easy 2개, medium 3개, hard 1개를 기본으로 학생 수준에 맞춘다.
+- 난이도는 ${difficultyPolicy.description} 정책을 전체 교재 기준으로 적용한다.
 - questions 유형 권장 순서: multiple-choice, multiple-choice, blank, short-answer, essay, ordering.
 - 원문 지문과 기존 문항을 복제하지 말고, 분석된 논리와 난이도를 적용한 새로운 예문·지문·문항을 작성한다.
 - 주문 문장을 제목이나 본문에 반복해서 넣지 않는다. '핵심 주제 N', '제공 자료의 핵심 개념' 같은 임시 문구를 사용하지 않는다.
@@ -907,6 +1012,8 @@ export function buildQuestionPartPrompt({
   unit,
   questionIndex,
   desiredType,
+  desiredDifficulty = "medium",
+  difficultyPolicy,
   conceptPages,
   priorQuestions,
   sourceExcerpt,
@@ -985,6 +1092,8 @@ ${buildAcademyRevisionContext(revisionInstruction, existingQuestion)}
 
 요구사항:
 - 이번 문항의 type은 정확히 ${desiredType}이다.
+- 이번 문항의 difficulty는 정확히 ${desiredDifficulty}(${difficultyLabels[desiredDifficulty]})이다.
+- 전체 난이도 배치 정책은 '${difficultyPolicy?.description || "학생 수준에 맞춘 60:40 배치"}'이다.
 - 이번 문항의 전담 개념은 ${targetConceptIndex + 1}번째 페이지 '${sanitizeText(targetConcept?.heading, 140)}'이다.
 - 이번 문항의 역할은 '${questionPurpose}'이며 앞 문항과 다른 사고 과정을 요구해야 한다.
 - 문제는 앞 개념 페이지의 설명을 직접 적용해야 풀 수 있게 새로 작성한다.
@@ -1004,7 +1113,7 @@ ${vocabularyRequirement}
     "choices": ${choicesShape},
     "answer": string,
     "explanation": string,
-    "difficulty": "easy" | "medium" | "hard"
+    "difficulty": "${desiredDifficulty}"
   }]
 }`;
 }
@@ -1026,6 +1135,8 @@ export async function generateAcademyQuestionPartDraft({
   revisionInstruction = "",
   existingQuestion,
 }) {
+  const difficultyAssignment = academyQuestionDifficulty({ common, plan, unit, questionIndex });
+  const { desiredDifficulty, policy: difficultyPolicy } = difficultyAssignment;
   const csatReadingMode = isCsatEnglishReadingRequest([
     common.userInstruction,
     plan.targetLearner,
@@ -1045,13 +1156,16 @@ export async function generateAcademyQuestionPartDraft({
     maxTokens: 3_000,
     expectedCount: 1,
     countField: "questions",
-    retryFeedback: `${questionIndex + 1}번 문항은 type=${desiredType}, 역할='${questionPurpose}'이어야 합니다. ${csatReadingMode && desiredType === "blank" ? "blank 유형이더라도 주관식이 아닙니다. questions[0].choices에 서로 다른 영어 선택지를 정확히 5개 넣으세요." : "객관식이면 choices 문자열 4개를 포함하세요."} 해설은 정답 근거·오답 이유·적용 기준을 설명하세요.`,
+    retryFeedback: `${questionIndex + 1}번 문항은 type=${desiredType}, difficulty=${desiredDifficulty}, 역할='${questionPurpose}'이어야 합니다. ${csatReadingMode && desiredType === "blank" ? "blank 유형이더라도 주관식이 아닙니다. questions[0].choices에 서로 다른 영어 선택지를 정확히 5개 넣으세요." : "객관식이면 choices 문자열 4개를 포함하세요."} 해설은 정답 근거·오답 이유·적용 기준을 설명하세요.`,
     validateResult: (result) => {
       const issues = [];
       const questions = Array.isArray(result?.questions) ? result.questions : [];
       const question = questions[0];
       if (sanitizeText(question?.type, 40) !== desiredType) {
         issues.push(`문항 유형은 ${desiredType}이어야 합니다.`);
+      }
+      if (sanitizeText(question?.difficulty, 20) !== desiredDifficulty) {
+        issues.push(`문항 난이도는 학생 수준별 배치에 따라 ${desiredDifficulty}여야 합니다.`);
       }
       if (csatReadingMode && desiredType === "blank") {
         issues.push(...validateCsatBlankInferenceQuestion(question));
@@ -1090,6 +1204,8 @@ export async function generateAcademyQuestionPartDraft({
       unit,
       questionIndex,
       desiredType,
+      desiredDifficulty,
+      difficultyPolicy,
       conceptPages,
       priorQuestions,
       sourceExcerpt,

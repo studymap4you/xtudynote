@@ -8,12 +8,16 @@ import {
   validateCsatBlankInferenceQuestion,
 } from "../api/_lib/academy-textbook-quality.mjs";
 import {
+  buildAcademyDifficultySequence,
   buildAcademyRevisionContext,
   buildUnitPrompt,
   isCsatEnglishReadingRequest,
+  resolveAcademyDifficultyPolicy,
   selectCsatReferencePatterns,
+  selectEnglishReferenceProfiles,
   spliceAcademyRevisionParts,
 } from "../api/generate-academy-textbook.mjs";
+import { examTextbookBlueprintProfiles } from "../api/_data/exam-textbook-blueprints.mjs";
 
 const fixedPlan = {
   unitCount: 2,
@@ -245,4 +249,43 @@ test("keeps revision feedback as an instruction and replaces only the selected s
   assert.equal(questionPatched.conceptPages[1], conceptPages[1]);
   assert.equal(questionPatched.questions[0], questions[0]);
   assert.equal(questionPatched.questions[1], revisedQuestion);
+});
+
+test("enforces the lower-level 60:40 difficulty mix without hard questions", () => {
+  const policy = resolveAcademyDifficultyPolicy({
+    learnerLevel: "auto",
+    userInstruction: "고3 하위권 학생을 위한 수능 영어 독해 교재",
+  });
+  const sequence = buildAcademyDifficultySequence(policy, 30);
+  assert.equal(sequence.filter((difficulty) => difficulty === "easy").length, 18);
+  assert.equal(sequence.filter((difficulty) => difficulty === "medium").length, 12);
+  assert.equal(sequence.filter((difficulty) => difficulty === "hard").length, 0);
+  assert.ok(sequence.slice(0, 10).includes("easy"));
+  assert.ok(sequence.slice(0, 10).includes("medium"));
+});
+
+test("enforces the middle-level 60:40 mix and prioritizes the two exam blueprints", () => {
+  const policy = resolveAcademyDifficultyPolicy({
+    learnerLevel: "auto",
+    userInstruction: "고등학교 3학년 중위권 학생용 수능 영어 문제집",
+  });
+  const sequence = buildAcademyDifficultySequence(policy, 30);
+  assert.equal(sequence.filter((difficulty) => difficulty === "medium").length, 18);
+  assert.equal(sequence.filter((difficulty) => difficulty === "hard").length, 12);
+
+  const selected = selectEnglishReferenceProfiles(
+    [
+      ...examTextbookBlueprintProfiles,
+      {
+        ...examTextbookBlueprintProfiles[0],
+        id: "generic-syntax",
+        title: "일반 구문 자료",
+        category: "syntax-answer-guide",
+        keywords: ["구문"],
+      },
+    ],
+    "고3 중위권 수능 영어 독해 교재를 만들어줘",
+    2,
+  );
+  assert.deepEqual(selected.map((profile) => profile.id).sort(), examTextbookBlueprintProfiles.map((profile) => profile.id).sort());
 });

@@ -11,6 +11,7 @@
     "test:textbook-quality": "node --test scripts/test-academy-textbook-quality.mjs",
     "test:academy-live": "node scripts/smoke-test-academy-generation.mjs",
     "test:textbook-provider": "node --test scripts/test-textbook-ai-provider.mjs",
+    "import:exam-blueprints": "node scripts/import-exam-textbook-blueprints.mjs --import --publish-library --verify",
     "test:wordnet": "node --test scripts/test-wordnet-lexicon.mjs",
     "test:wordnet-live": "node scripts/smoke-test-wordnet.mjs"
   },
