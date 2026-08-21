@@ -422,6 +422,97 @@ function stripUndefined(value) {
   return value;
 }
 
+function normalizeRevisionTarget(value) {
+  const unitIndex = Number(value?.unitIndex);
+  const partIndex = Number(value?.partIndex);
+  const partType = value?.partType === "concept" || value?.partType === "question" ? value.partType : "";
+  if (!Number.isInteger(unitIndex) || unitIndex < 0 || !Number.isInteger(partIndex) || partIndex < 0 || !partType) {
+    return null;
+  }
+  return {
+    unitIndex,
+    partType,
+    partIndex,
+    label: sanitizeText(value?.label, 180) || `${unitIndex + 1}단원 ${partType === "concept" ? "개념 페이지" : "문항"} ${partIndex + 1}`,
+  };
+}
+
+function normalizeChatMessages(value, fallbackInstruction = "") {
+  const messages = Array.isArray(value)
+    ? value
+        .map((message) => {
+          const role = message?.role === "user" || message?.role === "assistant" ? message.role : "";
+          const kind = ["instruction", "status", "feedback", "revision"].includes(message?.kind) ? message.kind : "";
+          const content = sanitizeText(message?.content, 8_000);
+          if (!role || !kind || !content) return null;
+          const target = normalizeRevisionTarget(message?.target);
+          return {
+            id: sanitizeText(message?.id, 120) || `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            role,
+            kind,
+            content,
+            createdAt: sanitizeText(message?.createdAt, 40) || new Date().toISOString(),
+            ...(target ? { target } : {}),
+          };
+        })
+        .filter(Boolean)
+        .slice(-80)
+    : [];
+  if (messages.length || !fallbackInstruction) return messages;
+  return [{
+    id: `instruction-${Date.now()}`,
+    role: "user",
+    kind: "instruction",
+    content: sanitizeText(fallbackInstruction, 8_000),
+    createdAt: new Date().toISOString(),
+  }];
+}
+
+function chatMessage(role, kind, content, target) {
+  return {
+    id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    role,
+    kind,
+    content: sanitizeText(content, 8_000),
+    createdAt: new Date().toISOString(),
+    ...(target ? { target } : {}),
+  };
+}
+
+export function buildAcademyRevisionContext(feedback, existingPart) {
+  const cleanFeedback = sanitizeText(feedback, 4_000);
+  if (!cleanFeedback) return "";
+  return `부분 수정 작업:
+- 아래 피드백은 수정 지시이며 교재 본문에 그대로 인쇄하지 않는다.
+- 지정된 조각 하나만 다시 작성하고, 다른 페이지나 문항의 내용과 범위는 변경하지 않는다.
+- 기존 조각의 장점과 근거는 유지하되 피드백에서 지적한 부분만 정확히 고친다.
+
+사용자 피드백:
+<REVISION_FEEDBACK>
+${cleanFeedback}
+</REVISION_FEEDBACK>
+
+교체할 기존 조각:
+<EXISTING_PART>
+${sanitizeText(JSON.stringify(existingPart ?? {}), 12_000)}
+</EXISTING_PART>`;
+}
+
+export function spliceAcademyRevisionParts({ conceptPages, questions, target, revisedPart }) {
+  const nextConceptPages = [...conceptPages];
+  const nextQuestions = [...questions];
+  if (target.partType === "concept") {
+    if (!nextConceptPages[target.partIndex]) throw new Error("academy-revision-target-not-found");
+    nextConceptPages[target.partIndex] = revisedPart;
+  } else if (target.partType === "question") {
+    if (!nextQuestions[target.partIndex]) throw new Error("academy-revision-target-not-found");
+    nextQuestions[target.partIndex] = revisedPart;
+  } else {
+    throw new Error("academy-revision-target-not-found");
+  }
+  return { conceptPages: nextConceptPages, questions: nextQuestions };
+}
+
 export function pageRules(templateId) {
   return templateId === "xuniverse-academy-pro"
     ? { questionsPerPage: 3, answersPerPage: 7 }
@@ -755,6 +846,8 @@ export async function generateAcademyConceptPageDraft({
   englishReferenceCorpus,
   wordnetCorpus,
   previousContentSignatures,
+  revisionInstruction = "",
+  existingConceptPage,
 }) {
   const conceptPages = Array.isArray(priorConceptPages) ? priorConceptPages : [];
   const conciseCsatCorpus = sanitizeText(csatCorpus, 2_000);
@@ -796,7 +889,10 @@ export async function generateAcademyConceptPageDraft({
       englishReferenceCorpus: conciseEnglishReferenceCorpus,
       wordnetCorpus: sanitizeText(wordnetCorpus, 3_000),
       previousContentSignatures: [...previousContentSignatures.slice(-30), ...priorBatchSignatures],
-      qualityFeedback: `전체 단원의 ${pageIndex + 1}번째 개념 페이지만 작성하고 questions는 빈 배열로 반환한다. 역할: ${pageAssignment}. 이미 사용한 제목과 예시를 반복하지 않는다. 이미 사용한 제목: ${priorHeadings.join(" / ") || "없음"}`,
+      qualityFeedback: [
+        `전체 단원의 ${pageIndex + 1}번째 개념 페이지만 작성하고 questions는 빈 배열로 반환한다. 역할: ${pageAssignment}. 이미 사용한 제목과 예시를 반복하지 않는다. 이미 사용한 제목: ${priorHeadings.join(" / ") || "없음"}`,
+        buildAcademyRevisionContext(revisionInstruction, existingConceptPage),
+      ].filter(Boolean).join("\n\n"),
     }),
   });
   return normalizeAndValidateAcademyConceptPage(
@@ -805,7 +901,7 @@ export async function generateAcademyConceptPageDraft({
   );
 }
 
-function buildQuestionPartPrompt({
+export function buildQuestionPartPrompt({
   common,
   plan,
   unit,
@@ -818,6 +914,8 @@ function buildQuestionPartPrompt({
   englishReferenceCorpus,
   wordnetCorpus,
   wordnetEntries,
+  revisionInstruction = "",
+  existingQuestion,
 }) {
   const conceptOutline = conceptPages.map((page, index) => [
     `${index + 1}. ${sanitizeText(page?.heading, 140)}`,
@@ -848,7 +946,9 @@ function buildQuestionPartPrompt({
       ? "- 이 문항은 평가원 독해 스타일의 새로운 영어 지문과 글 내부 근거를 사용한다. 사용자 주문 문장을 지문 소재로 쓰지 않는다."
       : "";
   const availableWordNetEntries = (Array.isArray(wordnetEntries) ? wordnetEntries : []).filter((entry) => entry?.synsets?.length);
-  const vocabularyTargetCount = questionIndex === 0 ? Math.min(5, availableWordNetEntries.length) : 0;
+  const vocabularyTargetCount = questionIndex === 0 && !revisionInstruction
+    ? Math.min(5, availableWordNetEntries.length)
+    : 0;
   const vocabularyRequirement = vocabularyTargetCount > 0
     ? `- keyVocabulary를 정확히 ${vocabularyTargetCount}개 작성한다. term은 아래 WordNet 표제어 중 하나를 철자까지 그대로 사용하고, senseId는 선택한 의미 ID를 사용한다. meaning은 해당 영영 정의의 정확한 한국어 풀이, example은 그 의미로 새로 만든 영어 문장이어야 한다.`
     : "- keyVocabulary는 빈 배열로 반환한다.";
@@ -880,6 +980,8 @@ ${sanitizeText(sourceExcerpt, 2_000) || "없음"}
 
 앞서 만든 문항(소재·질문·정답 근거 반복 금지):
 ${previous}
+
+${buildAcademyRevisionContext(revisionInstruction, existingQuestion)}
 
 요구사항:
 - 이번 문항의 type은 정확히 ${desiredType}이다.
@@ -921,6 +1023,8 @@ export async function generateAcademyQuestionPartDraft({
   wordnetCorpus,
   wordnetEntries,
   previousContentSignatures,
+  revisionInstruction = "",
+  existingQuestion,
 }) {
   const csatReadingMode = isCsatEnglishReadingRequest([
     common.userInstruction,
@@ -952,7 +1056,7 @@ export async function generateAcademyQuestionPartDraft({
       if (csatReadingMode && desiredType === "blank") {
         issues.push(...validateCsatBlankInferenceQuestion(question));
       }
-      if (questionIndex === 0 && Array.isArray(wordnetEntries) && wordnetEntries.length > 0) {
+      if (questionIndex === 0 && !revisionInstruction && Array.isArray(wordnetEntries) && wordnetEntries.length > 0) {
         const expectedVocabularyCount = Math.min(5, wordnetEntries.length);
         const groundedVocabulary = normalizeGroundedVocabulary(result?.keyVocabulary, wordnetEntries, expectedVocabularyCount);
         if (groundedVocabulary.length !== expectedVocabularyCount) {
@@ -993,6 +1097,8 @@ export async function generateAcademyQuestionPartDraft({
       englishReferenceCorpus,
       wordnetCorpus,
       wordnetEntries,
+      revisionInstruction,
+      existingQuestion,
     }),
   });
   const normalized = normalizeAndValidateAcademyUnit(
@@ -1207,6 +1313,14 @@ export default async function handler(req, res) {
         model: sanitizeText(planProviderMeta?.model, 120) || model,
         source: planProviderMeta?.kind || provider.kind,
       };
+      const chatMessages = [
+        chatMessage("user", "instruction", common.userInstruction),
+        chatMessage(
+          "assistant",
+          "status",
+          `${plan.title}의 제작 조건을 저장했습니다. ${plan.targetPages}쪽 설계에 따라 페이지와 문항을 하나씩 생성합니다.`,
+        ),
+      ];
       await admin.firestore().doc(`academy_textbook_jobs/${plan.id}`).set({
         generationVersion: ACADEMY_GENERATION_VERSION,
         ownerUid: authUser.uid,
@@ -1230,6 +1344,8 @@ export default async function handler(req, res) {
         wordnetReferenceLemmas: wordnetEntries.map((entry) => entry.resolvedLemma),
         wordnetEntries,
         wordnetCorpus,
+        chatMessages,
+        revisionCount: 0,
         completedUnitIndexes: [],
         model: meta.model,
         source: meta.source,
@@ -1238,6 +1354,7 @@ export default async function handler(req, res) {
       });
       res.status(200).json({
         plan,
+        chatMessages,
         meta: {
           ...meta,
           generationVersion: ACADEMY_GENERATION_VERSION,
@@ -1252,7 +1369,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    if (["unit", "unit-concept", "unit-question", "unit-finalize"].includes(action)) {
+    if (["unit", "unit-concept", "unit-question", "unit-finalize", "revise-part"].includes(action)) {
       const requestedPlan = body.plan;
       const requestedUnit = body.unit;
       if (!requestedPlan?.id || !requestedUnit) {
@@ -1287,7 +1404,8 @@ export default async function handler(req, res) {
         conceptPageCount: Math.min(Math.max(Number(persistedUnit.conceptPageCount) || 5, 3), 8),
         questionCount: Math.min(Math.max(Number(persistedUnit.questionCount) || 6, 4), 10),
       };
-      const partIndexForGrounding = Number.isInteger(Number(body.partIndex)) ? Number(body.partIndex) : 0;
+      const requestedRevisionTarget = action === "revise-part" ? normalizeRevisionTarget(body.revisionTarget) : null;
+      const partIndexForGrounding = requestedRevisionTarget?.partIndex ?? (Number.isInteger(Number(body.partIndex)) ? Number(body.partIndex) : 0);
       const groundingQuery = groundingQueryForAction(action, partIndexForGrounding, {
         ...common,
         userInstruction: sanitizeText(jobData?.userInstruction, 8_000) || common.userInstruction,
@@ -1354,6 +1472,204 @@ export default async function handler(req, res) {
         englishReferenceCount: Array.isArray(jobData?.englishReferenceIds) ? jobData.englishReferenceIds.length : 0,
         wordnetReferenceCount: wordnetEntries.length,
       };
+
+      if (action === "revise-part") {
+        const feedback = sanitizeText(body.feedback, 4_000);
+        const target = requestedRevisionTarget;
+        if (!feedback) {
+          res.status(400).json({ error: "수정할 내용을 구체적으로 입력해주세요." });
+          return;
+        }
+        if (!target || target.unitIndex !== normalizedUnitPlan.unitIndex) {
+          res.status(400).json({ error: "수정할 교재 위치가 올바르지 않습니다." });
+          return;
+        }
+        const partLimit = target.partType === "concept"
+          ? normalizedUnitPlan.conceptPageCount
+          : normalizedUnitPlan.questionCount;
+        if (target.partIndex >= partLimit) {
+          res.status(400).json({ error: "수정할 페이지 또는 문항 번호가 범위를 벗어났습니다." });
+          return;
+        }
+
+        const conceptRefs = Array.from(
+          { length: normalizedUnitPlan.conceptPageCount },
+          (_, index) => unitRef.collection("parts").doc(`concept-${index}`),
+        );
+        const questionRefs = Array.from(
+          { length: normalizedUnitPlan.questionCount },
+          (_, index) => unitRef.collection("parts").doc(`question-${index}`),
+        );
+        const [conceptSnapshots, questionSnapshots] = await Promise.all([
+          admin.firestore().getAll(...conceptRefs),
+          admin.firestore().getAll(...questionRefs),
+        ]);
+        let conceptPages = conceptSnapshots.map((snapshot) => snapshot.data()?.conceptPage);
+        let questions = questionSnapshots.map((snapshot) => snapshot.data()?.question);
+        if (conceptPages.some((page) => !page) || questions.some((question) => !question)) {
+          res.status(409).json({ error: "교재 초안이 모두 완성된 뒤 부분 수정을 요청해주세요." });
+          return;
+        }
+
+        const targetRef = target.partType === "concept"
+          ? conceptRefs[target.partIndex]
+          : questionRefs[target.partIndex];
+        const targetSnapshot = target.partType === "concept"
+          ? conceptSnapshots[target.partIndex]
+          : questionSnapshots[target.partIndex];
+        const existingPart = target.partType === "concept"
+          ? targetSnapshot.data()?.conceptPage
+          : targetSnapshot.data()?.question;
+        const otherPartSignatures = [
+          ...conceptPages.flatMap((page, index) => index === target.partIndex && target.partType === "concept"
+            ? []
+            : page.bodyParagraphs.map((paragraph) => `concept:${sanitizeText(paragraph, 700)}`)),
+          ...questions.flatMap((question, index) => index === target.partIndex && target.partType === "question"
+            ? []
+            : [`question:${sanitizeText(question.question, 700)}`]),
+        ];
+        const revisionSignatures = [...previousContentSignatures, ...otherPartSignatures].slice(-200);
+        let revisedPart;
+
+        if (target.partType === "concept") {
+          revisedPart = await generateAcademyConceptPageDraft({
+            provider,
+            common: {
+              ...common,
+              userInstruction: sanitizeText(jobData?.userInstruction, 8_000) || common.userInstruction,
+              learnerLevel: VALID_LEVELS.has(jobData?.learnerLevel) ? jobData.learnerLevel : common.learnerLevel,
+            },
+            plan,
+            unit: normalizedUnitPlan,
+            pageIndex: target.partIndex,
+            priorConceptPages: conceptPages.slice(0, target.partIndex),
+            sourceExcerpt,
+            csatCorpus,
+            englishReferenceCorpus,
+            wordnetCorpus,
+            previousContentSignatures: revisionSignatures,
+            revisionInstruction: feedback,
+            existingConceptPage: existingPart,
+          });
+        } else {
+          const revised = await generateAcademyQuestionPartDraft({
+            provider,
+            common: {
+              ...common,
+              userInstruction: sanitizeText(jobData?.userInstruction, 8_000) || common.userInstruction,
+              learnerLevel: VALID_LEVELS.has(jobData?.learnerLevel) ? jobData.learnerLevel : common.learnerLevel,
+            },
+            plan,
+            unit: normalizedUnitPlan,
+            questionIndex: target.partIndex,
+            conceptPages,
+            priorQuestions: questions.slice(0, target.partIndex),
+            sourceExcerpt,
+            csatCorpus,
+            englishReferenceCorpus,
+            wordnetCorpus,
+            wordnetEntries,
+            previousContentSignatures: revisionSignatures,
+            revisionInstruction: feedback,
+            existingQuestion: existingPart,
+          });
+          revisedPart = revised.question;
+        }
+
+        ({ conceptPages, questions } = spliceAcademyRevisionParts({
+          conceptPages,
+          questions,
+          target,
+          revisedPart,
+        }));
+
+        const existingMetadata = questionSnapshots[0]?.data()?.metadata || {};
+        const unitMetadata = existingMetadata;
+        const rawUnit = {
+          ...unitMetadata,
+          unitTitle: sanitizeText(unitMetadata?.unitTitle, 140) || normalizedUnitPlan.title,
+          unitSubtitle: sanitizeText(unitMetadata?.unitSubtitle, 180) || normalizedUnitPlan.subtitle,
+          learningGoals: Array.isArray(unitMetadata?.learningGoals)
+            ? unitMetadata.learningGoals
+            : normalizedUnitPlan.learningObjectives,
+          conceptSummary: sanitizeText(
+            conceptPages.map((page) => `${page.heading}: ${page.keyTakeaway || page.bodyParagraphs?.[0] || ""}`).join(" "),
+            3_000,
+          ),
+          conceptPages,
+          questions,
+        };
+        const persistedInstruction = sanitizeText(jobData?.userInstruction, 8_000) || common.userInstruction;
+        const generatedUnit = normalizeAndValidateAcademyUnit(
+          rawUnit,
+          normalizedUnitPlan,
+          previousContentSignatures,
+          {
+            userInstruction: persistedInstruction,
+            requireCsatReading: isCsatEnglishReadingRequest([
+              persistedInstruction,
+              plan.targetLearner,
+              normalizedUnitPlan.title,
+              ...normalizedUnitPlan.sourceFocus,
+            ].join(" ")),
+          },
+        );
+        const revisionCount = (Number(jobData?.revisionCount) || 0) + 1;
+        const existingMessages = normalizeChatMessages(jobData?.chatMessages, persistedInstruction);
+        const chatMessages = [
+          ...existingMessages,
+          chatMessage("user", "feedback", feedback, target),
+          chatMessage(
+            "assistant",
+            "revision",
+            `${target.label}만 다시 생성해 기존 위치에 교체했습니다. 선택하지 않은 페이지와 문항은 그대로 유지했습니다.`,
+            target,
+          ),
+        ].slice(-80);
+        const revisionRef = unitRef.collection("revisions").doc(`revision-${revisionCount}-${Date.now()}`);
+        const batch = admin.firestore().batch();
+        batch.set(targetRef, {
+          generationVersion: ACADEMY_GENERATION_VERSION,
+          ...(target.partType === "concept"
+            ? { pageIndex: target.partIndex, conceptPage: stripUndefined(revisedPart) }
+            : {
+                questionIndex: target.partIndex,
+                question: stripUndefined(revisedPart),
+              }),
+          model: meta.model,
+          source: meta.source,
+          grounding: partGrounding,
+          revisionCount,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        batch.set(revisionRef, {
+          revisionCount,
+          target,
+          feedback,
+          previousPart: stripUndefined(existingPart),
+          revisedPart: stripUndefined(revisedPart),
+          grounding: partGrounding,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        batch.set(unitRef, {
+          generationVersion: ACADEMY_GENERATION_VERSION,
+          unitIndex: normalizedUnitPlan.unitIndex,
+          unit: stripUndefined(generatedUnit),
+          model: meta.model,
+          source: meta.source,
+          revisionCount,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        batch.update(jobRef, {
+          status: "completed",
+          chatMessages,
+          revisionCount,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        await batch.commit();
+        res.status(200).json({ unit: generatedUnit, target, chatMessages, revisionCount, meta });
+        return;
+      }
 
       if (action === "unit-concept") {
         const pageIndex = Number(body.partIndex);
@@ -1494,6 +1810,7 @@ export default async function handler(req, res) {
       ) {
         res.status(200).json({
           unit: cached.unit,
+          chatMessages: normalizeChatMessages(jobData?.chatMessages, jobData?.userInstruction),
           meta: {
             model: sanitizeText(cached?.model, 120) || model,
             source: ["nvidia", "openai", "mock"].includes(cached?.source) ? cached.source : provider.kind,
@@ -1549,6 +1866,18 @@ export default async function handler(req, res) {
           ].join(" ")),
         },
       );
+      const jobCompleted = normalizedUnitPlan.unitIndex + 1 >= Number(plan.unitCount);
+      let chatMessages = normalizeChatMessages(jobData?.chatMessages, persistedInstruction);
+      if (jobCompleted && !chatMessages.some((message) => message.kind === "status" && message.content.includes("초안이 완성"))) {
+        chatMessages = [
+          ...chatMessages,
+          chatMessage(
+            "assistant",
+            "status",
+            `${plan.title} 초안이 완성되었습니다. 미리보기에서 개념 페이지나 문항을 선택해 피드백을 남기면 그 조각만 교체합니다.`,
+          ),
+        ].slice(-80);
+      }
       await unitRef.set({
         generationVersion: ACADEMY_GENERATION_VERSION,
         unitIndex: normalizedUnitPlan.unitIndex,
@@ -1558,11 +1887,12 @@ export default async function handler(req, res) {
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
       await jobRef.update({
-        status: normalizedUnitPlan.unitIndex + 1 >= Number(plan.unitCount) ? "completed" : "generating",
+        status: jobCompleted ? "completed" : "generating",
+        chatMessages,
         completedUnitIndexes: admin.firestore.FieldValue.arrayUnion(normalizedUnitPlan.unitIndex),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      res.status(200).json({ unit: generatedUnit, meta });
+      res.status(200).json({ unit: generatedUnit, chatMessages, meta });
       return;
     }
 

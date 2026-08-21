@@ -1,5 +1,7 @@
 import type {
   AcademyTextbookPlan,
+  AcademyTextbookChatMessage,
+  AcademyTextbookRevisionTarget,
   CreateAcademyTextbookPlanParams,
   GenerateAcademyTextbookUnitParams,
 } from "@/types/academyTextbook";
@@ -18,10 +20,20 @@ type ApiMeta = {
 type PlanResponse = {
   plan: AcademyTextbookPlan;
   meta: ApiMeta;
+  chatMessages?: AcademyTextbookChatMessage[];
 };
 
 type UnitResponse = {
   unit: PremiumTextbookUnit;
+  meta: ApiMeta;
+  chatMessages?: AcademyTextbookChatMessage[];
+};
+
+type RevisionResponse = {
+  unit: PremiumTextbookUnit;
+  target: AcademyTextbookRevisionTarget;
+  chatMessages: AcademyTextbookChatMessage[];
+  revisionCount: number;
   meta: ApiMeta;
 };
 
@@ -149,6 +161,24 @@ export async function generateAcademyTextbookUnit(
   }
   options.onProgress?.({ completed, total, label: `${params.unit.unitIndex + 1}단원 조각을 합치고 품질 검수 중` });
   return postAcademyRequest<UnitResponse>({ action: "unit-finalize", ...params }, signal);
+}
+
+export function reviseAcademyTextbookPart(
+  params: GenerateAcademyTextbookUnitParams,
+  target: AcademyTextbookRevisionTarget,
+  feedback: string,
+  signal?: AbortSignal,
+): Promise<RevisionResponse> {
+  return postAcademyRequest<RevisionResponse>(
+    {
+      action: "revise-part",
+      partIndex: target.partIndex,
+      revisionTarget: target,
+      feedback,
+      ...params,
+    },
+    signal,
+  );
 }
 
 function keywordsForUnit(unit: GenerateAcademyTextbookUnitParams["unit"]): string[] {

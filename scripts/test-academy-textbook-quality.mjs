@@ -8,9 +8,11 @@ import {
   validateCsatBlankInferenceQuestion,
 } from "../api/_lib/academy-textbook-quality.mjs";
 import {
+  buildAcademyRevisionContext,
   buildUnitPrompt,
   isCsatEnglishReadingRequest,
   selectCsatReferencePatterns,
+  spliceAcademyRevisionParts,
 } from "../api/generate-academy-textbook.mjs";
 
 const fixedPlan = {
@@ -208,4 +210,39 @@ test("accepts only long five-choice CSAT blank-inference questions", () => {
   };
   assert.deepEqual(validateCsatBlankInferenceQuestion(valid), []);
   assert.ok(validateCsatBlankInferenceQuestion({ ...valid, question: "Short __________ passage", choices: valid.choices.slice(0, 4) }).length >= 2);
+});
+
+test("keeps revision feedback as an instruction and replaces only the selected slice", () => {
+  const existingConcept = { heading: "기존 개념", bodyParagraphs: ["기존 설명"], keyTakeaway: "기존 정리" };
+  const revisedConcept = { heading: "수정 개념", bodyParagraphs: ["수정 설명"], keyTakeaway: "수정 정리" };
+  const conceptPages = [existingConcept, { heading: "유지할 개념" }];
+  const questions = [{ question: "유지할 첫 문항" }, { question: "유지할 두 번째 문항" }];
+  const feedback = "설명을 더 쉽게 바꾸되 다른 페이지는 그대로 둬";
+  const context = buildAcademyRevisionContext(feedback, existingConcept);
+  assert.match(context, /지정된 조각 하나만 다시 작성/);
+  assert.match(context, new RegExp(feedback));
+  assert.match(context, /기존 개념/);
+
+  const patched = spliceAcademyRevisionParts({
+    conceptPages,
+    questions,
+    target: { unitIndex: 0, partType: "concept", partIndex: 0, label: "1단원 개념 페이지 1" },
+    revisedPart: revisedConcept,
+  });
+  assert.equal(patched.conceptPages[0], revisedConcept);
+  assert.equal(patched.conceptPages[1], conceptPages[1]);
+  assert.equal(patched.questions[0], questions[0]);
+  assert.equal(patched.questions[1], questions[1]);
+
+  const revisedQuestion = { question: "수정한 두 번째 문항" };
+  const questionPatched = spliceAcademyRevisionParts({
+    conceptPages,
+    questions,
+    target: { unitIndex: 0, partType: "question", partIndex: 1, label: "1단원 문항 2" },
+    revisedPart: revisedQuestion,
+  });
+  assert.equal(questionPatched.conceptPages[0], conceptPages[0]);
+  assert.equal(questionPatched.conceptPages[1], conceptPages[1]);
+  assert.equal(questionPatched.questions[0], questions[0]);
+  assert.equal(questionPatched.questions[1], revisedQuestion);
 });

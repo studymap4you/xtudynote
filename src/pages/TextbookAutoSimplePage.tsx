@@ -24,6 +24,7 @@ import {
 import {
   createAcademyTextbookPlan,
   generateAcademyTextbookUnit,
+  reviseAcademyTextbookPart,
   selectRelevantSourceExcerpt,
 } from "@/lib/academyTextbookGenerator";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,9 +45,11 @@ import {
 import type {
   AcademyLearnerLevel,
   AcademyTargetPages,
+  AcademyTextbookChatMessage,
   AcademyTextbookHistoryItem,
   AcademyTextbookJob,
   AcademyTextbookJobStatus,
+  AcademyTextbookRevisionTarget,
 } from "@/types/academyTextbook";
 import type { PremiumTextbook, PremiumUploadedFileMetadata } from "@/types/premiumTextbook";
 import { DEFAULT_SECTION_INCLUSION, type TextbookAnswerKeyLayout, type TextbookUnitContent } from "@/types/textbookAuto";
@@ -236,6 +239,22 @@ function persistAcademyJob(job: AcademyTextbookJob | null) {
   }
 }
 
+function initialChatMessages(instruction: string, createdAt: string): AcademyTextbookChatMessage[] {
+  return [{
+    id: `instruction-${createdAt}`,
+    role: "user",
+    kind: "instruction",
+    content: instruction,
+    createdAt,
+  }];
+}
+
+function chatMessagesForJob(job: AcademyTextbookJob): AcademyTextbookChatMessage[] {
+  return job.chatMessages?.length
+    ? job.chatMessages
+    : initialChatMessages(job.userInstruction, job.createdAt);
+}
+
 function historyStatusLabel(status: AcademyTextbookJobStatus): string {
   if (status === "completed") return "완료";
   if (status === "failed") return "확인 필요";
@@ -278,10 +297,16 @@ export function TextbookAutoSimplePage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historySelectionLoading, setHistorySelectionLoading] = useState<string | null>(null);
   const [historyDeletingId, setHistoryDeletingId] = useState<string | null>(null);
+  const [revisionUnitIndex, setRevisionUnitIndex] = useState(0);
+  const [revisionPartKey, setRevisionPartKey] = useState("concept:0");
+  const [revisionFeedback, setRevisionFeedback] = useState("");
+  const [revisionRunning, setRevisionRunning] = useState(false);
+  const [revisionNotice, setRevisionNotice] = useState<string | null>(null);
   const attachmentIdsRef = useRef(new Set<string>());
   const academyControlRef = useRef({ pause: false, cancel: false });
   const academyAbortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const sourceCorpus = useMemo(() => {
     const fileSections = attachments.flatMap((item) => {
@@ -299,6 +324,23 @@ export function TextbookAutoSimplePage() {
   );
 
   const selectedTemplate = getXUniversePremiumTemplate(selectedTemplateId) ?? xuniversePremiumTemplates[0];
+  const revisionUnit = result?.mode === "premium" ? result.textbook.units[revisionUnitIndex] : undefined;
+  const revisionTargets = useMemo(() => {
+    if (!revisionUnit) return [];
+    const conceptTargets = (revisionUnit.conceptPages ?? []).map((page, partIndex) => ({
+      key: `concept:${partIndex}`,
+      label: `개념 페이지 ${partIndex + 1} · ${page.heading}`,
+      partType: "concept" as const,
+      partIndex,
+    }));
+    const questionTargets = revisionUnit.questions.map((question, partIndex) => ({
+      key: `question:${partIndex}`,
+      label: `문항 ${partIndex + 1} · ${question.question.replace(/\s+/g, " ").slice(0, 55)}`,
+      partType: "question" as const,
+      partIndex,
+    }));
+    return [...conceptTargets, ...questionTargets];
+  }, [revisionUnit]);
 
   const refreshHistory = useCallback(async () => {
     if (!firebaseUser) {
@@ -326,10 +368,12 @@ export function TextbookAutoSimplePage() {
       const raw = window.localStorage.getItem(ACADEMY_JOB_STORAGE_KEY);
       if (!raw) return;
       const stored = JSON.parse(raw) as AcademyTextbookJob;
-      const restored = stored.status === "planning" || stored.status === "generating"
+      const restoredBase = stored.status === "planning" || stored.status === "generating"
         ? { ...stored, status: "paused" as const, updatedAt: new Date().toISOString() }
         : stored;
+      const restored = { ...restoredBase, chatMessages: chatMessagesForJob(restoredBase) };
       setAcademyJob(restored);
+      setUserInstruction(restored.userInstruction);
       setLearnerLevel(restored.learnerLevel);
       setTargetPages(restored.targetPages);
       setSelectedTemplateId(restored.templateId);
@@ -340,6 +384,22 @@ export function TextbookAutoSimplePage() {
       window.localStorage.removeItem(ACADEMY_JOB_STORAGE_KEY);
     }
   }, []);
+
+  useEffect(() => {
+    if (!previewOpen || result?.mode !== "premium") return;
+    if (revisionUnitIndex >= result.textbook.units.length) setRevisionUnitIndex(0);
+  }, [previewOpen, result, revisionUnitIndex]);
+
+  useEffect(() => {
+    if (!revisionTargets.length) return;
+    if (!revisionTargets.some((target) => target.key === revisionPartKey)) {
+      setRevisionPartKey(revisionTargets[0].key);
+    }
+  }, [revisionPartKey, revisionTargets]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [academyJob?.chatMessages?.length]);
 
   const extractAttachment = useCallback(async (item: UniversalAttachmentItem) => {
     if (!canExtractText(item.file)) {
@@ -534,6 +594,7 @@ export function TextbookAutoSimplePage() {
           csatReferenceCount: planResponse.meta.csatReferenceCount,
           englishReferenceCount: planResponse.meta.englishReferenceCount,
           wordnetReferenceCount: planResponse.meta.wordnetReferenceCount,
+          chatMessages: planResponse.chatMessages ?? working.chatMessages,
           updatedAt: new Date().toISOString(),
         };
         setAcademyJob(working);
@@ -616,6 +677,7 @@ export function TextbookAutoSimplePage() {
           csatReferenceCount: unitResponse.meta.csatReferenceCount ?? working.csatReferenceCount,
           englishReferenceCount: unitResponse.meta.englishReferenceCount ?? working.englishReferenceCount,
           wordnetReferenceCount: unitResponse.meta.wordnetReferenceCount ?? working.wordnetReferenceCount,
+          chatMessages: unitResponse.chatMessages ?? working.chatMessages,
           updatedAt: new Date().toISOString(),
         };
         setAcademyJob(working);
@@ -701,6 +763,8 @@ export function TextbookAutoSimplePage() {
       uploadedFiles: attachments.map((item) => toPremiumUploadedFileMetadata(item.file)),
       generatedUnits: [],
       activeUnitIndex: 0,
+      chatMessages: initialChatMessages(instruction, now),
+      revisionCount: 0,
     };
     setLearnerLevel(inferredLevel);
     setSelectedTemplateId(inferredTemplate);
@@ -745,6 +809,10 @@ export function TextbookAutoSimplePage() {
     attachmentIdsRef.current = new Set();
     setError(null);
     setAttachmentNotice(null);
+    setRevisionFeedback("");
+    setRevisionNotice(null);
+    setRevisionUnitIndex(0);
+    setRevisionPartKey("concept:0");
     setHistoryOpen(false);
     persistAcademyJob(null);
   }, [academyRunning]);
@@ -768,6 +836,10 @@ export function TextbookAutoSimplePage() {
         attachmentIdsRef.current = new Set();
         setError(null);
         setAttachmentNotice(null);
+        setRevisionFeedback("");
+        setRevisionNotice(null);
+        setRevisionUnitIndex(0);
+        setRevisionPartKey("concept:0");
         setHistoryOpen(false);
         persistAcademyJob(storedJob);
       } catch (caught) {
@@ -802,6 +874,89 @@ export function TextbookAutoSimplePage() {
     [academyJob, academyRunning, refreshHistory, startNewTextbook],
   );
 
+  const submitRevision = useCallback(async () => {
+    const feedback = revisionFeedback.trim();
+    if (!feedback) {
+      setRevisionNotice("수정할 내용을 입력해주세요.");
+      return;
+    }
+    if (!academyJob?.plan || result?.mode !== "premium") {
+      setRevisionNotice("저장된 장편 교재를 먼저 열어주세요.");
+      return;
+    }
+    const unitPlan = academyJob.plan.units[revisionUnitIndex];
+    const currentUnit = academyJob.generatedUnits[revisionUnitIndex];
+    const selectedTarget = revisionTargets.find((target) => target.key === revisionPartKey);
+    if (!unitPlan || !currentUnit || !selectedTarget) {
+      setRevisionNotice("수정할 교재 위치를 다시 선택해주세요.");
+      return;
+    }
+    const target: AcademyTextbookRevisionTarget = {
+      unitIndex: revisionUnitIndex,
+      partType: selectedTarget.partType,
+      partIndex: selectedTarget.partIndex,
+      label: `${revisionUnitIndex + 1}단원 · ${selectedTarget.label}`,
+    };
+    const otherUnitSignatures = academyJob.generatedUnits.flatMap((unit, unitIndex) => unitIndex === revisionUnitIndex
+      ? []
+      : [
+          ...(unit.conceptPages ?? []).flatMap((page) => page.bodyParagraphs.map((paragraph) => `concept:${paragraph.slice(0, 700)}`)),
+          ...unit.questions.map((question) => `question:${question.question.slice(0, 700)}`),
+        ]);
+    const sourceExcerpt = selectRelevantSourceExcerpt(academyJob.sourceText, unitPlan);
+    setRevisionRunning(true);
+    setRevisionNotice(`${target.label}만 다시 작성하고 있습니다.`);
+    setError(null);
+    try {
+      const response = await reviseAcademyTextbookPart(
+        {
+          userInstruction: academyJob.userInstruction,
+          learnerLevel: academyJob.learnerLevel,
+          targetPages: academyJob.targetPages,
+          templateId: academyJob.templateId,
+          sourceText: sourceExcerpt,
+          uploadedFiles: academyJob.uploadedFiles,
+          plan: academyJob.plan,
+          unit: unitPlan,
+          sourceExcerpt,
+          previousContentSignatures: otherUnitSignatures.slice(-160),
+        },
+        target,
+        feedback,
+      );
+      const generatedUnits = [...academyJob.generatedUnits];
+      generatedUnits[revisionUnitIndex] = response.unit;
+      const updatedJob: AcademyTextbookJob = {
+        ...academyJob,
+        status: "completed",
+        generatedUnits,
+        chatMessages: response.chatMessages,
+        revisionCount: response.revisionCount,
+        model: response.meta.model,
+        source: response.meta.source,
+        updatedAt: new Date().toISOString(),
+      };
+      setAcademyJob(updatedJob);
+      persistAcademyJob(updatedJob);
+      setResult(academyResultFromJob(updatedJob));
+      setRevisionFeedback("");
+      setRevisionNotice(`${target.label} 교체가 완료되었습니다. 미리보기에 수정본을 반영했습니다.`);
+      void refreshHistory();
+    } catch (caught) {
+      setRevisionNotice(caught instanceof Error ? caught.message : "선택한 부분을 수정하지 못했습니다.");
+    } finally {
+      setRevisionRunning(false);
+    }
+  }, [
+    academyJob,
+    refreshHistory,
+    result,
+    revisionFeedback,
+    revisionPartKey,
+    revisionTargets,
+    revisionUnitIndex,
+  ]);
+
   const academyProgress = academyJob?.plan
     ? (() => {
         if (academyJob.status === "completed") return 100;
@@ -823,6 +978,7 @@ export function TextbookAutoSimplePage() {
       : 0;
 
   const activeHistoryId = academyJob?.plan?.id || academyJob?.id || null;
+  const visibleChatMessages = academyJob ? chatMessagesForJob(academyJob) : [];
   const displayedHistoryItems = useMemo(() => {
     if (!academyJob?.plan) return historyItems;
     const activeItem: AcademyTextbookHistoryItem = {
@@ -964,18 +1120,33 @@ export function TextbookAutoSimplePage() {
               <b>AI TEXTBOOK STUDIO</b>
             </div>
 
-            <textarea
-              className={styles.neonTextarea}
-              value={userInstruction}
-              onChange={(event) => {
-                setUserInstruction(event.target.value);
-                setError(null);
-              }}
-              onKeyDown={handlePromptKeyDown}
-              placeholder="예: 고2 영어 중위권 학생이 수능 빈칸과 순서 문제를 단계적으로 익히는 교재를 만들어줘. 각 개념은 쉬운 설명과 대표 예시로 시작하고, 단원 마지막에는 실전 문제와 자세한 오답 해설을 넣어줘."
-              aria-label="만들고 싶은 교재"
-              disabled={academyRunning || academyJob !== null}
-            />
+            {academyJob ? (
+              <div className={styles.chatThread} aria-label="교재 제작 대화 기록" aria-live="polite">
+                {visibleChatMessages.map((message) => (
+                  <article
+                    key={message.id}
+                    className={`${styles.chatMessage} ${message.role === "user" ? styles.chatMessageUser : styles.chatMessageAssistant}`}
+                  >
+                    <small>{message.role === "user" ? "나" : "AI 교재 편집자"}{message.target ? ` · ${message.target.label}` : ""}</small>
+                    <p>{message.content}</p>
+                  </article>
+                ))}
+                <div ref={chatEndRef} aria-hidden="true" />
+              </div>
+            ) : (
+              <textarea
+                className={styles.neonTextarea}
+                value={userInstruction}
+                onChange={(event) => {
+                  setUserInstruction(event.target.value);
+                  setError(null);
+                }}
+                onKeyDown={handlePromptKeyDown}
+                placeholder="예: 고2 영어 중위권 학생이 수능 빈칸과 순서 문제를 단계적으로 익히는 교재를 만들어줘. 각 개념은 쉬운 설명과 대표 예시로 시작하고, 단원 마지막에는 실전 문제와 자세한 오답 해설을 넣어줘."
+                aria-label="만들고 싶은 교재"
+                disabled={academyRunning}
+              />
+            )}
 
             {!academyJob ? (
               <fieldset className={styles.neonPageSelector} disabled={academyRunning}>
@@ -1089,7 +1260,13 @@ export function TextbookAutoSimplePage() {
                 <Paperclip size={18} aria-hidden="true" />
               </button>
               <span className={styles.neonHint}>
-                {extractingCount > 0 ? `파일 ${extractingCount}개 분석 중` : attachments.length > 0 ? `자료 ${attachments.length}개 준비됨` : "자료 첨부"}
+                {academyJob?.status === "completed"
+                  ? `미리보기에서 부분 수정 가능 · ${academyJob.revisionCount ?? 0}회 수정`
+                  : extractingCount > 0
+                    ? `파일 ${extractingCount}개 분석 중`
+                    : attachments.length > 0
+                      ? `자료 ${attachments.length}개 준비됨`
+                      : "자료 첨부"}
               </span>
               {!academyJob ? (
                 <button
@@ -1129,6 +1306,78 @@ export function TextbookAutoSimplePage() {
                 />
               )}
             </div>
+            {result.mode === "premium" && academyJob?.plan ? (
+              <aside className={styles.previewFeedbackPanel} aria-label="교재 부분 수정">
+                <div className={styles.previewFeedbackHeader}>
+                  <span>부분 수정</span>
+                  <strong>피드백할 위치를 선택하세요</strong>
+                </div>
+                <label className={styles.previewFeedbackField}>
+                  <span>단원</span>
+                  <select
+                    value={revisionUnitIndex}
+                    onChange={(event) => {
+                      setRevisionUnitIndex(Number(event.target.value));
+                      setRevisionPartKey("concept:0");
+                      setRevisionNotice(null);
+                    }}
+                    disabled={revisionRunning}
+                  >
+                    {result.textbook.units.map((unit, unitIndex) => (
+                      <option key={`${unit.unitTitle}-${unitIndex}`} value={unitIndex}>
+                        {unitIndex + 1}단원 · {unit.unitTitle}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.previewFeedbackField}>
+                  <span>수정할 조각</span>
+                  <select
+                    value={revisionPartKey}
+                    onChange={(event) => {
+                      setRevisionPartKey(event.target.value);
+                      setRevisionNotice(null);
+                    }}
+                    disabled={revisionRunning || revisionTargets.length === 0}
+                  >
+                    {revisionTargets.map((target) => (
+                      <option key={target.key} value={target.key}>{target.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.previewFeedbackField}>
+                  <span>수정 요청</span>
+                  <textarea
+                    value={revisionFeedback}
+                    onChange={(event) => {
+                      setRevisionFeedback(event.target.value);
+                      setRevisionNotice(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !revisionRunning) {
+                        event.preventDefault();
+                        void submitRevision();
+                      }
+                    }}
+                    placeholder="예: 이 개념 설명을 중위권 학생이 이해할 수 있도록 더 쉬운 예시로 바꿔줘. 다른 페이지는 그대로 둬."
+                    disabled={revisionRunning}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={styles.previewRevisionButton}
+                  onClick={() => void submitRevision()}
+                  disabled={revisionRunning || !revisionFeedback.trim() || revisionTargets.length === 0}
+                >
+                  {revisionRunning ? <LoaderCircle className={styles.inlineSpinner} size={17} aria-hidden="true" /> : <BookOpenCheck size={17} aria-hidden="true" />}
+                  선택한 부분만 수정
+                </button>
+                {revisionNotice ? <p className={styles.previewRevisionNotice}>{revisionNotice}</p> : null}
+                <p className={styles.previewRevisionHint}>
+                  선택한 조각만 새로 생성해 기존 위치에 교체합니다. 나머지 교재는 다시 만들지 않습니다.
+                </p>
+              </aside>
+            ) : null}
           </div>
         ) : null}
 

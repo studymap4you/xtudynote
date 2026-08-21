@@ -21,6 +21,50 @@ function sanitizeText(value, maxLength) {
   return String(value ?? "").trim().slice(0, maxLength);
 }
 
+function normalizeRevisionTarget(value) {
+  const unitIndex = Number(value?.unitIndex);
+  const partIndex = Number(value?.partIndex);
+  const partType = value?.partType === "concept" || value?.partType === "question" ? value.partType : "";
+  if (!Number.isInteger(unitIndex) || unitIndex < 0 || !Number.isInteger(partIndex) || partIndex < 0 || !partType) return null;
+  return {
+    unitIndex,
+    partType,
+    partIndex,
+    label: sanitizeText(value?.label, 180) || `${unitIndex + 1}단원 수정`,
+  };
+}
+
+function normalizeChatMessages(value, fallbackInstruction) {
+  const messages = Array.isArray(value)
+    ? value
+        .map((message) => {
+          const role = message?.role === "user" || message?.role === "assistant" ? message.role : "";
+          const kind = ["instruction", "status", "feedback", "revision"].includes(message?.kind) ? message.kind : "";
+          const content = sanitizeText(message?.content, 8_000);
+          if (!role || !kind || !content) return null;
+          const target = normalizeRevisionTarget(message?.target);
+          return {
+            id: sanitizeText(message?.id, 120) || `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            role,
+            kind,
+            content,
+            createdAt: sanitizeText(message?.createdAt, 40) || new Date().toISOString(),
+            ...(target ? { target } : {}),
+          };
+        })
+        .filter(Boolean)
+        .slice(-80)
+    : [];
+  if (messages.length || !fallbackInstruction) return messages;
+  return [{
+    id: `instruction-${Date.now()}`,
+    role: "user",
+    kind: "instruction",
+    content: sanitizeText(fallbackInstruction, 8_000),
+    createdAt: new Date().toISOString(),
+  }];
+}
+
 function toIso(value) {
   if (typeof value?.toDate === "function") return value.toDate().toISOString();
   if (typeof value === "string" && !Number.isNaN(Date.parse(value))) return new Date(value).toISOString();
@@ -102,6 +146,8 @@ async function loadHistoryJob(uid, id) {
     plan: data.plan,
     generatedUnits: units,
     activeUnitIndex: units.length,
+    chatMessages: normalizeChatMessages(data.chatMessages, data.userInstruction),
+    revisionCount: Number(data.revisionCount) || 0,
     model: sanitizeText(data.model, 120) || undefined,
     source: ["nvidia", "openai", "mock"].includes(data.source) ? data.source : "mock",
     csatReferenceCount: Array.isArray(data.csatReferenceIds) ? data.csatReferenceIds.length : 0,

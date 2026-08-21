@@ -47,6 +47,22 @@ export type AcademyTextbookPlan = {
 
 export type AcademyTextbookJobStatus = "planning" | "generating" | "paused" | "completed" | "failed";
 
+export type AcademyTextbookRevisionTarget = {
+  unitIndex: number;
+  partType: "concept" | "question";
+  partIndex: number;
+  label: string;
+};
+
+export type AcademyTextbookChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  kind: "instruction" | "status" | "feedback" | "revision";
+  content: string;
+  createdAt: string;
+  target?: AcademyTextbookRevisionTarget;
+};
+
 export type AcademyTextbookJob = {
   id: string;
   generationVersion?: string;
@@ -65,6 +81,8 @@ export type AcademyTextbookJob = {
   activePartLabel?: string;
   activeUnitPartCompleted?: number;
   activeUnitPartTotal?: number;
+  chatMessages?: AcademyTextbookChatMessage[];
+  revisionCount?: number;
   error?: string;
   model?: string;
   source?: "nvidia" | "openai" | "mock";
