@@ -157,7 +157,7 @@ function Inner() {
         referenceMaterialFilePaths,
         type: "homework",
         status: publishStatus,
-        libraryCategory: "source_material",
+        libraryCategory: "problem_bank",
         purchaseLink: null,
         homeworkCode: code,
         shortCode,

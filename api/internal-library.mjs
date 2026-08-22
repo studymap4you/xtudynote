@@ -45,7 +45,7 @@ function normalizeLibraryItem(snapshot) {
     sourceDatabase: sanitizeText(data.sourceDatabase, 200),
     libraryCategory: ["problem_bank", "source_material"].includes(data.libraryCategory)
       ? data.libraryCategory
-      : "source_material",
+      : "problem_bank",
     type: ["share", "paid", "homework"].includes(data.type) ? data.type : "share",
     homeworkCode: data.homeworkCode == null ? null : sanitizeText(data.homeworkCode, 120),
     shortCode: data.shortCode == null ? null : sanitizeText(data.shortCode, 120),

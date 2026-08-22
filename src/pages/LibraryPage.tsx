@@ -151,13 +151,8 @@ export function LibraryPage() {
     ): LibraryRow => {
       const lm = (x.learningMaterialFilePaths as string[]) ?? [];
       const rf = (x.referenceMaterialFilePaths as string[]) ?? [];
-      const sourceDatabase = String(x.sourceDatabase ?? "");
       const category: LibraryCategory =
-        x.libraryCategory === "problem_bank" || x.libraryCategory === "source_material"
-          ? x.libraryCategory
-          : sourceDatabase === "csat_english_questions"
-            ? "problem_bank"
-            : "source_material";
+        x.libraryCategory === "source_material" ? "source_material" : "problem_bank";
       return {
         id,
         subject: String(x.subject ?? ""),
@@ -419,7 +414,11 @@ export function LibraryPage() {
           <div className="library-cards">
             {displayRows.length === 0 ? (
               <p style={{ color: "var(--light-text-muted, #6b7280)" }}>
-                {librarySearch ? "검색 결과가 없습니다." : "표시할 자료가 없습니다."}
+                {librarySearch
+                  ? "검색 결과가 없습니다."
+                  : libraryMode === "source_material"
+                    ? "원문소스로 별도 지정된 자료가 없습니다."
+                    : "표시할 자료가 없습니다."}
               </p>
             ) : (
               displayRows.map((r) => (

@@ -199,7 +199,7 @@ export function AddPassage() {
         referenceMaterialFilePaths,
         type: contentType,
         status: contentStatus,
-        libraryCategory: "source_material",
+        libraryCategory: "problem_bank",
         purchaseLink:
           contentType === "paid" && trimmed.purchaseLink.length > 0 ? trimmed.purchaseLink : null,
         themes,
