@@ -12,6 +12,7 @@
     "test:academy-live": "node scripts/smoke-test-academy-generation.mjs",
     "test:textbook-provider": "node --test scripts/test-textbook-ai-provider.mjs",
     "import:exam-blueprints": "node scripts/import-exam-textbook-blueprints.mjs --import --publish-library --verify",
+    "import:open-access-sources": "node scripts/import-open-access-paper-sources.mjs --import --verify",
     "test:wordnet": "node --test scripts/test-wordnet-lexicon.mjs",
     "test:wordnet-live": "node scripts/smoke-test-wordnet.mjs"
   },
