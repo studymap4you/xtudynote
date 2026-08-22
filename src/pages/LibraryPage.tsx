@@ -18,6 +18,7 @@ import type { ContentType } from "@/types/content";
 import "@/pages/pages.css";
 
 type ViewMode = "card" | "list";
+type LibraryVisibility = "public" | "internal";
 
 type LibraryRow = {
   id: string;
@@ -28,7 +29,9 @@ type LibraryRow = {
   homeworkCode: string | null;
   shortCode: string | null;
   createdAtLabel: string;
+  createdAtMs: number;
   allFilePaths: string[];
+  visibility: LibraryVisibility;
 };
 
 function formatCreatedAt(raw: unknown): string {
@@ -74,6 +77,13 @@ function TypeBadge({ type }: { type: ContentType }) {
 
 /** 유형 열: 과제는 배지 옆에 안내 번호(4자리) 또는 전체 코드 표시 */
 function LibraryTypeCell({ row }: { row: LibraryRow }) {
+  if (row.visibility === "internal") {
+    return (
+      <span className="content-type-badge content-type-badge--internal">
+        비공개
+      </span>
+    );
+  }
   if (row.type !== "homework") {
     return <TypeBadge type={row.type} />;
   }
@@ -96,6 +106,7 @@ function listTitle(row: LibraryRow): string {
 
 export function LibraryPage() {
   const { firebaseUser, profile } = useAuth();
+  const canSeeInternalReferences = profile?.role === "super_admin" && profile.accountStatus === "active";
   const [searchParams] = useSearchParams();
   const librarySearch = (searchParams.get("q") ?? "").trim().toLowerCase();
   const themeParam = searchParams.get("theme");
@@ -117,7 +128,48 @@ export function LibraryPage() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    const q = themeFilter
+    let approvedRows: LibraryRow[] = [];
+    let internalRows: LibraryRow[] = [];
+    let approvedReady = false;
+    let internalReady = !canSeeInternalReferences;
+
+    const rowFromData = (
+      id: string,
+      x: Record<string, unknown>,
+      visibility: LibraryVisibility,
+    ): LibraryRow => {
+      const lm = (x.learningMaterialFilePaths as string[]) ?? [];
+      const rf = (x.referenceMaterialFilePaths as string[]) ?? [];
+      return {
+        id,
+        subject: String(x.subject ?? ""),
+        identifier: String(x.identifier ?? ""),
+        learningTopic: String(x.learningTopic ?? ""),
+        type: (x.type as ContentType) ?? "share",
+        homeworkCode: x.homeworkCode != null ? String(x.homeworkCode) : null,
+        shortCode: x.shortCode != null ? String(x.shortCode) : null,
+        createdAtLabel: formatCreatedAt(x.createdAt),
+        createdAtMs:
+          x.createdAt instanceof Timestamp
+            ? x.createdAt.toMillis()
+            : typeof (x.createdAt as { toMillis?: unknown } | null)?.toMillis === "function"
+              ? (x.createdAt as { toMillis: () => number }).toMillis()
+              : 0,
+        allFilePaths: [...lm, ...rf],
+        visibility,
+      };
+    };
+
+    const publishRows = () => {
+      setRows(
+        [...internalRows, ...approvedRows].sort(
+          (a, b) => b.createdAtMs - a.createdAtMs || a.subject.localeCompare(b.subject, "ko"),
+        ),
+      );
+      setLoading(!(approvedReady && internalReady));
+    };
+
+    const approvedQuery = themeFilter
       ? query(
           collection(db, "contents"),
           where("status", "==", "approved"),
@@ -130,38 +182,60 @@ export function LibraryPage() {
           where("type", "in", ["share", "paid", "homework"]),
           orderBy("createdAt", "desc")
         );
-    const unsub = onSnapshot(
-      q,
+    const unsubApproved = onSnapshot(
+      approvedQuery,
       (snap) => {
         const list: LibraryRow[] = [];
         snap.forEach((d) => {
-          const x = d.data();
-          const lm = (x.learningMaterialFilePaths as string[]) ?? [];
-          const rf = (x.referenceMaterialFilePaths as string[]) ?? [];
+          const x = d.data() as Record<string, unknown>;
           const t = (x.type as ContentType) ?? "share";
           if (themeFilter && !["share", "paid", "homework"].includes(t)) return;
-          list.push({
-            id: d.id,
-            subject: String(x.subject ?? ""),
-            identifier: String(x.identifier ?? ""),
-            learningTopic: String(x.learningTopic ?? ""),
-            type: t,
-            homeworkCode: x.homeworkCode != null ? String(x.homeworkCode) : null,
-            shortCode: x.shortCode != null ? String(x.shortCode) : null,
-            createdAtLabel: formatCreatedAt(x.createdAt),
-            allFilePaths: [...lm, ...rf],
-          });
+          list.push(rowFromData(d.id, x, "public"));
         });
-        setRows(list);
-        setLoading(false);
+        approvedRows = list;
+        approvedReady = true;
+        publishRows();
       },
       (err) => {
         setError(err.message || "목록을 불러오지 못했습니다.");
-        setLoading(false);
+        approvedReady = true;
+        publishRows();
       }
     );
-    return () => unsub();
-  }, [themeFilter]);
+
+    let unsubInternal = () => {};
+    if (canSeeInternalReferences) {
+      const internalQuery = query(
+        collection(db, "contents"),
+        where("status", "==", "internal"),
+      );
+      unsubInternal = onSnapshot(
+        internalQuery,
+        (snap) => {
+          const list: LibraryRow[] = [];
+          snap.forEach((d) => {
+            const x = d.data() as Record<string, unknown>;
+            const themes = Array.isArray(x.themes) ? x.themes.map(String) : [];
+            if (themeFilter && !themes.includes(themeFilter)) return;
+            list.push(rowFromData(d.id, x, "internal"));
+          });
+          internalRows = list;
+          internalReady = true;
+          publishRows();
+        },
+        (err) => {
+          setError(err.message || "비공개 참고 자료를 불러오지 못했습니다.");
+          internalReady = true;
+          publishRows();
+        },
+      );
+    }
+
+    return () => {
+      unsubApproved();
+      unsubInternal();
+    };
+  }, [themeFilter, canSeeInternalReferences]);
 
   const toggle = useCallback((id: string) => {
     setSelected((s) => ({ ...s, [id]: !s[id] }));
@@ -230,7 +304,9 @@ export function LibraryPage() {
       <main className="admin-layout library-page admin-layout--light">
         <div className="admin-layout__title-row">
           <h1>Library</h1>
-          <span className="ui-ko">승인된 자료 · 공유 / 유료 / 과제</span>
+          <span className="ui-ko">
+            {canSeeInternalReferences ? "승인된 자료 · 관리자 비공개 참고 자료" : "승인된 자료 · 공유 / 유료 / 과제"}
+          </span>
         </div>
 
         {themeLabel && (

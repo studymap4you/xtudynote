@@ -10727,6 +10727,12 @@ a.educator-btn.educator-btn--primary:any-link:hover {
   color: #a16207;
   border: 1px solid rgba(234, 179, 8, 0.45);
 }
+
+.content-type-badge--internal {
+  color: #334155;
+  background: #e2e8f0;
+  border: 1px solid #94a3b8;
+}
 .content-type-badge--homework {
   background: rgba(124, 58, 237, 0.14);
   color: #6d28d9;

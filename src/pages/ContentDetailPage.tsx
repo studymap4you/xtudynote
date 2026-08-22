@@ -165,6 +165,8 @@ export function ContentDetailPage() {
     return stripListedPriceLine(content.introduction ?? "");
   }, [content]);
 
+  const isInternalReference = content?.status === "internal";
+
   async function submitQuestion(e: React.FormEvent) {
     e.preventDefault();
     if (!firebaseUser || !id) return;
@@ -273,7 +275,9 @@ export function ContentDetailPage() {
       <main className="admin-layout content-detail admin-layout--light">
         <div className="admin-layout__title-row">
           <h1>{displayTitle}</h1>
-          <span className="ui-ko">{content.learningTopic}</span>
+          <span className="ui-ko">
+            {isInternalReference ? "관리자 전용 · 비공개 참고 자료" : content.learningTopic}
+          </span>
         </div>
         <div className="content-detail__intro-wrap">
           <CollapsibleRichHtml

@@ -1,7 +1,7 @@
 import type { LearningThemeId } from "@/types/learningTheme";
 
 export type ContentType = "share" | "paid" | "homework";
-export type ContentStatus = "pending" | "approved" | "rejected";
+export type ContentStatus = "pending" | "approved" | "rejected" | "internal";
 
 export interface ContentDocument {
   authorId: string;

@@ -46,11 +46,18 @@ service firebase.storage {
         );
 
       allow read: if request.auth != null
+        && authorId != 'system-private-reference'
         && (isActiveSuperAdmin() || isActiveTeacher() || isActiveStudent());
 
       allow delete: if request.auth != null
         && request.auth.uid == authorId
         && (isActiveSuperAdmin() || isActiveTeacher());
+    }
+
+    /** AI 교재 참고 원본 — 라이브러리 목록과 파일 모두 마스터에게만 공개 */
+    match /contents/system-private-reference/{allPaths=**} {
+      allow read: if isActiveSuperAdmin();
+      allow create, update, delete: if isActiveSuperAdmin();
     }
 
     /** Rich-text editor images (Q&A, 자료 설명 등) — 공개 URL로 삽입 */

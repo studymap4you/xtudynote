@@ -61,6 +61,7 @@ function labelType(t: ContentType): string {
 function labelStatus(s: ContentStatus): string {
   if (s === "pending") return "대기";
   if (s === "approved") return "승인";
+  if (s === "internal") return "비공개";
   return "반려";
 }
 
