@@ -1,4 +1,4 @@
-export const SUPER_ADMIN_EMAIL = "studymap0904@gmail.com";
+export const SUPER_ADMIN_EMAIL = "waterfallingsound0827@gmail.com";
 
 export type UserRole = "super_admin" | "teacher" | "pending_teacher" | "student";
 

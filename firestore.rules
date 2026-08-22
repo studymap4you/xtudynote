@@ -12,7 +12,7 @@ service cloud.firestore {
         : '';
     }
     function isSuperAdminEmail() {
-      return tokenEmailLower() == 'studymap0904@gmail.com';
+      return tokenEmailLower() == 'waterfallingsound0827@gmail.com';
     }
     function userData(uid) {
       return get(/databases/$(database)/documents/users/$(uid)).data;
