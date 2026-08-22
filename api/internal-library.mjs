@@ -41,6 +41,11 @@ function normalizeLibraryItem(snapshot) {
     subject: sanitizeText(data.subject, 300),
     identifier: sanitizeText(data.identifier, 300),
     learningTopic: sanitizeText(data.learningTopic, 1_000),
+    section: sanitizeText(data.section, 300),
+    sourceDatabase: sanitizeText(data.sourceDatabase, 200),
+    libraryCategory: ["problem_bank", "source_material"].includes(data.libraryCategory)
+      ? data.libraryCategory
+      : "source_material",
     type: ["share", "paid", "homework"].includes(data.type) ? data.type : "share",
     homeworkCode: data.homeworkCode == null ? null : sanitizeText(data.homeworkCode, 120),
     shortCode: data.shortCode == null ? null : sanitizeText(data.shortCode, 120),

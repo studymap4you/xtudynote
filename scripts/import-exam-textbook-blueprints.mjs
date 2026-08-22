@@ -238,6 +238,7 @@ function libraryDocument(source, storagePath) {
     referenceMaterialFilePaths: [],
     type: "share",
     status: "approved",
+    libraryCategory: "source_material",
     themes: ["k_entrance"],
     thumbnailPath: null,
     previewUrl: null,

@@ -2,6 +2,7 @@ import type { LearningThemeId } from "@/types/learningTheme";
 
 export type ContentType = "share" | "paid" | "homework";
 export type ContentStatus = "pending" | "approved" | "rejected" | "internal";
+export type LibraryCategory = "problem_bank" | "source_material";
 
 export interface ContentDocument {
   authorId: string;
@@ -18,6 +19,8 @@ export interface ContentDocument {
   referenceMaterialFilePaths: string[];
   type?: ContentType;
   status?: ContentStatus;
+  /** 라이브러리 DB 분류: 구조화 문항 DB 또는 교재 제작 참고 원문 */
+  libraryCategory?: LibraryCategory;
   /** 테마별 분류 (복수 선택) */
   themes?: LearningThemeId[];
   /** 유료 콘텐츠 썸네일 Storage 전체 경로 */

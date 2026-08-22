@@ -260,6 +260,7 @@ function libraryDocument(exam, paths) {
     referenceMaterialFilePaths: reference,
     type: "share",
     status: "approved",
+    libraryCategory: "problem_bank",
     themes: ["k_entrance"],
     thumbnailPath: null,
     previewUrl: null,

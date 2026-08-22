@@ -14,12 +14,12 @@ import { db } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
 import { recordStudentDownload } from "@/lib/studentDownloads";
 import { PublicShell } from "@/components/PublicShell";
-import type { ContentType } from "@/types/content";
+import type { ContentType, LibraryCategory } from "@/types/content";
 import { SUPER_ADMIN_EMAIL } from "@/types/user";
 import "@/pages/pages.css";
 
-type ViewMode = "card" | "list";
 type LibraryVisibility = "public" | "internal";
+type LibraryMode = "theme" | "problem_bank" | "source_material";
 
 type LibraryRow = {
   id: string;
@@ -33,6 +33,7 @@ type LibraryRow = {
   createdAtMs: number;
   allFilePaths: string[];
   visibility: LibraryVisibility;
+  category: LibraryCategory;
 };
 
 function formatCreatedAt(raw: unknown): string {
@@ -123,10 +124,14 @@ export function LibraryPage() {
     if (!themeFilter) return null;
     return LEARNING_THEME_OPTIONS.find((o) => o.id === themeFilter);
   }, [themeFilter]);
+  const libraryMode: LibraryMode = themeFilter
+    ? "theme"
+    : searchParams.get("view") === "source-material"
+      ? "source_material"
+      : "problem_bank";
   const [rows, setRows] = useState<LibraryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<ViewMode>("card");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [downloading, setDownloading] = useState(false);
 
@@ -146,6 +151,13 @@ export function LibraryPage() {
     ): LibraryRow => {
       const lm = (x.learningMaterialFilePaths as string[]) ?? [];
       const rf = (x.referenceMaterialFilePaths as string[]) ?? [];
+      const sourceDatabase = String(x.sourceDatabase ?? "");
+      const category: LibraryCategory =
+        x.libraryCategory === "problem_bank" || x.libraryCategory === "source_material"
+          ? x.libraryCategory
+          : sourceDatabase === "csat_english_questions"
+            ? "problem_bank"
+            : "source_material";
       return {
         id,
         subject: String(x.subject ?? ""),
@@ -168,6 +180,7 @@ export function LibraryPage() {
               : 0,
         allFilePaths: [...lm, ...rf],
         visibility,
+        category,
       };
     };
 
@@ -259,13 +272,14 @@ export function LibraryPage() {
   }, []);
 
   const displayRows = useMemo(() => {
-    if (!librarySearch) return rows;
-    return rows.filter((r) => {
+    const modeRows = libraryMode === "theme" ? rows : rows.filter((row) => row.category === libraryMode);
+    if (!librarySearch) return modeRows;
+    return modeRows.filter((r) => {
       const blob =
         `${listTitle(r)} ${r.shortCode ?? ""} ${r.homeworkCode ?? ""} ${r.learningTopic} ${r.identifier} ${r.subject}`.toLowerCase();
       return blob.includes(librarySearch);
     });
-  }, [rows, librarySearch]);
+  }, [rows, librarySearch, libraryMode]);
 
   const selectAll = useCallback(() => {
     const next: Record<string, boolean> = {};
@@ -343,27 +357,25 @@ export function LibraryPage() {
           <div className="library-toolbar__views">
             <Link
               to="/library/themes"
-              className="btn btn--stack btn--ghost"
+              className={`btn btn--stack ${libraryMode === "theme" ? "btn--primary" : "btn--ghost"}`}
             >
               <span className="ui-en">By theme</span>
               <span className="ui-ko">테마별 보기</span>
             </Link>
-            <button
-              type="button"
-              className={`btn btn--stack ${view === "card" ? "btn--primary" : "btn--ghost"}`}
-              onClick={() => setView("card")}
+            <Link
+              to="/library?view=problem-bank"
+              className={`btn btn--stack ${libraryMode === "problem_bank" ? "btn--primary" : "btn--ghost"}`}
             >
-              <span className="ui-en">Card</span>
-              <span className="ui-ko">카드</span>
-            </button>
-            <button
-              type="button"
-              className={`btn btn--stack ${view === "list" ? "btn--primary" : "btn--ghost"}`}
-              onClick={() => setView("list")}
+              <span className="ui-en">Question bank</span>
+              <span className="ui-ko">문제은행</span>
+            </Link>
+            <Link
+              to="/library?view=source-material"
+              className={`btn btn--stack ${libraryMode === "source_material" ? "btn--primary" : "btn--ghost"}`}
             >
-              <span className="ui-en">List</span>
-              <span className="ui-ko">리스트</span>
-            </button>
+              <span className="ui-en">Source materials</span>
+              <span className="ui-ko">원문소스</span>
+            </Link>
           </div>
           <div className="library-toolbar__bulk">
             <button type="button" className="btn btn--ghost btn--stack" onClick={selectAll}>
@@ -403,7 +415,7 @@ export function LibraryPage() {
               </span>
             </p>
           </div>
-        ) : view === "card" ? (
+        ) : (
           <div className="library-cards">
             {displayRows.length === 0 ? (
               <p style={{ color: "var(--light-text-muted, #6b7280)" }}>
@@ -432,49 +444,6 @@ export function LibraryPage() {
                 </article>
               ))
             )}
-          </div>
-        ) : (
-          <div className="admin-table-wrap">
-            <table className="admin-table admin-table--light admin-table--contents">
-              <thead>
-                <tr>
-                  <th aria-label="select" />
-                  <th>유형</th>
-                  <th>제목</th>
-                  <th>주제</th>
-                  <th>등록</th>
-                  <th>상세</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ color: "var(--light-text-muted, #6b7280)" }}>
-                      {librarySearch ? "검색 결과가 없습니다." : "표시할 자료가 없습니다."}
-                    </td>
-                  </tr>
-                ) : (
-                  displayRows.map((r) => (
-                    <tr key={r.id}>
-                      <td>
-                        <input type="checkbox" checked={!!selected[r.id]} onChange={() => toggle(r.id)} />
-                      </td>
-                      <td>
-                        <LibraryTypeCell row={r} />
-                      </td>
-                      <td>{listTitle(r)}</td>
-                      <td>{r.learningTopic}</td>
-                      <td>{r.createdAtLabel}</td>
-                      <td>
-                        <Link to={`/content/${r.id}`} className="btn btn--ghost btn--stack">
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
           </div>
         )}
       </main>
