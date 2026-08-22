@@ -15,6 +15,7 @@ import { downloadStoragePathsSequentially } from "@/lib/downloads";
 import { recordStudentDownload } from "@/lib/studentDownloads";
 import { PublicShell } from "@/components/PublicShell";
 import type { ContentType } from "@/types/content";
+import { SUPER_ADMIN_EMAIL } from "@/types/user";
 import "@/pages/pages.css";
 
 type ViewMode = "card" | "list";
@@ -107,6 +108,10 @@ function listTitle(row: LibraryRow): string {
 export function LibraryPage() {
   const { firebaseUser, profile } = useAuth();
   const canSeeInternalReferences = profile?.role === "super_admin" && profile.accountStatus === "active";
+  const canRequestInternalReferences = Boolean(
+    firebaseUser &&
+      (canSeeInternalReferences || firebaseUser.email?.trim().toLowerCase() === SUPER_ADMIN_EMAIL),
+  );
   const [searchParams] = useSearchParams();
   const librarySearch = (searchParams.get("q") ?? "").trim().toLowerCase();
   const themeParam = searchParams.get("theme");
@@ -131,7 +136,8 @@ export function LibraryPage() {
     let approvedRows: LibraryRow[] = [];
     let internalRows: LibraryRow[] = [];
     let approvedReady = false;
-    let internalReady = !canSeeInternalReferences;
+    let internalReady = !canRequestInternalReferences;
+    const internalRequestController = new AbortController();
 
     const rowFromData = (
       id: string,
@@ -148,9 +154,14 @@ export function LibraryPage() {
         type: (x.type as ContentType) ?? "share",
         homeworkCode: x.homeworkCode != null ? String(x.homeworkCode) : null,
         shortCode: x.shortCode != null ? String(x.shortCode) : null,
-        createdAtLabel: formatCreatedAt(x.createdAt),
+        createdAtLabel:
+          typeof x.createdAtMs === "number" && x.createdAtMs > 0
+            ? new Date(x.createdAtMs).toLocaleString()
+            : formatCreatedAt(x.createdAt),
         createdAtMs:
-          x.createdAt instanceof Timestamp
+          typeof x.createdAtMs === "number"
+            ? x.createdAtMs
+            : x.createdAt instanceof Timestamp
             ? x.createdAt.toMillis()
             : typeof (x.createdAt as { toMillis?: unknown } | null)?.toMillis === "function"
               ? (x.createdAt as { toMillis: () => number }).toMillis()
@@ -203,39 +214,45 @@ export function LibraryPage() {
       }
     );
 
-    let unsubInternal = () => {};
-    if (canSeeInternalReferences) {
-      const internalQuery = query(
-        collection(db, "contents"),
-        where("status", "==", "internal"),
-      );
-      unsubInternal = onSnapshot(
-        internalQuery,
-        (snap) => {
-          const list: LibraryRow[] = [];
-          snap.forEach((d) => {
-            const x = d.data() as Record<string, unknown>;
-            const themes = Array.isArray(x.themes) ? x.themes.map(String) : [];
-            if (themeFilter && !themes.includes(themeFilter)) return;
-            list.push(rowFromData(d.id, x, "internal"));
+    if (canRequestInternalReferences && firebaseUser) {
+      void (async () => {
+        try {
+          const token = await firebaseUser.getIdToken();
+          const response = await fetch("/api/internal-library", {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: internalRequestController.signal,
           });
-          internalRows = list;
+          const payload = (await response.json().catch(() => ({}))) as {
+            items?: Array<Record<string, unknown> & { id?: unknown }>;
+            error?: string;
+          };
+          if (!response.ok) {
+            throw new Error(payload.error || "비공개 참고 자료를 불러오지 못했습니다.");
+          }
+          internalRows = (payload.items ?? [])
+            .filter((item) => {
+              if (!themeFilter) return true;
+              const themes = Array.isArray(item.themes) ? item.themes.map(String) : [];
+              return themes.includes(themeFilter);
+            })
+            .map((item) => rowFromData(String(item.id ?? ""), item, "internal"))
+            .filter((item) => item.id);
           internalReady = true;
           publishRows();
-        },
-        (err) => {
-          setError(err.message || "비공개 참고 자료를 불러오지 못했습니다.");
+        } catch (err) {
+          if (internalRequestController.signal.aborted) return;
+          setError(err instanceof Error ? err.message : "비공개 참고 자료를 불러오지 못했습니다.");
           internalReady = true;
           publishRows();
-        },
-      );
+        }
+      })();
     }
 
     return () => {
       unsubApproved();
-      unsubInternal();
+      internalRequestController.abort();
     };
-  }, [themeFilter, canSeeInternalReferences]);
+  }, [themeFilter, canRequestInternalReferences, firebaseUser]);
 
   const toggle = useCallback((id: string) => {
     setSelected((s) => ({ ...s, [id]: !s[id] }));
@@ -305,7 +322,7 @@ export function LibraryPage() {
         <div className="admin-layout__title-row">
           <h1>Library</h1>
           <span className="ui-ko">
-            {canSeeInternalReferences ? "승인된 자료 · 관리자 비공개 참고 자료" : "승인된 자료 · 공유 / 유료 / 과제"}
+            {canRequestInternalReferences ? "승인된 자료 · 관리자 비공개 참고 자료" : "승인된 자료 · 공유 / 유료 / 과제"}
           </span>
         </div>
 
