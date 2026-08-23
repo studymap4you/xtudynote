@@ -1,0 +1,84 @@
+import type { CSATQuestionRenderUnit, ResolvedCSATRenderOptions } from "@/lib/renderEngine/types";
+import styles from "@/components/renderEngine/csatRender.module.css";
+
+const CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤"];
+
+function questionTypeLabel(value: string): string {
+  const labels: Record<string, string> = {
+    PURPOSE: "PURPOSE",
+    EMOTION_CHANGE: "EMOTION",
+    IMPLIED_MEANING: "IMPLIED MEANING",
+    MAIN_IDEA: "MAIN IDEA",
+    CLAIM: "CLAIM",
+    TOPIC: "TOPIC",
+    TITLE: "TITLE",
+    CHART: "CHART",
+    FACTUAL_DESCRIPTION: "FACTUAL",
+    FACTUAL_PRACTICAL: "PRACTICAL",
+    GRAMMAR: "GRAMMAR",
+    VOCABULARY: "VOCABULARY",
+    BLANK_SHORT: "BLANK",
+    BLANK_LONG: "LONG BLANK",
+    IRRELEVANT_SENTENCE: "IRRELEVANT SENTENCE",
+    PARAGRAPH_ORDER: "PARAGRAPH ORDER",
+    SENTENCE_INSERTION: "SENTENCE INSERTION",
+    SUMMARY: "SUMMARY",
+    LONG_READING_1: "LONG READING",
+    LONG_READING_2: "LONG READING",
+  };
+  return labels[value] || value.replaceAll("_", " ");
+}
+
+export function CSATQuestionBlock({
+  unit,
+  options,
+  sameQuestionAsPrevious = false,
+  sameQuestionAsNext = false,
+}: {
+  unit: CSATQuestionRenderUnit;
+  options: ResolvedCSATRenderOptions;
+  sameQuestionAsPrevious?: boolean;
+  sameQuestionAsNext?: boolean;
+}) {
+  const { question } = unit;
+  const stem = unit.showStem ? <h3 className={styles.questionStem}>{question.stem}</h3> : null;
+  return (
+    <section className={`${styles.questionBlock}${unit.continuation ? ` ${styles.continuationBlock}` : ""}${sameQuestionAsPrevious ? ` ${styles.samePageContinuation}` : ""}${sameQuestionAsNext ? ` ${styles.samePageBeforeContinuation}` : ""}`}>
+      {unit.showQuestionHeader ? (
+        <header className={styles.questionHeader}>
+          <strong>{String(question.studentNumber).padStart(2, "0")}</strong>
+          <span>
+            {options.showQuestionType ? <em className={styles.typeChip}>{questionTypeLabel(question.questionType)}</em> : null}
+            {options.showDifficulty ? <em className={styles.difficultyChip}>{question.difficulty.toUpperCase()}</em> : null}
+            {options.showScore && question.scoreSuggestion === 3 ? <em className={styles.scoreChip}>3 POINT</em> : null}
+          </span>
+        </header>
+      ) : sameQuestionAsPrevious ? null : (
+        <div className={styles.continuationLabel}>Q{String(question.studentNumber).padStart(2, "0")} · CONTINUED</div>
+      )}
+      {unit.stemBeforePassage ? stem : null}
+      {unit.passage ? <p className={styles.passage}>{unit.passage}</p> : null}
+      {!unit.stemBeforePassage ? stem : null}
+      {unit.choices.length > 0 ? (
+        <ol className={styles.choiceList} start={unit.choices[0]?.index ?? 1}>
+          {unit.choices.map((choice) => (
+            <li key={choice.index}>
+              <span aria-hidden="true">{CIRCLED_NUMBERS[choice.index - 1] || choice.index}</span>
+              <p>{choice.text}</p>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      {options.mode === "review" && unit.showReview ? (
+        <aside className={styles.reviewPanel}>
+          <header><b>REVIEW NOTE</b><span>Answer {question.answer}</span></header>
+          <p>{question.explanation}</p>
+          <dl>
+            <div><dt>Source</dt><dd>{question.sourceId}</dd></div>
+            <div><dt>Distractors</dt><dd>{question.choices.filter((choice) => !choice.isCorrect).map((choice) => choice.distractorPattern).filter(Boolean).join(" · ")}</dd></div>
+          </dl>
+        </aside>
+      ) : null}
+    </section>
+  );
+}

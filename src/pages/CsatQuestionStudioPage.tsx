@@ -1,5 +1,6 @@
 import {
   ArrowUp,
+  BookOpen,
   Check,
   ChevronDown,
   Download,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { type ChangeEvent, type DragEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DashboardShell } from "@/components/DashboardShell";
+import { CSATBookletPreview } from "@/components/renderEngine/CSATBookletPreview";
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import {
   deleteCsatQuestionJob,
@@ -24,6 +26,7 @@ import {
   startCsatQuestionJob,
 } from "@/lib/csatQuestionEngine";
 import type { CsatQuestionJob, CsatQuestionJobSummary, GeneratedCsatQuestion } from "@/types/csatQuestionEngine";
+import type { CSATRenderInput } from "@/lib/renderEngine/types";
 import styles from "@/pages/csatQuestionStudio.module.css";
 
 type AttachedSource = {
@@ -136,6 +139,7 @@ export function CsatQuestionStudioPage() {
   const [statusText, setStatusText] = useState("문제 생성 준비 중...");
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const pauseRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -149,6 +153,24 @@ export function CsatQuestionStudioPage() {
       .slice(0, MAX_SOURCE_LENGTH),
     [sources],
   );
+  const renderInput = useMemo<CSATRenderInput | null>(() => {
+    if (!job || job.status !== "completed" || job.questions.length === 0) return null;
+    const level = job.request.targetLevel === "high" ? "High Level" : job.request.targetLevel === "low" ? "Foundation" : "Standard Level";
+    return {
+      title: job.title,
+      subtitle: "Reading · Reasoning · Accuracy",
+      target: `${job.request.targetGrade} · ${level}`,
+      templateId: "xuniverse-csat-studygram-pop-v1",
+      questions: job.questions,
+      options: {
+        mode: "student",
+        showDifficulty: false,
+        showScore: true,
+        showQuestionType: true,
+        showAnswerKey: false,
+      },
+    };
+  }, [job]);
 
   const refreshHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -178,6 +200,7 @@ export function CsatQuestionStudioPage() {
     pauseRef.current = false;
     setRunning(true);
     setError(null);
+    setPreviewOpen(false);
     let working = initialJob;
     try {
       while (working.acceptedCount < working.targetQuestionCount && !pauseRef.current) {
@@ -269,6 +292,7 @@ export function CsatQuestionStudioPage() {
     setError(null);
     setStatusText("문제 생성 준비 중...");
     setHistoryOpen(false);
+    setPreviewOpen(false);
     window.localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
   }, [running]);
 
@@ -281,6 +305,7 @@ export function CsatQuestionStudioPage() {
       setJob(stored);
       setUserRequest(stored.userRequest);
       setSources([]);
+      setPreviewOpen(false);
       setHistoryOpen(false);
       setStatusText(stored.status === "completed" ? "문제 검수 완료" : "저장된 문제 다음 배치부터 이어서 생성할 수 있습니다.");
       window.localStorage.setItem(ACTIVE_JOB_STORAGE_KEY, stored.id);
@@ -420,7 +445,10 @@ export function CsatQuestionStudioPage() {
                     ) : job.status !== "completed" ? (
                       <button type="button" onClick={() => void runBatches(job)}><Play size={16} /> 이어서 생성</button>
                     ) : (
-                      <button type="button" onClick={downloadJson}><Download size={16} /> JSON 다운로드</button>
+                      <>
+                        <button type="button" onClick={() => setPreviewOpen(true)}><BookOpen size={16} /> 문제집 미리보기</button>
+                        <button type="button" onClick={downloadJson}><Download size={16} /> JSON 다운로드</button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -448,7 +476,7 @@ export function CsatQuestionStudioPage() {
           </section>
         </div>
       </main>
+      {previewOpen && renderInput ? <CSATBookletPreview input={renderInput} onClose={() => setPreviewOpen(false)} /> : null}
     </DashboardShell>
   );
 }
-

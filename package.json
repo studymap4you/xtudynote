@@ -15,7 +15,8 @@
     "import:open-access-sources": "node scripts/import-open-access-paper-sources.mjs --import --verify",
     "test:wordnet": "node --test scripts/test-wordnet-lexicon.mjs",
     "test:wordnet-live": "node scripts/smoke-test-wordnet.mjs",
-    "test:csat-question-engine": "node --test scripts/test-csat-question-engine.mjs"
+    "test:csat-question-engine": "node --test scripts/test-csat-question-engine.mjs",
+    "test:csat-render-engine": "node --experimental-strip-types --test scripts/test-csat-render-engine.mjs"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",

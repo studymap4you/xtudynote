@@ -62,7 +62,7 @@ export function WoohyukmonChatbot() {
   }
 
   return (
-    <div className={styles.root}>
+    <div className={`${styles.root} csat-no-print`}>
       {isOpen ? (
         <section className={styles.panel} role="dialog" aria-label="우혁몬 AI 챗봇">
           <header className={styles.header}>
