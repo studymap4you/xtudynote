@@ -54,6 +54,7 @@ import type {
 import type { PremiumTextbook, PremiumUploadedFileMetadata } from "@/types/premiumTextbook";
 import { DEFAULT_SECTION_INCLUSION, type TextbookAnswerKeyLayout, type TextbookUnitContent } from "@/types/textbookAuto";
 import styles from "@/pages/textbookAutoSimple.module.css";
+import { CsatQuestionStudioPage } from "@/pages/CsatQuestionStudioPage";
 
 type GenerationMode = "worksheet" | "workbook" | "premium";
 
@@ -275,6 +276,10 @@ function historyDateLabel(value: string): string {
 }
 
 export function TextbookAutoSimplePage() {
+  return <CsatQuestionStudioPage />;
+}
+
+export function LegacyTextbookAutoSimplePage() {
   const { firebaseUser } = useAuth();
   const [sourceText] = useState("");
   const [attachments, setAttachments] = useState<UniversalAttachmentItem[]>([]);

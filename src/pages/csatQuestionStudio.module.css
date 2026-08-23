@@ -1,0 +1,654 @@
+.main {
+  min-height: calc(100vh - 96px);
+  background: #03070d;
+  color: #e8f3ff;
+  letter-spacing: 0;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 276px minmax(0, 1fr);
+  min-height: calc(100vh - 96px);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 96px);
+  overflow: hidden;
+  border-right: 1px solid #17304a;
+  background: #07101b;
+  z-index: 12;
+}
+
+.sidebar > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 66px;
+  padding: 0 16px 0 20px;
+  border-bottom: 1px solid #17304a;
+}
+
+.sidebar > header strong {
+  font-size: 15px;
+}
+
+.sidebar button,
+.composer button {
+  color: inherit;
+  font: inherit;
+}
+
+.sidebar > header button,
+.iconButton,
+.sendButton {
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #22517a;
+  border-radius: 6px;
+  background: #091827;
+  cursor: pointer;
+}
+
+.sidebar button:disabled,
+.composer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.historyList {
+  height: calc(100% - 66px);
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.historyList > p {
+  margin: 20px 8px;
+  color: #7890a8;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.historyRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  margin-bottom: 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.historyRow:hover,
+.historyRowActive {
+  border-color: #205a86;
+  background: #0a1a29;
+}
+
+.historyOpenButton {
+  min-width: 0;
+  padding: 11px 8px 11px 11px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.historyOpenButton b,
+.historyOpenButton span,
+.historyOpenButton small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyOpenButton b {
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.historyOpenButton span {
+  color: #75bff0;
+  font-size: 11px;
+}
+
+.historyOpenButton small {
+  margin-top: 4px;
+  color: #71869b;
+  font-size: 10px;
+}
+
+.historyDeleteButton {
+  align-self: center;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #71869b !important;
+  cursor: pointer;
+}
+
+.historyDeleteButton:hover {
+  background: #291621;
+  color: #ff809f !important;
+}
+
+.stage {
+  min-width: 0;
+  padding: 58px clamp(24px, 5vw, 88px) 90px;
+}
+
+.composer {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid #20a8ff;
+  border-radius: 8px;
+  background: #050b16;
+  box-shadow: 0 0 0 1px rgb(32 168 255 / 18%), 0 0 36px rgb(0 126 255 / 18%);
+}
+
+.composerDragging {
+  border-color: #5fe0bf;
+  box-shadow: 0 0 36px rgb(95 224 191 / 24%);
+}
+
+.signal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 58px;
+  padding: 0 22px;
+  border-bottom: 1px solid #173554;
+  color: #6bc5ff;
+  font-size: 13px;
+}
+
+.signal span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #45baff;
+  box-shadow: 0 0 12px #45baff;
+}
+
+.prompt {
+  display: block;
+  width: 100%;
+  min-height: 310px;
+  resize: vertical;
+  padding: 34px 38px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #d7e7f7;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1.8;
+  letter-spacing: 0;
+}
+
+.prompt::placeholder {
+  color: #667d95;
+}
+
+.requestMessage {
+  min-height: 140px;
+  padding: 30px 34px;
+  border-bottom: 1px solid #132d47;
+}
+
+.requestMessage small {
+  color: #57c2ff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.requestMessage p {
+  margin: 10px 0 0;
+  color: #d7e7f7;
+  font-size: 17px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.fileList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 0 28px 22px;
+}
+
+.fileList > span {
+  display: grid;
+  grid-template-columns: 16px minmax(80px, 1fr) auto 24px;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 7px 7px 7px 9px;
+  border: 1px solid #1c4569;
+  border-radius: 6px;
+  background: #071522;
+  font-size: 11px;
+}
+
+.fileList b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileList em {
+  color: #7491a9;
+  font-style: normal;
+}
+
+.fileList button {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.jobPanel {
+  padding: 24px 28px 26px;
+  border-bottom: 1px solid #173554;
+  background: #071321;
+}
+
+.jobHeadline {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.jobHeadline > svg {
+  color: #45baff;
+}
+
+.jobHeadline strong,
+.jobHeadline span {
+  display: block;
+}
+
+.jobHeadline strong {
+  font-size: 14px;
+}
+
+.jobHeadline span {
+  margin-top: 5px;
+  color: #7fa1bd;
+  font-size: 11px;
+}
+
+.jobHeadline > b {
+  color: #5fe0bf;
+  font-size: 16px;
+}
+
+.progressTrack {
+  height: 6px;
+  margin-top: 18px;
+  overflow: hidden;
+  background: #102a3f;
+}
+
+.progressTrack span {
+  display: block;
+  height: 100%;
+  background: #29aefc;
+  transition: width 220ms ease;
+}
+
+.jobActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.jobActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #2679b1;
+  border-radius: 6px;
+  background: #0b4776;
+  cursor: pointer;
+}
+
+.error {
+  margin: 0;
+  padding: 14px 28px;
+  border-bottom: 1px solid #5b2436;
+  background: #200d17;
+  color: #ff91ad;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.composer > footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 12px 16px;
+}
+
+.composer > footer > span {
+  flex: 1;
+  color: #7189a2;
+  font-size: 12px;
+}
+
+.sendButton {
+  margin-left: auto;
+  border-color: #1673b3;
+  background: #0c4a7c;
+}
+
+.sendButton:not(:disabled):hover,
+.iconButton:not(:disabled):hover {
+  border-color: #5fc8ff;
+  color: #8bd8ff;
+}
+
+.results {
+  width: min(1180px, 100%);
+  margin: 30px auto 0;
+}
+
+.results > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 2px;
+  border-bottom: 1px solid #173554;
+}
+
+.results h1 {
+  margin: 4px 0 0;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.results small {
+  color: #5fc8ff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.results > header > span {
+  color: #5fe0bf;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.questionList {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.questionItem {
+  border: 1px solid #193b59;
+  border-radius: 7px;
+  background: #07111d;
+}
+
+.questionItem[open] {
+  border-color: #2789c5;
+}
+
+.questionItem summary {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto 22px;
+  align-items: center;
+  gap: 12px;
+  min-height: 66px;
+  padding: 9px 15px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.questionItem summary::-webkit-details-marker {
+  display: none;
+}
+
+.questionItem[open] summary > svg {
+  transform: rotate(180deg);
+}
+
+.questionNumber {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid #246d9c;
+  border-radius: 5px;
+  color: #74c9fc;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.questionSummaryCopy {
+  min-width: 0;
+}
+
+.questionSummaryCopy b,
+.questionSummaryCopy span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.questionSummaryCopy b {
+  margin-bottom: 4px;
+  color: #71caff;
+  font-size: 11px;
+}
+
+.questionSummaryCopy span {
+  color: #dce9f5;
+  font-size: 13px;
+}
+
+.questionDifficulty {
+  padding: 4px 7px;
+  border: 1px solid #28506c;
+  border-radius: 4px;
+  color: #9eb4c7;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.questionBody {
+  padding: 24px clamp(20px, 4vw, 52px) 34px;
+  border-top: 1px solid #193b59;
+  background: #eef3f7;
+  color: #142232;
+}
+
+.passage {
+  margin: 0;
+  color: #26384a;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.questionBody h3 {
+  margin: 25px 0 14px;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.choiceList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: choices;
+}
+
+.choiceList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  gap: 5px 10px;
+  padding: 10px 12px;
+  border-left: 3px solid #a9bac8;
+  background: #fff;
+  counter-increment: choices;
+}
+
+.choiceList li > span::before {
+  content: counter(choices) ". ";
+  font-weight: 700;
+}
+
+.choiceList li[data-correct] {
+  border-left-color: #13836c;
+  background: #ecfaf6;
+}
+
+.choiceList li > svg {
+  color: #13836c;
+}
+
+.choiceList small {
+  grid-column: 1 / -1;
+  color: #63778a;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.explanation {
+  margin-top: 20px;
+  padding: 15px 17px;
+  border: 1px solid #bed0de;
+  border-radius: 6px;
+  background: #f8fbfd;
+}
+
+.explanation b {
+  color: #0a5f91;
+  font-size: 13px;
+}
+
+.explanation p {
+  margin: 8px 0;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.explanation small {
+  color: #738699;
+  font-size: 10px;
+}
+
+.spinner {
+  animation: spin 0.85s linear infinite;
+}
+
+.mobileHistoryButton,
+.backdrop {
+  display: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(310px, 86vw);
+    height: 100vh;
+    transform: translateX(-102%);
+    transition: transform 180ms ease;
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    display: block;
+    border: 0;
+    background: rgb(0 4 9 / 70%);
+    z-index: 11;
+  }
+
+  .mobileHistoryButton {
+    position: fixed;
+    right: 14px;
+    bottom: 18px;
+    z-index: 10;
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border: 1px solid #2685be;
+    border-radius: 6px;
+    background: #08213a;
+    color: #78ccff;
+  }
+
+  .stage {
+    padding: 24px 14px 72px;
+  }
+
+  .prompt {
+    min-height: 260px;
+    padding: 25px 20px;
+    font-size: 16px;
+  }
+
+  .jobHeadline {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .jobHeadline > b {
+    grid-column: 2;
+  }
+
+  .questionItem summary {
+    grid-template-columns: 34px minmax(0, 1fr) 20px;
+  }
+
+  .questionDifficulty {
+    display: none;
+  }
+
+  .fileList > span {
+    width: 100%;
+    grid-template-columns: 16px minmax(0, 1fr) 24px;
+  }
+
+  .fileList em {
+    display: none;
+  }
+}
+

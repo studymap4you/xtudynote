@@ -1,0 +1,579 @@
+{
+  "db_name": "XUniverse CSAT English Question Rules DB",
+  "version": "0.1",
+  "created_at": "2026-08-23",
+  "scope": "EBS 2026 수능완성, EBS 2027 수능특강, 2024·2025·2026학년도 실제 수능 영어 문제지를 바탕으로 구성한 읽기 문제 생성 규칙 DB 초안",
+  "evidence_policy": {
+    "source_derived": "업로드 자료에서 직접 확인되는 유형·풀이전략·문항 형식",
+    "inferred_generation_rule": "여러 자료를 비교해 XUniverse 생성 엔진용으로 일반화한 규칙이며 평가원의 공식 출제 규정은 아님"
+  },
+  "generation_policy": {
+    "batch_size": {
+      "min": 4,
+      "max": 5
+    },
+    "workflow": [
+      "사용자 자연어 주문 분석",
+      "원문 Source DB 검색",
+      "문제은행 DB에서 동일/유사 수능 유형 검색",
+      "유형 규칙 + 선지 변형 패턴 적용",
+      "4~5문항 생성",
+      "문항별 검수 및 실패 문항 재생성",
+      "목표 페이지/문항 수까지 반복",
+      "전체 문제 JSON 확정",
+      "전체를 한 번에 렌더링",
+      "디자인 템플릿 배치 후 출력"
+    ]
+  },
+  "global_distractor_patterns": [
+    {
+      "id": "ABSTRACT_CONCRETE_SHIFT",
+      "ko": "추상화·구체화 교란",
+      "rule": "원문의 구체적 진술을 지나치게 일반화하거나, 일반적 주장을 특정 사례로 축소한다."
+    },
+    {
+      "id": "POLARITY_REVERSAL",
+      "ko": "긍·부정/방향 전환",
+      "rule": "핵심 술어·평가 방향을 반대로 바꾼다."
+    },
+    {
+      "id": "SEQUENCE_REVERSAL",
+      "ko": "과정·순서 역전",
+      "rule": "원인-과정-결과 또는 사건 선후 관계를 뒤집는다."
+    },
+    {
+      "id": "LEXICAL_SUBSTITUTION",
+      "ko": "어휘 바꿔치기",
+      "rule": "핵심 단어를 유사하지만 의미축이 다른 단어로 교체한다."
+    },
+    {
+      "id": "PARTIAL_TRUTH",
+      "ko": "부분 진실",
+      "rule": "본문의 실제 세부내용을 사용하지만 중심 답으로는 부족하게 만든다."
+    },
+    {
+      "id": "CAUSAL_DISTORTION",
+      "ko": "인과관계 왜곡",
+      "rule": "원인과 결과를 바꾸거나 상관·기여 관계를 단정적 인과로 과장한다."
+    },
+    {
+      "id": "SCOPE_SHIFT",
+      "ko": "범위 이동",
+      "rule": "대상·범위·조건을 원문보다 넓히거나 좁힌다."
+    },
+    {
+      "id": "OVERGENERALIZATION",
+      "ko": "과잉 일반화",
+      "rule": "some/may/often 같은 제한을 all/always/necessarily 수준으로 확대한다."
+    },
+    {
+      "id": "ADJACENT_TOPIC",
+      "ko": "인접 주제 교란",
+      "rule": "같은 분야의 관련 개념을 사용하지만 해당 글의 중심 논지와는 다르게 만든다."
+    },
+    {
+      "id": "ROLE_TARGET_SWAP",
+      "ko": "주체·대상 바꾸기",
+      "rule": "행동의 주체, 수혜자, 독자, 대상 기관 등을 바꾼다."
+    },
+    {
+      "id": "NUMERIC_CONDITION_MUTATION",
+      "ko": "수치·조건 변형",
+      "rule": "날짜·횟수·가격·비율·연령·기간·자격 조건 중 한 요소를 변경한다."
+    },
+    {
+      "id": "TEMPORAL_MUTATION",
+      "ko": "시간 관계 변형",
+      "rule": "이전/이후, 시작/종료, 연도, 순서를 변경한다."
+    },
+    {
+      "id": "DISCOURSE_RELATION_BREAK",
+      "ko": "담화 관계 단절",
+      "rule": "표면 주제는 비슷하지만 예시·대조·인과·결론 관계가 이어지지 않게 한다."
+    },
+    {
+      "id": "REFERENCE_COHESION_BREAK",
+      "ko": "지시·응집성 단절",
+      "rule": "this/that/they/another/such 등의 선행사 연결이 깨지게 한다."
+    },
+    {
+      "id": "GRAMMATICAL_ROLE_VIOLATION",
+      "ko": "문법 기능 위반",
+      "rule": "주어-동사, 관계사, 분사, 병렬, 수일치, 태, 품사 기능 중 하나를 그럴듯하게 어긴다."
+    },
+    {
+      "id": "SEMANTIC_COLLOCATION_BREAK",
+      "ko": "문맥·결합 관계 위반",
+      "rule": "문법은 맞지만 해당 문맥의 의미 관계·논리적 결합에 어긋나는 어휘를 둔다."
+    }
+  ],
+  "question_types": [
+    {
+      "id": "PURPOSE",
+      "ko_name": "글의 목적 파악",
+      "typical_csat_position": "18",
+      "evidence_target": "글쓴이·독자·상황·핵심 행동 의도",
+      "correct_option_rule": "실용문 전체를 관통하는 실제 의사소통 목적을 한 문장으로 요약한다.",
+      "preferred_distractor_patterns": [
+        "ROLE_TARGET_SWAP",
+        "PARTIAL_TRUTH",
+        "ADJACENT_TOPIC",
+        "POLARITY_REVERSAL"
+      ],
+      "passage_construction_rules": [
+        "편지·이메일·공지처럼 화자/독자 관계를 명확히 둔다.",
+        "요청·권유·공지·사과·문의 등 목적이 본문에서 확인되게 한다."
+      ],
+      "validation_rules": [
+        "정답은 세부정보가 아닌 의사소통 목적이어야 한다.",
+        "오답은 같은 상황에서 가능한 다른 목적이어야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 01 Solving Strategies",
+        "2024~2026 실제 수능 18번"
+      ]
+    },
+    {
+      "id": "EMOTION_CHANGE",
+      "ko_name": "심경 변화 파악",
+      "typical_csat_position": "19",
+      "evidence_target": "서사 인물의 초기 감정과 사건 이후 최종 감정",
+      "correct_option_rule": "초기 상태와 최종 상태를 모두 정확히 반영하는 감정쌍을 정답으로 만든다.",
+      "preferred_distractor_patterns": [
+        "POLARITY_REVERSAL",
+        "PARTIAL_TRUTH",
+        "SEQUENCE_REVERSAL"
+      ],
+      "passage_construction_rules": [
+        "전환 사건 1개를 중심으로 짧은 서사를 구성한다.",
+        "초기·최종 감정 단서를 각각 2개 이상 둔다."
+      ],
+      "validation_rules": [
+        "정답 감정쌍은 시작과 끝 모두 일치해야 한다.",
+        "오답은 한쪽만 맞는 조합을 섞는다."
+      ],
+      "evidence_basis": [
+        "2024~2026 실제 수능 19번"
+      ]
+    },
+    {
+      "id": "IMPLIED_MEANING",
+      "ko_name": "함축적 의미 파악",
+      "typical_csat_position": "21",
+      "evidence_target": "밑줄 친 비유·압축 표현이 글 전체에서 수행하는 의미",
+      "correct_option_rule": "문자 의미가 아니라 글의 요지와 연결된 재진술을 정답으로 만든다.",
+      "preferred_distractor_patterns": [
+        "PARTIAL_TRUTH",
+        "SCOPE_SHIFT",
+        "POLARITY_REVERSAL",
+        "ADJACENT_TOPIC",
+        "ABSTRACT_CONCRETE_SHIFT"
+      ],
+      "passage_construction_rules": [
+        "밑줄 표현 전후로 충분한 해석 근거를 둔다.",
+        "표현이 핵심 대조·결론을 압축하게 한다."
+      ],
+      "validation_rules": [
+        "정답은 글 전체 요지와 밑줄 표현을 동시에 설명해야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 03 Solving Strategies",
+        "2025·2026 실제 수능 21번"
+      ]
+    },
+    {
+      "id": "MAIN_IDEA",
+      "ko_name": "요지 파악",
+      "typical_csat_position": "22",
+      "evidence_target": "글 전체의 중심 생각·핵심 메시지",
+      "correct_option_rule": "주요 근거를 포괄하되 본문보다 과장하지 않는 중심 문장을 정답으로 만든다.",
+      "preferred_distractor_patterns": [
+        "PARTIAL_TRUTH",
+        "SCOPE_SHIFT",
+        "CAUSAL_DISTORTION",
+        "ADJACENT_TOPIC",
+        "OVERGENERALIZATION"
+      ],
+      "passage_construction_rules": [
+        "중심 주장 1개와 이를 뒷받침하는 2~4개 근거/예시를 둔다."
+      ],
+      "validation_rules": [
+        "정답은 핵심 요소를 두 개 이상 포괄해야 한다.",
+        "세부 사례만 요약한 선택지는 오답이어야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 04 Solving Strategies",
+        "수능완성 Chapter 01"
+      ]
+    },
+    {
+      "id": "CLAIM",
+      "ko_name": "필자의 주장 파악",
+      "typical_csat_position": "20",
+      "evidence_target": "필자가 요구·제안·평가하는 규범적 결론",
+      "correct_option_rule": "문제 인식과 제안/당위가 함께 반영된 문장을 정답으로 만든다.",
+      "preferred_distractor_patterns": [
+        "ROLE_TARGET_SWAP",
+        "PARTIAL_TRUTH",
+        "POLARITY_REVERSAL",
+        "SCOPE_SHIFT",
+        "ADJACENT_TOPIC"
+      ],
+      "passage_construction_rules": [
+        "문제 상황→근거/현실→결론/제안 구조를 권장한다."
+      ],
+      "validation_rules": [
+        "정답은 단순 사실이 아니라 필자의 태도/제안을 포함해야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 05 Solving Strategies",
+        "2024~2026 실제 수능 20번"
+      ]
+    },
+    {
+      "id": "TOPIC",
+      "ko_name": "주제 파악",
+      "typical_csat_position": "23",
+      "evidence_target": "글이 무엇에 관해 어떤 관점에서 말하는지",
+      "correct_option_rule": "핵심 대상 + 핵심 관계/변화를 압축한 명사구를 정답으로 만든다.",
+      "preferred_distractor_patterns": [
+        "PARTIAL_TRUTH",
+        "SCOPE_SHIFT",
+        "ADJACENT_TOPIC",
+        "CAUSAL_DISTORTION",
+        "OVERGENERALIZATION"
+      ],
+      "passage_construction_rules": [
+        "도입에 핵심 대상, 본문에 비교·인과·변화 관계를 둔다."
+      ],
+      "validation_rules": [
+        "정답은 단순 소재명만이 아니라 글의 관점을 포함해야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 06 Solving Strategies",
+        "수능완성 Chapter 03"
+      ]
+    },
+    {
+      "id": "TITLE",
+      "ko_name": "제목 파악",
+      "typical_csat_position": "24",
+      "evidence_target": "글 전체의 핵심 메시지와 중심 대조·긴장",
+      "correct_option_rule": "주제와 논조를 함께 담으며 글 전체를 포괄하는 제목을 정답으로 만든다.",
+      "preferred_distractor_patterns": [
+        "PARTIAL_TRUTH",
+        "SCOPE_SHIFT",
+        "POLARITY_REVERSAL",
+        "ADJACENT_TOPIC",
+        "OVERGENERALIZATION"
+      ],
+      "passage_construction_rules": [
+        "하나의 중심 갈등·대조·변화를 선명하게 한다.",
+        "선지 길이는 비슷하게 맞춘다."
+      ],
+      "validation_rules": [
+        "정답은 글 전체를 포괄해야 하며 한 사례에만 맞으면 안 된다."
+      ],
+      "evidence_basis": [
+        "수능특강 07 Solving Strategies",
+        "2024·2026 실제 수능 24번 3점 사례"
+      ]
+    },
+    {
+      "id": "CHART",
+      "ko_name": "도표 정보 파악",
+      "typical_csat_position": "25",
+      "evidence_target": "도표 수치·비교·증감·순위 사실 확인",
+      "correct_option_rule": "5개 진술 중 4개는 정확, 1개만 수치/비교 관계가 틀리게 만든다.",
+      "preferred_distractor_patterns": [
+        "NUMERIC_CONDITION_MUTATION",
+        "SEQUENCE_REVERSAL",
+        "SCOPE_SHIFT"
+      ],
+      "passage_construction_rules": [
+        "카테고리 3~5개, 시점/집단 2~3개를 사용한다."
+      ],
+      "validation_rules": [
+        "오답은 정확히 한 군데의 수치/관계만 틀리게 한다."
+      ],
+      "evidence_basis": [
+        "2024~2026 실제 수능 25번"
+      ]
+    },
+    {
+      "id": "FACTUAL_DESCRIPTION",
+      "ko_name": "내용 일치·불일치(설명문)",
+      "typical_csat_position": "26",
+      "evidence_target": "인물·사건·대상의 세부 사실",
+      "correct_option_rule": "본문 사실 중 하나를 변형한 선택지를 오답으로 둔다.",
+      "preferred_distractor_patterns": [
+        "TEMPORAL_MUTATION",
+        "ROLE_TARGET_SWAP",
+        "NUMERIC_CONDITION_MUTATION",
+        "SEQUENCE_REVERSAL",
+        "LEXICAL_SUBSTITUTION"
+      ],
+      "passage_construction_rules": [
+        "연도·소속·업적·순서를 5개 이상 제공한다."
+      ],
+      "validation_rules": [
+        "오답 외 4개는 본문에서 직접 검증 가능해야 한다."
+      ],
+      "evidence_basis": [
+        "2024~2026 실제 수능 26번"
+      ]
+    },
+    {
+      "id": "FACTUAL_PRACTICAL",
+      "ko_name": "내용 일치·불일치(실용문)",
+      "typical_csat_position": "27~28",
+      "evidence_target": "안내문·행사·상품 조건과 세부 규정",
+      "correct_option_rule": "가격·기간·자격·혜택·예약 조건 중 하나만 변형한다.",
+      "preferred_distractor_patterns": [
+        "NUMERIC_CONDITION_MUTATION",
+        "TEMPORAL_MUTATION",
+        "ROLE_TARGET_SWAP",
+        "POLARITY_REVERSAL"
+      ],
+      "passage_construction_rules": [
+        "수치·기간·자격·예외 조건을 최소 4종 포함한다."
+      ],
+      "validation_rules": [
+        "선택지는 안내문의 조건과 1:1로 검증 가능해야 한다."
+      ],
+      "evidence_basis": [
+        "2024~2026 실제 수능 27~28번"
+      ]
+    },
+    {
+      "id": "GRAMMAR",
+      "ko_name": "어법 정확성 파악",
+      "typical_csat_position": "29",
+      "evidence_target": "문장 구조와 문법 기능의 정확성",
+      "correct_option_rule": "5개 표적 중 1개만 구조적으로 틀리게 하고 나머지는 모두 자연스럽게 둔다.",
+      "preferred_distractor_patterns": [
+        "GRAMMATICAL_ROLE_VIOLATION"
+      ],
+      "passage_construction_rules": [
+        "표적 후보: 주어-동사, 수일치, 관계사, 분사, 태, 병렬, 대명사, 품사, to부정사."
+      ],
+      "validation_rules": [
+        "단순 철자 오류 금지.",
+        "수정안이 하나로 명확해야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 11 Solving Strategies",
+        "2024~2026 실제 수능 29번"
+      ]
+    },
+    {
+      "id": "VOCABULARY",
+      "ko_name": "어휘 적절성 파악",
+      "typical_csat_position": "30",
+      "evidence_target": "문맥 속 의미 관계와 논리 방향",
+      "correct_option_rule": "문법적으로는 가능하지만 문맥 의미축에 어긋나는 단어 하나를 둔다.",
+      "preferred_distractor_patterns": [
+        "LEXICAL_SUBSTITUTION",
+        "POLARITY_REVERSAL",
+        "SEMANTIC_COLLOCATION_BREAK",
+        "CAUSAL_DISTORTION"
+      ],
+      "passage_construction_rules": [
+        "원인/결과, 수단/목적, 증가/감소, 협력/경쟁 같은 의미축을 둔다."
+      ],
+      "validation_rules": [
+        "오류 단어는 문법적으로 자연스러워야 한다.",
+        "대체 가능한 정답 어휘가 명확해야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 12 Solving Strategies",
+        "2024~2026 실제 수능 30번"
+      ]
+    },
+    {
+      "id": "BLANK_SHORT",
+      "ko_name": "빈칸 내용 추론(단어·짧은 어구)",
+      "typical_csat_position": "31~32 중심",
+      "evidence_target": "글 전체 논리를 지탱하는 핵심 단어·짧은 명사구",
+      "correct_option_rule": "전후 근거와 전체 요지를 동시에 만족하는 개념어를 정답으로 둔다.",
+      "preferred_distractor_patterns": [
+        "PARTIAL_TRUTH",
+        "ADJACENT_TOPIC",
+        "POLARITY_REVERSAL",
+        "SCOPE_SHIFT",
+        "CAUSAL_DISTORTION"
+      ],
+      "passage_construction_rules": [
+        "빈칸 앞뒤에 최소 2개 의미 근거를 둔다."
+      ],
+      "validation_rules": [
+        "정답·오답을 동일 품사/유사 길이로 맞춘다."
+      ],
+      "evidence_basis": [
+        "수능특강 13 Solving Strategies",
+        "수능완성 Chapter 07"
+      ]
+    },
+    {
+      "id": "BLANK_LONG",
+      "ko_name": "빈칸 내용 추론(절·긴 어구)",
+      "typical_csat_position": "32~34 중심",
+      "evidence_target": "글의 결론·일반화·핵심 관계를 표현하는 절/긴 어구",
+      "correct_option_rule": "여러 근거를 하나의 관계 문장으로 통합한 선택지를 정답으로 둔다.",
+      "preferred_distractor_patterns": [
+        "PARTIAL_TRUTH",
+        "CAUSAL_DISTORTION",
+        "SCOPE_SHIFT",
+        "POLARITY_REVERSAL",
+        "ABSTRACT_CONCRETE_SHIFT"
+      ],
+      "passage_construction_rules": [
+        "빈칸을 결론 또는 핵심 전환 지점에 둔다.",
+        "선택지 구조와 길이를 유사하게 한다."
+      ],
+      "validation_rules": [
+        "오답도 본문 키워드를 공유하되 핵심 관계가 틀려야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 14",
+        "수능완성 Chapter 08"
+      ]
+    },
+    {
+      "id": "IRRELEVANT_SENTENCE",
+      "ko_name": "흐름에 무관한 문장",
+      "typical_csat_position": "35",
+      "evidence_target": "중심 논리 흐름과 한 문장 간의 담화적 부적합",
+      "correct_option_rule": "표면 소재는 유사하지만 논리 전개에는 기여하지 않는 문장 하나를 삽입한다.",
+      "preferred_distractor_patterns": [
+        "DISCOURSE_RELATION_BREAK",
+        "ADJACENT_TOPIC",
+        "SCOPE_SHIFT"
+      ],
+      "passage_construction_rules": [
+        "원문 논리 흐름을 4~6단계로 먼저 설계한다.",
+        "무관 문장도 같은 주제 어휘를 일부 공유하게 한다."
+      ],
+      "validation_rules": [
+        "무관 문장을 제거했을 때 논리 흐름이 자연스러워야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 15 Solving Strategies",
+        "수능완성 Chapter 09"
+      ]
+    },
+    {
+      "id": "PARAGRAPH_ORDER",
+      "ko_name": "문단 내 글의 순서",
+      "typical_csat_position": "36~37",
+      "evidence_target": "문단 간 논리·지시·연결 관계",
+      "correct_option_rule": "주어진 도입 뒤 A/B/C의 유일한 자연 순서를 정답으로 만든다.",
+      "preferred_distractor_patterns": [
+        "SEQUENCE_REVERSAL",
+        "REFERENCE_COHESION_BREAK",
+        "DISCOURSE_RELATION_BREAK"
+      ],
+      "passage_construction_rules": [
+        "각 문단에 연결어·대명사·반복어·예시-일반화 단서를 둔다."
+      ],
+      "validation_rules": [
+        "정답 외 순서에서는 지시어 선행사 또는 담화 관계가 깨져야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 16 Solving Strategies",
+        "수능완성 Chapter 10"
+      ]
+    },
+    {
+      "id": "SENTENCE_INSERTION",
+      "ko_name": "문단 속에 문장 넣기",
+      "typical_csat_position": "38~39",
+      "evidence_target": "주어진 문장의 앞뒤 응집성과 논리 기능",
+      "correct_option_rule": "앞 문장과의 backward anchor, 뒤 문장과의 forward anchor가 동시에 성립하는 위치를 정답으로 만든다.",
+      "preferred_distractor_patterns": [
+        "REFERENCE_COHESION_BREAK",
+        "DISCOURSE_RELATION_BREAK",
+        "SEQUENCE_REVERSAL"
+      ],
+      "passage_construction_rules": [
+        "주어진 문장에 대명사·연결어·반복어·대조 표현 중 1~2개 단서를 둔다."
+      ],
+      "validation_rules": [
+        "정답 위치에서 앞·뒤 두 연결이 모두 자연스러워야 한다."
+      ],
+      "evidence_basis": [
+        "수능특강 17 Solving Strategies",
+        "수능완성 Chapter 11"
+      ]
+    },
+    {
+      "id": "SUMMARY",
+      "ko_name": "문단 요약",
+      "typical_csat_position": "40",
+      "evidence_target": "긴 글의 핵심 조건/상황과 결과/대응을 두 슬롯으로 압축",
+      "correct_option_rule": "(A),(B) 두 핵심어가 모두 중심 관계를 정확히 요약하는 조합을 정답으로 둔다.",
+      "preferred_distractor_patterns": [
+        "POLARITY_REVERSAL",
+        "CAUSAL_DISTORTION",
+        "PARTIAL_TRUTH",
+        "LEXICAL_SUBSTITUTION",
+        "SCOPE_SHIFT"
+      ],
+      "passage_construction_rules": [
+        "본문을 문제상황/대조/결론 중 2축으로 요약 가능하게 설계한다."
+      ],
+      "validation_rules": [
+        "오답 조합은 한 슬롯만 맞는 경우와 둘 다 틀린 경우를 섞는다."
+      ],
+      "evidence_basis": [
+        "수능특강 18 Gateway",
+        "수능완성 Chapter 12"
+      ]
+    },
+    {
+      "id": "LONG_READING_1",
+      "ko_name": "장문 독해(설명/논설)",
+      "typical_csat_position": "41~42",
+      "evidence_target": "하나의 장문에서 중심 내용 + 문맥 어휘/세부 추론을 복수 평가",
+      "correct_option_rule": "첫 문항은 글 전체, 두 번째는 특정 부분을 묻도록 분리한다.",
+      "preferred_distractor_patterns": [
+        "PARTIAL_TRUTH",
+        "SCOPE_SHIFT",
+        "LEXICAL_SUBSTITUTION",
+        "POLARITY_REVERSAL"
+      ],
+      "passage_construction_rules": [
+        "충분한 논리 전개를 확보하고 두 문항의 정답 근거가 과도하게 겹치지 않게 한다."
+      ],
+      "validation_rules": [
+        "첫 문항을 풀지 않아도 두 번째 정답이 결정 가능해야 한다."
+      ],
+      "evidence_basis": [
+        "수능완성 Chapter 13",
+        "실제 수능 41~42"
+      ]
+    },
+    {
+      "id": "LONG_READING_2",
+      "ko_name": "장문 독해(서사)",
+      "typical_csat_position": "43~45",
+      "evidence_target": "긴 서사에서 사건 순서·지시 대상·내용 일치 등 복수 정보 처리",
+      "correct_option_rule": "3문항이 전개 순서, 지칭/문맥, 세부 사실을 다르게 평가하게 한다.",
+      "preferred_distractor_patterns": [
+        "SEQUENCE_REVERSAL",
+        "REFERENCE_COHESION_BREAK",
+        "TEMPORAL_MUTATION",
+        "PARTIAL_TRUTH"
+      ],
+      "passage_construction_rules": [
+        "사건을 4~6단계로 구성하고 인물/대명사 지칭을 명확히 둔다."
+      ],
+      "validation_rules": [
+        "3문항의 정답 근거가 서로 다른 문단에 분산되게 한다."
+      ],
+      "evidence_basis": [
+        "실제 수능 43~45"
+      ]
+    }
+  ]
+}

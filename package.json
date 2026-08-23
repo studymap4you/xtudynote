@@ -14,7 +14,8 @@
     "import:exam-blueprints": "node scripts/import-exam-textbook-blueprints.mjs --import --publish-library --verify",
     "import:open-access-sources": "node scripts/import-open-access-paper-sources.mjs --import --verify",
     "test:wordnet": "node --test scripts/test-wordnet-lexicon.mjs",
-    "test:wordnet-live": "node scripts/smoke-test-wordnet.mjs"
+    "test:wordnet-live": "node scripts/smoke-test-wordnet.mjs",
+    "test:csat-question-engine": "node --test scripts/test-csat-question-engine.mjs"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
