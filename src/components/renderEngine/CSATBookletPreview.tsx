@@ -1,13 +1,16 @@
 import { Check, LoaderCircle, Printer, X } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, useEffect, type CSSProperties } from "react";
 import { A4_WIDTH_PX } from "@/components/renderEngine/CSATPage";
+import { ConceptBlockRenderer } from "@/components/renderEngine/ConceptBlockRenderer";
 import { CSATTemplateRenderUnit } from "@/components/renderEngine/templates/CSATTemplateBooklet";
+import { paginateMeasuredConceptUnits } from "@/lib/conceptAssembly/buildConceptRenderUnits";
 import { paginateMeasuredCSATUnits } from "@/lib/renderEngine/paginateQuestionUnits";
 import { printQuestionBooklet } from "@/lib/renderEngine/printQuestionBooklet";
 import { renderQuestionBooklet } from "@/lib/renderEngine/renderQuestionBooklet";
 import { getRenderTemplate, renderTemplateList } from "@/lib/renderEngine/templateRegistry";
 import { templateCssVariables } from "@/lib/renderEngine/templates/templateTokens";
 import type { CSATRenderInput, CSATRenderMode, CSATRenderPage, CSATRenderingStatus, CSATRenderTemplateId } from "@/lib/renderEngine/types";
+import type { ConceptRenderPage } from "@/types/conceptAssembly";
 import styles from "@/components/renderEngine/csatRender.module.css";
 import "@/styles/csat-print.css";
 
@@ -22,11 +25,14 @@ export function CSATBookletPreview({
 }) {
   const [mode, setMode] = useState<CSATRenderMode>(input.options?.mode || "student");
   const [status, setStatus] = useState<CSATRenderingStatus>("preparing");
+  const [conceptPages, setConceptPages] = useState<ConceptRenderPage[]>([]);
   const [pages, setPages] = useState<CSATRenderPage[]>([]);
   const [scale, setScale] = useState(1);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const pageBodyRef = useRef<HTMLElement | null>(null);
+  const conceptMeasurementListRef = useRef<HTMLDivElement | null>(null);
   const measurementListRef = useRef<HTMLDivElement | null>(null);
+  const conceptUnitRefs = useRef(new Map<string, HTMLDivElement>());
   const unitRefs = useRef(new Map<string, HTMLDivElement>());
   const booklet = useMemo(() => renderQuestionBooklet({
     ...input,
@@ -57,20 +63,32 @@ export function CSATBookletPreview({
 
   useLayoutEffect(() => {
     setStatus("rendering");
+    setConceptPages([]);
     setPages([]);
     const frame = window.requestAnimationFrame(() => {
       const pageBody = pageBodyRef.current;
+      const conceptList = conceptMeasurementListRef.current;
       const list = measurementListRef.current;
-      if (!pageBody || !list || booklet.units.some((unit) => !unitRefs.current.has(unit.id))) {
+      if (
+        !pageBody
+        || !conceptList
+        || !list
+        || booklet.conceptUnits.some((unit) => !conceptUnitRefs.current.has(unit.id))
+        || booklet.units.some((unit) => !unitRefs.current.has(unit.id))
+      ) {
         setStatus("failed");
         return;
       }
+      const conceptHeights = new Map(booklet.conceptUnits.map((unit) => [unit.id, conceptUnitRefs.current.get(unit.id)!.getBoundingClientRect().height]));
       const heights = new Map(booklet.units.map((unit) => [unit.id, unitRefs.current.get(unit.id)!.getBoundingClientRect().height]));
       const bodyStyle = window.getComputedStyle(pageBody);
       const gap = Number.parseFloat(window.getComputedStyle(list).rowGap) || 28;
+      const conceptGap = Number.parseFloat(window.getComputedStyle(conceptList).rowGap) || gap;
       const verticalPadding = (Number.parseFloat(bodyStyle.paddingTop) || 0) + (Number.parseFloat(bodyStyle.paddingBottom) || 0);
       const pageCapacity = pageBody.clientHeight - verticalPadding;
+      const nextConceptPages = paginateMeasuredConceptUnits(booklet.conceptUnits, conceptHeights, pageCapacity, conceptGap);
       const nextPages = paginateMeasuredCSATUnits(booklet.units, heights, pageCapacity, gap);
+      setConceptPages(nextConceptPages);
       setPages(nextPages);
       setStatus(nextPages.length > 0 ? "ready" : "failed");
     });
@@ -83,7 +101,7 @@ export function CSATBookletPreview({
         <div>
           <small>Template</small>
           <strong>{template.name}</strong>
-          <span>{booklet.questions.length} Questions · {pages.length + 1 + Number(booklet.options.mode === "review" && booklet.options.showAnswerKey)} Pages</span>
+          <span>{booklet.conceptSection?.blocks.length || 0} Concepts · {booklet.questions.length} Questions · {conceptPages.length + pages.length + 1 + Number(booklet.options.mode === "review" && booklet.options.showAnswerKey)} Pages</span>
         </div>
         {onTemplateChange ? (
           <label className={styles.templateControl}>
@@ -107,13 +125,20 @@ export function CSATBookletPreview({
       <div ref={previewRef} className={`${styles.previewScroll} csat-preview-scroll`}>
         <div data-csat-print-root className="csat-print-root">
           {status === "failed" ? <p className={`${styles.renderError} csat-no-print`}>문제집 페이지를 구성하지 못했습니다. 문항 데이터를 확인해주세요.</p> : null}
-          {pages.length > 0 ? <Template booklet={booklet} pages={pages} scale={scale} /> : null}
+          {pages.length > 0 ? <Template booklet={booklet} conceptPages={conceptPages} pages={pages} scale={scale} /> : null}
         </div>
       </div>
       <div className={`${styles.measurementRoot} csat-measurement-root`} data-csat-template={booklet.templateId} style={templateStyle} aria-hidden="true">
         <article className={styles.page}>
           <div className={styles.measurementHeader} />
           <main ref={pageBodyRef} className={styles.pageBody}>
+            <div ref={conceptMeasurementListRef} className={styles.measurementList}>
+              {booklet.conceptUnits.map((unit) => (
+                <div key={unit.id} ref={(node) => { if (node) conceptUnitRefs.current.set(unit.id, node); else conceptUnitRefs.current.delete(unit.id); }}>
+                  <ConceptBlockRenderer unit={unit} />
+                </div>
+              ))}
+            </div>
             <div ref={measurementListRef} className={styles.measurementList}>
               {booklet.units.map((unit) => (
                 <div key={unit.id} ref={(node) => { if (node) unitRefs.current.set(unit.id, node); else unitRefs.current.delete(unit.id); }}>

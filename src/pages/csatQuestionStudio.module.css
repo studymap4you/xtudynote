@@ -438,6 +438,51 @@
   cursor: pointer;
 }
 
+.conceptAssemblyNotice {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 13px 18px;
+  border-top: 1px solid #173753;
+  border-bottom: 1px solid #173753;
+  background: #071827;
+  color: #70caff;
+}
+
+.conceptAssemblyNotice > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.conceptAssemblyNotice strong {
+  color: #dcebf8;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.conceptAssemblyNotice span {
+  color: #7898b2;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.conceptAssemblyNotice[data-status="ready"] {
+  border-color: #1d665c;
+  color: #5fe0bf;
+}
+
+.conceptAssemblyNotice[data-status="partial"],
+.conceptAssemblyNotice[data-status="missing"],
+.conceptAssemblyNotice[data-status="failed"] {
+  border-color: #624155;
+  background: #1b1019;
+  color: #ff91ad;
+}
+
 .error {
   margin: 0;
   padding: 14px 28px;
@@ -477,6 +522,12 @@
 .results {
   width: min(1180px, 100%);
   margin: 30px auto 0;
+}
+
+.results > .conceptAssemblyNotice {
+  margin-top: 14px;
+  border: 1px solid #173753;
+  border-radius: 6px;
 }
 
 .results > header {

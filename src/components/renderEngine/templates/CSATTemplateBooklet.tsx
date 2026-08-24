@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { CSATPage, A4_HEIGHT_PX, A4_WIDTH_PX } from "@/components/renderEngine/CSATPage";
 import { CSATPageFooter } from "@/components/renderEngine/CSATPageFooter";
 import { CSATQuestionBlock } from "@/components/renderEngine/CSATQuestionBlock";
+import { ConceptSectionRenderer } from "@/components/renderEngine/ConceptSectionRenderer";
 import { getCSATTemplateTokens, templateCssVariables } from "@/lib/renderEngine/templates/templateTokens";
 import type { CSATRenderTemplateId } from "@/lib/renderEngine/templateIds";
 import type { CSATRenderUnit, CSATTemplateProps, PreparedCSATBooklet } from "@/lib/renderEngine/types";
@@ -46,7 +47,7 @@ function CoverPage({ booklet, scale, templateId }: { booklet: PreparedCSATBookle
           <p>{booklet.title}</p>
         </div>
         <div className={styles.coverDetails}>
-          <section><b>PRACTICE SET</b><strong>{booklet.questions.length} Questions</strong><span>{booklet.target || "CSAT Reading Practice"}</span></section>
+          <section><b>CONTENTS</b><strong>{booklet.conceptSection?.blocks.length || 0} Concepts · {booklet.questions.length} Questions</strong><span>{booklet.target || "CSAT Reading Practice"}</span></section>
           <section><b>FOCUS</b><strong>{booklet.subtitle || tokens.cover.focus}</strong><span>Validated question set</span></section>
           <section><b>EDITION</b><strong>{booklet.options.mode === "student" ? "Student Book" : "Review Book"}</strong><span>XUniverse deterministic layout</span></section>
           {booklet.options.showMotivationalCopy ? <section className={styles.coverMicrocopy}><b>STUDY NOTE</b><strong>{tokens.cover.motivationalCopy}</strong><span>Keep going.</span></section> : null}
@@ -70,20 +71,23 @@ function AnswerKeyPage({ booklet, scale, pageNumber }: { booklet: PreparedCSATBo
   );
 }
 
-export function CSATTemplateBooklet({ booklet, pages, scale, templateId }: CSATTemplateProps & { templateId: CSATRenderTemplateId }) {
+export function CSATTemplateBooklet({ booklet, conceptPages, pages, scale, templateId }: CSATTemplateProps & { templateId: CSATRenderTemplateId }) {
   const showAnswerKey = booklet.options.mode === "review" && booklet.options.showAnswerKey;
   const tokens = getCSATTemplateTokens(templateId);
   return (
     <div className={`${styles.pageStack} csat-page-stack`} data-csat-template={templateId} style={templateCssVariables(tokens) as CSSProperties}>
       <CoverPage booklet={booklet} scale={scale} templateId={templateId} />
+      {conceptPages.map((page, index) => (
+        <ConceptSectionRenderer key={page.id} page={page} pageNumber={index + 2} scale={scale} />
+      ))}
       {pages.map((page, index) => (
-        <CSATPage key={page.id} pageNumber={index + 2} section={`Practice Set · ${booklet.questions.length} Questions`} scale={scale}>
+        <CSATPage key={page.id} pageNumber={conceptPages.length + index + 2} section={`PART 02 · PRACTICE · ${booklet.questions.length} QUESTIONS`} scale={scale}>
           {page.units.map((unit, unitIndex) => (
             <CSATTemplateRenderUnit key={unit.id} unit={unit} booklet={booklet} previousUnit={page.units[unitIndex - 1]} nextUnit={page.units[unitIndex + 1]} />
           ))}
         </CSATPage>
       ))}
-      {showAnswerKey ? <AnswerKeyPage booklet={booklet} scale={scale} pageNumber={pages.length + 2} /> : null}
+      {showAnswerKey ? <AnswerKeyPage booklet={booklet} scale={scale} pageNumber={conceptPages.length + pages.length + 2} /> : null}
     </div>
   );
 }

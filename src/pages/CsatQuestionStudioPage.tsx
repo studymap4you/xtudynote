@@ -20,6 +20,8 @@ import { type ChangeEvent, type DragEvent, type KeyboardEvent, useCallback, useE
 import { DashboardShell } from "@/components/DashboardShell";
 import { CSATBookletPreview } from "@/components/renderEngine/CSATBookletPreview";
 import { CSATTemplatePicker } from "@/components/renderEngine/CSATTemplatePicker";
+import { attachConceptsToQuestions } from "@/lib/conceptAssembly/attachConceptsToQuestions";
+import { requestConceptAssembly } from "@/lib/conceptAssembly/requestConceptAssembly";
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import {
   deleteCsatQuestionJob,
@@ -38,6 +40,7 @@ import type {
 } from "@/types/csatQuestionEngine";
 import { getSavedCSATTemplateId, saveCSATTemplateId } from "@/lib/renderEngine/templateStorage";
 import type { CSATRenderInput, CSATRenderTemplateId } from "@/lib/renderEngine/types";
+import type { ConceptAssemblyResult, ConceptAssemblyUiStatus } from "@/types/conceptAssembly";
 import styles from "@/pages/csatQuestionStudio.module.css";
 
 type AttachedSource = {
@@ -154,6 +157,42 @@ function ProgressStatusIcon({ event, active }: { event: CsatProgressEvent; activ
   return <Info size={15} aria-hidden="true" />;
 }
 
+function ConceptAssemblyNotice({
+  status,
+  result,
+  error,
+}: {
+  status: ConceptAssemblyUiStatus;
+  result: ConceptAssemblyResult | null;
+  error: string | null;
+}) {
+  if (status === "idle") return null;
+  const loading = status === "retrieving" || status === "assembling";
+  const conceptCount = result?.section.blocks.length || 0;
+  const missingCount = result?.missingConceptKeys.length || 0;
+  const title = status === "retrieving"
+    ? "Concept DB에서 필요한 원문을 검색하고 있습니다."
+    : status === "assembling"
+      ? "원문 무결성을 확인하고 Concept Section을 조립하고 있습니다."
+      : status === "ready"
+        ? `DB 원문 개념 ${conceptCount}개를 준비했습니다.`
+        : status === "partial"
+          ? `DB 원문 개념 ${conceptCount}개를 준비하고 ${missingCount}개는 누락으로 기록했습니다.`
+          : status === "missing"
+            ? "사용이 허용된 개념 원문이 없어 기존 문제집만 유지합니다."
+            : "Concept DB 조회에 실패했지만 기존 문제 결과는 유지됩니다.";
+  const detail = error
+    || (result?.section.metadata.sourceTitles.length
+      ? result.section.metadata.sourceTitles.slice(0, 3).join(" · ")
+      : "AI 생성이나 임의 보충 없이 DB에 존재하는 자료만 사용합니다.");
+  return (
+    <div className={styles.conceptAssemblyNotice} data-status={status} role="status">
+      {loading ? <LoaderCircle className={styles.spinner} size={17} /> : status === "failed" || status === "missing" ? <AlertTriangle size={17} /> : <BookOpen size={17} />}
+      <div><strong>{title}</strong><span>{detail}</span></div>
+    </div>
+  );
+}
+
 function QuestionReviewItem({ question }: { question: GeneratedCsatQuestion }) {
   return (
     <details className={styles.questionItem}>
@@ -202,10 +241,15 @@ export function CsatQuestionStudioPage() {
   const [dragging, setDragging] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<CSATRenderTemplateId>(() => getSavedCSATTemplateId());
+  const [conceptResult, setConceptResult] = useState<ConceptAssemblyResult | null>(null);
+  const [conceptStatus, setConceptStatus] = useState<ConceptAssemblyUiStatus>("idle");
+  const [conceptError, setConceptError] = useState<string | null>(null);
   const pauseRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const progressLogRef = useRef<HTMLDivElement | null>(null);
   const progressCursorRef = useRef(0);
+  const conceptRequestRef = useRef(0);
+  const conceptCacheRef = useRef(new Map<string, ConceptAssemblyResult>());
 
   const extractingCount = sources.filter((source) => source.status === "extracting").length;
   const progress = job ? Math.min(100, Math.round((job.acceptedCount / job.targetQuestionCount) * 100)) : 0;
@@ -227,6 +271,7 @@ export function CsatQuestionStudioPage() {
       target: `${job.request.targetGrade} · ${level}`,
       templateId: selectedTemplateId,
       questions: job.questions,
+      conceptSection: conceptResult?.section.blocks.length ? conceptResult.section : undefined,
       options: {
         mode: "student",
         showDifficulty: false,
@@ -237,7 +282,7 @@ export function CsatQuestionStudioPage() {
         showMotivationalCopy: true,
       },
     };
-  }, [job, selectedTemplateId]);
+  }, [conceptResult, job, selectedTemplateId]);
 
   useEffect(() => {
     saveCSATTemplateId(selectedTemplateId);
@@ -268,6 +313,50 @@ export function CsatQuestionStudioPage() {
     }
   }, []);
 
+  const assembleConceptsForJob = useCallback(async (sourceJob: CsatQuestionJob): Promise<ConceptAssemblyResult | null> => {
+    const questionTypes = [...new Set(
+      (sourceJob.questionTypePlan.length ? sourceJob.questionTypePlan : sourceJob.request.requestedTypes)
+        .map((type) => type.trim().toUpperCase())
+        .filter(Boolean),
+    )];
+    const cacheKey = JSON.stringify({
+      questionTypes,
+      subject: "English",
+      targetGrade: sourceJob.request.targetGrade,
+    });
+    const requestSequence = conceptRequestRef.current + 1;
+    conceptRequestRef.current = requestSequence;
+    setConceptError(null);
+    const cached = conceptCacheRef.current.get(cacheKey);
+    if (cached) {
+      setConceptResult(cached);
+      setConceptStatus(cached.status);
+      return cached;
+    }
+
+    setConceptResult(null);
+    setConceptStatus("retrieving");
+    try {
+      const result = await requestConceptAssembly({
+        questionTypes,
+        subject: "English",
+        targetGrade: sourceJob.request.targetGrade,
+      });
+      conceptCacheRef.current.set(cacheKey, result);
+      if (requestSequence !== conceptRequestRef.current) return result;
+      setConceptStatus("assembling");
+      setConceptResult(result);
+      setConceptStatus(result.status);
+      return result;
+    } catch (caught) {
+      if (requestSequence !== conceptRequestRef.current) return null;
+      setConceptResult(null);
+      setConceptStatus("failed");
+      setConceptError(caught instanceof Error ? caught.message : "개념 자료를 불러오지 못했습니다.");
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     void refreshHistory();
     const activeId = window.localStorage.getItem(ACTIVE_JOB_STORAGE_KEY);
@@ -277,9 +366,10 @@ export function CsatQuestionStudioPage() {
         setJob(stored);
         setUserRequest(stored.userRequest);
         setStatusText(stored.status === "completed" ? "문제 검수 완료" : "저장된 문제 세트를 이어서 생성할 수 있습니다.");
+        void assembleConceptsForJob(stored);
       })
       .catch(() => window.localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY));
-  }, [refreshHistory]);
+  }, [assembleConceptsForJob, refreshHistory]);
 
   const applyProgressSnapshot = useCallback((snapshot: CsatQuestionProgressSnapshot) => {
     progressCursorRef.current = Math.max(
@@ -392,12 +482,13 @@ export function CsatQuestionStudioPage() {
       setJob(created);
       progressCursorRef.current = Math.max(created.progressSequence || 0, latestProgressSequence(created.progressEvents || []));
       window.localStorage.setItem(ACTIVE_JOB_STORAGE_KEY, created.id);
+      await assembleConceptsForJob(created);
       await runBatches(created);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "문제 생성 작업을 시작하지 못했습니다.");
       setRunning(false);
     }
-  }, [extractingCount, runBatches, sourceText, sources, userRequest]);
+  }, [assembleConceptsForJob, extractingCount, runBatches, sourceText, sources, userRequest]);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const added = Array.from(files).map((file) => ({
@@ -435,6 +526,10 @@ export function CsatQuestionStudioPage() {
     setStatusText("문제 생성 준비 중...");
     setHistoryOpen(false);
     setPreviewOpen(false);
+    setConceptResult(null);
+    setConceptStatus("idle");
+    setConceptError(null);
+    conceptRequestRef.current += 1;
     progressCursorRef.current = 0;
     window.localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
   }, [running]);
@@ -453,12 +548,13 @@ export function CsatQuestionStudioPage() {
       setHistoryOpen(false);
       setStatusText(stored.status === "completed" ? "문제 검수 완료" : "저장된 문제 다음 배치부터 이어서 생성할 수 있습니다.");
       window.localStorage.setItem(ACTIVE_JOB_STORAGE_KEY, stored.id);
+      await assembleConceptsForJob(stored);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "문제 세트를 열지 못했습니다.");
     } finally {
       setHistoryBusyId(null);
     }
-  }, [running]);
+  }, [assembleConceptsForJob, running]);
 
   const removeHistoryItem = useCallback(async (id: string, title: string) => {
     if (!window.confirm(`'${title}' 문제 세트를 삭제할까요?`)) return;
@@ -476,10 +572,16 @@ export function CsatQuestionStudioPage() {
 
   const downloadJson = useCallback(() => {
     if (!job) return;
+    const bookletContent = attachConceptsToQuestions(
+      conceptResult?.section.blocks.length ? conceptResult.section : undefined,
+      job.questions,
+    );
     const payload = {
       schemaVersion: "xuniverse-csat-question-set-v1",
+      bookletSchemaVersion: "xuniverse-concept-practice-booklet-v1",
       request: job.request,
       rulesVersion: job.rulesVersion,
+      sections: bookletContent.sections,
       questions: job.questions,
       quality: {
         acceptedCount: job.acceptedCount,
@@ -494,7 +596,7 @@ export function CsatQuestionStudioPage() {
     anchor.download = `xuniverse-csat-questions-${job.id}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, [job]);
+  }, [conceptResult, job]);
 
   const handlePromptKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !running && !job) {
@@ -619,6 +721,8 @@ export function CsatQuestionStudioPage() {
                 </div>
               ) : null}
 
+              {job ? <ConceptAssemblyNotice status={conceptStatus} result={conceptResult} error={conceptError} /> : null}
+
               {error ? <p className={styles.error}>{error}</p> : null}
               <footer>
                 <input ref={fileInputRef} type="file" multiple hidden onChange={(event: ChangeEvent<HTMLInputElement>) => { if (event.target.files) addFiles(event.target.files); event.target.value = ""; }} />
@@ -640,11 +744,12 @@ export function CsatQuestionStudioPage() {
                 <header>
                   <div><small>VALIDATED QUESTION SET</small><h1>{job.title}</h1></div>
                   <div className={styles.resultActions}>
-                    <span>{job.questions.length}문항</span>
+                    <span>{conceptResult?.section.blocks.length || 0}개념 · {job.questions.length}문항</span>
                     <button type="button" onClick={() => setPreviewOpen(true)}><BookOpen size={16} /> 문제집 미리보기</button>
                     <button type="button" onClick={downloadJson}><Download size={16} /> JSON 다운로드</button>
                   </div>
                 </header>
+                <ConceptAssemblyNotice status={conceptStatus} result={conceptResult} error={conceptError} />
                 <div className={styles.questionList}>{job.questions.map((question) => <QuestionReviewItem key={question.id} question={question} />)}</div>
               </section>
             ) : null}

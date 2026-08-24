@@ -296,12 +296,137 @@
 }
 
 .questionBlock,
-.sharedPassage {
+.sharedPassage,
+.conceptBlock {
   flex: 0 0 auto;
   padding-bottom: 6mm;
   border-bottom: 0.2mm solid var(--csat-line);
   break-inside: avoid;
   page-break-inside: avoid;
+}
+
+.conceptBlock {
+  padding: 5mm;
+  border: 0.25mm solid var(--csat-line);
+  border-left: 1.4mm solid var(--csat-primary);
+  border-radius: var(--csat-radius);
+  background: color-mix(in srgb, var(--csat-primary-soft) 32%, var(--csat-paper));
+}
+
+.conceptContinuation {
+  border-left-color: var(--csat-mint);
+}
+
+.conceptHeader {
+  margin-bottom: 4mm;
+  display: grid;
+  grid-template-columns: 13mm minmax(0, 1fr);
+  align-items: start;
+  gap: 4mm;
+}
+
+.conceptHeader > span {
+  height: 13mm;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--csat-small-radius);
+  background: var(--csat-primary);
+  color: white;
+  font-size: 7px;
+  font-weight: 800;
+  writing-mode: vertical-rl;
+}
+
+.conceptHeader > div {
+  min-width: 0;
+  display: grid;
+  gap: 1mm;
+}
+
+.conceptHeader small,
+.conceptContinuedLabel {
+  margin: 0;
+  color: var(--csat-primary);
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.conceptHeader h2 {
+  margin: 0;
+  color: var(--csat-ink);
+  font-family: var(--csat-passage-font, Georgia, "Times New Roman", serif);
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+.conceptContinuedLabel {
+  margin-bottom: 3mm;
+}
+
+.conceptContent {
+  color: var(--csat-passage);
+  font-family: var(--csat-passage-font, Georgia, "Times New Roman", serif);
+  font-size: 12px;
+  line-height: 1.78;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.conceptSource {
+  margin-top: 4mm;
+  padding-top: 2.5mm;
+  border-top: 0.2mm solid var(--csat-line);
+  color: var(--csat-muted);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .conceptBlock {
+  border-left-width: 2mm;
+  background: var(--csat-paper);
+  box-shadow: 0 1.5mm 4mm rgb(21 87 213 / 8%);
+}
+
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .conceptBlock {
+  border-width: 0.2mm;
+  background: color-mix(in srgb, var(--csat-primary-soft) 24%, var(--csat-paper));
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .conceptBlock {
+  border: 0.35mm solid #111;
+  border-left-width: 1.6mm;
+  border-radius: 0;
+  background: white;
+  box-shadow: none;
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .conceptHeader > span {
+  background: #111;
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .conceptHeader small {
+  display: inline;
+  background: var(--csat-lemon);
+  color: #111;
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .conceptBlock {
+  padding-inline: 0;
+  border-width: 0 0 0.3mm;
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .conceptHeader h2 {
+  color: var(--csat-primary);
+  font-size: 22px;
+}
+
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .conceptBlock {
+  border-left: 1mm solid var(--csat-coral);
+  background: rgb(255 255 255 / 78%);
 }
 
 .questionHeader {

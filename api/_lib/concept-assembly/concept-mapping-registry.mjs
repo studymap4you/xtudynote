@@ -1,0 +1,23 @@
+export const conceptMappingRegistry = Object.freeze({
+  PURPOSE: ["purpose_identification"],
+  EMOTION_CHANGE: ["emotion_change_detection"],
+  IMPLIED_MEANING: ["implied_meaning", "contextual_inference"],
+  MAIN_IDEA: ["main_idea_detection", "key_sentence_detection"],
+  CLAIM: ["claim_detection", "argument_structure"],
+  TOPIC: ["topic_detection"],
+  TITLE: ["title_inference", "main_idea_detection"],
+  CHART: ["data_interpretation"],
+  FACTUAL_DESCRIPTION: ["detail_verification"],
+  FACTUAL_PRACTICAL: ["practical_text_reading"],
+  GRAMMAR: ["grammar_strategy"],
+  VOCABULARY: ["contextual_vocabulary"],
+  BLANK_SHORT: ["blank_strategy", "contextual_inference"],
+  BLANK_LONG: ["blank_strategy", "contextual_inference", "logical_relation", "main_argument_detection"],
+  IRRELEVANT_SENTENCE: ["discourse_coherence", "topic_consistency"],
+  PARAGRAPH_ORDER: ["paragraph_cohesion", "reference_words", "logical_sequence"],
+  SENTENCE_INSERTION: ["sentence_connection", "reference_cohesion", "logical_flow"],
+  SUMMARY: ["summary_structure", "core_relation_detection"],
+  LONG_READING_1: ["long_reading_structure", "main_idea_detection", "contextual_inference"],
+  LONG_READING_2: ["narrative_flow", "emotion_change_detection", "detail_verification"],
+});
+

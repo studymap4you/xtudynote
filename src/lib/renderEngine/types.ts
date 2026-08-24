@@ -1,5 +1,6 @@
 import type { GeneratedCsatQuestion } from "@/types/csatQuestionEngine";
 import type { CSATRenderTemplateId } from "@/lib/renderEngine/templateIds";
+import type { ConceptRenderPage, ConceptRenderUnit, ConceptSection } from "@/types/conceptAssembly";
 
 export type { CSATRenderTemplateId, CSATTemplateId } from "@/lib/renderEngine/templateIds";
 export type CSATRenderMode = "student" | "review";
@@ -26,6 +27,7 @@ export type CSATRenderInput = {
   target?: string;
   templateId: CSATRenderTemplateId;
   questions: RenderableGeneratedCsatQuestion[];
+  conceptSection?: ConceptSection;
   options?: CSATRenderOptions;
 };
 
@@ -101,6 +103,8 @@ export type PreparedCSATBooklet = {
   target?: string;
   templateId: CSATRenderTemplateId;
   options: ResolvedCSATRenderOptions;
+  conceptSection?: ConceptSection;
+  conceptUnits: ConceptRenderUnit[];
   questions: NormalizedCSATQuestion[];
   units: CSATRenderUnit[];
   issues: CSATNormalizationIssue[];
@@ -108,6 +112,7 @@ export type PreparedCSATBooklet = {
 
 export type CSATTemplateProps = {
   booklet: PreparedCSATBooklet;
+  conceptPages: ConceptRenderPage[];
   pages: CSATRenderPage[];
   scale: number;
 };
