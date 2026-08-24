@@ -93,6 +93,7 @@ test("polls an accepted NVIDIA request until the result is ready", async () => {
 
 test("retries a transient provider failure without changing the requested content", async () => {
   let calls = 0;
+  const progressEvents = [];
   globalThis.fetch = async (_url, init) => {
     calls += 1;
     const body = JSON.parse(init.body);
@@ -105,10 +106,18 @@ test("retries a transient provider failure without changing the requested conten
     provider: resolveTextbookAiProvider({ NVIDIA_API_KEY: "test-key" }, "academy"),
     messages: [{ role: "user", content: "return json" }],
     retryDelaysMs: [0, 0],
+    onProgress: async (event) => progressEvents.push(event),
   });
   assert.equal(result.ok, true);
   assert.equal(calls, 2);
   assert.equal(textbookAiResponseMeta(result).model, "nvidia/nemotron-3-ultra-550b-a55b");
+  assert.deepEqual(progressEvents.map((event) => event.stage), [
+    "attempt-started",
+    "attempt-failed",
+    "attempt-started",
+    "attempt-succeeded",
+  ]);
+  assert.equal(JSON.stringify(progressEvents).includes("test-key"), false);
 });
 
 test("moves to the fallback NVIDIA model after repeated transient failures", async () => {

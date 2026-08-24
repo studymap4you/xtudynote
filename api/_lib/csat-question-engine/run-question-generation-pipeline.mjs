@@ -19,6 +19,15 @@ function removeAssignment(assignments, question) {
   return true;
 }
 
+async function emitPipelineProgress(onProgress, event) {
+  if (typeof onProgress !== "function") return;
+  try {
+    await onProgress(event);
+  } catch (error) {
+    console.warn("[csat-question-engine] pipeline progress callback failed", error instanceof Error ? error.message : error);
+  }
+}
+
 export async function generateNextValidatedBatch({
   request,
   targetTypes,
@@ -30,6 +39,7 @@ export async function generateNextValidatedBatch({
   batchId,
   maxBatchRetry = MAX_BATCH_RETRY,
   idFactory,
+  onProgress,
 }) {
   const initialAssignments = assignSourcesToBatch(targetTypes, sources);
   const remainingAssignments = [...initialAssignments];
@@ -37,9 +47,22 @@ export async function generateNextValidatedBatch({
   const rejected = [];
   let modelCallCount = 0;
 
+  await emitPipelineProgress(onProgress, {
+    stage: "assignments-prepared",
+    assignments: initialAssignments,
+  });
+
   for (let generationAttempt = 1; generationAttempt <= maxBatchRetry && remainingAssignments.length; generationAttempt += 1) {
     modelCallCount += 1;
     const attemptAssignments = [...remainingAssignments];
+    const acceptedBefore = accepted.length;
+    const rejectedBefore = rejected.length;
+    await emitPipelineProgress(onProgress, {
+      stage: "generation-attempt-started",
+      generationAttempt,
+      assignments: attemptAssignments,
+      previousRejectionIssues: rejected.slice(-12).flatMap((item) => item.issues),
+    });
     const raw = await generateBatch({
       request,
       assignments: attemptAssignments,
@@ -51,8 +74,27 @@ export async function generateNextValidatedBatch({
       rejectionFeedback: rejected.slice(-12).flatMap((item) => item.issues),
     });
     const candidates = Array.isArray(raw?.questions) ? raw.questions : [];
+    await emitPipelineProgress(onProgress, {
+      stage: "model-response-parsed",
+      generationAttempt,
+      candidateCount: candidates.length,
+    });
     if (candidates.length === 0) {
-      rejected.push({ candidateIndex: -1, issues: ["모델이 questions 배열을 반환하지 않았습니다."] });
+      const issues = ["모델이 questions 배열을 반환하지 않았습니다."];
+      rejected.push({ candidateIndex: -1, issues });
+      await emitPipelineProgress(onProgress, {
+        stage: "candidate-rejected",
+        generationAttempt,
+        candidateIndex: -1,
+        issues,
+      });
+      await emitPipelineProgress(onProgress, {
+        stage: "generation-attempt-completed",
+        generationAttempt,
+        acceptedCount: 0,
+        rejectedCount: rejected.length - rejectedBefore,
+        remainingAssignments: [...remainingAssignments],
+      });
       continue;
     }
 
@@ -68,7 +110,16 @@ export async function generateNextValidatedBatch({
         (assignment) => assignment.questionType === question.questionType && assignment.sourceId === question.sourceId,
       );
       if (!assignmentExists) {
-        rejected.push({ candidateIndex, questionType: question.questionType, issues: ["배정되지 않은 유형 또는 sourceId입니다."] });
+        const issues = ["배정되지 않은 유형 또는 sourceId입니다."];
+        rejected.push({ candidateIndex, questionType: question.questionType, issues });
+        await emitPipelineProgress(onProgress, {
+          stage: "candidate-rejected",
+          generationAttempt,
+          candidateIndex,
+          questionType: question.questionType,
+          sourceId: question.sourceId,
+          issues,
+        });
         continue;
       }
       const validation = validateQuestion(question, {
@@ -87,12 +138,44 @@ export async function generateNextValidatedBatch({
       });
       if (!validation.valid) {
         rejected.push({ candidateIndex, questionType: question.questionType, issues: validation.issues });
+        await emitPipelineProgress(onProgress, {
+          stage: "candidate-rejected",
+          generationAttempt,
+          candidateIndex,
+          questionType: question.questionType,
+          sourceId: question.sourceId,
+          issues: validation.issues,
+        });
         continue;
       }
       if (!removeAssignment(remainingAssignments, question)) continue;
       accepted.push(question);
+      await emitPipelineProgress(onProgress, {
+        stage: "candidate-accepted",
+        generationAttempt,
+        candidateIndex,
+        questionId: question.id,
+        questionType: question.questionType,
+        sourceId: question.sourceId,
+        referenceQuestionIds: question.referenceQuestionIds,
+      });
     }
+    await emitPipelineProgress(onProgress, {
+      stage: "generation-attempt-completed",
+      generationAttempt,
+      acceptedCount: accepted.length - acceptedBefore,
+      rejectedCount: rejected.length - rejectedBefore,
+      remainingAssignments: [...remainingAssignments],
+    });
   }
+
+  await emitPipelineProgress(onProgress, {
+    stage: "validated-batch-completed",
+    acceptedCount: accepted.length,
+    rejectedCount: rejected.length,
+    missingAssignments: [...remainingAssignments],
+    modelCallCount,
+  });
 
   return {
     assignments: initialAssignments,
@@ -113,6 +196,7 @@ export async function runQuestionGenerationPipeline({
   generateBatch,
   maxConsecutiveEmptyBatches = 3,
   idFactory,
+  onProgress,
 }) {
   const questionTypePlan = buildQuestionTypePlan(request);
   const acceptedQuestions = [];
@@ -137,6 +221,7 @@ export async function runQuestionGenerationPipeline({
       generateBatch,
       batchId: `batch-${batchNumber}`,
       idFactory,
+      onProgress,
     });
     const needed = request.targetQuestionCount - acceptedQuestions.length;
     acceptedQuestions.push(...result.accepted.slice(0, needed));

@@ -158,6 +158,7 @@ test("홀수 문항 요청은 2문항씩 생성하고 마지막 1문항만 별�
   const rules = loadQuestionRules();
   const { sourceProvider, referenceProvider } = providers();
   const assignmentSizes = [];
+  const progressStages = [];
   let seed = 50;
   const result = await runQuestionGenerationPipeline({
     request,
@@ -165,6 +166,7 @@ test("홀수 문항 요청은 2문항씩 생성하고 마지막 1문항만 별�
     sourceProvider,
     referenceProvider,
     idFactory: deterministicIdFactory(),
+    onProgress: async (event) => progressStages.push(event.stage),
     generateBatch: async ({ assignments, references, request: batchRequest }) => {
       assignmentSizes.push(assignments.length);
       return { questions: assignments.map((assignment) => mockQuestion(
@@ -180,6 +182,11 @@ test("홀수 문항 요청은 2문항씩 생성하고 마지막 1문항만 별�
   assert.equal(result.questions.length, 7);
   assert.equal(result.batchCount, 4);
   assert.deepEqual(assignmentSizes, [2, 2, 2, 1]);
+  assert.ok(progressStages.includes("assignments-prepared"));
+  assert.ok(progressStages.includes("generation-attempt-started"));
+  assert.ok(progressStages.includes("model-response-parsed"));
+  assert.ok(progressStages.includes("candidate-accepted"));
+  assert.ok(progressStages.includes("validated-batch-completed"));
 });
 
 test("TEST B: 상위권 50문항은 빈칸·순서·삽입 유형만 우선한다", async () => {

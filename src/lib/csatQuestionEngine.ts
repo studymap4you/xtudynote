@@ -3,6 +3,7 @@ import type {
   CsatQuestionBatchResult,
   CsatQuestionJob,
   CsatQuestionJobSummary,
+  CsatQuestionProgressSnapshot,
 } from "@/types/csatQuestionEngine";
 
 type UploadedFileMetadata = {
@@ -58,7 +59,13 @@ export async function getCsatQuestionJob(id: string): Promise<CsatQuestionJob> {
   return payload.job;
 }
 
+export async function getCsatQuestionProgress(id: string, afterSequence: number): Promise<CsatQuestionProgressSnapshot> {
+  const payload = await engineRequest<{ progress: CsatQuestionProgressSnapshot }>(
+    `?id=${encodeURIComponent(id)}&mode=progress&after=${Math.max(0, Math.floor(afterSequence))}`,
+  );
+  return payload.progress;
+}
+
 export async function deleteCsatQuestionJob(id: string): Promise<void> {
   await engineRequest<{ ok: true }>(`?id=${encodeURIComponent(id)}`, { method: "DELETE" });
 }
-

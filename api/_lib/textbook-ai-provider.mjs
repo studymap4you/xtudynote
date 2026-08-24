@@ -146,6 +146,15 @@ function wait(delayMs) {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
+async function emitProviderProgress(onProgress, event) {
+  if (typeof onProgress !== "function") return;
+  try {
+    await onProgress(event);
+  } catch (error) {
+    console.warn("[textbook-ai] provider progress callback failed", error instanceof Error ? error.message : error);
+  }
+}
+
 function retryableProviderError(error) {
   if (typeof error?.retryable === "boolean") return error.retryable;
   const message = String(error?.message || "");
@@ -332,6 +341,7 @@ export async function requestTextbookJson({
   retryDelaysMs = [0, 900, 2_400],
   maxElapsedMs = Number.POSITIVE_INFINITY,
   retryStrategy = "model-first",
+  onProgress,
 }) {
   if (!provider || provider.kind === "mock" || !provider.apiKey) {
     throw new Error("ai-provider-not-configured");
@@ -356,13 +366,33 @@ export async function requestTextbookJson({
     retryAfterByModel.delete(model);
     const remainingBeforeWait = maxElapsedMs - (Date.now() - startedAt);
     if (remainingBeforeWait <= delayMs + 4_000) {
+      await emitProviderProgress(onProgress, {
+        stage: "time-budget-exhausted",
+        model,
+        attempt: attempt + 1,
+        elapsedMs: Date.now() - startedAt,
+      });
       if (lastError) break;
       throw new Error(`ai-provider-time-budget-exhausted:${provider.kind}`);
+    }
+    if (delayMs > 0) {
+      await emitProviderProgress(onProgress, {
+        stage: "retry-wait",
+        model,
+        attempt: attempt + 1,
+        delayMs,
+      });
     }
     await wait(delayMs);
     const remainingMs = maxElapsedMs - (Date.now() - startedAt);
     if (remainingMs < 5_000) break;
     const attemptStartedAt = Date.now();
+    await emitProviderProgress(onProgress, {
+      stage: "attempt-started",
+      model,
+      attempt: attempt + 1,
+      timeoutMs: Math.min(timeoutMs, Math.max(4_000, remainingMs - 1_000)),
+    });
     try {
       const result = await requestProviderJson({
         provider,
@@ -372,26 +402,38 @@ export async function requestTextbookJson({
         temperature,
         timeoutMs: Math.min(timeoutMs, Math.max(4_000, remainingMs - 1_000)),
       });
-      attempts.push(providerAttemptDiagnostic({
+      const diagnostic = providerAttemptDiagnostic({
         model,
         attempt: attempt + 1,
         startedAt: attemptStartedAt,
         status: result.status,
-      }));
+      });
+      attempts.push(diagnostic);
+      await emitProviderProgress(onProgress, {
+        stage: "attempt-succeeded",
+        ...diagnostic,
+      });
       return attachResponseMeta(result.value, { kind: provider.kind, model, attempts });
     } catch (error) {
       lastError = error;
-      attempts.push(providerAttemptDiagnostic({
+      const diagnostic = providerAttemptDiagnostic({
         model,
         attempt: attempt + 1,
         startedAt: attemptStartedAt,
         error,
-      }));
+      });
+      attempts.push(diagnostic);
       const canRetry = retryableProviderError(error);
       if (!canRetry) disabledModels.add(model);
       if (canRetry && Number(error?.retryAfterMs) > 0) {
         retryAfterByModel.set(model, Number(error.retryAfterMs));
       }
+      await emitProviderProgress(onProgress, {
+        stage: "attempt-failed",
+        ...diagnostic,
+        retryable: canRetry,
+        retryAfterMs: Number(error?.retryAfterMs) || 0,
+      });
       console.warn(
         canRetry ? `[textbook-ai] retrying ${model}` : `[textbook-ai] moving past ${model}`,
         `${attempt + 1}/${retryDelaysMs.length}`,

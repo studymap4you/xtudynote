@@ -45,6 +45,20 @@ export type StructuredCsatQuestionRequest = {
 
 export type CsatQuestionJobStatus = "planned" | "generating" | "completed" | "failed" | "paused";
 
+export type CsatProgressEventStatus = "running" | "completed" | "info" | "warning" | "error";
+
+export type CsatProgressEvent = {
+  id: string;
+  sequence: number;
+  phase: string;
+  status: CsatProgressEventStatus;
+  title: string;
+  summary?: string;
+  details: string[];
+  batchNumber?: number;
+  createdAt: string;
+};
+
 export type CsatQuestionJobSummary = {
   id: string;
   title: string;
@@ -70,6 +84,23 @@ export type CsatQuestionJob = CsatQuestionJobSummary & {
   sourceCandidateCount?: number;
   questionBankRecordCount?: number;
   warning?: string;
+  progressSequence: number;
+  progressEvents: CsatProgressEvent[];
+  latestProgress?: CsatProgressEvent;
+};
+
+export type CsatQuestionProgressSnapshot = {
+  jobId: string;
+  status: CsatQuestionJobStatus;
+  acceptedCount: number;
+  rejectedCount: number;
+  modelCallCount: number;
+  retryCount: number;
+  model?: string;
+  warning?: string;
+  progressSequence: number;
+  progressEvents: CsatProgressEvent[];
+  latestProgress?: CsatProgressEvent;
 };
 
 export type CsatProviderAttempt = {

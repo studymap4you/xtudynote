@@ -1,10 +1,12 @@
 import {
+  AlertTriangle,
   ArrowUp,
   BookOpen,
   Check,
   ChevronDown,
   Download,
   FileText,
+  Info,
   LoaderCircle,
   PanelLeft,
   Paperclip,
@@ -22,10 +24,17 @@ import {
   deleteCsatQuestionJob,
   generateNextCsatQuestionBatch,
   getCsatQuestionJob,
+  getCsatQuestionProgress,
   listCsatQuestionJobs,
   startCsatQuestionJob,
 } from "@/lib/csatQuestionEngine";
-import type { CsatQuestionJob, CsatQuestionJobSummary, GeneratedCsatQuestion } from "@/types/csatQuestionEngine";
+import type {
+  CsatProgressEvent,
+  CsatQuestionJob,
+  CsatQuestionJobSummary,
+  CsatQuestionProgressSnapshot,
+  GeneratedCsatQuestion,
+} from "@/types/csatQuestionEngine";
 import type { CSATRenderInput } from "@/lib/renderEngine/types";
 import styles from "@/pages/csatQuestionStudio.module.css";
 
@@ -93,6 +102,56 @@ function typeLabel(value: string): string {
   return labels[value] || value;
 }
 
+function eventTimeLabel(value: string): string {
+  const time = Date.parse(value);
+  if (!Number.isFinite(time) || time === 0) return "--:--:--";
+  return new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(time);
+}
+
+function phaseLabel(value: string): string {
+  const labels: Record<string, string> = {
+    request: "REQUEST",
+    database: "DATABASE",
+    plan: "PLAN",
+    batch: "BATCH",
+    source: "SOURCE",
+    "question-bank": "QUESTION BANK",
+    rules: "RULES",
+    prompt: "PROMPT",
+    model: "MODEL",
+    generation: "GENERATION",
+    validation: "VALIDATION",
+    storage: "STORAGE",
+    complete: "COMPLETE",
+    failed: "FAILED",
+  };
+  return labels[value] || value.toUpperCase();
+}
+
+function mergeProgressEvents(current: CsatProgressEvent[], incoming: CsatProgressEvent[]): CsatProgressEvent[] {
+  const byId = new Map(current.map((event) => [event.id, event]));
+  incoming.forEach((event) => byId.set(event.id, event));
+  return [...byId.values()].sort((left, right) => left.sequence - right.sequence);
+}
+
+function latestProgressSequence(events: CsatProgressEvent[]): number {
+  return events.reduce((latest, event) => Math.max(latest, event.sequence), 0);
+}
+
+function ProgressStatusIcon({ event, active }: { event: CsatProgressEvent; active: boolean }) {
+  if (event.status === "running" && active) return <LoaderCircle className={styles.spinner} size={15} aria-hidden="true" />;
+  if (event.status === "running") return <Info size={15} aria-hidden="true" />;
+  if (event.status === "completed") return <Check size={15} aria-hidden="true" />;
+  if (event.status === "warning") return <AlertTriangle size={15} aria-hidden="true" />;
+  if (event.status === "error") return <X size={15} aria-hidden="true" />;
+  return <Info size={15} aria-hidden="true" />;
+}
+
 function QuestionReviewItem({ question }: { question: GeneratedCsatQuestion }) {
   return (
     <details className={styles.questionItem}>
@@ -142,9 +201,12 @@ export function CsatQuestionStudioPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const pauseRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const progressLogRef = useRef<HTMLDivElement | null>(null);
+  const progressCursorRef = useRef(0);
 
   const extractingCount = sources.filter((source) => source.status === "extracting").length;
   const progress = job ? Math.min(100, Math.round((job.acceptedCount / job.targetQuestionCount) * 100)) : 0;
+  const generationComplete = Boolean(job && job.status === "completed" && job.questions.length >= job.targetQuestionCount);
   const sourceText = useMemo(
     () => sources
       .filter((source) => source.status === "ready" && source.text)
@@ -172,6 +234,20 @@ export function CsatQuestionStudioPage() {
     };
   }, [job]);
 
+  useEffect(() => {
+    if (!job) {
+      progressCursorRef.current = 0;
+      return;
+    }
+    progressCursorRef.current = Math.max(job.progressSequence || 0, latestProgressSequence(job.progressEvents || []));
+  }, [job?.id]);
+
+  useEffect(() => {
+    const log = progressLogRef.current;
+    if (!log || !job?.progressEvents.length || generationComplete) return;
+    log.scrollTop = log.scrollHeight;
+  }, [generationComplete, job?.progressEvents.length]);
+
   const refreshHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
@@ -196,6 +272,52 @@ export function CsatQuestionStudioPage() {
       .catch(() => window.localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY));
   }, [refreshHistory]);
 
+  const applyProgressSnapshot = useCallback((snapshot: CsatQuestionProgressSnapshot) => {
+    progressCursorRef.current = Math.max(
+      progressCursorRef.current,
+      snapshot.progressSequence,
+      latestProgressSequence(snapshot.progressEvents),
+    );
+    setJob((current) => {
+      if (!current || current.id !== snapshot.jobId) return current;
+      const progressEvents = mergeProgressEvents(current.progressEvents || [], snapshot.progressEvents);
+      return {
+        ...current,
+        status: snapshot.status,
+        acceptedCount: snapshot.acceptedCount,
+        rejectedCount: snapshot.rejectedCount,
+        modelCallCount: snapshot.modelCallCount,
+        retryCount: snapshot.retryCount,
+        model: snapshot.model || current.model,
+        warning: snapshot.warning,
+        progressSequence: Math.max(snapshot.progressSequence, latestProgressSequence(progressEvents)),
+        progressEvents,
+        latestProgress: snapshot.latestProgress || progressEvents.at(-1),
+      };
+    });
+    if (snapshot.latestProgress?.title) setStatusText(snapshot.latestProgress.title);
+  }, []);
+
+  const beginProgressPolling = useCallback((jobId: string) => {
+    let stopped = false;
+    const completed = (async () => {
+      while (!stopped) {
+        await new Promise((resolve) => window.setTimeout(resolve, 800));
+        if (stopped) break;
+        try {
+          const snapshot = await getCsatQuestionProgress(jobId, progressCursorRef.current);
+          applyProgressSnapshot(snapshot);
+        } catch {
+          // The generation request remains authoritative; polling retries on the next interval.
+        }
+      }
+    })();
+    return async () => {
+      stopped = true;
+      await completed;
+    };
+  }, [applyProgressSnapshot]);
+
   const runBatches = useCallback(async (initialJob: CsatQuestionJob) => {
     pauseRef.current = false;
     setRunning(true);
@@ -204,9 +326,19 @@ export function CsatQuestionStudioPage() {
     let working = initialJob;
     try {
       while (working.acceptedCount < working.targetQuestionCount && !pauseRef.current) {
-        setStatusText(`Source 자료 검색 및 수능 유형 분석 중 · ${working.acceptedCount}/${working.targetQuestionCount}`);
-        const response = await generateNextCsatQuestionBatch(working.id);
+        setStatusText(`다음 2문항 배치를 준비하고 있습니다 · ${working.acceptedCount}/${working.targetQuestionCount}`);
+        const stopPolling = beginProgressPolling(working.id);
+        let response;
+        try {
+          response = await generateNextCsatQuestionBatch(working.id);
+        } finally {
+          await stopPolling();
+        }
         working = response.job;
+        progressCursorRef.current = Math.max(
+          working.progressSequence || 0,
+          latestProgressSequence(working.progressEvents || []),
+        );
         setJob(working);
         window.localStorage.setItem(ACTIVE_JOB_STORAGE_KEY, working.id);
         setStatusText(
@@ -227,7 +359,7 @@ export function CsatQuestionStudioPage() {
     } finally {
       setRunning(false);
     }
-  }, [refreshHistory]);
+  }, [beginProgressPolling, refreshHistory]);
 
   const startGeneration = useCallback(async () => {
     const instruction = userRequest.trim();
@@ -249,6 +381,7 @@ export function CsatQuestionStudioPage() {
         uploadedFiles: sources.map((source) => ({ name: source.file.name, size: source.file.size, type: source.file.type })),
       });
       setJob(created);
+      progressCursorRef.current = Math.max(created.progressSequence || 0, latestProgressSequence(created.progressEvents || []));
       window.localStorage.setItem(ACTIVE_JOB_STORAGE_KEY, created.id);
       await runBatches(created);
     } catch (caught) {
@@ -293,6 +426,7 @@ export function CsatQuestionStudioPage() {
     setStatusText("문제 생성 준비 중...");
     setHistoryOpen(false);
     setPreviewOpen(false);
+    progressCursorRef.current = 0;
     window.localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
   }, [running]);
 
@@ -303,6 +437,7 @@ export function CsatQuestionStudioPage() {
     try {
       const stored = await getCsatQuestionJob(id);
       setJob(stored);
+      progressCursorRef.current = Math.max(stored.progressSequence || 0, latestProgressSequence(stored.progressEvents || []));
       setUserRequest(stored.userRequest);
       setSources([]);
       setPreviewOpen(false);
@@ -398,12 +533,13 @@ export function CsatQuestionStudioPage() {
           {historyOpen ? <button type="button" className={styles.backdrop} onClick={() => setHistoryOpen(false)} aria-label="기록 닫기" /> : null}
 
           <section className={styles.stage}>
-            <div
-              className={`${styles.composer}${dragging ? ` ${styles.composerDragging}` : ""}`}
-              onDragOver={(event) => { event.preventDefault(); if (!running && !job) setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={handleDrop}
-            >
+            {!generationComplete ? (
+              <div
+                className={`${styles.composer}${dragging ? ` ${styles.composerDragging}` : ""}`}
+                onDragOver={(event) => { event.preventDefault(); if (!running && !job) setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
+              >
               <header className={styles.signal}><span /><b>CSAT QUESTION ENGINE</b></header>
               {job ? (
                 <div className={styles.requestMessage}><small>나</small><p>{job.userRequest}</p></div>
@@ -435,21 +571,41 @@ export function CsatQuestionStudioPage() {
                 <div className={styles.jobPanel} aria-live="polite">
                   <div className={styles.jobHeadline}>
                     {running ? <LoaderCircle className={styles.spinner} size={19} /> : <Check size={19} />}
-                    <div><strong>{statusText}</strong><span>규칙 DB {job.rulesVersion} · 모델 호출 {job.modelCallCount}회 · 거부 {job.rejectedCount}문항{job.model ? ` · ${job.model}` : ""}</span></div>
+                    <div>
+                      <strong>{job.latestProgress?.title || statusText}</strong>
+                      <span>{job.latestProgress?.summary || "서버의 다음 진행 이벤트를 기다리고 있습니다."}</span>
+                    </div>
                     <b>{job.acceptedCount}/{job.targetQuestionCount}</b>
                   </div>
                   <div className={styles.progressTrack} aria-label={`문제 생성 진행률 ${progress}%`}><span style={{ width: `${progress}%` }} /></div>
+                  <div ref={progressLogRef} className={styles.progressTimeline} role="log" aria-label="교재 생성 전체 진행 기록" aria-live="polite" aria-relevant="additions">
+                    {job.progressEvents.length ? job.progressEvents.map((event) => (
+                      <article key={event.id} className={styles.progressEvent} data-status={event.status}>
+                        <div className={styles.progressEventMarker}>
+                          <ProgressStatusIcon event={event} active={running && event.id === job.latestProgress?.id} />
+                        </div>
+                        <div className={styles.progressEventBody}>
+                          <header>
+                            <span>{phaseLabel(event.phase)}{event.batchNumber ? ` · BATCH ${event.batchNumber}` : ""}</span>
+                            <time dateTime={event.createdAt}>{eventTimeLabel(event.createdAt)}</time>
+                          </header>
+                          <strong>{event.title}</strong>
+                          {event.summary ? <p>{event.summary}</p> : null}
+                          {event.details.length ? (
+                            <ul>{event.details.map((detail, index) => <li key={`${event.id}-${index}`}>{detail}</li>)}</ul>
+                          ) : null}
+                        </div>
+                      </article>
+                    )) : (
+                      <div className={styles.progressEmpty}><LoaderCircle className={styles.spinner} size={16} /> 진행 기록을 불러오고 있습니다.</div>
+                    )}
+                  </div>
                   <div className={styles.jobActions}>
                     {running ? (
                       <button type="button" onClick={() => { pauseRef.current = true; setStatusText("현재 배치 검수 후 일시정지합니다."); }}><Pause size={16} /> 일시정지</button>
-                    ) : job.status !== "completed" ? (
+                    ) : job.acceptedCount < job.targetQuestionCount ? (
                       <button type="button" onClick={() => void runBatches(job)}><Play size={16} /> 이어서 생성</button>
-                    ) : (
-                      <>
-                        <button type="button" onClick={() => setPreviewOpen(true)}><BookOpen size={16} /> 문제집 미리보기</button>
-                        <button type="button" onClick={downloadJson}><Download size={16} /> JSON 다운로드</button>
-                      </>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -465,11 +621,19 @@ export function CsatQuestionStudioPage() {
                   </button>
                 ) : null}
               </footer>
-            </div>
+              </div>
+            ) : null}
 
-            {job?.questions.length ? (
+            {generationComplete && job?.questions.length ? (
               <section className={styles.results} aria-label="검수 통과 문제 목록">
-                <header><div><small>VALIDATED QUESTION SET</small><h1>{job.title}</h1></div><span>{job.questions.length}문항</span></header>
+                <header>
+                  <div><small>VALIDATED QUESTION SET</small><h1>{job.title}</h1></div>
+                  <div className={styles.resultActions}>
+                    <span>{job.questions.length}문항</span>
+                    <button type="button" onClick={() => setPreviewOpen(true)}><BookOpen size={16} /> 문제집 미리보기</button>
+                    <button type="button" onClick={downloadJson}><Download size={16} /> JSON 다운로드</button>
+                  </div>
+                </header>
                 <div className={styles.questionList}>{job.questions.map((question) => <QuestionReviewItem key={question.id} question={question} />)}</div>
               </section>
             ) : null}

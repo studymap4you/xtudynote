@@ -20,6 +20,7 @@ import {
 const GENERATION_VERSION = "csat-question-engine-v1";
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || "xtudynote.firebasestorage.app";
 const MAX_SOURCE_TEXT_LENGTH = 120_000;
+const MAX_PROGRESS_EVENTS = 900;
 
 function ensureFirebaseAdmin() {
   if (admin.apps.length > 0) return;
@@ -48,6 +49,73 @@ function stripUndefined(value) {
       .filter(([, nested]) => nested !== undefined)
       .map(([key, nested]) => [key, stripUndefined(nested)]),
   );
+}
+
+function redactProgressText(value, maxLength = 1_000) {
+  return sanitizeText(value, maxLength)
+    .replace(/\b(?:sk-(?:proj-)?|nvapi-)[A-Za-z0-9_-]{8,}\b/giu, "[REDACTED]")
+    .replace(/(bearer\s+)[A-Za-z0-9._~+/=-]+/giu, "$1[REDACTED]")
+    .replace(/((?:api[_ -]?key|client[_ -]?secret|authorization)\s*[:=]\s*)\S+/giu, "$1[REDACTED]")
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/gu, "[REDACTED]");
+}
+
+function normalizeProgressEvent(id, data = {}) {
+  const status = ["running", "completed", "info", "warning", "error"].includes(data.status)
+    ? data.status
+    : "info";
+  return {
+    id: sanitizeText(data.id, 120) || id,
+    sequence: Math.max(0, Number(data.sequence) || 0),
+    phase: sanitizeText(data.phase, 80) || "engine",
+    status,
+    title: redactProgressText(data.title, 220) || "진행 상태 업데이트",
+    summary: redactProgressText(data.summary, 700) || undefined,
+    details: Array.isArray(data.details)
+      ? data.details.map((item) => redactProgressText(item, 1_000)).filter(Boolean).slice(0, 80)
+      : [],
+    batchNumber: Number(data.batchNumber) > 0 ? Number(data.batchNumber) : undefined,
+    createdAt: typeof data.createdAt === "string" && !Number.isNaN(Date.parse(data.createdAt))
+      ? new Date(data.createdAt).toISOString()
+      : new Date(0).toISOString(),
+  };
+}
+
+function createProgressRecorder(jobRef, initialSequence = 0, defaultBatchNumber) {
+  let sequence = Math.max(0, Number(initialSequence) || 0);
+  return async function recordProgress(event) {
+    sequence += 1;
+    const eventRef = jobRef.collection("progress_events").doc();
+    const payload = normalizeProgressEvent(eventRef.id, {
+      ...event,
+      id: eventRef.id,
+      sequence,
+      batchNumber: event.batchNumber || defaultBatchNumber,
+      createdAt: new Date().toISOString(),
+    });
+    try {
+      const batch = admin.firestore().batch();
+      batch.set(eventRef, stripUndefined(payload));
+      batch.update(jobRef, {
+        latestProgress: stripUndefined(payload),
+        progressSequence: sequence,
+        progressEventCount: admin.firestore.FieldValue.increment(1),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      await batch.commit();
+    } catch (error) {
+      console.warn("[csat-question-engine] progress event skipped", payload.phase, error instanceof Error ? error.message : error);
+    }
+    return payload;
+  };
+}
+
+async function loadProgressEvents(jobRef, afterSequence = 0, limit = MAX_PROGRESS_EVENTS) {
+  const collection = jobRef.collection("progress_events");
+  const query = Number(afterSequence) > 0
+    ? collection.where("sequence", ">", Number(afterSequence)).orderBy("sequence", "asc")
+    : collection.orderBy("sequence", "asc");
+  const snapshot = await query.limit(Math.min(MAX_PROGRESS_EVENTS, Math.max(1, Number(limit) || MAX_PROGRESS_EVENTS))).get();
+  return snapshot.docs.map((doc) => normalizeProgressEvent(doc.id, doc.data()));
 }
 
 function toIso(value) {
@@ -114,7 +182,10 @@ async function loadJob(uid, id) {
   const owned = await getOwnedJob(uid, id);
   if (!owned) return null;
   const data = owned.snapshot.data() || {};
-  const questions = await loadJobQuestions(owned.ref);
+  const [questions, progressEvents] = await Promise.all([
+    loadJobQuestions(owned.ref),
+    loadProgressEvents(owned.ref),
+  ]);
   return {
     ...normalizeJobSummary(owned.snapshot),
     request: data.request,
@@ -125,21 +196,51 @@ async function loadJob(uid, id) {
     rulesVersion: sanitizeText(data.rulesVersion, 40) || CSAT_RULES_DB_VERSION,
     consecutiveFailedBatches: Number(data.consecutiveFailedBatches) || 0,
     warning: sanitizeText(data.warning, 1_000) || undefined,
+    progressSequence: Number(data.progressSequence) || progressEvents.at(-1)?.sequence || 0,
+    progressEvents,
+    latestProgress: data.latestProgress
+      ? normalizeProgressEvent(data.latestProgress.id || "latest", data.latestProgress)
+      : progressEvents.at(-1),
+  };
+}
+
+async function loadProgressSnapshot(uid, id, afterSequence) {
+  const owned = await getOwnedJob(uid, id);
+  if (!owned) return null;
+  const data = owned.snapshot.data() || {};
+  const progressEvents = await loadProgressEvents(owned.ref, afterSequence, 200);
+  return {
+    jobId: owned.snapshot.id,
+    status: ["planned", "generating", "completed", "failed", "paused"].includes(data.status) ? data.status : "planned",
+    acceptedCount: Number(data.acceptedCount) || 0,
+    rejectedCount: Number(data.rejectedCount) || 0,
+    modelCallCount: Number(data.modelCallCount) || 0,
+    retryCount: Number(data.retryCount) || 0,
+    model: sanitizeText(data.model, 160) || undefined,
+    warning: sanitizeText(data.warning, 1_000) || undefined,
+    progressSequence: Number(data.progressSequence) || progressEvents.at(-1)?.sequence || 0,
+    progressEvents,
+    latestProgress: data.latestProgress
+      ? normalizeProgressEvent(data.latestProgress.id || "latest", data.latestProgress)
+      : progressEvents.at(-1),
   };
 }
 
 async function deleteJob(uid, id) {
   const owned = await getOwnedJob(uid, id);
   if (!owned) return false;
-  const [questions, batches] = await Promise.all([
+  const [questions, batches, progressEvents] = await Promise.all([
     owned.ref.collection("questions").get(),
     owned.ref.collection("batches").get(),
+    owned.ref.collection("progress_events").get(),
   ]);
-  const batch = admin.firestore().batch();
-  questions.docs.forEach((doc) => batch.delete(doc.ref));
-  batches.docs.forEach((doc) => batch.delete(doc.ref));
-  batch.delete(owned.ref);
-  await batch.commit();
+  const childRefs = [...questions.docs, ...batches.docs, ...progressEvents.docs].map((doc) => doc.ref);
+  for (let index = 0; index < childRefs.length; index += 400) {
+    const childBatch = admin.firestore().batch();
+    childRefs.slice(index, index + 400).forEach((ref) => childBatch.delete(ref));
+    await childBatch.commit();
+  }
+  await owned.ref.delete();
   return true;
 }
 
@@ -188,19 +289,44 @@ async function createJob(authUser, body) {
     retryCount: 0,
     batchCount: 0,
     consecutiveFailedBatches: 0,
+    progressSequence: 0,
+    progressEventCount: 0,
     createdAt: now,
     updatedAt: now,
   });
-  const snapshot = await ref.get();
-  return {
-    ...normalizeJobSummary(snapshot),
-    request,
-    questionTypePlan,
-    questions: [],
-    sourceCandidateCount: sourceSnapshot.size + Number(Boolean(sourceText)),
-    questionBankRecordCount: questionBankSnapshot.size,
-    rulesVersion: CSAT_RULES_DB_VERSION,
-  };
+  const recordProgress = createProgressRecorder(ref);
+  await recordProgress({
+    phase: "request",
+    status: "completed",
+    title: "사용자 요청을 구조화했습니다",
+    summary: `${request.targetQuestionCount}문항 생성 계획을 확정했습니다.`,
+    details: [
+      `대상 학년: ${request.targetGrade}`,
+      `난이도: ${request.targetLevel}`,
+      `요청 유형: ${request.requestedTypes.length ? request.requestedTypes.join(", ") : "수능 영어 혼합 유형"}`,
+      `첨부 파일: ${uploadedFiles.length}개`,
+      `첨부 원문 분량: ${sourceText.length.toLocaleString("ko-KR")}자`,
+    ],
+  });
+  await recordProgress({
+    phase: "database",
+    status: "completed",
+    title: "라이브러리 데이터 연결을 확인했습니다",
+    summary: "원문소스와 수능 문제은행을 생성 작업에 연결했습니다.",
+    details: [
+      `검색 가능한 원문소스: ${sourceSnapshot.size + Number(Boolean(sourceText))}건`,
+      `수능 문제은행 레코드: ${questionBankSnapshot.size}건`,
+      `규칙 DB 버전: ${CSAT_RULES_DB_VERSION}`,
+    ],
+  });
+  await recordProgress({
+    phase: "plan",
+    status: "completed",
+    title: "전체 문제 유형 순서를 설계했습니다",
+    summary: `최대 2문항씩 ${Math.ceil(request.targetQuestionCount / QUESTION_BATCH_MAX)}개 배치로 생성합니다.`,
+    details: questionTypePlan.map((type, index) => `${index + 1}번: ${type}`),
+  });
+  return loadJob(authUser.uid, ref.id);
 }
 
 async function generateJobBatch(authUser, body) {
@@ -214,32 +340,177 @@ async function generateJobBatch(authUser, body) {
     return { job: await loadJob(authUser.uid, owned.snapshot.id), batchQuestions: [] };
   }
 
+  const batchNumber = (Number(data.batchCount) || 0) + 1;
+  const batchId = `batch-${String(batchNumber).padStart(3, "0")}-${randomUUID().slice(0, 8)}`;
+  const recordProgress = createProgressRecorder(owned.ref, data.progressSequence, batchNumber);
+  await owned.ref.update({
+    status: "generating",
+    warning: null,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
   const targetTypes = buildNextBatchTypes(
     data.questionTypePlan || buildQuestionTypePlan(request),
     existingQuestions,
     QUESTION_BATCH_MAX,
   );
-  const sources = await searchSourceDocuments({
-    firestore: admin.firestore(),
-    bucket: admin.storage().bucket(STORAGE_BUCKET),
-    request,
-    userSourceText: sanitizeText(data.sourceText, MAX_SOURCE_TEXT_LENGTH),
-    sourceUsage: data.sourceUsage || {},
-    limit: Math.max(3, Math.ceil(targetTypes.length / 1.5)),
+  await recordProgress({
+    phase: "batch",
+    status: "running",
+    title: `${batchNumber}번째 2문항 배치를 시작했습니다`,
+    summary: `현재 ${existingQuestions.length}/${request.targetQuestionCount}문항이 저장되어 있습니다.`,
+    details: [
+      `배치 ID: ${batchId}`,
+      `이번 목표 유형: ${targetTypes.join(", ")}`,
+      `남은 문항: ${request.targetQuestionCount - existingQuestions.length}개`,
+    ],
   });
-  if (sources.length < 3) throw new Error("source-db-unavailable");
-  const references = await searchQuestionBank({
-    firestore: admin.firestore(),
-    questionTypes: targetTypes,
-    limit: 18,
-    rotation: Number(data.batchCount) || 0,
+  await recordProgress({
+    phase: "source",
+    status: "running",
+    title: "원문소스 후보를 검색하고 있습니다",
+    summary: "사용자 요청의 주제와 이전 사용 이력을 기준으로 원문 청크를 검색합니다.",
+    details: [
+      `라이브러리 범주: source_material`,
+      `요청 텍스트 길이: ${sanitizeText(request.userRequest, 8_000).length}자`,
+      `사용자 첨부 원문: ${sanitizeText(data.sourceText, MAX_SOURCE_TEXT_LENGTH).length}자`,
+    ],
   });
-  if (references.length === 0) throw new Error("question-bank-unavailable");
-  const rules = loadQuestionRules([...new Set(targetTypes)]);
+  let sources;
+  try {
+    sources = await searchSourceDocuments({
+      firestore: admin.firestore(),
+      bucket: admin.storage().bucket(STORAGE_BUCKET),
+      request,
+      userSourceText: sanitizeText(data.sourceText, MAX_SOURCE_TEXT_LENGTH),
+      sourceUsage: data.sourceUsage || {},
+      limit: Math.max(3, Math.ceil(targetTypes.length / 1.5)),
+    });
+  } catch (error) {
+    await recordProgress({
+      phase: "source",
+      status: "error",
+      title: "원문소스 검색 중 오류가 발생했습니다",
+      summary: error instanceof Error ? error.message : "원문소스를 불러오지 못했습니다.",
+      details: [],
+    });
+    throw error;
+  }
+  if (sources.length < 3) {
+    await recordProgress({
+      phase: "source",
+      status: "error",
+      title: "사용 가능한 원문소스가 부족합니다",
+      summary: `${sources.length}건을 찾았으며 최소 3건이 필요합니다.`,
+      details: sources.map((source) => `${source.title} · ${source.id}`),
+    });
+    throw new Error("source-db-unavailable");
+  }
+  await recordProgress({
+    phase: "source",
+    status: "completed",
+    title: `${sources.length}개의 원문소스를 선택했습니다`,
+    summary: "본문 전체를 저장하지 않고 선택 근거와 사용 메타데이터만 표시합니다.",
+    details: sources.map((source, index) => {
+      const words = (String(source.text || "").match(/[A-Za-z]+(?:[-'][A-Za-z]+)*/g) || []).length;
+      return `${index + 1}. ${source.title} · ID ${source.id} · ${words}단어 · ${source.sourceType} · ${source.copyrightStatus}`;
+    }),
+  });
+
+  await recordProgress({
+    phase: "question-bank",
+    status: "running",
+    title: "수능 문제은행에서 유형별 기준 문항을 찾고 있습니다",
+    summary: "생성 대상 유형과 일치하는 실제 수능 구조 레코드를 검색합니다.",
+    details: targetTypes.map((type) => `검색 유형: ${type}`),
+  });
+  let references;
+  try {
+    references = await searchQuestionBank({
+      firestore: admin.firestore(),
+      questionTypes: targetTypes,
+      limit: 18,
+      rotation: Number(data.batchCount) || 0,
+    });
+  } catch (error) {
+    await recordProgress({
+      phase: "question-bank",
+      status: "error",
+      title: "수능 문제은행 조회 중 오류가 발생했습니다",
+      summary: error instanceof Error ? error.message : "문제은행을 불러오지 못했습니다.",
+      details: targetTypes.map((type) => `조회 유형: ${type}`),
+    });
+    throw error;
+  }
+  if (references.length === 0) {
+    await recordProgress({
+      phase: "question-bank",
+      status: "error",
+      title: "일치하는 수능 문제은행 레코드를 찾지 못했습니다",
+      summary: "문제은행 연결과 유형 매핑을 확인해야 합니다.",
+      details: targetTypes.map((type) => `미확보 유형: ${type}`),
+    });
+    throw new Error("question-bank-unavailable");
+  }
+  await recordProgress({
+    phase: "question-bank",
+    status: "completed",
+    title: `${references.length}개의 수능 기준 문항을 연결했습니다`,
+    summary: "문항 내용은 복사하지 않고 출제 구조와 오답 설계 기준만 참조합니다.",
+    details: references.map((reference) => (
+      `${reference.year || "연도 미상"} CSAT ${reference.questionNumber || "번호 미상"}번 · ${reference.questionType} · ${reference.id}`
+    )),
+  });
+
+  let rules;
+  try {
+    rules = loadQuestionRules([...new Set(targetTypes)]);
+  } catch (error) {
+    await recordProgress({
+      phase: "rules",
+      status: "error",
+      title: "유형별 규칙을 불러오지 못했습니다",
+      summary: error instanceof Error ? error.message : "규칙 DB 오류가 발생했습니다.",
+      details: targetTypes.map((type) => `필요 규칙: ${type}`),
+    });
+    throw error;
+  }
+  await recordProgress({
+    phase: "rules",
+    status: "completed",
+    title: `규칙 DB ${rules.version}의 유형별 규칙을 적용했습니다`,
+    summary: `${rules.questionTypes.length}개 유형의 정답·오답·지문·검증 규칙을 모델 요청에 포함합니다.`,
+    details: rules.questionTypes.map((rule) => (
+      `${rule.id} · ${rule.ko_name} · 정답 규칙: ${rule.correct_option_rule} · 검증: ${(rule.validation_rules || []).join(" / ")}`
+    )),
+  });
+
   const provider = resolveTextbookAiProvider(process.env, "questions");
-  if (provider.kind === "mock") throw new Error(`ai-provider-not-configured:${provider.reason || "unknown"}`);
-  const batchNumber = (Number(data.batchCount) || 0) + 1;
-  const batchId = `batch-${String(batchNumber).padStart(3, "0")}-${randomUUID().slice(0, 8)}`;
+  if (provider.kind === "mock") {
+    await recordProgress({
+      phase: "model",
+      status: "error",
+      title: "AI 생성 모델 설정을 찾지 못했습니다",
+      summary: provider.reason || "provider-not-configured",
+      details: [],
+    });
+    throw new Error(`ai-provider-not-configured:${provider.reason || "unknown"}`);
+  }
+  await recordProgress({
+    phase: "model",
+    status: "completed",
+    title: "AI 모델 폴백 구성을 확인했습니다",
+    summary: `${provider.models?.length || 1}개 모델을 순차적으로 사용할 준비가 됐습니다.`,
+    details: [
+      `공급자: ${provider.kind}`,
+      `API 주소: ${provider.baseUrl}`,
+      `모델 순서: ${(provider.models || [provider.model]).join(" → ")}`,
+      `숨겨진 추론 출력: 사용하지 않음`,
+      `최대 출력 토큰: 16000`,
+      `모델별 제한시간: 55000ms`,
+      `전체 폴백 시간 예산: 250000ms`,
+      `재시도 간격: 0ms, 2500ms`,
+    ],
+  });
   const providerAttempts = [];
   const modelsUsed = [];
 
@@ -253,8 +524,107 @@ async function generateJobBatch(authUser, body) {
       rules,
       existingQuestions,
       batchId,
+      onProgress: async (event) => {
+        if (event.stage === "assignments-prepared") {
+          await recordProgress({
+            phase: "plan",
+            status: "completed",
+            title: "이번 배치의 문제·원문 배정을 확정했습니다",
+            summary: `${event.assignments.length}개 문항을 서로 다른 원문 근거에 배정했습니다.`,
+            details: event.assignments.map((assignment, index) => {
+              const source = sources.find((item) => item.id === assignment.sourceId);
+              return `${index + 1}. ${assignment.questionType} ← ${source?.title || assignment.sourceId} (${assignment.sourceId})`;
+            }),
+          });
+          return;
+        }
+        if (event.stage === "generation-attempt-started") {
+          await recordProgress({
+            phase: "generation",
+            status: "running",
+            title: `${event.generationAttempt}차 문제 생성 시도를 시작했습니다`,
+            summary: `${event.assignments.length}개 미완성 문항을 모델에 요청합니다.`,
+            details: [
+              ...event.assignments.map((assignment) => `${assignment.questionType} · Source ${assignment.sourceId}`),
+              ...(event.previousRejectionIssues || []).map((issue) => `이전 탈락 피드백: ${issue}`),
+            ],
+          });
+          return;
+        }
+        if (event.stage === "model-response-parsed") {
+          await recordProgress({
+            phase: "generation",
+            status: event.candidateCount > 0 ? "completed" : "warning",
+            title: `모델 응답에서 ${event.candidateCount}개 후보를 읽었습니다`,
+            summary: `JSON 파싱 완료 · 생성 시도 ${event.generationAttempt}차`,
+            details: [],
+          });
+          return;
+        }
+        if (event.stage === "candidate-rejected") {
+          const candidateLabel = Number(event.candidateIndex) >= 0
+            ? `후보 ${Number(event.candidateIndex) + 1}번`
+            : "모델 응답";
+          await recordProgress({
+            phase: "validation",
+            status: "warning",
+            title: `${candidateLabel}이 품질 검증에서 탈락했습니다`,
+            summary: `${event.questionType || "유형 미확인"} · Source ${event.sourceId || "미확인"}`,
+            details: (event.issues || []).map((issue) => `탈락 사유: ${issue}`),
+          });
+          return;
+        }
+        if (event.stage === "candidate-accepted") {
+          await recordProgress({
+            phase: "validation",
+            status: "completed",
+            title: `${event.questionType} 후보가 모든 품질 규칙을 통과했습니다`,
+            summary: `문항 ${event.questionId}을 저장 대기열에 추가했습니다.`,
+            details: [
+              `Source ID: ${event.sourceId}`,
+              `수능 reference: ${(event.referenceQuestionIds || []).join(", ")}`,
+              `생성 시도: ${event.generationAttempt}차`,
+            ],
+          });
+          return;
+        }
+        if (event.stage === "generation-attempt-completed") {
+          await recordProgress({
+            phase: "validation",
+            status: event.remainingAssignments.length ? "warning" : "completed",
+            title: `${event.generationAttempt}차 생성 검수를 마쳤습니다`,
+            summary: `통과 ${event.acceptedCount}개 · 탈락 ${event.rejectedCount}개`,
+            details: event.remainingAssignments.map((assignment) => `재시도 대상: ${assignment.questionType} · Source ${assignment.sourceId}`),
+          });
+          return;
+        }
+        if (event.stage === "validated-batch-completed") {
+          await recordProgress({
+            phase: "validation",
+            status: event.missingAssignments.length ? "warning" : "completed",
+            title: "이번 배치의 품질 검증을 완료했습니다",
+            summary: `최종 통과 ${event.acceptedCount}개 · 누적 거부 기록 ${event.rejectedCount}개 · 모델 생성 호출 ${event.modelCallCount}회`,
+            details: event.missingAssignments.map((assignment) => `미완성: ${assignment.questionType} · Source ${assignment.sourceId}`),
+          });
+        }
+      },
       generateBatch: async (promptContext) => {
         const prompt = buildQuestionPrompt(promptContext);
+        await recordProgress({
+          phase: "prompt",
+          status: "completed",
+          title: "모델 입력 프롬프트를 조립했습니다",
+          summary: `생성 시도 ${promptContext.generationAttempt}차의 구조화된 요청을 준비했습니다.`,
+          details: [
+            `시스템 지시문: ${prompt.system.length.toLocaleString("ko-KR")}자`,
+            `사용자 입력 payload: ${prompt.user.length.toLocaleString("ko-KR")}자`,
+            `배정 문항: ${promptContext.assignments.length}개`,
+            `원문소스: ${promptContext.sources.length}개`,
+            `수능 reference: ${promptContext.references.length}개`,
+            `적용 규칙: ${promptContext.rules.questionTypes.length}개`,
+            `기존 통과 문항 중복검사 대상: ${promptContext.existingQuestions.length}개`,
+          ],
+        });
         const response = await requestTextbookJson({
           provider: { ...provider, enableThinking: false },
           messages: [
@@ -267,6 +637,61 @@ async function generateJobBatch(authUser, body) {
           maxElapsedMs: 250_000,
           retryDelaysMs: [0, 2_500],
           retryStrategy: "round-robin",
+          onProgress: async (event) => {
+            if (event.stage === "retry-wait") {
+              await recordProgress({
+                phase: "model",
+                status: "info",
+                title: `${event.model} 재시도 전 대기 중입니다`,
+                summary: `${event.delayMs}ms 후 ${event.attempt}차 연결을 시도합니다.`,
+                details: [],
+              });
+              return;
+            }
+            if (event.stage === "attempt-started") {
+              await recordProgress({
+                phase: "model",
+                status: "running",
+                title: `${event.model}에 생성을 요청했습니다`,
+                summary: `모델 연결 ${event.attempt}차 시도`,
+                details: [`응답 제한시간: ${event.timeoutMs}ms`],
+              });
+              return;
+            }
+            if (event.stage === "attempt-succeeded") {
+              await recordProgress({
+                phase: "model",
+                status: "completed",
+                title: `${event.model} 응답을 정상 수신했습니다`,
+                summary: `${event.durationMs}ms 소요 · HTTP ${event.status ?? "상태 미상"}`,
+                details: [`모델 연결 ${event.attempt}차 시도에서 성공`],
+              });
+              return;
+            }
+            if (event.stage === "attempt-failed") {
+              await recordProgress({
+                phase: "model",
+                status: event.retryable ? "warning" : "error",
+                title: `${event.model} 응답 시도가 실패했습니다`,
+                summary: `${event.durationMs}ms 소요 · ${event.error || "알 수 없는 오류"}`,
+                details: [
+                  `HTTP 상태: ${event.status ?? "없음"}`,
+                  `재시도 가능: ${event.retryable ? "예" : "아니오"}`,
+                  `서버 권장 대기: ${event.retryAfterMs || 0}ms`,
+                ],
+              });
+              return;
+            }
+            if (event.stage === "time-budget-exhausted") {
+              await recordProgress({
+                phase: "model",
+                status: "warning",
+                title: "이번 모델 폴백의 시간 예산을 모두 사용했습니다",
+                summary: `${event.elapsedMs}ms 경과 후 다음 배치 재시도를 위해 중단합니다.`,
+                details: [`마지막 대상 모델: ${event.model}`, `시도 번호: ${event.attempt}`],
+              });
+            }
+          },
         });
         const meta = textbookAiResponseMeta(response);
         if (meta?.model) modelsUsed.push(meta.model);
@@ -278,6 +703,15 @@ async function generateJobBatch(authUser, body) {
     const failedAttempts = Array.isArray(error?.providerAttempts) ? error.providerAttempts : [];
     providerAttempts.push(...failedAttempts);
     const lastAttempt = providerAttempts.at(-1);
+    await recordProgress({
+      phase: "model",
+      status: "error",
+      title: "이번 배치의 AI 모델 호출이 중단되었습니다",
+      summary: error instanceof Error ? error.message : "모델 응답을 완료하지 못했습니다.",
+      details: providerAttempts.slice(-12).map((attempt) => (
+        `${attempt.model} · ${attempt.attempt}차 · ${attempt.durationMs}ms · HTTP ${attempt.status ?? "없음"} · ${attempt.error || "응답 수신"}`
+      )),
+    });
     await owned.ref.update({
       ...stripUndefined({
         model: lastAttempt?.model || provider.model,
@@ -300,6 +734,19 @@ async function generateJobBatch(authUser, body) {
   const consecutiveFailedBatches = accepted.length ? 0 : (Number(data.consecutiveFailedBatches) || 0) + 1;
   const completed = acceptedCount >= request.targetQuestionCount;
   const failed = !completed && consecutiveFailedBatches >= 3;
+  await recordProgress({
+    phase: "storage",
+    status: "running",
+    title: "검증을 통과한 문항을 저장하고 있습니다",
+    summary: `${accepted.length}개 문항과 배치 진단 정보를 Firestore에 기록합니다.`,
+    details: [
+      ...accepted.map((question, index) => `저장 예정 ${existingQuestions.length + index + 1}번 · ${question.questionType} · ${question.id}`),
+      `거부 기록: ${result.rejected.length}건`,
+      `모델 시도 기록: ${providerAttempts.length}건`,
+      `사용 원문 ID: ${sources.map((source) => source.id).join(", ")}`,
+      `수능 reference ID: ${references.map((reference) => reference.id).join(", ")}`,
+    ],
+  });
   const writeBatch = admin.firestore().batch();
   accepted.forEach((question, index) => {
     const questionRef = owned.ref.collection("questions").doc(question.id);
@@ -346,6 +793,33 @@ async function generateJobBatch(authUser, body) {
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   await writeBatch.commit();
+  await recordProgress({
+    phase: "storage",
+    status: "completed",
+    title: `${accepted.length}개 문항을 안전하게 저장했습니다`,
+    summary: `누적 ${acceptedCount}/${request.targetQuestionCount}문항 · 배치 ${batchNumber} 저장 완료`,
+    details: accepted.length
+      ? accepted.map((question, index) => `${existingQuestions.length + index + 1}번 문항 · ${question.questionType} · ${question.id}`)
+      : ["이번 배치에서 저장된 문항은 없습니다."],
+  });
+  await recordProgress({
+    phase: completed ? "complete" : failed ? "failed" : "batch",
+    status: completed ? "completed" : failed ? "error" : "completed",
+    title: completed
+      ? "전체 문제 생성과 저장을 완료했습니다"
+      : failed
+        ? "세 번 연속 품질 검증을 통과하지 못해 자동 생성을 멈췄습니다"
+        : `${batchNumber}번째 배치를 완료했습니다`,
+    summary: completed
+      ? `${acceptedCount}문항의 최종 문제 세트가 준비됐습니다.`
+      : `통과 ${accepted.length}개 · 누적 ${acceptedCount}/${request.targetQuestionCount}문항`,
+    details: [
+      `누적 모델 생성 호출: ${(Number(data.modelCallCount) || 0) + result.modelCallCount}회`,
+      `누적 품질 거부: ${(Number(data.rejectedCount) || 0) + result.rejected.length}문항`,
+      `이번 배치 모델: ${modelsUsed.at(-1) || provider.model}`,
+      `연속 빈 배치: ${consecutiveFailedBatches}회`,
+    ],
+  });
   return {
     job: await loadJob(authUser.uid, owned.snapshot.id),
     batchQuestions: accepted,
@@ -377,6 +851,15 @@ export default async function handler(req, res) {
     const id = sanitizeText(req.query?.id, 120);
     if (req.method === "GET" && !id) {
       res.status(200).json({ items: await listJobs(authUser.uid) });
+      return;
+    }
+    if (req.method === "GET" && sanitizeText(req.query?.mode, 40) === "progress") {
+      const progress = await loadProgressSnapshot(authUser.uid, id, Number(req.query?.after) || 0);
+      if (!progress) {
+        res.status(404).json({ error: "문제 생성 작업을 찾을 수 없습니다." });
+        return;
+      }
+      res.status(200).json({ progress });
       return;
     }
     if (req.method === "GET") {

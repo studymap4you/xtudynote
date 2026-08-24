@@ -145,6 +145,7 @@
 }
 
 .composer {
+  box-sizing: border-box;
   width: min(1180px, 100%);
   margin: 0 auto;
   overflow: hidden;
@@ -199,6 +200,7 @@
 }
 
 .requestMessage {
+  min-width: 0;
   min-height: 140px;
   padding: 30px 34px;
   border-bottom: 1px solid #132d47;
@@ -216,6 +218,7 @@
   font-size: 17px;
   line-height: 1.7;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .fileList {
@@ -260,6 +263,7 @@
 }
 
 .jobPanel {
+  min-width: 0;
   padding: 24px 28px 26px;
   border-bottom: 1px solid #173554;
   background: #071321;
@@ -279,6 +283,7 @@
 .jobHeadline strong,
 .jobHeadline span {
   display: block;
+  overflow-wrap: anywhere;
 }
 
 .jobHeadline strong {
@@ -308,6 +313,109 @@
   height: 100%;
   background: #29aefc;
   transition: width 220ms ease;
+}
+
+.progressTimeline {
+  max-height: 460px;
+  margin-top: 18px;
+  overflow-y: auto;
+  border-top: 1px solid #173554;
+  border-bottom: 1px solid #173554;
+  background: #050d17;
+  scroll-behavior: smooth;
+}
+
+.progressEvent {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px 14px 14px 10px;
+  border-bottom: 1px solid #122a40;
+}
+
+.progressEvent:last-child {
+  border-bottom: 0;
+}
+
+.progressEventMarker {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  color: #70caff;
+}
+
+.progressEvent[data-status="completed"] .progressEventMarker {
+  color: #5fe0bf;
+}
+
+.progressEvent[data-status="warning"] .progressEventMarker {
+  color: #ffc15f;
+}
+
+.progressEvent[data-status="error"] .progressEventMarker {
+  color: #ff809f;
+}
+
+.progressEventBody {
+  min-width: 0;
+}
+
+.progressEventBody > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+}
+
+.progressEventBody > header span,
+.progressEventBody > header time {
+  color: #6788a4;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.progressEventBody > header time {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.progressEventBody > strong {
+  display: block;
+  color: #dceaf7;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.progressEventBody > p {
+  margin: 4px 0 0;
+  color: #8ca7be;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.progressEventBody > ul {
+  display: grid;
+  gap: 3px;
+  margin: 8px 0 0;
+  padding: 8px 0 0 16px;
+  border-top: 1px solid #10263a;
+  color: #718fa8;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.progressEmpty {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 88px;
+  padding: 20px;
+  color: #7893aa;
+  font-size: 12px;
 }
 
 .jobActions {
@@ -396,6 +504,41 @@
   color: #5fe0bf;
   font-size: 13px;
   font-weight: 700;
+}
+
+.resultActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.resultActions > span {
+  margin-right: 4px;
+  color: #5fe0bf;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.resultActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #2679b1;
+  border-radius: 6px;
+  background: #0b4776;
+  color: #e8f3ff;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.resultActions button:hover {
+  border-color: #5fc8ff;
+  color: #8bd8ff;
 }
 
 .questionList {
@@ -628,6 +771,18 @@
     font-size: 16px;
   }
 
+  .requestMessage {
+    padding: 24px 20px;
+  }
+
+  .requestMessage p {
+    font-size: 15px;
+  }
+
+  .jobPanel {
+    padding: 22px 14px 24px;
+  }
+
   .jobHeadline {
     grid-template-columns: 22px minmax(0, 1fr);
   }
@@ -636,12 +791,32 @@
     grid-column: 2;
   }
 
+  .progressTimeline {
+    max-height: 420px;
+  }
+
+  .progressEvent {
+    grid-template-columns: 24px minmax(0, 1fr);
+    padding-right: 9px;
+    padding-left: 6px;
+  }
+
   .questionItem summary {
     grid-template-columns: 34px minmax(0, 1fr) 20px;
   }
 
   .questionDifficulty {
     display: none;
+  }
+
+  .results > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .resultActions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .fileList > span {
