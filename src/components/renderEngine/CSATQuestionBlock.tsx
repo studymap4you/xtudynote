@@ -1,5 +1,4 @@
 import type { CSATQuestionRenderUnit, ResolvedCSATRenderOptions } from "@/lib/renderEngine/types";
-import { canRenderCSATReviewContent } from "@/lib/renderEngine/renderOptions";
 import styles from "@/components/renderEngine/csatRender.module.css";
 
 const CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤"];
@@ -74,16 +73,6 @@ export function CSATQuestionBlock({
         <div className={styles.studyChecklist} aria-label="학습 점검표">
           <span>□ 다시 보기</span><span>□ 근거 표시</span><span>□ 오답 정리</span>
         </div>
-      ) : null}
-      {canRenderCSATReviewContent(options) && unit.showReview ? (
-        <aside className={styles.reviewPanel}>
-          <header><b>REVIEW NOTE</b><span>Answer {question.answer}</span></header>
-          <p>{question.explanation}</p>
-          <dl>
-            <div><dt>Source</dt><dd>{question.sourceId}</dd></div>
-            <div><dt>Distractors</dt><dd>{question.choices.filter((choice) => !choice.isCorrect).map((choice) => choice.distractorPattern).filter(Boolean).join(" · ")}</dd></div>
-          </dl>
-        </aside>
       ) : null}
     </section>
   );

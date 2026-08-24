@@ -603,6 +603,12 @@
   overflow-wrap: anywhere;
 }
 
+.explanationBlock {
+  margin-top: 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 .sharedPassage {
   padding: 5mm;
   border: 0.3mm solid #9ccfc3;

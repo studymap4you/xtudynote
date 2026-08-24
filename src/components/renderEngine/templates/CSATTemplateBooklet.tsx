@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { CSATPage, A4_HEIGHT_PX, A4_WIDTH_PX } from "@/components/renderEngine/CSATPage";
 import { CSATPageFooter } from "@/components/renderEngine/CSATPageFooter";
+import { CSATExplanationSectionRenderer } from "@/components/renderEngine/CSATExplanationSectionRenderer";
 import { CSATQuestionBlock } from "@/components/renderEngine/CSATQuestionBlock";
 import { ConceptSectionRenderer } from "@/components/renderEngine/ConceptSectionRenderer";
 import { getCSATTemplateTokens, templateCssVariables } from "@/lib/renderEngine/templates/templateTokens";
@@ -61,7 +62,7 @@ function CoverPage({ booklet, scale, templateId }: { booklet: PreparedCSATBookle
 
 function AnswerKeyPage({ booklet, scale, pageNumber }: { booklet: PreparedCSATBooklet; scale: number; pageNumber: number }) {
   return (
-    <CSATPage pageNumber={pageNumber} section="Answer Key · Review Edition" scale={scale}>
+    <CSATPage pageNumber={pageNumber} section="PART 03 · ANSWERS & EXPLANATIONS" scale={scale}>
       <section className={styles.answerKey}>
         <small>REVIEW EDITION</small>
         <h2>Answer Key</h2>
@@ -71,8 +72,9 @@ function AnswerKeyPage({ booklet, scale, pageNumber }: { booklet: PreparedCSATBo
   );
 }
 
-export function CSATTemplateBooklet({ booklet, conceptPages, pages, scale, templateId }: CSATTemplateProps & { templateId: CSATRenderTemplateId }) {
+export function CSATTemplateBooklet({ booklet, conceptPages, pages, explanationPages, scale, templateId }: CSATTemplateProps & { templateId: CSATRenderTemplateId }) {
   const showAnswerKey = booklet.options.mode === "review" && booklet.options.showAnswerKey;
+  const answerKeyPageNumber = conceptPages.length + pages.length + 2;
   const tokens = getCSATTemplateTokens(templateId);
   return (
     <div className={`${styles.pageStack} csat-page-stack`} data-csat-template={templateId} style={templateCssVariables(tokens) as CSSProperties}>
@@ -87,7 +89,10 @@ export function CSATTemplateBooklet({ booklet, conceptPages, pages, scale, templ
           ))}
         </CSATPage>
       ))}
-      {showAnswerKey ? <AnswerKeyPage booklet={booklet} scale={scale} pageNumber={conceptPages.length + pages.length + 2} /> : null}
+      {showAnswerKey ? <AnswerKeyPage booklet={booklet} scale={scale} pageNumber={answerKeyPageNumber} /> : null}
+      {showAnswerKey ? explanationPages.map((page, index) => (
+        <CSATExplanationSectionRenderer key={page.id} page={page} pageNumber={answerKeyPageNumber + index + 1} scale={scale} />
+      )) : null}
     </div>
   );
 }

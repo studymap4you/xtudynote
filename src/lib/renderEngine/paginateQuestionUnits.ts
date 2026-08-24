@@ -149,19 +149,29 @@ export function paginateMeasuredCSATUnits(
   const pages: CSATRenderPage[] = [];
   let current: CSATRenderUnit[] = [];
   let usedHeight = 0;
+  let currentQuestionId: string | null = null;
 
   const flush = () => {
     if (current.length === 0) return;
     pages.push({ id: `questions-${pages.length + 1}`, units: current });
     current = [];
     usedHeight = 0;
+    currentQuestionId = null;
   };
 
   units.forEach((unit) => {
+    const unitQuestionId = unit.kind === "question" ? unit.question.id : null;
+    if (
+      (unitQuestionId && currentQuestionId && unitQuestionId !== currentQuestionId)
+      || (!unitQuestionId && currentQuestionId)
+    ) {
+      flush();
+    }
     const height = Math.max(1, measuredHeights.get(unit.id) ?? pageCapacity);
     const nextHeight = current.length ? usedHeight + unitGap + height : height;
     if (current.length && nextHeight > pageCapacity) flush();
     current.push(unit);
+    if (unitQuestionId) currentQuestionId = unitQuestionId;
     usedHeight = current.length === 1 ? height : usedHeight + unitGap + height;
     if (height >= pageCapacity) flush();
   });

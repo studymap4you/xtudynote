@@ -97,6 +97,16 @@ export type CSATRenderPage = {
   units: CSATRenderUnit[];
 };
 
+export type CSATExplanationRenderUnit = {
+  id: string;
+  question: NormalizedCSATQuestion;
+};
+
+export type CSATExplanationRenderPage = {
+  id: string;
+  units: CSATExplanationRenderUnit[];
+};
+
 export type PreparedCSATBooklet = {
   title: string;
   subtitle?: string;
@@ -107,6 +117,7 @@ export type PreparedCSATBooklet = {
   conceptUnits: ConceptRenderUnit[];
   questions: NormalizedCSATQuestion[];
   units: CSATRenderUnit[];
+  explanationUnits: CSATExplanationRenderUnit[];
   issues: CSATNormalizationIssue[];
 };
 
@@ -114,5 +125,6 @@ export type CSATTemplateProps = {
   booklet: PreparedCSATBooklet;
   conceptPages: ConceptRenderPage[];
   pages: CSATRenderPage[];
+  explanationPages: CSATExplanationRenderPage[];
   scale: number;
 };

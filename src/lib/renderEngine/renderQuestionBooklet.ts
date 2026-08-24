@@ -1,6 +1,7 @@
 import { normalizeCSATQuestions } from "@/lib/renderEngine/normalizeQuestions";
 import { attachConceptsToQuestions } from "@/lib/conceptAssembly/attachConceptsToQuestions";
 import { buildConceptRenderUnits } from "@/lib/conceptAssembly/buildConceptRenderUnits";
+import { buildCSATExplanationUnits } from "@/lib/renderEngine/paginateExplanationUnits";
 import { buildCSATRenderUnits } from "@/lib/renderEngine/paginateQuestionUnits";
 import { resolveCSATRenderOptions } from "@/lib/renderEngine/renderOptions";
 import { DEFAULT_CSAT_TEMPLATE_ID, isCSATRenderTemplateId } from "@/lib/renderEngine/templateIds";
@@ -22,6 +23,7 @@ export function renderQuestionBooklet(input: CSATRenderInput): PreparedCSATBookl
     conceptUnits: buildConceptRenderUnits(conceptSection),
     questions: normalized.questions,
     units: buildCSATRenderUnits(normalized.questions),
+    explanationUnits: buildCSATExplanationUnits(normalized.questions),
     issues: normalized.issues,
   };
 }

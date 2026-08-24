@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { normalizeCSATQuestions } from "../src/lib/renderEngine/normalizeQuestions.ts";
+import { buildCSATExplanationUnits, paginateMeasuredCSATExplanationUnits } from "../src/lib/renderEngine/paginateExplanationUnits.ts";
 import { buildCSATRenderUnits, paginateMeasuredCSATUnits } from "../src/lib/renderEngine/paginateQuestionUnits.ts";
 import { canRenderCSATReviewContent, resolveCSATRenderOptions } from "../src/lib/renderEngine/renderOptions.ts";
 import { CSAT_TEMPLATE_IDS, DEFAULT_CSAT_TEMPLATE_ID } from "../src/lib/renderEngine/templateIds.ts";
@@ -49,6 +50,9 @@ function assertOrderAndPagination(count) {
   assert.deepEqual(renderedUnits.map((unit) => unit.id), units.map((unit) => unit.id));
   assert.equal(new Set(renderedUnits.map((unit) => unit.id)).size, units.length);
   assert.ok(pages.every((page) => page.units.length >= 1));
+  assert.ok(pages.every((page) => new Set(
+    page.units.filter((unit) => unit.kind === "question").map((unit) => unit.question.id),
+  ).size <= 1));
 }
 
 function paginateForTemplate(source, templateId) {
@@ -76,11 +80,14 @@ function assertAllTemplatesPreserveQuestions(count) {
     assert.deepEqual(rendered.renderedUnits.map((unit) => unit.id), rendered.units.map((unit) => unit.id), `${templateId}: units`);
     assert.equal(new Set(rendered.renderedUnits.map((unit) => unit.id)).size, rendered.units.length, `${templateId}: duplicate units`);
     assert.ok(rendered.pages.length > 0, `${templateId}: pages`);
+    assert.ok(rendered.pages.every((page) => new Set(
+      page.units.filter((unit) => unit.kind === "question").map((unit) => unit.question.id),
+    ).size <= 1), `${templateId}: more than one question on a page`);
     pageCounts.push(rendered.pages.length);
   });
 
   assert.deepEqual(source, original, "template rendering must not mutate generated question JSON");
-  assert.ok(new Set(pageCounts).size > 1, "template-specific spacing must recalculate page counts");
+  assert.ok(pageCounts.every((pageCount) => pageCount >= count), "every question needs its own page boundary");
 }
 
 test("TEST 1: 10문항을 순서와 번호 손실 없이 페이지로 구성한다", () => {
@@ -125,6 +132,45 @@ test("TEST 5: LONG_READING 그룹은 공통 지문을 한 번만 만들고 하�
   assert.ok(questionUnits.every((unit) => !unit.passage));
   assert.equal(sharedUnits[0]?.startNumber, 1);
   assert.equal(sharedUnits[0]?.endNumber, 2);
+});
+
+test("짧은 문항 10개는 정확히 한 문항씩 10페이지에 배치한다", () => {
+  const source = Array.from({ length: 10 }, (_, index) => mockQuestion(index + 1, {
+    passage: `Short passage for question ${index + 1}.`,
+    choices: Array.from({ length: 5 }, (_, choiceIndex) => ({
+      index: choiceIndex + 1,
+      text: `Short choice ${choiceIndex + 1}.`,
+      isCorrect: choiceIndex === 2,
+      distractorPattern: choiceIndex === 2 ? undefined : "SCOPE_SHIFT",
+      rationale: "범위가 다르다.",
+    })),
+  }));
+  const normalized = normalizeCSATQuestions(source);
+  const units = buildCSATRenderUnits(normalized.questions);
+  const heights = new Map(units.map((unit) => [unit.id, 240]));
+  const pages = paginateMeasuredCSATUnits(units, heights, 900, 28);
+  assert.equal(pages.length, 10);
+  assert.ok(pages.every((page) => page.units.filter((unit) => unit.kind === "question").length === 1));
+});
+
+test("40·50문항의 정답과 해설은 별도 페이지 단위로 순서와 개수를 유지한다", () => {
+  [40, 50].forEach((count) => {
+    const normalized = normalizeCSATQuestions(Array.from({ length: count }, (_, index) => mockQuestion(index + 1)));
+    const units = buildCSATExplanationUnits(normalized.questions);
+    const heights = new Map(units.map((unit, index) => [unit.id, 170 + (index % 3) * 30]));
+    const pages = paginateMeasuredCSATExplanationUnits(units, heights, 900, 28);
+    const rendered = pages.flatMap((page) => page.units);
+    assert.equal(rendered.length, count);
+    assert.deepEqual(rendered.map((unit) => unit.question.id), normalized.questions.map((question) => question.id));
+    assert.deepEqual(rendered.map((unit) => unit.question.explanation), normalized.questions.map((question) => question.explanation));
+  });
+});
+
+test("문제 페이지는 해설을 출력하지 않고 해설지는 문제 뒤에 렌더링한다", async () => {
+  const questionBlock = await readFile(new URL("../src/components/renderEngine/CSATQuestionBlock.tsx", import.meta.url), "utf8");
+  const bookletTemplate = await readFile(new URL("../src/components/renderEngine/templates/CSATTemplateBooklet.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(questionBlock, /question\.explanation/);
+  assert.match(bookletTemplate, /\{pages\.map[\s\S]+<AnswerKeyPage[\s\S]+explanationPages\.map/);
 });
 
 test("malformed 문항은 임의 보강 없이 제외하고 오류로 보고한다", () => {
