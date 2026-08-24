@@ -1,6 +1,7 @@
 import type { GeneratedCsatQuestion } from "@/types/csatQuestionEngine";
+import type { CSATRenderTemplateId } from "@/lib/renderEngine/templateIds";
 
-export type CSATRenderTemplateId = "xuniverse-csat-studygram-pop-v1";
+export type { CSATRenderTemplateId, CSATTemplateId } from "@/lib/renderEngine/templateIds";
 export type CSATRenderMode = "student" | "review";
 export type CSATRenderingStatus = "idle" | "preparing" | "rendering" | "ready" | "failed";
 
@@ -15,6 +16,8 @@ export type CSATRenderOptions = {
   showQuestionType?: boolean;
   mode?: CSATRenderMode;
   showAnswerKey?: boolean;
+  showStudyChecklist?: boolean;
+  showMotivationalCopy?: boolean;
 };
 
 export type CSATRenderInput = {
@@ -101,4 +104,10 @@ export type PreparedCSATBooklet = {
   questions: NormalizedCSATQuestion[];
   units: CSATRenderUnit[];
   issues: CSATNormalizationIssue[];
+};
+
+export type CSATTemplateProps = {
+  booklet: PreparedCSATBooklet;
+  pages: CSATRenderPage[];
+  scale: number;
 };

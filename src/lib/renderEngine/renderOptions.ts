@@ -6,6 +6,8 @@ const DEFAULT_OPTIONS: ResolvedCSATRenderOptions = {
   showQuestionType: true,
   mode: "student",
   showAnswerKey: false,
+  showStudyChecklist: false,
+  showMotivationalCopy: true,
 };
 
 export function resolveCSATRenderOptions(options?: CSATRenderOptions): ResolvedCSATRenderOptions {
@@ -14,4 +16,8 @@ export function resolveCSATRenderOptions(options?: CSATRenderOptions): ResolvedC
     ...requested,
     showAnswerKey: requested.mode === "review" && requested.showAnswerKey,
   };
+}
+
+export function canRenderCSATReviewContent(options: ResolvedCSATRenderOptions): boolean {
+  return options.mode === "review";
 }

@@ -1,16 +1,25 @@
 import { Check, LoaderCircle, Printer, X } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef, useState, useEffect } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, useEffect, type CSSProperties } from "react";
 import { A4_WIDTH_PX } from "@/components/renderEngine/CSATPage";
-import { XUniverseCSATRenderUnit } from "@/components/renderEngine/templates/XUniverseCSATStudygramTemplate";
+import { CSATTemplateRenderUnit } from "@/components/renderEngine/templates/CSATTemplateBooklet";
 import { paginateMeasuredCSATUnits } from "@/lib/renderEngine/paginateQuestionUnits";
 import { printQuestionBooklet } from "@/lib/renderEngine/printQuestionBooklet";
 import { renderQuestionBooklet } from "@/lib/renderEngine/renderQuestionBooklet";
-import { renderTemplates } from "@/lib/renderEngine/templateRegistry";
-import type { CSATRenderInput, CSATRenderMode, CSATRenderPage, CSATRenderingStatus } from "@/lib/renderEngine/types";
+import { getRenderTemplate, renderTemplateList } from "@/lib/renderEngine/templateRegistry";
+import { templateCssVariables } from "@/lib/renderEngine/templates/templateTokens";
+import type { CSATRenderInput, CSATRenderMode, CSATRenderPage, CSATRenderingStatus, CSATRenderTemplateId } from "@/lib/renderEngine/types";
 import styles from "@/components/renderEngine/csatRender.module.css";
 import "@/styles/csat-print.css";
 
-export function CSATBookletPreview({ input, onClose }: { input: CSATRenderInput; onClose: () => void }) {
+export function CSATBookletPreview({
+  input,
+  onClose,
+  onTemplateChange,
+}: {
+  input: CSATRenderInput;
+  onClose: () => void;
+  onTemplateChange?: (templateId: CSATRenderTemplateId) => void;
+}) {
   const [mode, setMode] = useState<CSATRenderMode>(input.options?.mode || "student");
   const [status, setStatus] = useState<CSATRenderingStatus>("preparing");
   const [pages, setPages] = useState<CSATRenderPage[]>([]);
@@ -23,8 +32,9 @@ export function CSATBookletPreview({ input, onClose }: { input: CSATRenderInput;
     ...input,
     options: { ...input.options, mode, showAnswerKey: mode === "review" },
   }), [input, mode]);
-  const template = renderTemplates[booklet.templateId];
+  const template = getRenderTemplate(booklet.templateId);
   const Template = template.component;
+  const templateStyle = templateCssVariables(template.tokens) as CSSProperties;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -47,6 +57,7 @@ export function CSATBookletPreview({ input, onClose }: { input: CSATRenderInput;
 
   useLayoutEffect(() => {
     setStatus("rendering");
+    setPages([]);
     const frame = window.requestAnimationFrame(() => {
       const pageBody = pageBodyRef.current;
       const list = measurementListRef.current;
@@ -72,8 +83,16 @@ export function CSATBookletPreview({ input, onClose }: { input: CSATRenderInput;
         <div>
           <small>Template</small>
           <strong>{template.name}</strong>
-          <span>{booklet.questions.length} Questions · {pages.length + 1} Pages</span>
+          <span>{booklet.questions.length} Questions · {pages.length + 1 + Number(booklet.options.mode === "review" && booklet.options.showAnswerKey)} Pages</span>
         </div>
+        {onTemplateChange ? (
+          <label className={styles.templateControl}>
+            <span>Design</span>
+            <select value={booklet.templateId} onChange={(event) => onTemplateChange(event.target.value as CSATRenderTemplateId)} aria-label="교재 디자인 변경">
+              {renderTemplateList.map((item) => <option key={item.id} value={item.id}>{item.shortName}</option>)}
+            </select>
+          </label>
+        ) : null}
         <div className={styles.modeControl} aria-label="미리보기 모드">
           <button type="button" data-active={mode === "student" || undefined} onClick={() => setMode("student")}>Student</button>
           <button type="button" data-active={mode === "review" || undefined} onClick={() => setMode("review")}>Review</button>
@@ -91,14 +110,14 @@ export function CSATBookletPreview({ input, onClose }: { input: CSATRenderInput;
           {pages.length > 0 ? <Template booklet={booklet} pages={pages} scale={scale} /> : null}
         </div>
       </div>
-      <div className={`${styles.measurementRoot} csat-measurement-root`} aria-hidden="true">
+      <div className={`${styles.measurementRoot} csat-measurement-root`} data-csat-template={booklet.templateId} style={templateStyle} aria-hidden="true">
         <article className={styles.page}>
           <div className={styles.measurementHeader} />
           <main ref={pageBodyRef} className={styles.pageBody}>
             <div ref={measurementListRef} className={styles.measurementList}>
               {booklet.units.map((unit) => (
                 <div key={unit.id} ref={(node) => { if (node) unitRefs.current.set(unit.id, node); else unitRefs.current.delete(unit.id); }}>
-                  <XUniverseCSATRenderUnit unit={unit} booklet={booklet} />
+                  <CSATTemplateRenderUnit unit={unit} booklet={booklet} />
                 </div>
               ))}
             </div>

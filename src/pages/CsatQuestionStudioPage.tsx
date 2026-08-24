@@ -19,6 +19,7 @@ import {
 import { type ChangeEvent, type DragEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DashboardShell } from "@/components/DashboardShell";
 import { CSATBookletPreview } from "@/components/renderEngine/CSATBookletPreview";
+import { CSATTemplatePicker } from "@/components/renderEngine/CSATTemplatePicker";
 import { extractPlainTextFromLocalFile } from "@/lib/localFile/extractLocalFileText";
 import {
   deleteCsatQuestionJob,
@@ -35,7 +36,8 @@ import type {
   CsatQuestionProgressSnapshot,
   GeneratedCsatQuestion,
 } from "@/types/csatQuestionEngine";
-import type { CSATRenderInput } from "@/lib/renderEngine/types";
+import { getSavedCSATTemplateId, saveCSATTemplateId } from "@/lib/renderEngine/templateStorage";
+import type { CSATRenderInput, CSATRenderTemplateId } from "@/lib/renderEngine/types";
 import styles from "@/pages/csatQuestionStudio.module.css";
 
 type AttachedSource = {
@@ -199,6 +201,7 @@ export function CsatQuestionStudioPage() {
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<CSATRenderTemplateId>(() => getSavedCSATTemplateId());
   const pauseRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const progressLogRef = useRef<HTMLDivElement | null>(null);
@@ -222,7 +225,7 @@ export function CsatQuestionStudioPage() {
       title: job.title,
       subtitle: "Reading · Reasoning · Accuracy",
       target: `${job.request.targetGrade} · ${level}`,
-      templateId: "xuniverse-csat-studygram-pop-v1",
+      templateId: selectedTemplateId,
       questions: job.questions,
       options: {
         mode: "student",
@@ -230,9 +233,15 @@ export function CsatQuestionStudioPage() {
         showScore: true,
         showQuestionType: true,
         showAnswerKey: false,
+        showStudyChecklist: selectedTemplateId === "xuniverse-csat-notebook-grid-v1",
+        showMotivationalCopy: true,
       },
     };
-  }, [job]);
+  }, [job, selectedTemplateId]);
+
+  useEffect(() => {
+    saveCSATTemplateId(selectedTemplateId);
+  }, [selectedTemplateId]);
 
   useEffect(() => {
     if (!job) {
@@ -624,6 +633,8 @@ export function CsatQuestionStudioPage() {
               </div>
             ) : null}
 
+            <CSATTemplatePicker value={selectedTemplateId} onChange={setSelectedTemplateId} />
+
             {generationComplete && job?.questions.length ? (
               <section className={styles.results} aria-label="검수 통과 문제 목록">
                 <header>
@@ -640,7 +651,9 @@ export function CsatQuestionStudioPage() {
           </section>
         </div>
       </main>
-      {previewOpen && renderInput ? <CSATBookletPreview input={renderInput} onClose={() => setPreviewOpen(false)} /> : null}
+      {previewOpen && renderInput ? (
+        <CSATBookletPreview input={renderInput} onClose={() => setPreviewOpen(false)} onTemplateChange={setSelectedTemplateId} />
+      ) : null}
     </DashboardShell>
   );
 }

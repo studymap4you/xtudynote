@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { normalizeCSATQuestions } from "../src/lib/renderEngine/normalizeQuestions.ts";
 import { buildCSATRenderUnits, paginateMeasuredCSATUnits } from "../src/lib/renderEngine/paginateQuestionUnits.ts";
-import { resolveCSATRenderOptions } from "../src/lib/renderEngine/renderOptions.ts";
+import { canRenderCSATReviewContent, resolveCSATRenderOptions } from "../src/lib/renderEngine/renderOptions.ts";
+import { CSAT_TEMPLATE_IDS, DEFAULT_CSAT_TEMPLATE_ID } from "../src/lib/renderEngine/templateIds.ts";
+import { CSAT_TEMPLATE_TOKENS } from "../src/lib/renderEngine/templates/templateTokens.ts";
+import { CSAT_TEMPLATE_STORAGE_KEY, getSavedCSATTemplateId, saveCSATTemplateId } from "../src/lib/renderEngine/templateStorage.ts";
 
 function mockQuestion(index, overrides = {}) {
   const words = Array.from({ length: 115 }, (_, wordIndex) => `reading${index}_${wordIndex}`);
@@ -45,6 +49,38 @@ function assertOrderAndPagination(count) {
   assert.deepEqual(renderedUnits.map((unit) => unit.id), units.map((unit) => unit.id));
   assert.equal(new Set(renderedUnits.map((unit) => unit.id)).size, units.length);
   assert.ok(pages.every((page) => page.units.length >= 1));
+}
+
+function paginateForTemplate(source, templateId) {
+  const normalized = normalizeCSATQuestions(source);
+  const units = buildCSATRenderUnits(normalized.questions);
+  const metrics = CSAT_TEMPLATE_TOKENS[templateId].pagination;
+  const heights = new Map(units.map((unit, index) => [unit.id, (300 + (index % 3) * 70) * metrics.estimatedUnitScale]));
+  const pages = paginateMeasuredCSATUnits(units, heights, metrics.estimatedCapacity, metrics.estimatedGap);
+  return { normalized, units, pages, renderedUnits: pages.flatMap((page) => page.units) };
+}
+
+function assertAllTemplatesPreserveQuestions(count) {
+  const source = Array.from({ length: count }, (_, index) => mockQuestion(index + 1));
+  const original = structuredClone(source);
+  const baselineAnswers = source.map((question) => question.answer);
+  const baselineIds = source.map((question) => question.id);
+  const pageCounts = [];
+
+  CSAT_TEMPLATE_IDS.forEach((templateId) => {
+    const rendered = paginateForTemplate(source, templateId);
+    assert.equal(rendered.normalized.issues.length, 0, `${templateId}: normalization issues`);
+    assert.equal(rendered.normalized.questions.length, count, `${templateId}: question count`);
+    assert.deepEqual(rendered.normalized.questions.map((question) => question.id), baselineIds, `${templateId}: order`);
+    assert.deepEqual(rendered.normalized.questions.map((question) => question.answer), baselineAnswers, `${templateId}: answers`);
+    assert.deepEqual(rendered.renderedUnits.map((unit) => unit.id), rendered.units.map((unit) => unit.id), `${templateId}: units`);
+    assert.equal(new Set(rendered.renderedUnits.map((unit) => unit.id)).size, rendered.units.length, `${templateId}: duplicate units`);
+    assert.ok(rendered.pages.length > 0, `${templateId}: pages`);
+    pageCounts.push(rendered.pages.length);
+  });
+
+  assert.deepEqual(source, original, "template rendering must not mutate generated question JSON");
+  assert.ok(new Set(pageCounts).size > 1, "template-specific spacing must recalculate page counts");
 }
 
 test("TEST 1: 10문항을 순서와 번호 손실 없이 페이지로 구성한다", () => {
@@ -103,4 +139,53 @@ test("student mode는 잘못 전달된 정답표 옵션도 강제로 차단한�
   const options = resolveCSATRenderOptions({ mode: "student", showAnswerKey: true });
   assert.equal(options.mode, "student");
   assert.equal(options.showAnswerKey, false);
+  assert.equal(canRenderCSATReviewContent(options), false);
+});
+
+test("40문항을 6개 공식 템플릿으로 바꿔도 내용·정답·순서를 유지하고 pagination만 재계산한다", () => {
+  assert.equal(CSAT_TEMPLATE_IDS.length, 6);
+  assertAllTemplatesPreserveQuestions(40);
+});
+
+test("50문항을 6개 공식 템플릿으로 바꿔도 누락 없이 A4 페이지 묶음을 만든다", () => {
+  assertAllTemplatesPreserveQuestions(50);
+});
+
+test("Editorial Magazine의 긴 BLANK_LONG도 단일 열 표시 단위와 순서를 유지한다", () => {
+  const longPassage = Array.from({ length: 1_200 }, (_, index) => `editorial${index}`).join(" ");
+  const rendered = paginateForTemplate([
+    mockQuestion(1, { questionType: "BLANK_LONG", passage: longPassage }),
+  ], "xuniverse-csat-editorial-magazine-v1");
+  assert.ok(rendered.units.length > 2);
+  assert.deepEqual(rendered.renderedUnits.map((unit) => unit.id), rendered.units.map((unit) => unit.id));
+});
+
+test("Notebook Grid는 명시된 경우에만 학습 체크리스트 옵션을 활성화한다", async () => {
+  const enabled = resolveCSATRenderOptions({ showStudyChecklist: true });
+  const disabled = resolveCSATRenderOptions({ showStudyChecklist: false });
+  assert.equal(enabled.showStudyChecklist, true);
+  assert.equal(disabled.showStudyChecklist, false);
+  const css = await readFile(new URL("../src/components/renderEngine/csatRender.module.css", import.meta.url), "utf8");
+  assert.match(css, /xuniverse-csat-notebook-grid-v1[^}]+\.studyChecklist/s);
+});
+
+test("마지막 템플릿을 저장·복원하고 invalid 값은 Studygram으로 fallback한다", () => {
+  const values = new Map();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
+  saveCSATTemplateId("xuniverse-csat-editorial-magazine-v1", storage);
+  assert.equal(values.get(CSAT_TEMPLATE_STORAGE_KEY), "xuniverse-csat-editorial-magazine-v1");
+  assert.equal(getSavedCSATTemplateId(storage), "xuniverse-csat-editorial-magazine-v1");
+  values.set(CSAT_TEMPLATE_STORAGE_KEY, "deleted-template-v9");
+  assert.equal(getSavedCSATTemplateId(storage), DEFAULT_CSAT_TEMPLATE_ID);
+});
+
+test("인쇄 스타일은 A4 portrait와 student booklet page break를 유지한다", async () => {
+  const css = await readFile(new URL("../src/styles/csat-print.css", import.meta.url), "utf8");
+  assert.match(css, /size:\s*A4 portrait/);
+  assert.match(css, /width:\s*210mm/);
+  assert.match(css, /height:\s*297mm/);
+  assert.match(css, /page-break-after:\s*always/);
 });

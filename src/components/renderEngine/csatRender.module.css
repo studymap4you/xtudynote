@@ -30,12 +30,44 @@
   min-height: 76px;
   padding: 12px 20px;
   display: grid;
-  grid-template-columns: minmax(230px, 1fr) auto minmax(360px, 1fr);
+  grid-template-columns: minmax(210px, 1fr) 190px auto minmax(300px, 1fr);
   align-items: center;
   gap: 20px;
   background: #071321;
   border-bottom: 1px solid #203248;
   color: #f4f8fd;
+}
+
+.templateControl {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.templateControl > span {
+  color: #79cfff;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.templateControl select {
+  width: 100%;
+  height: 38px;
+  padding: 0 30px 0 10px;
+  border: 1px solid #31455e;
+  border-radius: 5px;
+  outline: 0;
+  background: #0c1c2e;
+  color: #eaf4ff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.templateControl select:focus-visible {
+  border-color: #59c4ff;
+  box-shadow: 0 0 0 2px rgb(89 196 255 / 18%);
 }
 
 .previewToolbar > div:first-child {
@@ -177,7 +209,7 @@
   width: 210mm;
   height: 297mm;
   box-sizing: border-box;
-  padding: 12mm 16mm 10mm;
+  padding: var(--csat-page-top, 12mm) var(--csat-page-x, 16mm) var(--csat-page-bottom, 10mm);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   position: relative;
@@ -186,7 +218,7 @@
   background: var(--csat-paper);
   box-shadow: 0 14px 36px rgb(35 50 66 / 18%);
   color: var(--csat-ink);
-  font-family: Inter, Pretendard, "Noto Sans KR", Arial, sans-serif;
+  font-family: var(--csat-ui-font, Inter, Pretendard, "Noto Sans KR", Arial, sans-serif);
   letter-spacing: 0;
 }
 
@@ -235,10 +267,10 @@
 
 .pageBody {
   min-height: 0;
-  padding: 7mm 0 5mm;
+  padding: var(--csat-body-top, 7mm) 0 var(--csat-body-bottom, 5mm);
   display: flex;
   flex-direction: column;
-  gap: 7mm;
+  gap: var(--csat-question-gap, 7mm);
   overflow: hidden;
 }
 
@@ -336,8 +368,8 @@
 
 .passage {
   margin: 3.5mm 0 0;
-  color: #202936;
-  font-family: Georgia, "Times New Roman", serif;
+  color: var(--csat-passage, #202936);
+  font-family: var(--csat-passage-font, Georgia, "Times New Roman", serif);
   font-size: 11.2pt;
   line-height: 1.62;
   overflow-wrap: anywhere;
@@ -371,7 +403,7 @@
   display: grid;
   grid-template-columns: 7mm minmax(0, 1fr);
   align-items: start;
-  color: #243345;
+  color: var(--csat-ink);
   font-size: 9.7pt;
   line-height: 1.5;
   break-inside: avoid;
@@ -387,6 +419,16 @@
 .choiceList p {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.studyChecklist {
+  display: none;
+  margin-top: 5mm;
+  padding-top: 3mm;
+  border-top: 0.2mm dashed var(--csat-line);
+  color: var(--csat-primary);
+  font-size: 8pt;
+  font-weight: 700;
 }
 
 .reviewPanel {
@@ -468,7 +510,7 @@
 }
 
 .samePageContinuation {
-  margin-top: -7mm;
+  margin-top: calc(var(--csat-question-gap, 7mm) * -1);
 }
 
 .samePageContinuation .passage {
@@ -479,7 +521,7 @@
   padding-top: 14mm;
   padding-bottom: 0;
   grid-template-rows: auto minmax(0, 1fr) auto auto auto;
-  background: #fff;
+  background: var(--csat-paper);
 }
 
 .coverTopline {
@@ -533,7 +575,7 @@
 
 .coverHero h1 {
   margin: 6mm 0 5mm;
-  color: #0d4fac;
+  color: var(--csat-primary);
   font-family: Inter, Arial, sans-serif;
   font-size: 58pt;
   font-weight: 400;
@@ -543,7 +585,7 @@
 .coverHero p {
   max-width: 130mm;
   margin: 0;
-  color: #25384e;
+  color: var(--csat-ink);
   font-size: 16pt;
   font-weight: 650;
   line-height: 1.35;
@@ -570,7 +612,7 @@
 }
 
 .coverDetails strong {
-  color: #18283b;
+  color: var(--csat-ink);
   font-size: 12pt;
   line-height: 1.35;
 }
@@ -656,6 +698,309 @@
   font-weight: 800;
 }
 
+/* Campus Tech Blue: compact cards and dashboard-like metadata. */
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .pageHeader {
+  align-items: center;
+  padding: 0 3mm;
+  border-bottom: 0;
+  border-radius: 4px;
+  background: var(--csat-primary);
+  color: white;
+}
+
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .pageHeader em,
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .pageHeader small {
+  color: rgb(255 255 255 / 78%);
+}
+
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .questionBlock {
+  padding: 4.5mm;
+  border: 0.3mm solid var(--csat-line);
+  border-radius: var(--csat-radius);
+  background: #fff;
+}
+
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .questionHeader > strong {
+  box-shadow: 2mm 0 0 var(--csat-mint);
+}
+
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .sharedPassage {
+  border-color: #80dbe3;
+  background: #f8feff;
+}
+
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .coverPage {
+  background: #f7fbff;
+}
+
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .coverSquares i:nth-child(odd) {
+  background: var(--csat-primary);
+}
+
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .coverSquares i:nth-child(3n) {
+  background: var(--csat-mint);
+}
+
+[data-csat-template="xuniverse-csat-campus-tech-blue-v1"] .coverDetails section {
+  padding: 4mm;
+  border: 0.25mm solid var(--csat-line);
+  border-radius: var(--csat-radius);
+  background: white;
+}
+
+/* Premium Stationery: generous ivory space with restrained lavender rules. */
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .pageHeader {
+  border-bottom-width: 0.2mm;
+}
+
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .questionBlock {
+  padding: 0 0 7mm 5mm;
+  border-bottom-color: var(--csat-line);
+  border-left: 0.8mm solid var(--csat-mint);
+}
+
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .questionHeader > strong {
+  background: transparent;
+  color: var(--csat-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px;
+}
+
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .questionStem {
+  border-left-color: var(--csat-coral);
+}
+
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .sharedPassage,
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .reviewPanel {
+  border-color: #d8cfe3;
+  background: #fffdf8;
+}
+
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .coverSquares {
+  width: 54mm;
+  height: 54mm;
+  gap: 3mm;
+  padding: 5mm;
+}
+
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .coverSquares i {
+  border-radius: 50%;
+}
+
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .coverSquares i:nth-child(3n + 1) { background: var(--csat-primary-soft); }
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .coverSquares i:nth-child(3n + 2) { background: var(--csat-mint-soft); }
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .coverSquares i:nth-child(3n) { background: var(--csat-coral-soft); }
+
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .coverHero h1 {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .coverFooterBand,
+[data-csat-template="xuniverse-csat-premium-stationery-v1"] .coverPage .pageFooter {
+  background: var(--csat-primary);
+}
+
+/* Mono Highlighter: robust monochrome hierarchy with an optional marker accent. */
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .pageHeader {
+  border-bottom: 0.6mm solid #111;
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .questionBlock,
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .pageFooter {
+  border-color: #111;
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .questionHeader > strong {
+  border: 0.45mm solid #111;
+  border-radius: 0;
+  background: white;
+  color: #111;
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .questionHeader em {
+  border: 0.25mm solid #111;
+  background: white;
+  color: #111;
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .questionStem {
+  padding: 2mm 3mm;
+  border-left: 0;
+  background: var(--csat-lemon);
+  color: #111;
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .sharedPassage {
+  border: 0.4mm solid #111;
+  border-left: 1.4mm solid #111;
+  border-radius: 0;
+  background: white;
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .coverPage {
+  border: 2mm solid #111;
+  background: white;
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .coverSquares {
+  top: 17mm;
+  right: 13mm;
+  width: 28mm;
+  height: 58mm;
+  display: block;
+  background: var(--csat-lemon);
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .coverSquares i { display: none; }
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .coverHero h1 { color: #111; font-weight: 800; }
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .coverFooterBand,
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .coverPage .pageFooter {
+  background: var(--csat-lemon);
+  color: #111;
+}
+
+[data-csat-template="xuniverse-csat-mono-highlighter-v1"] .coverPage .pageFooter b { color: #111; }
+
+/* Editorial Magazine: serif hierarchy and single-column long-form reading. */
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .pageHeader {
+  height: 14mm;
+  border-top: 1.1mm solid var(--csat-primary);
+  border-bottom: 0.2mm solid var(--csat-primary);
+  padding-top: 2.2mm;
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .questionHeader {
+  align-items: flex-end;
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .questionHeader > strong {
+  width: 15mm;
+  height: auto;
+  justify-content: flex-start;
+  border-radius: 0;
+  background: transparent;
+  color: var(--csat-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 27px;
+  line-height: 1;
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .questionHeader em {
+  border-radius: 0;
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .questionBlock {
+  border-bottom: 0.35mm solid var(--csat-primary);
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .passage {
+  max-width: 100%;
+  font-size: 11.4pt;
+  line-height: 1.7;
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .questionStem {
+  border-left: 0;
+  padding: 2.5mm 0;
+  border-top: 0.25mm solid var(--csat-line);
+  border-bottom: 0.25mm solid var(--csat-line);
+  font-family: var(--csat-ui-font);
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .sharedPassage {
+  border: 0;
+  border-top: 1mm solid var(--csat-primary);
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .coverSquares {
+  width: 42mm;
+  height: 82mm;
+  display: block;
+  border-left: 16mm solid var(--csat-primary);
+  border-bottom: 12mm solid var(--csat-secondary);
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .coverSquares i { display: none; }
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .coverHero h1 {
+  color: var(--csat-secondary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 62pt;
+}
+
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .coverFooterBand,
+[data-csat-template="xuniverse-csat-editorial-magazine-v1"] .coverPage .pageFooter {
+  background: var(--csat-primary);
+}
+
+/* Notebook Grid: useful study annotations over a restrained paper grid. */
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .page {
+  background-color: var(--csat-paper);
+  background-image:
+    linear-gradient(rgb(39 105 178 / 8%) 0.2mm, transparent 0.2mm),
+    linear-gradient(90deg, rgb(39 105 178 / 8%) 0.2mm, transparent 0.2mm);
+  background-size: 5mm 5mm;
+}
+
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .page::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 24mm;
+  width: 0.35mm;
+  background: rgb(227 154 170 / 58%);
+  pointer-events: none;
+}
+
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .pageHeader,
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .pageBody,
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .pageFooter,
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .coverTopline,
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .coverHero,
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .coverDetails,
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .coverFooterBand {
+  position: relative;
+  z-index: 1;
+}
+
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .questionBlock {
+  padding: 4mm;
+  border: 0.3mm solid var(--csat-line);
+  border-radius: var(--csat-radius);
+  background: rgb(255 255 255 / 90%);
+}
+
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .questionHeader > strong {
+  border-radius: 50%;
+}
+
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .studyChecklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3mm 7mm;
+}
+
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .coverSquares {
+  right: 12mm;
+  top: 16mm;
+  width: 35mm;
+  height: 54mm;
+  display: block;
+  border: 0.4mm solid var(--csat-primary);
+  background: repeating-linear-gradient(transparent 0 6mm, rgb(39 105 178 / 20%) 6mm 6.3mm);
+  transform: rotate(3deg);
+}
+
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .coverSquares i { display: none; }
+
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .coverFooterBand,
+[data-csat-template="xuniverse-csat-notebook-grid-v1"] .coverPage .pageFooter {
+  background: var(--csat-primary);
+}
+
 .measurementRoot {
   width: 210mm;
   position: fixed;
@@ -673,7 +1018,7 @@
 .measurementList {
   display: flex;
   flex-direction: column;
-  gap: 7mm;
+  gap: var(--csat-question-gap, 7mm);
 }
 
 .spinner {
@@ -684,16 +1029,20 @@
   to { transform: rotate(360deg); }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .previewToolbar {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
   }
 
-  .modeControl {
-    grid-column: 1 / -1;
+  .templateControl {
+    grid-column: 1;
     grid-row: 2;
-    width: 100%;
+  }
+
+  .modeControl {
+    grid-column: 2;
+    grid-row: 2;
   }
 
   .toolbarActions {
@@ -725,6 +1074,17 @@
 
   .previewToolbar > div:first-child > span {
     display: none;
+  }
+
+  .templateControl {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .modeControl {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    width: 100%;
   }
 
   .toolbarActions {
