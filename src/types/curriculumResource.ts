@@ -1,5 +1,15 @@
 export type CurriculumCatalogId = "high_school" | "supplementary" | "csat";
 
+export type TextbookCourseId =
+  | "common1"
+  | "common2"
+  | "english1"
+  | "english2"
+  | "reading_writing"
+  | "advanced";
+
+export type TextbookResourceCategoryId = `textbook_${TextbookCourseId}_${string}`;
+
 export type CurriculumCategoryId =
   | "grade1_mock"
   | "grade2_mock"
@@ -8,7 +18,8 @@ export type CurriculumCategoryId =
   | "ebs_special_lecture"
   | "ebs_complete"
   | "olympos"
-  | "csat_archive";
+  | "csat_archive"
+  | TextbookResourceCategoryId;
 
 export interface CurriculumCategory {
   id: CurriculumCategoryId;
@@ -21,6 +32,14 @@ export interface CurriculumCatalog {
   title: string;
   titleEn: string;
   basePath: string;
+  categories: CurriculumCategory[];
+}
+
+export interface TextbookCatalogGroup {
+  id: TextbookCourseId;
+  label: string;
+  labelEn: string;
+  availableYear: number;
   categories: CurriculumCategory[];
 }
 

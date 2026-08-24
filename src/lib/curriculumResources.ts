@@ -20,7 +20,107 @@ import type {
   CurriculumCategoryId,
   CurriculumResourceFile,
   CurriculumResourceRow,
+  TextbookCatalogGroup,
 } from "@/types/curriculumResource";
+
+export const HIGH_SCHOOL_TEXTBOOK_GROUPS: TextbookCatalogGroup[] = [
+  {
+    id: "common1",
+    label: "공통영어1",
+    labelEn: "Common English 1",
+    availableYear: 2025,
+    categories: [
+      { id: "textbook_common1_ne_minbyeongcheon", label: "NE능률(민병천)", labelEn: "NE Neungyule · Min Byeong-cheon" },
+      { id: "textbook_common1_ne_ohseonyeong", label: "NE능률(오선영)", labelEn: "NE Neungyule · Oh Seon-young" },
+      { id: "textbook_common1_ybm_kimeunhyeong", label: "YBM(김은형)", labelEn: "YBM · Kim Eun-hyeong" },
+      { id: "textbook_common1_ybm_parkjuneon", label: "YBM(박준언)", labelEn: "YBM · Park Jun-eon" },
+      { id: "textbook_common1_donga_leebyeongmin", label: "동아(이병민)", labelEn: "Donga · Lee Byeong-min" },
+      { id: "textbook_common1_miraen_kimseongyeon", label: "미래엔(김성연)", labelEn: "MiraeN · Kim Seong-yeon" },
+      { id: "textbook_common1_visang_hongminpyo", label: "비상(홍민표)", labelEn: "Visang · Hong Min-pyo" },
+      { id: "textbook_common1_jihak_shinsanggeun", label: "지학사(신상근)", labelEn: "Jihak · Shin Sang-geun" },
+      { id: "textbook_common1_chunjae_kangsanggu", label: "천재(강상구)", labelEn: "Chunjae · Kang Sang-gu" },
+      { id: "textbook_common1_chunjae_josugyeong", label: "천재(조수경)", labelEn: "Chunjae · Jo Su-gyeong" },
+    ],
+  },
+  {
+    id: "common2",
+    label: "공통영어2",
+    labelEn: "Common English 2",
+    availableYear: 2025,
+    categories: [
+      { id: "textbook_common2_ne_minbyeongcheon", label: "NE능률(민병천)", labelEn: "NE Neungyule · Min Byeong-cheon" },
+      { id: "textbook_common2_ne_ohseonyeong", label: "NE능률(오선영)", labelEn: "NE Neungyule · Oh Seon-young" },
+      { id: "textbook_common2_ybm_kimeunhyeong", label: "YBM(김은형)", labelEn: "YBM · Kim Eun-hyeong" },
+      { id: "textbook_common2_ybm_parkjuneon", label: "YBM(박준언)", labelEn: "YBM · Park Jun-eon" },
+      { id: "textbook_common2_donga_leebyeongmin", label: "동아(이병민)", labelEn: "Donga · Lee Byeong-min" },
+      { id: "textbook_common2_miraen_kimseongyeon", label: "미래엔(김성연)", labelEn: "MiraeN · Kim Seong-yeon" },
+      { id: "textbook_common2_visang_hongminpyo", label: "비상(홍민표)", labelEn: "Visang · Hong Min-pyo" },
+      { id: "textbook_common2_jihak_shinsanggeun", label: "지학사(신상근)", labelEn: "Jihak · Shin Sang-geun" },
+      { id: "textbook_common2_chunjae_kangsanggu", label: "천재(강상구)", labelEn: "Chunjae · Kang Sang-gu" },
+      { id: "textbook_common2_chunjae_josugyeong", label: "천재(조수경)", labelEn: "Chunjae · Jo Su-gyeong" },
+    ],
+  },
+  {
+    id: "english1",
+    label: "영어 I",
+    labelEn: "English I",
+    availableYear: 2026,
+    categories: [
+      { id: "textbook_english1_ne_ohseonyeong", label: "NE능률(오선영)", labelEn: "NE Neungyule · Oh Seon-young" },
+      { id: "textbook_english1_ybm_parkjuneon", label: "YBM(박준언)", labelEn: "YBM · Park Jun-eon" },
+      { id: "textbook_english1_donga_parkyongye", label: "동아(박용예)", labelEn: "Donga · Park Yong-ye" },
+      { id: "textbook_english1_miraen_kimseongyeon", label: "미래엔(김성연)", labelEn: "MiraeN · Kim Seong-yeon" },
+      { id: "textbook_english1_visang_hongminpyo", label: "비상(홍민표)", labelEn: "Visang · Hong Min-pyo" },
+      { id: "textbook_english1_jihak_shinsanggeun", label: "지학사(신상근)", labelEn: "Jihak · Shin Sang-geun" },
+      { id: "textbook_english1_chunjae_kangsanggu", label: "천재(강상구)", labelEn: "Chunjae · Kang Sang-gu" },
+      { id: "textbook_english1_chunjae_josugyeong", label: "천재(조수경)", labelEn: "Chunjae · Jo Su-gyeong" },
+    ],
+  },
+  {
+    id: "english2",
+    label: "영어 II",
+    labelEn: "English II",
+    availableYear: 2026,
+    categories: [
+      { id: "textbook_english2_ne_ohseonyeong", label: "NE능률(오선영)", labelEn: "NE Neungyule · Oh Seon-young" },
+      { id: "textbook_english2_ybm_parkjuneon", label: "YBM(박준언)", labelEn: "YBM · Park Jun-eon" },
+      { id: "textbook_english2_donga_parkyongye", label: "동아(박용예)", labelEn: "Donga · Park Yong-ye" },
+      { id: "textbook_english2_miraen_kimseongyeon", label: "미래엔(김성연)", labelEn: "MiraeN · Kim Seong-yeon" },
+      { id: "textbook_english2_visang_hongminpyo", label: "비상(홍민표)", labelEn: "Visang · Hong Min-pyo" },
+      { id: "textbook_english2_jihak_shinsanggeun", label: "지학사(신상근)", labelEn: "Jihak · Shin Sang-geun" },
+      { id: "textbook_english2_chunjae_kangsanggu", label: "천재(강상구)", labelEn: "Chunjae · Kang Sang-gu" },
+      { id: "textbook_english2_chunjae_josugyeong", label: "천재(조수경)", labelEn: "Chunjae · Jo Su-gyeong" },
+    ],
+  },
+  {
+    id: "reading_writing",
+    label: "영어 독해와 작문",
+    labelEn: "English Reading and Writing",
+    availableYear: 2027,
+    categories: [
+      { id: "textbook_reading_writing_ne_minbyeongcheon", label: "NE능률(민병천)", labelEn: "NE Neungyule · Min Byeong-cheon" },
+      { id: "textbook_reading_writing_ybm_kimeunhyeong", label: "YBM(김은형)", labelEn: "YBM · Kim Eun-hyeong" },
+      { id: "textbook_reading_writing_donga_leebyeongmin", label: "동아(이병민)", labelEn: "Donga · Lee Byeong-min" },
+      { id: "textbook_reading_writing_miraen_kimdaejin", label: "미래엔(김대진)", labelEn: "MiraeN · Kim Dae-jin" },
+      { id: "textbook_reading_writing_visang_hwangjongbae", label: "비상(황종배)", labelEn: "Visang · Hwang Jong-bae" },
+      { id: "textbook_reading_writing_chunjae_yunseongho", label: "천재(윤성호)", labelEn: "Chunjae · Yun Seong-ho" },
+    ],
+  },
+  {
+    id: "advanced",
+    label: "심화 영어",
+    labelEn: "Advanced English",
+    availableYear: 2027,
+    categories: [
+      { id: "textbook_advanced_ne_anbyeonggyu", label: "NE능률(안병규)", labelEn: "NE Neungyule · An Byeong-gyu" },
+      { id: "textbook_advanced_ybm_kimmyeonghui", label: "YBM(김명희)", labelEn: "YBM · Kim Myeong-hui" },
+      { id: "textbook_advanced_izen_leeseokjae", label: "이젠교육(이석재)", labelEn: "Izen Education · Lee Seok-jae" },
+      { id: "textbook_advanced_chunjae_shinjeonga", label: "천재(신정아)", labelEn: "Chunjae · Shin Jeong-a" },
+    ],
+  },
+];
+
+const HIGH_SCHOOL_TEXTBOOK_CATEGORIES = HIGH_SCHOOL_TEXTBOOK_GROUPS.flatMap((group) => group.categories);
 
 export const CURRICULUM_CATALOGS: Record<CurriculumCatalogId, CurriculumCatalog> = {
   high_school: {
@@ -37,14 +137,10 @@ export const CURRICULUM_CATALOGS: Record<CurriculumCatalogId, CurriculumCatalog>
   },
   supplementary: {
     id: "supplementary",
-    title: "고등내신",
+    title: "고등 내신",
     titleEn: "High School English",
     basePath: "/supplementary-materials",
-    categories: [
-      { id: "ebs_special_lecture", label: "수능특강", labelEn: "EBS CSAT Special Lecture" },
-      { id: "ebs_complete", label: "수능완성", labelEn: "EBS CSAT Final" },
-      { id: "olympos", label: "올림포스", labelEn: "Olympus" },
-    ],
+    categories: HIGH_SCHOOL_TEXTBOOK_CATEGORIES,
   },
   csat: {
     id: "csat",

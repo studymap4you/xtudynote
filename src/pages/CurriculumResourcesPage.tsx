@@ -17,6 +17,7 @@ import { PublicShell } from "@/components/PublicShell";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CURRICULUM_CATALOGS,
+  HIGH_SCHOOL_TEXTBOOK_GROUPS,
   deleteCurriculumResource,
   listenCurriculumResources,
   uploadCurriculumResource,
@@ -249,6 +250,16 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
   );
   const totalCount = visibleManualRows.length + officialRows.length;
   const loading = manualLoading || officialLoading;
+  const isHighSchoolTextbookCatalog = catalogId === "supplementary";
+  const selectedTextbookGroup = isHighSchoolTextbookCatalog
+    ? HIGH_SCHOOL_TEXTBOOK_GROUPS.find((group) => group.categories.some((item) => item.id === selectedCategory.id))
+    : undefined;
+  const selectedResourceTitle = selectedTextbookGroup
+    ? `${selectedTextbookGroup.label} · ${selectedCategory.label}`
+    : selectedCategory.label;
+  const selectedResourceTitleEn = selectedTextbookGroup
+    ? `${selectedTextbookGroup.labelEn} · ${selectedCategory.labelEn}`
+    : selectedCategory.labelEn;
 
   const downloadManual = async (row: CurriculumResourceRow) => {
     if (!firebaseUser) {
@@ -316,13 +327,48 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
         <header className={styles.pageHeader}>
           <div className={styles.headingIcon}>{catalogIcon(catalogId)}</div>
           <div>
-            <span>{catalog.titleEn}</span>
-            <h1>{catalog.title}</h1>
+            <span>{isHighSchoolTextbookCatalog ? "2022 REVISED CURRICULUM" : catalog.titleEn}</span>
+            <h1>{isHighSchoolTextbookCatalog ? "고등 내신 2022 개정" : catalog.title}</h1>
           </div>
         </header>
 
-        <div className={styles.workspace}>
-          <aside className={styles.sidebar} aria-label={`${catalog.title} 분류`}>
+        {isHighSchoolTextbookCatalog ? (
+          <section className={styles.textbookCatalog} aria-labelledby="textbook-catalog-title">
+            <div className={styles.textbookCatalogBar}>
+              <div>
+                <span>HIGH SCHOOL ENGLISH TEXTBOOKS</span>
+                <h2 id="textbook-catalog-title">교과서 선택</h2>
+              </div>
+              <p>2022 개정 영어 교과서 자료</p>
+            </div>
+            <div className={styles.textbookGrid}>
+              {HIGH_SCHOOL_TEXTBOOK_GROUPS.map((group) => (
+                <section key={group.id} className={styles.textbookGroup} aria-labelledby={`textbook-group-${group.id}`}>
+                  <header>
+                    <h3 id={`textbook-group-${group.id}`}>{group.label}</h3>
+                    <span>{group.availableYear}년 제공</span>
+                  </header>
+                  <nav aria-label={`${group.label} 출판사`}>
+                    {group.categories.map((category) => (
+                      <Link
+                        key={category.id}
+                        to={`${catalog.basePath}/${category.id}`}
+                        className={category.id === selectedCategory.id ? styles.textbookPublisherActive : styles.textbookPublisherLink}
+                        aria-current={category.id === selectedCategory.id ? "page" : undefined}
+                        title={category.labelEn}
+                      >
+                        {category.label}
+                      </Link>
+                    ))}
+                  </nav>
+                </section>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <div className={isHighSchoolTextbookCatalog ? styles.textbookResourceWorkspace : styles.workspace}>
+          {!isHighSchoolTextbookCatalog ? <aside className={styles.sidebar} aria-label={`${catalog.title} 분류`}>
             <div className={styles.sidebarLabel}>CATEGORY</div>
             <nav>
               {catalog.categories.map((category) => (
@@ -340,13 +386,13 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
                 </Link>
               ))}
             </nav>
-          </aside>
+          </aside> : null}
 
-          <section className={styles.content} aria-labelledby="resource-category-title">
+          <section className={isHighSchoolTextbookCatalog ? `${styles.content} ${styles.textbookContent}` : styles.content} aria-labelledby="resource-category-title">
             <div className={styles.contentHeader}>
               <div>
-                <span>{selectedCategory.labelEn}</span>
-                <h2 id="resource-category-title">{selectedCategory.label}</h2>
+                <span>{selectedResourceTitleEn}</span>
+                <h2 id="resource-category-title">{selectedResourceTitle}</h2>
               </div>
               <div className={styles.contentActions}>
                 <span className={styles.count}>{totalCount}개 자료</span>
@@ -447,7 +493,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
         <ResourceUploadDialog
           catalog={catalogId}
           category={selectedCategory.id}
-          categoryLabel={selectedCategory.label}
+          categoryLabel={selectedResourceTitle}
           uid={firebaseUser.uid}
           onClose={() => setUploadOpen(false)}
         />

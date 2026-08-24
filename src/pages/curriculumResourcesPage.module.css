@@ -41,6 +41,138 @@
   letter-spacing: 0;
 }
 
+.textbookCatalog {
+  margin-top: 1.5rem;
+  border-top: 2px solid #26354a;
+  border-bottom: 1px solid #cfd8e3;
+  background: #ffffff;
+}
+
+.textbookCatalogBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+}
+
+.textbookCatalogBar span {
+  display: block;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.textbookCatalogBar h2 {
+  margin: 0.2rem 0 0;
+  color: #172033;
+  font-size: 1.16rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.textbookCatalogBar p {
+  margin: 0;
+  padding: 0.48rem 0.7rem;
+  border-left: 3px solid #2b8ec5;
+  color: #41506a;
+  background: #eef7fc;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.textbookGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  border-top: 1px solid #cfd8e3;
+  background: #dce3ec;
+}
+
+.textbookGroup {
+  min-width: 0;
+  background: #ffffff;
+}
+
+.textbookGroup > header {
+  display: grid;
+  min-height: 76px;
+  align-content: center;
+  gap: 0.22rem;
+  padding: 0.72rem 0.55rem;
+  text-align: center;
+  background: #f3f5f8;
+}
+
+.textbookGroup h3 {
+  margin: 0;
+  color: #253248;
+  font-size: 0.91rem;
+  line-height: 1.28;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.textbookGroup header span {
+  color: #6c788b;
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+
+.textbookGroup nav {
+  display: grid;
+}
+
+.textbookPublisherLink,
+.textbookPublisherActive {
+  display: flex;
+  min-width: 0;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.45rem;
+  border-top: 1px solid #e1e6ec;
+  color: #4b5565;
+  background: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: center;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.textbookPublisherLink:hover {
+  color: #075f9f;
+  background: #f4f9fc;
+}
+
+.textbookPublisherActive {
+  color: #075f9f;
+  background: #e9f6fd;
+  box-shadow: inset 3px 0 0 #2089c2;
+}
+
+.textbookPublisherLink:focus-visible,
+.textbookPublisherActive:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid #2089c2;
+  outline-offset: -2px;
+}
+
+.textbookResourceWorkspace {
+  min-height: 420px;
+  border-bottom: 1px solid #dce3ec;
+  background: #ffffff;
+}
+
+.textbookContent {
+  padding: 1.5rem 0;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr);
@@ -552,6 +684,12 @@
   to { transform: rotate(360deg); }
 }
 
+@media (max-width: 1180px) {
+  .textbookGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 840px) {
   .page {
     padding: 1.25rem 1rem 2rem;
@@ -561,6 +699,14 @@
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     overflow: hidden;
+  }
+
+  .textbookCatalogBar {
+    align-items: flex-start;
+  }
+
+  .textbookGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .sidebar {
@@ -590,6 +736,10 @@
     box-sizing: border-box;
     padding: 1.25rem 0 0;
   }
+
+  .textbookContent {
+    padding-top: 1.25rem;
+  }
 }
 
 @media (max-width: 560px) {
@@ -606,6 +756,19 @@
   .contentActions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .textbookCatalogBar {
+    flex-direction: column;
+  }
+
+  .textbookCatalogBar p {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .textbookGrid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .resourceCard {
