@@ -29,11 +29,17 @@ import {
   type OfficialExamFileType,
   type OfficialExamResource,
 } from "@/lib/officialExamResources";
+import {
+  getOfficialTextbookDownloadUrl,
+  loadOfficialTextbookResources,
+  type OfficialTextbookResource,
+} from "@/lib/officialTextbookResources";
 import { recordStudentDownload } from "@/lib/studentDownloads";
 import type {
   CurriculumCatalogId,
   CurriculumCategoryId,
   CurriculumResourceRow,
+  TextbookResourceCategoryId,
 } from "@/types/curriculumResource";
 import styles from "./curriculumResourcesPage.module.css";
 
@@ -196,17 +202,20 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
   const selectedCategory = catalog.categories.find((item) => item.id === categoryParam) ?? catalog.categories[0];
   const [manualRows, setManualRows] = useState<CurriculumResourceRow[]>([]);
   const [officialRows, setOfficialRows] = useState<OfficialExamResource[]>([]);
+  const [officialTextbookRows, setOfficialTextbookRows] = useState<OfficialTextbookResource[]>([]);
   const [manualLoading, setManualLoading] = useState(true);
   const [officialLoading, setOfficialLoading] = useState(false);
+  const [officialTextbookLoading, setOfficialTextbookLoading] = useState(false);
   const [error, setError] = useState("");
   const [officialError, setOfficialError] = useState("");
+  const [officialTextbookError, setOfficialTextbookError] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deletingId, setDeletingId] = useState("");
   const [downloadingId, setDownloadingId] = useState("");
 
   useEffect(() => {
     setManualLoading(true);
-    const unsubscribe = listenCurriculumResources(catalogId, (rows) => {
+    const unsubscribe = listenCurriculumResources(catalogId, isSuperAdmin, (rows) => {
       setManualRows(rows);
       setManualLoading(false);
       setError("");
@@ -215,7 +224,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
       setManualLoading(false);
     });
     return unsubscribe;
-  }, [catalogId]);
+  }, [catalogId, isSuperAdmin]);
 
   const officialGrade = catalogId === "high_school" ? OFFICIAL_GRADE_BY_CATEGORY[selectedCategory.id] : undefined;
   useEffect(() => {
@@ -240,6 +249,33 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
     return () => { cancelled = true; };
   }, [firebaseUser, officialGrade]);
 
+  const officialTextbookCategory = catalogId === "supplementary" && selectedCategory.id.startsWith("textbook_")
+    ? selectedCategory.id as TextbookResourceCategoryId
+    : undefined;
+  useEffect(() => {
+    let cancelled = false;
+    setOfficialTextbookRows([]);
+    setOfficialTextbookError("");
+    if (!firebaseUser || !officialTextbookCategory) {
+      setOfficialTextbookLoading(false);
+      return () => { cancelled = true; };
+    }
+    setOfficialTextbookLoading(true);
+    void loadOfficialTextbookResources(firebaseUser, officialTextbookCategory)
+      .then((items) => {
+        if (!cancelled) setOfficialTextbookRows(items);
+      })
+      .catch((loadError) => {
+        if (!cancelled) {
+          setOfficialTextbookError(loadError instanceof Error ? loadError.message : "교과서 자료를 불러오지 못했습니다.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setOfficialTextbookLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [firebaseUser, officialTextbookCategory]);
+
   useEffect(() => {
     setUploadOpen(false);
   }, [selectedCategory.id]);
@@ -248,8 +284,8 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
     () => manualRows.filter((row) => row.category === selectedCategory.id),
     [manualRows, selectedCategory.id],
   );
-  const totalCount = visibleManualRows.length + officialRows.length;
-  const loading = manualLoading || officialLoading;
+  const totalCount = visibleManualRows.length + officialRows.length + officialTextbookRows.length;
+  const loading = manualLoading || officialLoading || officialTextbookLoading;
   const isHighSchoolTextbookCatalog = catalogId === "supplementary";
   const selectedTextbookGroup = isHighSchoolTextbookCatalog
     ? HIGH_SCHOOL_TEXTBOOK_GROUPS.find((group) => group.categories.some((item) => item.id === selectedCategory.id))
@@ -309,6 +345,30 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
     }
   };
 
+  const downloadOfficialTextbook = async (source: OfficialTextbookResource) => {
+    if (!firebaseUser) return;
+    const downloadKey = `textbook:${source.id}`;
+    setDownloadingId(downloadKey);
+    const popup = window.open("about:blank", "_blank");
+    if (popup) popup.opener = null;
+    try {
+      const url = await getOfficialTextbookDownloadUrl(firebaseUser, source.id);
+      if (popup) popup.location.href = url;
+      else {
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        anchor.click();
+      }
+    } catch (downloadError) {
+      popup?.close();
+      window.alert(downloadError instanceof Error ? downloadError.message : "교과서 파일을 다운로드하지 못했습니다.");
+    } finally {
+      setDownloadingId("");
+    }
+  };
+
   const removeManual = async (row: CurriculumResourceRow) => {
     if (!isSuperAdmin || !window.confirm(`「${row.title}」 자료와 등록된 파일을 삭제할까요?`)) return;
     setDeletingId(row.id);
@@ -343,7 +403,11 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
             </div>
             <div className={styles.textbookGrid}>
               {HIGH_SCHOOL_TEXTBOOK_GROUPS.map((group) => (
-                <section key={group.id} className={styles.textbookGroup} aria-labelledby={`textbook-group-${group.id}`}>
+                <section
+                  key={group.id}
+                  className={`${styles.textbookGroup} ${group.id === "general" ? styles.textbookGroupGeneral : ""}`}
+                  aria-labelledby={`textbook-group-${group.id}`}
+                >
                   <header>
                     <h3 id={`textbook-group-${group.id}`}>{group.label}</h3>
                     <span>{group.availableYear}년 제공</span>
@@ -407,6 +471,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
 
             {error ? <p className={styles.error} role="alert">{error}</p> : null}
             {officialError && isSuperAdmin ? <p className={styles.notice} role="status">{officialError}</p> : null}
+            {officialTextbookError && isSuperAdmin ? <p className={styles.notice} role="status">{officialTextbookError}</p> : null}
 
             {loading && totalCount === 0 ? (
               <div className={styles.loadingState}>
@@ -446,6 +511,36 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
                     </div>
                   </article>
                 ))}
+
+                {officialTextbookRows.map((source) => {
+                  const downloadKey = `textbook:${source.id}`;
+                  return (
+                    <article key={downloadKey} className={styles.resourceCard}>
+                      <div className={styles.resourceIcon}><BookCopy size={22} aria-hidden /></div>
+                      <div className={styles.resourceBody}>
+                        <div className={styles.resourceTitleRow}>
+                          <div>
+                            <span className={styles.sourceBadge}>Xtudy Problem Bank</span>
+                            <h3>{source.title}</h3>
+                          </div>
+                          <time>{formatDate(source.collectedAt)}</time>
+                        </div>
+                        <p>{[source.courseTitle, source.publisher, source.leadAuthor].filter(Boolean).join(" · ")}</p>
+                        <div className={styles.cardFooter}>
+                          <button
+                            type="button"
+                            className={styles.downloadButton}
+                            onClick={() => void downloadOfficialTextbook(source)}
+                            disabled={downloadingId === downloadKey}
+                          >
+                            {downloadingId === downloadKey ? <LoaderCircle size={17} className={styles.spin} aria-hidden /> : <Download size={17} aria-hidden />}
+                            교과서 PDF
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
 
                 {visibleManualRows.map((row) => (
                   <article key={row.id} className={styles.resourceCard}>

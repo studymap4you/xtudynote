@@ -95,6 +95,15 @@
   background: #ffffff;
 }
 
+.textbookGroupGeneral {
+  grid-column: 1 / -1;
+}
+
+.textbookGroupGeneral nav {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .textbookGroup > header {
   display: grid;
   min-height: 76px;

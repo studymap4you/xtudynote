@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { deleteObject, ref } from "firebase/storage";
 import { db, storage } from "@/firebase/config";
+import { inferCurriculumPlacements } from "@/lib/curriculumPlacement";
 import { uploadBytesResumableWithProgress } from "@/lib/storageUploadProgress";
 import type {
   CurriculumCatalog,
@@ -118,6 +119,15 @@ export const HIGH_SCHOOL_TEXTBOOK_GROUPS: TextbookCatalogGroup[] = [
       { id: "textbook_advanced_chunjae_shinjeonga", label: "천재(신정아)", labelEn: "Chunjae · Shin Jeong-a" },
     ],
   },
+  {
+    id: "general",
+    label: "교과서 공통 자료",
+    labelEn: "Shared Textbook Resources",
+    availableYear: 2025,
+    categories: [
+      { id: "textbook_general", label: "출판사 공통 자료", labelEn: "Shared Resources" },
+    ],
+  },
 ];
 
 const HIGH_SCHOOL_TEXTBOOK_CATEGORIES = HIGH_SCHOOL_TEXTBOOK_GROUPS.flatMap((group) => group.categories);
@@ -133,6 +143,10 @@ export const CURRICULUM_CATALOGS: Record<CurriculumCatalogId, CurriculumCatalog>
       { id: "grade2_mock", label: "고2 모의고사", labelEn: "Grade 11 Mock Exams" },
       { id: "grade3_mock", label: "고3 모의고사", labelEn: "Grade 12 Mock Exams" },
       { id: "high_school_csat", label: "수능", labelEn: "CSAT" },
+      { id: "ebs_special_lecture", label: "수능특강", labelEn: "EBS CSAT Special Lecture" },
+      { id: "ebs_complete", label: "수능완성", labelEn: "EBS CSAT Complete" },
+      { id: "olympos", label: "올림포스", labelEn: "EBS Olympus" },
+      { id: "supplementary_archive", label: "기타 부교재", labelEn: "Other Supplementary Materials" },
     ],
   },
   supplementary: {
@@ -147,7 +161,14 @@ export const CURRICULUM_CATALOGS: Record<CurriculumCatalogId, CurriculumCatalog>
     title: "수능",
     titleEn: "CSAT English",
     basePath: "/csat",
-    categories: [{ id: "csat_archive", label: "수능 자료", labelEn: "CSAT Resources" }],
+    categories: [
+      { id: "csat_2026", label: "2026학년도 수능", labelEn: "2026 CSAT" },
+      { id: "csat_2025", label: "2025학년도 수능", labelEn: "2025 CSAT" },
+      { id: "csat_2024", label: "2024학년도 수능", labelEn: "2024 CSAT" },
+      { id: "csat_2023", label: "2023학년도 수능", labelEn: "2023 CSAT" },
+      { id: "csat_2022", label: "2022학년도 수능", labelEn: "2022 CSAT" },
+      { id: "csat_archive", label: "기타 수능 자료", labelEn: "Other CSAT Resources" },
+    ],
   },
 };
 
@@ -210,6 +231,7 @@ function normalizeFiles(data: Record<string, unknown>): CurriculumResourceFile[]
 
 export function listenCurriculumResources(
   catalog: CurriculumCatalogId,
+  includeInternal: boolean,
   onRows: (rows: CurriculumResourceRow[]) => void,
   onError: (error: FirestoreError) => void,
 ): Unsubscribe {
@@ -219,23 +241,27 @@ export function listenCurriculumResources(
     where("type", "in", ["share", "paid", "homework"]),
     orderBy("createdAt", "desc"),
   );
-  return onSnapshot(approved, (snapshot) => {
+  const source = includeInternal ? collection(db, "contents") : approved;
+  return onSnapshot(source, (snapshot) => {
     const rows = snapshot.docs
-      .map((snapshotDoc): CurriculumResourceRow | null => {
+      .flatMap((snapshotDoc): CurriculumResourceRow[] => {
         const data = snapshotDoc.data() as Record<string, unknown>;
-        if (data.resourceCatalog !== catalog || typeof data.resourceCategory !== "string") return null;
-        return {
-          id: snapshotDoc.id,
-          catalog,
-          category: data.resourceCategory as CurriculumCategoryId,
-          title: String(data.subject ?? data.title ?? "자료").trim() || "자료",
-          description: String(data.learningTopic ?? data.introduction ?? "").trim(),
-          files: normalizeFiles(data),
-          authorId: String(data.authorId ?? ""),
-          createdAtMs: timestampMs(data.createdAt),
-        };
+        const status = String(data.status ?? "");
+        const type = String(data.type ?? "");
+        if (!(["approved", "internal"].includes(status) && ["share", "paid", "homework"].includes(type))) return [];
+        return inferCurriculumPlacements(data)
+          .filter((placement) => placement.catalog === catalog)
+          .map((placement) => ({
+            id: snapshotDoc.id,
+            catalog,
+            category: placement.category,
+            title: String(data.subject ?? data.title ?? "자료").trim() || "자료",
+            description: String(data.learningTopic ?? data.introduction ?? "").trim(),
+            files: normalizeFiles(data),
+            authorId: String(data.authorId ?? ""),
+            createdAtMs: timestampMs(data.createdAt),
+          }));
       })
-      .filter((row): row is CurriculumResourceRow => Boolean(row))
       .sort((left, right) => right.createdAtMs - left.createdAtMs || left.title.localeCompare(right.title, "ko"));
     onRows(rows);
   }, onError);

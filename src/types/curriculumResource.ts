@@ -6,9 +6,14 @@ export type TextbookCourseId =
   | "english1"
   | "english2"
   | "reading_writing"
-  | "advanced";
+  | "advanced"
+  | "general";
 
-export type TextbookResourceCategoryId = `textbook_${TextbookCourseId}_${string}`;
+export type TextbookResourceCategoryId =
+  | "textbook_general"
+  | `textbook_${Exclude<TextbookCourseId, "general">}_${string}`;
+
+export type CsatResourceCategoryId = `csat_${number}`;
 
 export type CurriculumCategoryId =
   | "grade1_mock"
@@ -18,7 +23,9 @@ export type CurriculumCategoryId =
   | "ebs_special_lecture"
   | "ebs_complete"
   | "olympos"
+  | "supplementary_archive"
   | "csat_archive"
+  | CsatResourceCategoryId
   | TextbookResourceCategoryId;
 
 export interface CurriculumCategory {
