@@ -1,0 +1,34 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "problems",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subject", "order": "ASCENDING" },
+        { "fieldPath": "language", "order": "ASCENDING" },
+        { "fieldPath": "examFamily", "order": "ASCENDING" },
+        { "fieldPath": "questionType", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        {
+          "fieldPath": "embedding",
+          "vectorConfig": {
+            "dimension": 256,
+            "flat": {}
+          }
+        }
+      ]
+    },
+    {
+      "collectionGroup": "problems",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subject", "order": "ASCENDING" },
+        { "fieldPath": "language", "order": "ASCENDING" },
+        { "fieldPath": "examFamily", "order": "ASCENDING" },
+        { "fieldPath": "questionType", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

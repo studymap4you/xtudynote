@@ -1,0 +1,11 @@
+{
+  "name": "xstudy-global-problem-bank",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm --prefix functions run build",
+    "test": "npm --prefix functions test",
+    "deploy": "node scripts/deploy.mjs"
+  }
+}

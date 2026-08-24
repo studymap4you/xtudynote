@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "xstudy-problem-bank",
+    "problem-bank": "xstudy-problem-bank"
+  }
+}

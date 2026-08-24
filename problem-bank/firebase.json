@@ -1,0 +1,42 @@
+{
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "global-problem-bank",
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run guard:project",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ],
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "functions": {
+      "port": 5002
+    },
+    "firestore": {
+      "port": 8082
+    },
+    "storage": {
+      "port": 9192
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4002
+    },
+    "singleProjectMode": true
+  }
+}

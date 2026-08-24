@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { buildNextBatchTypes } from "../api/_lib/csat-question-engine/build-batch-plan.mjs";
 import { loadQuestionRules } from "../api/_lib/csat-question-engine/load-question-rules.mjs";
 import { parseUserRequest } from "../api/_lib/csat-question-engine/parse-user-request.mjs";
 import { searchQuestionBank } from "../api/_lib/csat-question-engine/question-bank-repository.mjs";
 import { runQuestionGenerationPipeline } from "../api/_lib/csat-question-engine/run-question-generation-pipeline.mjs";
+import { problemBankProblemToLocalQuestion } from "../api/_lib/problem-bank/client.mjs";
 
 function alphaWord(number) {
   let value = number + 1;
@@ -86,6 +88,26 @@ function deterministicIdFactory() {
   let index = 0;
   return () => `question-${String(++index).padStart(3, "0")}`;
 }
+
+test("전역 문제은행 유형을 기존 규칙 ID로 복원해 확보 문항을 다시 생성하지 않는다", () => {
+  const reused = problemBankProblemToLocalQuestion({
+    questionId: "XUQ_REUSED",
+    questionType: "blank_short",
+    difficulty: 4,
+    sourceId: "XUS_SOURCE",
+    passage: passage(900).text,
+    question: "Which option best completes the blank?",
+    choices: ["First", "Second", "Third", "Fourth", "Fifth"],
+    answer: 2,
+    explanation: "The second option is supported by the passage's contrast and conclusion.",
+    qualityScore: 95,
+  });
+  assert.equal(reused.questionType, "BLANK_SHORT");
+  assert.deepEqual(
+    buildNextBatchTypes(["BLANK_SHORT", "MAIN_IDEA"], [reused], 2),
+    ["MAIN_IDEA"],
+  );
+});
 
 test("규칙 JSON과 5개년 문제은행 reference를 유형별로 순환한다", async () => {
   const rules = loadQuestionRules(["BLANK_SHORT"]);

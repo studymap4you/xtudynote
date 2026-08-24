@@ -12,6 +12,14 @@ import { searchQuestionBank } from "./_lib/csat-question-engine/question-bank-re
 import { generateNextValidatedBatch } from "./_lib/csat-question-engine/run-question-generation-pipeline.mjs";
 import { searchSourceDocuments } from "./_lib/csat-question-engine/source-repository.mjs";
 import {
+  isProblemBankConfigured,
+  problemBankProblemToLocalQuestion,
+  reportProblemBankGenerationRun,
+  reportProblemBankUsage,
+  saveGeneratedQuestionToProblemBank,
+  searchReusableProblemBankQuestions,
+} from "./_lib/problem-bank/client.mjs";
+import {
   requestTextbookJson,
   resolveTextbookAiProvider,
   textbookAiResponseMeta,
@@ -147,6 +155,10 @@ function normalizeJobSummary(snapshot) {
     rejectedCount: Number(data.rejectedCount) || 0,
     modelCallCount: Number(data.modelCallCount) || 0,
     retryCount: Number(data.retryCount) || 0,
+    reusedQuestionCount: Number(data.reusedQuestionCount) || 0,
+    generatedQuestionCount: Number(data.generatedQuestionCount) || 0,
+    problemBankSavedCount: Number(data.problemBankSavedCount) || 0,
+    problemBankEnabled: Boolean(data.problemBankEnabled),
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
@@ -216,6 +228,10 @@ async function loadProgressSnapshot(uid, id, afterSequence) {
     rejectedCount: Number(data.rejectedCount) || 0,
     modelCallCount: Number(data.modelCallCount) || 0,
     retryCount: Number(data.retryCount) || 0,
+    reusedQuestionCount: Number(data.reusedQuestionCount) || 0,
+    generatedQuestionCount: Number(data.generatedQuestionCount) || 0,
+    problemBankSavedCount: Number(data.problemBankSavedCount) || 0,
+    problemBankEnabled: Boolean(data.problemBankEnabled),
     model: sanitizeText(data.model, 160) || undefined,
     warning: sanitizeText(data.warning, 1_000) || undefined,
     progressSequence: Number(data.progressSequence) || progressEvents.at(-1)?.sequence || 0,
@@ -245,6 +261,7 @@ async function deleteJob(uid, id) {
 }
 
 async function createJob(authUser, body) {
+  const jobStartedAt = Date.now();
   const request = parseUserRequest(body.userRequest);
   const sourceText = sanitizeText(body.sourceText, MAX_SOURCE_TEXT_LENGTH);
   const uploadedFiles = Array.isArray(body.uploadedFiles)
@@ -257,7 +274,7 @@ async function createJob(authUser, body) {
   const sourceSnapshot = await admin.firestore()
     .collection("contents")
     .where("libraryCategory", "==", "source_material")
-    .limit(250)
+    .limit(500)
     .get();
   const questionBankSnapshot = await admin.firestore()
     .collection("csat_english_questions")
@@ -269,6 +286,8 @@ async function createJob(authUser, body) {
 
   const ref = admin.firestore().collection("csat_question_jobs").doc();
   const questionTypePlan = buildQuestionTypePlan(request);
+  const problemBankEnabled = isProblemBankConfigured();
+  const generationRunId = `XUG_${ref.id}`;
   const now = admin.firestore.FieldValue.serverTimestamp();
   await ref.set({
     generationVersion: GENERATION_VERSION,
@@ -287,6 +306,11 @@ async function createJob(authUser, body) {
     rejectedCount: 0,
     modelCallCount: 0,
     retryCount: 0,
+    generationRunId,
+    problemBankEnabled,
+    reusedQuestionCount: 0,
+    generatedQuestionCount: 0,
+    problemBankSavedCount: 0,
     batchCount: 0,
     consecutiveFailedBatches: 0,
     progressSequence: 0,
@@ -326,6 +350,118 @@ async function createJob(authUser, body) {
     summary: `최대 2문항씩 ${Math.ceil(request.targetQuestionCount / QUESTION_BATCH_MAX)}개 배치로 생성합니다.`,
     details: questionTypePlan.map((type, index) => `${index + 1}번: ${type}`),
   });
+
+  if (!problemBankEnabled) {
+    await recordProgress({
+      phase: "global-problem-bank",
+      status: "info",
+      title: "전역 문제은행 연결 설정을 기다리고 있습니다",
+      summary: "기존 문제 생성 로직으로 계속 진행합니다.",
+      details: [
+        "PROBLEM_BANK_API_URL: 미설정",
+        "PROBLEM_BANK_SERVICE_TOKEN: 미설정 또는 비활성",
+        "문제은행 연결 실패가 기존 생성 기능을 중단시키지 않습니다.",
+      ],
+    });
+    return loadJob(authUser.uid, ref.id);
+  }
+
+  await recordProgress({
+    phase: "global-problem-bank",
+    status: "running",
+    title: "전역 문제은행에서 재사용 가능한 문항을 검색하고 있습니다",
+    summary: `${request.targetQuestionCount}문항을 유형별로 먼저 조회합니다.`,
+    details: [
+      "검색 상태: approved, gold",
+      "중복 방지: questionId 및 duplicate cluster",
+      "선택 기준: 유형, 난이도, 의미 유사도, 품질, 사용 다양성",
+    ],
+  });
+
+  try {
+    const reusable = await searchReusableProblemBankQuestions({
+      request,
+      questionTypePlan,
+      workbookId: ref.id,
+    });
+    const reusedQuestions = reusable.questions
+      .map((problem, index) => problemBankProblemToLocalQuestion(problem, index + 1))
+      .filter((question) => (
+        question.id
+        && question.stem
+        && question.passage
+        && question.choices.length === 5
+        && question.answer >= 1
+        && question.answer <= 5
+      ))
+      .slice(0, request.targetQuestionCount);
+    const completedByReuse = reusedQuestions.length >= request.targetQuestionCount;
+    if (reusedQuestions.length) {
+      const reuseBatch = admin.firestore().batch();
+      reusedQuestions.forEach((question, index) => {
+        reuseBatch.set(ref.collection("questions").doc(question.id), {
+          ...stripUndefined(question),
+          sequence: index + 1,
+          origin: "global-problem-bank",
+          reusedAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+      reuseBatch.update(ref, {
+        status: completedByReuse ? "completed" : "planned",
+        acceptedCount: reusedQuestions.length,
+        reusedQuestionCount: reusedQuestions.length,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      await reuseBatch.commit();
+
+      await Promise.allSettled(reusedQuestions.map((question) => reportProblemBankUsage({
+        questionId: question.id,
+        workbookId: ref.id,
+      })));
+    }
+
+    await recordProgress({
+      phase: "global-problem-bank",
+      status: "completed",
+      title: `${reusedQuestions.length}개 문항을 전역 문제은행에서 확보했습니다`,
+      summary: reusedQuestions.length >= request.targetQuestionCount
+        ? "요청 문항을 모두 재사용하여 AI 신규 생성을 생략합니다."
+        : `부족한 ${request.targetQuestionCount - reusedQuestions.length}문항만 AI로 생성합니다.`,
+      details: [
+        ...reusable.searches.map((search) => (
+          `${search.questionType} · 요청 ${search.requestedCount} · 확보 ${search.foundCount} · 부족 ${search.missingCount} · ${search.searchMode || "검색 완료"}`
+        )),
+        `최종 재사용률: ${Math.round((reusedQuestions.length / request.targetQuestionCount) * 100)}%`,
+      ],
+    });
+
+    if (completedByReuse) {
+      await Promise.allSettled([
+        reportProblemBankGenerationRun({
+          generationRunId,
+          request,
+          reusedQuestionCount: reusedQuestions.length,
+          generatedQuestionCount: 0,
+          rejectedQuestionCount: 0,
+          savedQuestionCount: 0,
+          modelsUsed: [],
+          durationMs: Date.now() - jobStartedAt,
+        }),
+      ]);
+    }
+  } catch (error) {
+    await recordProgress({
+      phase: "global-problem-bank",
+      status: "warning",
+      title: "전역 문제은행 조회를 건너뛰고 기존 생성 방식으로 계속합니다",
+      summary: error instanceof Error ? error.message : "문제은행 API가 응답하지 않았습니다.",
+      details: [
+        "기존 원문 검색, 수능 유형 분석, 2문항 단위 생성은 그대로 유지됩니다.",
+        "문제은행 서비스 복구 후 다음 작업부터 자동 재사용됩니다.",
+      ],
+    });
+  }
   return loadJob(authUser.uid, ref.id);
 }
 
@@ -731,6 +867,8 @@ async function generateJobBatch(authUser, body) {
     sourceUsage[question.sourceId] = Number(sourceUsage[question.sourceId] || 0) + 1;
   });
   const acceptedCount = existingQuestions.length + accepted.length;
+  const generatedQuestionCount = (Number(data.generatedQuestionCount) || 0) + accepted.length;
+  const rejectedQuestionCount = (Number(data.rejectedCount) || 0) + result.rejected.length;
   const consecutiveFailedBatches = accepted.length ? 0 : (Number(data.consecutiveFailedBatches) || 0) + 1;
   const completed = acceptedCount >= request.targetQuestionCount;
   const failed = !completed && consecutiveFailedBatches >= 3;
@@ -778,7 +916,8 @@ async function generateJobBatch(authUser, body) {
     ...stripUndefined({
       status: completed ? "completed" : failed ? "failed" : "generating",
       acceptedCount,
-      rejectedCount: (Number(data.rejectedCount) || 0) + result.rejected.length,
+      rejectedCount: rejectedQuestionCount,
+      generatedQuestionCount,
       modelCallCount: (Number(data.modelCallCount) || 0) + result.modelCallCount,
       retryCount: (Number(data.retryCount) || 0) + result.retryCount,
       batchCount: batchNumber,
@@ -793,6 +932,77 @@ async function generateJobBatch(authUser, body) {
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   await writeBatch.commit();
+
+  let savedToProblemBank = 0;
+  let problemBankSaveFailures = 0;
+  if (data.problemBankEnabled && isProblemBankConfigured() && accepted.length) {
+    await recordProgress({
+      phase: "global-problem-bank",
+      status: "running",
+      title: "신규 생성 문항을 전역 문제은행에서 검수하고 있습니다",
+      summary: `${accepted.length}개 문항을 raw 상태로 저장한 뒤 승인·중복 검사를 수행합니다.`,
+      details: accepted.map((question) => `${question.questionType} · ${question.id}`),
+    });
+    const saveResults = await Promise.allSettled(accepted.map((question) => (
+      saveGeneratedQuestionToProblemBank({
+        question,
+        request,
+        provider: provider.kind,
+        model: modelsUsed.at(-1) || provider.model,
+        generationVersion: GENERATION_VERSION,
+      })
+    )));
+    const approvedQuestionIds = [];
+    saveResults.forEach((saveResult) => {
+      if (saveResult.status === "fulfilled" && saveResult.value.saved) {
+        savedToProblemBank += 1;
+        if (saveResult.value.questionId) approvedQuestionIds.push(saveResult.value.questionId);
+      } else {
+        problemBankSaveFailures += 1;
+      }
+    });
+    const cumulativeSavedCount = (Number(data.problemBankSavedCount) || 0) + savedToProblemBank;
+    await owned.ref.update({
+      problemBankSavedCount: cumulativeSavedCount,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await Promise.allSettled(approvedQuestionIds.map((questionId) => reportProblemBankUsage({
+      questionId,
+      workbookId: owned.snapshot.id,
+    })));
+    await recordProgress({
+      phase: "global-problem-bank",
+      status: problemBankSaveFailures ? "warning" : "completed",
+      title: `${savedToProblemBank}개 신규 문항을 전역 문제은행에 반영했습니다`,
+      summary: problemBankSaveFailures
+        ? `${problemBankSaveFailures}개 문항은 승인·중복 검사 또는 API 연결을 통과하지 못했습니다.`
+        : "raw 저장과 자동 검수를 통과한 문항이 approved 상태로 전환되었습니다.",
+      details: [
+        `이번 배치 승인 저장: ${savedToProblemBank}개`,
+        `이번 배치 미반영: ${problemBankSaveFailures}개`,
+        `누적 승인 저장: ${cumulativeSavedCount}개`,
+      ],
+    });
+  }
+
+  if (data.problemBankEnabled && isProblemBankConfigured()) {
+    const createdAtMs = typeof data.createdAt?.toMillis === "function"
+      ? data.createdAt.toMillis()
+      : Date.now();
+    await Promise.allSettled([
+      reportProblemBankGenerationRun({
+        generationRunId: sanitizeText(data.generationRunId, 100) || `XUG_${owned.snapshot.id}`,
+        request,
+        reusedQuestionCount: Number(data.reusedQuestionCount) || 0,
+        generatedQuestionCount,
+        rejectedQuestionCount,
+        savedQuestionCount: (Number(data.problemBankSavedCount) || 0) + savedToProblemBank,
+        modelsUsed: [...new Set([sanitizeText(data.model, 160), ...modelsUsed].filter(Boolean))],
+        durationMs: Math.max(0, Date.now() - createdAtMs),
+      }),
+    ]);
+  }
+
   await recordProgress({
     phase: "storage",
     status: "completed",
@@ -815,7 +1025,9 @@ async function generateJobBatch(authUser, body) {
       : `통과 ${accepted.length}개 · 누적 ${acceptedCount}/${request.targetQuestionCount}문항`,
     details: [
       `누적 모델 생성 호출: ${(Number(data.modelCallCount) || 0) + result.modelCallCount}회`,
-      `누적 품질 거부: ${(Number(data.rejectedCount) || 0) + result.rejected.length}문항`,
+      `누적 품질 거부: ${rejectedQuestionCount}문항`,
+      `전역 문제은행 재사용: ${Number(data.reusedQuestionCount) || 0}문항`,
+      `전역 문제은행 신규 저장: ${(Number(data.problemBankSavedCount) || 0) + savedToProblemBank}문항`,
       `이번 배치 모델: ${modelsUsed.at(-1) || provider.model}`,
       `연속 빈 배치: ${consecutiveFailedBatches}회`,
     ],
