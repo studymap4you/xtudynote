@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import admin from "firebase-admin";
-import { buildNextBatchTypes, buildQuestionTypePlan } from "./_lib/csat-question-engine/build-batch-plan.mjs";
+import {
+  buildNextBatchTypes,
+  buildQuestionTypePlan,
+  QUESTION_BATCH_MAX,
+} from "./_lib/csat-question-engine/build-batch-plan.mjs";
 import { buildQuestionPrompt } from "./_lib/csat-question-engine/build-question-prompt.mjs";
 import { loadQuestionRules, CSAT_RULES_DB_VERSION } from "./_lib/csat-question-engine/load-question-rules.mjs";
 import { parseUserRequest } from "./_lib/csat-question-engine/parse-user-request.mjs";
@@ -210,7 +214,11 @@ async function generateJobBatch(authUser, body) {
     return { job: await loadJob(authUser.uid, owned.snapshot.id), batchQuestions: [] };
   }
 
-  const targetTypes = buildNextBatchTypes(data.questionTypePlan || buildQuestionTypePlan(request), existingQuestions, 5);
+  const targetTypes = buildNextBatchTypes(
+    data.questionTypePlan || buildQuestionTypePlan(request),
+    existingQuestions,
+    QUESTION_BATCH_MAX,
+  );
   const sources = await searchSourceDocuments({
     firestore: admin.firestore(),
     bucket: admin.storage().bucket(STORAGE_BUCKET),

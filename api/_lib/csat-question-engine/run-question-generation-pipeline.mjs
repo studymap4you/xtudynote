@@ -1,4 +1,10 @@
-import { assignSourcesToBatch, buildNextBatchTypes, buildQuestionTypePlan, MAX_BATCH_RETRY } from "./build-batch-plan.mjs";
+import {
+  assignSourcesToBatch,
+  buildNextBatchTypes,
+  buildQuestionTypePlan,
+  MAX_BATCH_RETRY,
+  QUESTION_BATCH_MAX,
+} from "./build-batch-plan.mjs";
 import { normalizeGeneratedQuestion, validateQuestion } from "./validate-question.mjs";
 
 function assignmentKey(value) {
@@ -11,22 +17,6 @@ function removeAssignment(assignments, question) {
   if (index < 0) return false;
   assignments.splice(index, 1);
   return true;
-}
-
-function padRetryAssignments(assignments, sources) {
-  const padded = [...assignments];
-  let cursor = 0;
-  while (padded.length > 0 && padded.length < 4) {
-    const base = assignments[cursor % assignments.length];
-    const source = sources[(cursor + assignments.length) % sources.length];
-    padded.push({
-      questionType: base.questionType,
-      sourceId: source.id,
-      supplementalCandidate: true,
-    });
-    cursor += 1;
-  }
-  return padded;
 }
 
 export async function generateNextValidatedBatch({
@@ -49,7 +39,7 @@ export async function generateNextValidatedBatch({
 
   for (let generationAttempt = 1; generationAttempt <= maxBatchRetry && remainingAssignments.length; generationAttempt += 1) {
     modelCallCount += 1;
-    const attemptAssignments = padRetryAssignments(remainingAssignments, sources);
+    const attemptAssignments = [...remainingAssignments];
     const raw = await generateBatch({
       request,
       assignments: attemptAssignments,
@@ -134,7 +124,7 @@ export async function runQuestionGenerationPipeline({
 
   while (acceptedQuestions.length < request.targetQuestionCount && consecutiveEmptyBatches < maxConsecutiveEmptyBatches) {
     batchNumber += 1;
-    const targetTypes = buildNextBatchTypes(questionTypePlan, acceptedQuestions, 5);
+    const targetTypes = buildNextBatchTypes(questionTypePlan, acceptedQuestions, QUESTION_BATCH_MAX);
     const sources = await sourceProvider({ request, acceptedQuestions, targetTypes, batchNumber });
     const references = await referenceProvider({ request, acceptedQuestions, targetTypes, batchNumber });
     const result = await generateNextValidatedBatch({

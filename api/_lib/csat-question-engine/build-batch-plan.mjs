@@ -1,5 +1,5 @@
-export const QUESTION_BATCH_MIN = 4;
-export const QUESTION_BATCH_MAX = 5;
+export const QUESTION_BATCH_MIN = 1;
+export const QUESTION_BATCH_MAX = 2;
 export const MAX_BATCH_RETRY = 3;
 
 const DEFAULT_CSAT_TYPE_DISTRIBUTION = Object.freeze([
@@ -50,7 +50,9 @@ export function buildNextBatchTypes(questionTypePlan, acceptedQuestions, maxSize
     consumed.set(type, seen + 1);
     if (seen >= accepted) missing.push(type);
   }
-  return missing.slice(0, Math.max(QUESTION_BATCH_MIN, Math.min(QUESTION_BATCH_MAX, maxSize)));
+  const requestedSize = Number.isFinite(Number(maxSize)) ? Number(maxSize) : QUESTION_BATCH_MAX;
+  const batchSize = Math.max(QUESTION_BATCH_MIN, Math.min(QUESTION_BATCH_MAX, requestedSize));
+  return missing.slice(0, batchSize);
 }
 
 export function assignSourcesToBatch(questionTypes, sources) {
@@ -74,4 +76,3 @@ export function assignSourcesToBatch(questionTypes, sources) {
   }
   return assignments;
 }
-
