@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "description": "2022 개정 고등 영어 교과서 수집 대상 36종. PDF URL과 재사용 권한이 확인되기 전에는 메타데이터만 등록한다.",
+  "defaults": {
+    "subject": "english",
+    "curriculum": "2022_revision",
+    "rights_status": "permission_required",
+    "permission_evidence": null,
+    "pdf_url": null
+  },
+  "publisher_sources": {
+    "NE능률": {
+      "official_source_page": "https://m.nebooks.co.kr/pages/book/list.asp?c=BE",
+      "allowed_domains": ["nebooks.co.kr", "neungyule.com"]
+    },
+    "YBM": {
+      "official_source_page": "https://www.ybmcloud.com/prcenter/ybmtextbook?siteType=H",
+      "allowed_domains": ["ybmcloud.com"]
+    },
+    "동아": {
+      "official_source_page": "https://promotion.douclass.com/pc/school/details/aidt/com_english",
+      "allowed_domains": ["douclass.com"]
+    },
+    "미래엔": {
+      "official_source_page": "https://textbook.mirae-n.com/",
+      "allowed_domains": ["mirae-n.com"]
+    },
+    "비상": {
+      "official_source_page": "https://v.vivasam.com/educourse/index.do?schType=HS",
+      "allowed_domains": ["vivasam.com"]
+    },
+    "지학사": {
+      "official_source_page": "https://www.jihak.co.kr/",
+      "allowed_domains": ["jihak.co.kr"]
+    },
+    "천재": {
+      "official_source_page": "https://www.chunjae.co.kr/",
+      "allowed_domains": ["chunjae.co.kr", "tsherpa.co.kr"]
+    }
+  },
+  "textbooks": [
+    {"id": "common-english-1-ne-minbyeongcheon", "course_code": "common_english_1", "course_title": "공통영어1", "provided_year": 2025, "publisher": "NE능률", "lead_author": "민병천"},
+    {"id": "common-english-1-ne-ohseonyeong", "course_code": "common_english_1", "course_title": "공통영어1", "provided_year": 2025, "publisher": "NE능률", "lead_author": "오선영"},
+    {"id": "common-english-1-ybm-kimeunhyeong", "course_code": "common_english_1", "course_title": "공통영어1", "provided_year": 2025, "publisher": "YBM", "lead_author": "김은형"},
+    {"id": "common-english-1-ybm-parkjuneon", "course_code": "common_english_1", "course_title": "공통영어1", "provided_year": 2025, "publisher": "YBM", "lead_author": "박준언"},
+    {"id": "common-english-1-donga-leebyeongmin", "course_code": "common_english_1", "course_title": "공통영어1", "provided_year": 2025, "publisher": "동아", "lead_author": "이병민"},
+    {"id": "common-english-1-miraen-kimseongyeon", "course_code": "common_english_1", "course_title": "공통영어1", "provided_year": 2025, "publisher": "미래엔", "lead_author": "김성연"},
+    {"id": "common-english-1-visang-hongminpyo", "course_code": "common_english_1", "course_title": "공통영어1", "provided_year": 2025, "publisher": "비상", "lead_author": "홍민표"},
+    {"id": "common-english-1-jihak-shinsanggeun", "course_code": "common_english_1", "course_title": "공통영어1", "provided_year": 2025, "publisher": "지학사", "lead_author": "신상근"},
+    {"id": "common-english-1-chunjae-kangsanggu", "course_code": "common_english_1", "course_title": "공통영어1", "provided_year": 2025, "publisher": "천재", "lead_author": "강상구"},
+    {"id": "common-english-1-chunjae-josugyeong", "course_code": "common_english_1", "course_title": "공통영어1", "provided_year": 2025, "publisher": "천재", "lead_author": "조수경"},
+
+    {"id": "common-english-2-ne-minbyeongcheon", "course_code": "common_english_2", "course_title": "공통영어2", "provided_year": 2025, "publisher": "NE능률", "lead_author": "민병천"},
+    {"id": "common-english-2-ne-ohseonyeong", "course_code": "common_english_2", "course_title": "공통영어2", "provided_year": 2025, "publisher": "NE능률", "lead_author": "오선영"},
+    {"id": "common-english-2-ybm-kimeunhyeong", "course_code": "common_english_2", "course_title": "공통영어2", "provided_year": 2025, "publisher": "YBM", "lead_author": "김은형"},
+    {"id": "common-english-2-ybm-parkjuneon", "course_code": "common_english_2", "course_title": "공통영어2", "provided_year": 2025, "publisher": "YBM", "lead_author": "박준언"},
+    {"id": "common-english-2-donga-leebyeongmin", "course_code": "common_english_2", "course_title": "공통영어2", "provided_year": 2025, "publisher": "동아", "lead_author": "이병민"},
+    {"id": "common-english-2-miraen-kimseongyeon", "course_code": "common_english_2", "course_title": "공통영어2", "provided_year": 2025, "publisher": "미래엔", "lead_author": "김성연"},
+    {"id": "common-english-2-visang-hongminpyo", "course_code": "common_english_2", "course_title": "공통영어2", "provided_year": 2025, "publisher": "비상", "lead_author": "홍민표"},
+    {"id": "common-english-2-jihak-shinsanggeun", "course_code": "common_english_2", "course_title": "공통영어2", "provided_year": 2025, "publisher": "지학사", "lead_author": "신상근"},
+    {"id": "common-english-2-chunjae-kangsanggu", "course_code": "common_english_2", "course_title": "공통영어2", "provided_year": 2025, "publisher": "천재", "lead_author": "강상구"},
+    {"id": "common-english-2-chunjae-josugyeong", "course_code": "common_english_2", "course_title": "공통영어2", "provided_year": 2025, "publisher": "천재", "lead_author": "조수경"},
+
+    {"id": "english-1-ne-ohseonyeong", "course_code": "english_1", "course_title": "영어I", "provided_year": 2026, "publisher": "NE능률", "lead_author": "오선영"},
+    {"id": "english-1-ybm-parkjuneon", "course_code": "english_1", "course_title": "영어I", "provided_year": 2026, "publisher": "YBM", "lead_author": "박준언"},
+    {"id": "english-1-donga-parkyongye", "course_code": "english_1", "course_title": "영어I", "provided_year": 2026, "publisher": "동아", "lead_author": "박용예"},
+    {"id": "english-1-miraen-kimseongyeon", "course_code": "english_1", "course_title": "영어I", "provided_year": 2026, "publisher": "미래엔", "lead_author": "김성연"},
+    {"id": "english-1-visang-hongminpyo", "course_code": "english_1", "course_title": "영어I", "provided_year": 2026, "publisher": "비상", "lead_author": "홍민표"},
+    {"id": "english-1-jihak-shinsanggeun", "course_code": "english_1", "course_title": "영어I", "provided_year": 2026, "publisher": "지학사", "lead_author": "신상근"},
+    {"id": "english-1-chunjae-kangsanggu", "course_code": "english_1", "course_title": "영어I", "provided_year": 2026, "publisher": "천재", "lead_author": "강상구"},
+    {"id": "english-1-chunjae-josugyeong", "course_code": "english_1", "course_title": "영어I", "provided_year": 2026, "publisher": "천재", "lead_author": "조수경"},
+
+    {"id": "english-2-ne-ohseonyeong", "course_code": "english_2", "course_title": "영어II", "provided_year": 2026, "publisher": "NE능률", "lead_author": "오선영"},
+    {"id": "english-2-ybm-parkjuneon", "course_code": "english_2", "course_title": "영어II", "provided_year": 2026, "publisher": "YBM", "lead_author": "박준언"},
+    {"id": "english-2-donga-parkyongye", "course_code": "english_2", "course_title": "영어II", "provided_year": 2026, "publisher": "동아", "lead_author": "박용예"},
+    {"id": "english-2-miraen-kimseongyeon", "course_code": "english_2", "course_title": "영어II", "provided_year": 2026, "publisher": "미래엔", "lead_author": "김성연"},
+    {"id": "english-2-visang-hongminpyo", "course_code": "english_2", "course_title": "영어II", "provided_year": 2026, "publisher": "비상", "lead_author": "홍민표"},
+    {"id": "english-2-jihak-shinsanggeun", "course_code": "english_2", "course_title": "영어II", "provided_year": 2026, "publisher": "지학사", "lead_author": "신상근"},
+    {"id": "english-2-chunjae-kangsanggu", "course_code": "english_2", "course_title": "영어II", "provided_year": 2026, "publisher": "천재", "lead_author": "강상구"},
+    {"id": "english-2-chunjae-josugyeong", "course_code": "english_2", "course_title": "영어II", "provided_year": 2026, "publisher": "천재", "lead_author": "조수경"}
+  ]
+}

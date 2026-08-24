@@ -11,3 +11,10 @@ firebase-debug*.log
 .venv-exam-collector/
 workers/exam-collector/__pycache__/
 workers/exam-collector/*.pyc
+.venv-textbook-collector/
+workers/textbook-collector/__pycache__/
+workers/textbook-collector/*.pyc
+workers/textbook-collector/*.sqlite3
+workers/textbook-collector/downloads/
+workers/textbook-collector/manifest.local.json
+workers/textbook-collector/catalog.authorized.local.json
