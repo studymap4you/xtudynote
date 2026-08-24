@@ -20,9 +20,8 @@ import {
   searchReusableProblemBankQuestions,
 } from "./_lib/problem-bank/client.mjs";
 import {
-  requestTextbookJson,
-  resolveTextbookAiProvider,
-  textbookAiResponseMeta,
+  requestTextbookJsonWithFallback,
+  resolveTextbookAiProviderChain,
 } from "./_lib/textbook-ai-provider.mjs";
 
 const GENERATION_VERSION = "csat-question-engine-v1";
@@ -203,8 +202,6 @@ async function loadJob(uid, id) {
     request: data.request,
     questionTypePlan: Array.isArray(data.questionTypePlan) ? data.questionTypePlan : [],
     questions,
-    model: sanitizeText(data.model, 160) || undefined,
-    provider: sanitizeText(data.provider, 40) || undefined,
     rulesVersion: sanitizeText(data.rulesVersion, 40) || CSAT_RULES_DB_VERSION,
     consecutiveFailedBatches: Number(data.consecutiveFailedBatches) || 0,
     warning: sanitizeText(data.warning, 1_000) || undefined,
@@ -232,7 +229,6 @@ async function loadProgressSnapshot(uid, id, afterSequence) {
     generatedQuestionCount: Number(data.generatedQuestionCount) || 0,
     problemBankSavedCount: Number(data.problemBankSavedCount) || 0,
     problemBankEnabled: Boolean(data.problemBankEnabled),
-    model: sanitizeText(data.model, 160) || undefined,
     warning: sanitizeText(data.warning, 1_000) || undefined,
     progressSequence: Number(data.progressSequence) || progressEvents.at(-1)?.sequence || 0,
     progressEvents,
@@ -347,7 +343,7 @@ async function createJob(authUser, body) {
     phase: "plan",
     status: "completed",
     title: "전체 문제 유형 순서를 설계했습니다",
-    summary: `최대 2문항씩 ${Math.ceil(request.targetQuestionCount / QUESTION_BATCH_MAX)}개 배치로 생성합니다.`,
+    summary: `한 번에 1문항씩 ${Math.ceil(request.targetQuestionCount / QUESTION_BATCH_MAX)}개 배치로 생성합니다.`,
     details: questionTypePlan.map((type, index) => `${index + 1}번: ${type}`),
   });
 
@@ -457,7 +453,7 @@ async function createJob(authUser, body) {
       title: "전역 문제은행 조회를 건너뛰고 기존 생성 방식으로 계속합니다",
       summary: error instanceof Error ? error.message : "문제은행 API가 응답하지 않았습니다.",
       details: [
-        "기존 원문 검색, 수능 유형 분석, 2문항 단위 생성은 그대로 유지됩니다.",
+        "기존 원문 검색과 수능 유형 분석을 유지하고 1문항씩 생성합니다.",
         "문제은행 서비스 복구 후 다음 작업부터 자동 재사용됩니다.",
       ],
     });
@@ -492,7 +488,7 @@ async function generateJobBatch(authUser, body) {
   await recordProgress({
     phase: "batch",
     status: "running",
-    title: `${batchNumber}번째 2문항 배치를 시작했습니다`,
+    title: `서버에서 ${existingQuestions.length + 1}번 문항 생성 중`,
     summary: `현재 ${existingQuestions.length}/${request.targetQuestionCount}문항이 저장되어 있습니다.`,
     details: [
       `배치 ID: ${batchId}`,
@@ -620,35 +616,40 @@ async function generateJobBatch(authUser, body) {
     )),
   });
 
-  const provider = resolveTextbookAiProvider(process.env, "questions");
-  if (provider.kind === "mock") {
+  const providers = resolveTextbookAiProviderChain(
+    process.env,
+    "questions",
+    { includeOpenAiFallback: true },
+  ).filter((provider) => provider.kind !== "mock");
+  if (providers.length === 0) {
     await recordProgress({
       phase: "model",
       status: "error",
       title: "AI 생성 모델 설정을 찾지 못했습니다",
-      summary: provider.reason || "provider-not-configured",
+      summary: "기본 생성 서버와 백업 생성 서버의 API 설정을 확인해주세요.",
       details: [],
     });
-    throw new Error(`ai-provider-not-configured:${provider.reason || "unknown"}`);
+    throw new Error("ai-provider-not-configured:all-providers");
   }
+  const primaryProvider = providers[0];
+  const openAiFallbackProvider = providers.find((provider) => provider.kind === "openai");
   await recordProgress({
     phase: "model",
     status: "completed",
-    title: "AI 모델 폴백 구성을 확인했습니다",
-    summary: `${provider.models?.length || 1}개 모델을 순차적으로 사용할 준비가 됐습니다.`,
+    title: "생성 서버의 자동 복구 구성을 확인했습니다",
+    summary: openAiFallbackProvider
+      ? "기본 생성 서버가 모두 응답하지 않으면 백업 생성 서버로 자동 전환합니다."
+      : "현재 사용할 수 있는 생성 서버 연결을 확인했습니다.",
     details: [
-      `공급자: ${provider.kind}`,
-      `API 주소: ${provider.baseUrl}`,
-      `모델 순서: ${(provider.models || [provider.model]).join(" → ")}`,
-      `숨겨진 추론 출력: 사용하지 않음`,
-      `최대 출력 토큰: 16000`,
-      `모델별 제한시간: 55000ms`,
-      `전체 폴백 시간 예산: 250000ms`,
-      `재시도 간격: 0ms, 2500ms`,
+      `생성 서버 단계: ${providers.length}개`,
+      "1문항 단위 생성 및 즉시 검증",
+      "응답 지연·호출 제한·서버 오류·JSON 파싱 실패 시 자동 전환",
+      "API 키와 내부 모델명은 진행 화면에 표시하지 않음",
     ],
   });
   const providerAttempts = [];
   const modelsUsed = [];
+  const providerKindsUsed = [];
 
   let result;
   try {
@@ -678,8 +679,8 @@ async function generateJobBatch(authUser, body) {
           await recordProgress({
             phase: "generation",
             status: "running",
-            title: `${event.generationAttempt}차 문제 생성 시도를 시작했습니다`,
-            summary: `${event.assignments.length}개 미완성 문항을 모델에 요청합니다.`,
+            title: `서버에서 ${existingQuestions.length + 1}번 문항 생성 중`,
+            summary: `${event.generationAttempt}차 생성 및 품질 검사를 진행하고 있습니다.`,
             details: [
               ...event.assignments.map((assignment) => `${assignment.questionType} · Source ${assignment.sourceId}`),
               ...(event.previousRejectionIssues || []).map((issue) => `이전 탈락 피드백: ${issue}`),
@@ -691,7 +692,7 @@ async function generateJobBatch(authUser, body) {
           await recordProgress({
             phase: "generation",
             status: event.candidateCount > 0 ? "completed" : "warning",
-            title: `모델 응답에서 ${event.candidateCount}개 후보를 읽었습니다`,
+            title: `${existingQuestions.length + 1}번 문항 후보를 확인했습니다`,
             summary: `JSON 파싱 완료 · 생성 시도 ${event.generationAttempt}차`,
             details: [],
           });
@@ -700,7 +701,7 @@ async function generateJobBatch(authUser, body) {
         if (event.stage === "candidate-rejected") {
           const candidateLabel = Number(event.candidateIndex) >= 0
             ? `후보 ${Number(event.candidateIndex) + 1}번`
-            : "모델 응답";
+            : "생성 서버 응답";
           await recordProgress({
             phase: "validation",
             status: "warning",
@@ -739,17 +740,18 @@ async function generateJobBatch(authUser, body) {
             phase: "validation",
             status: event.missingAssignments.length ? "warning" : "completed",
             title: "이번 배치의 품질 검증을 완료했습니다",
-            summary: `최종 통과 ${event.acceptedCount}개 · 누적 거부 기록 ${event.rejectedCount}개 · 모델 생성 호출 ${event.modelCallCount}회`,
+            summary: `최종 통과 ${event.acceptedCount}개 · 누적 거부 기록 ${event.rejectedCount}개 · 서버 생성 호출 ${event.modelCallCount}회`,
             details: event.missingAssignments.map((assignment) => `미완성: ${assignment.questionType} · Source ${assignment.sourceId}`),
           });
         }
       },
       generateBatch: async (promptContext) => {
         const prompt = buildQuestionPrompt(promptContext);
+        const questionSequence = existingQuestions.length + 1;
         await recordProgress({
           phase: "prompt",
           status: "completed",
-          title: "모델 입력 프롬프트를 조립했습니다",
+          title: `${questionSequence}번 문항의 생성 조건을 조립했습니다`,
           summary: `생성 시도 ${promptContext.generationAttempt}차의 구조화된 요청을 준비했습니다.`,
           details: [
             `시스템 지시문: ${prompt.system.length.toLocaleString("ko-KR")}자`,
@@ -761,99 +763,110 @@ async function generateJobBatch(authUser, body) {
             `기존 통과 문항 중복검사 대상: ${promptContext.existingQuestions.length}개`,
           ],
         });
-        const response = await requestTextbookJson({
-          provider: { ...provider, enableThinking: false },
-          messages: [
-            { role: "system", content: prompt.system },
-            { role: "user", content: prompt.user },
-          ],
-          maxTokens: 16_000,
-          temperature: 0.32,
-          timeoutMs: 55_000,
-          maxElapsedMs: 250_000,
-          retryDelaysMs: [0, 2_500],
-          retryStrategy: "round-robin",
-          onProgress: async (event) => {
-            if (event.stage === "retry-wait") {
-              await recordProgress({
-                phase: "model",
-                status: "info",
-                title: `${event.model} 재시도 전 대기 중입니다`,
-                summary: `${event.delayMs}ms 후 ${event.attempt}차 연결을 시도합니다.`,
-                details: [],
-              });
-              return;
-            }
-            if (event.stage === "attempt-started") {
-              await recordProgress({
-                phase: "model",
-                status: "running",
-                title: `${event.model}에 생성을 요청했습니다`,
-                summary: `모델 연결 ${event.attempt}차 시도`,
-                details: [`응답 제한시간: ${event.timeoutMs}ms`],
-              });
-              return;
-            }
-            if (event.stage === "attempt-succeeded") {
-              await recordProgress({
-                phase: "model",
-                status: "completed",
-                title: `${event.model} 응답을 정상 수신했습니다`,
-                summary: `${event.durationMs}ms 소요 · HTTP ${event.status ?? "상태 미상"}`,
-                details: [`모델 연결 ${event.attempt}차 시도에서 성공`],
-              });
-              return;
-            }
-            if (event.stage === "attempt-failed") {
-              await recordProgress({
-                phase: "model",
-                status: event.retryable ? "warning" : "error",
-                title: `${event.model} 응답 시도가 실패했습니다`,
-                summary: `${event.durationMs}ms 소요 · ${event.error || "알 수 없는 오류"}`,
-                details: [
-                  `HTTP 상태: ${event.status ?? "없음"}`,
-                  `재시도 가능: ${event.retryable ? "예" : "아니오"}`,
-                  `서버 권장 대기: ${event.retryAfterMs || 0}ms`,
-                ],
-              });
-              return;
-            }
-            if (event.stage === "time-budget-exhausted") {
-              await recordProgress({
-                phase: "model",
-                status: "warning",
-                title: "이번 모델 폴백의 시간 예산을 모두 사용했습니다",
-                summary: `${event.elapsedMs}ms 경과 후 다음 배치 재시도를 위해 중단합니다.`,
-                details: [`마지막 대상 모델: ${event.model}`, `시도 번호: ${event.attempt}`],
-              });
-            }
+        const generationProviders = promptContext.generationAttempt > 1 && openAiFallbackProvider
+          ? [openAiFallbackProvider]
+          : providers;
+        const { value: response, meta } = await requestTextbookJsonWithFallback({
+          providers: generationProviders.map((provider) => ({ ...provider, enableThinking: false })),
+          requestOptions: (currentProvider) => {
+            const isNvidia = currentProvider.kind === "nvidia";
+            return {
+              messages: [
+                { role: "system", content: prompt.system },
+                { role: "user", content: prompt.user },
+              ],
+              maxTokens: 9_000,
+              temperature: 0.32,
+              timeoutMs: isNvidia ? 18_000 : 25_000,
+              maxElapsedMs: isNvidia ? 58_000 : 58_000,
+              retryDelaysMs: isNvidia ? [0] : [0, 1_200],
+              retryStrategy: "round-robin",
+              onProgress: async (event) => {
+                if (event.stage === "retry-wait") {
+                  await recordProgress({
+                    phase: "model",
+                    status: "running",
+                    title: `서버에서 ${questionSequence}번 문항 생성 중`,
+                    summary: "응답 지연을 확인하고 자동으로 다시 연결하고 있습니다.",
+                    details: [],
+                  });
+                  return;
+                }
+                if (event.stage === "attempt-started") {
+                  await recordProgress({
+                    phase: "model",
+                    status: "running",
+                    title: `서버에서 ${questionSequence}번 문항 생성 중`,
+                    summary: "생성 서버의 응답을 기다리고 있습니다.",
+                    details: [],
+                  });
+                  return;
+                }
+                if (event.stage === "attempt-succeeded") {
+                  await recordProgress({
+                    phase: "model",
+                    status: "completed",
+                    title: `${questionSequence}번 문항 응답을 확인했습니다`,
+                    summary: "응답 형식과 품질 규칙을 검사하고 있습니다.",
+                    details: [],
+                  });
+                  return;
+                }
+                if (event.stage === "attempt-failed") {
+                  await recordProgress({
+                    phase: "model",
+                    status: "running",
+                    title: `서버에서 ${questionSequence}번 문항 생성 중`,
+                    summary: "응답이 지연되어 다음 생성 경로로 자동 전환하고 있습니다.",
+                    details: [],
+                  });
+                  return;
+                }
+                if (event.stage === "time-budget-exhausted") {
+                  await recordProgress({
+                    phase: "model",
+                    status: "running",
+                    title: `서버에서 ${questionSequence}번 문항 생성 중`,
+                    summary: "현재 생성 경로의 제한시간이 지나 백업 경로를 확인하고 있습니다.",
+                    details: [],
+                  });
+                }
+              },
+            };
+          },
+          onProviderFailed: async () => {
+            await recordProgress({
+              phase: "model",
+              status: "running",
+              title: `서버에서 ${questionSequence}번 문항 생성 중`,
+              summary: "기본 생성 경로가 응답하지 않아 백업 생성 서버로 전환했습니다.",
+              details: [],
+            });
           },
         });
-        const meta = textbookAiResponseMeta(response);
         if (meta?.model) modelsUsed.push(meta.model);
         if (Array.isArray(meta?.attempts)) providerAttempts.push(...meta.attempts);
+        if (meta?.kind) providerKindsUsed.push(meta.kind);
         return response;
       },
     });
   } catch (error) {
     const failedAttempts = Array.isArray(error?.providerAttempts) ? error.providerAttempts : [];
-    providerAttempts.push(...failedAttempts);
+    if (providerAttempts.length === 0) providerAttempts.push(...failedAttempts);
     const lastAttempt = providerAttempts.at(-1);
     await recordProgress({
       phase: "model",
       status: "error",
-      title: "이번 배치의 AI 모델 호출이 중단되었습니다",
-      summary: error instanceof Error ? error.message : "모델 응답을 완료하지 못했습니다.",
-      details: providerAttempts.slice(-12).map((attempt) => (
-        `${attempt.model} · ${attempt.attempt}차 · ${attempt.durationMs}ms · HTTP ${attempt.status ?? "없음"} · ${attempt.error || "응답 수신"}`
-      )),
+      title: `${existingQuestions.length + 1}번 문항의 생성 서버 응답을 완료하지 못했습니다`,
+      summary: "자동 복구 경로를 모두 확인했습니다. 같은 문항부터 다시 시도할 수 있습니다.",
+      details: [`서버 연결 시도: ${providerAttempts.length}회`],
     });
     await owned.ref.update({
       ...stripUndefined({
-        model: lastAttempt?.model || provider.model,
-        provider: provider.kind,
+        model: lastAttempt?.model || primaryProvider.model,
+        provider: primaryProvider.kind,
         lastProviderAttempts: providerAttempts.slice(-24),
-        warning: "AI 모델 연결이 일시적으로 중단되었습니다. 세 모델을 순차 확인한 뒤 이어서 시도할 수 있습니다.",
+        warning: "생성 서버 연결이 일시적으로 중단되었습니다. 기본 서버와 백업 서버를 모두 확인했으며 같은 문항부터 다시 시도할 수 있습니다.",
       }),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -869,6 +882,8 @@ async function generateJobBatch(authUser, body) {
   const acceptedCount = existingQuestions.length + accepted.length;
   const generatedQuestionCount = (Number(data.generatedQuestionCount) || 0) + accepted.length;
   const rejectedQuestionCount = (Number(data.rejectedCount) || 0) + result.rejected.length;
+  const modelUsed = modelsUsed.at(-1) || primaryProvider.model;
+  const providerKindUsed = providerKindsUsed.at(-1) || primaryProvider.kind;
   const consecutiveFailedBatches = accepted.length ? 0 : (Number(data.consecutiveFailedBatches) || 0) + 1;
   const completed = acceptedCount >= request.targetQuestionCount;
   const failed = !completed && consecutiveFailedBatches >= 3;
@@ -880,7 +895,7 @@ async function generateJobBatch(authUser, body) {
     details: [
       ...accepted.map((question, index) => `저장 예정 ${existingQuestions.length + index + 1}번 · ${question.questionType} · ${question.id}`),
       `거부 기록: ${result.rejected.length}건`,
-      `모델 시도 기록: ${providerAttempts.length}건`,
+      `서버 시도 기록: ${providerAttempts.length}건`,
       `사용 원문 ID: ${sources.map((source) => source.id).join(", ")}`,
       `수능 reference ID: ${references.map((reference) => reference.id).join(", ")}`,
     ],
@@ -904,7 +919,7 @@ async function generateJobBatch(authUser, body) {
       missingAssignments: result.missingAssignments,
       modelCallCount: result.modelCallCount,
       retryCount: result.retryCount,
-      model: modelsUsed.at(-1) || provider.model,
+      model: modelUsed,
       modelsUsed: [...new Set(modelsUsed)],
       providerAttempts: providerAttempts.slice(-30),
       sourceIds: sources.map((source) => source.id),
@@ -923,8 +938,8 @@ async function generateJobBatch(authUser, body) {
       batchCount: batchNumber,
       consecutiveFailedBatches,
       sourceUsage,
-      model: modelsUsed.at(-1) || provider.model,
-      provider: provider.kind,
+      model: modelUsed,
+      provider: providerKindUsed,
       warning: failed
         ? "일부 문제 생성 과정에서 오류가 발생했습니다. 현재까지 생성된 문제를 확인하거나 다시 시도할 수 있습니다."
         : null,
@@ -947,8 +962,8 @@ async function generateJobBatch(authUser, body) {
       saveGeneratedQuestionToProblemBank({
         question,
         request,
-        provider: provider.kind,
-        model: modelsUsed.at(-1) || provider.model,
+        provider: providerKindUsed,
+        model: modelUsed,
         generationVersion: GENERATION_VERSION,
       })
     )));
@@ -1024,11 +1039,11 @@ async function generateJobBatch(authUser, body) {
       ? `${acceptedCount}문항의 최종 문제 세트가 준비됐습니다.`
       : `통과 ${accepted.length}개 · 누적 ${acceptedCount}/${request.targetQuestionCount}문항`,
     details: [
-      `누적 모델 생성 호출: ${(Number(data.modelCallCount) || 0) + result.modelCallCount}회`,
+      `누적 서버 생성 호출: ${(Number(data.modelCallCount) || 0) + result.modelCallCount}회`,
       `누적 품질 거부: ${rejectedQuestionCount}문항`,
       `전역 문제은행 재사용: ${Number(data.reusedQuestionCount) || 0}문항`,
       `전역 문제은행 신규 저장: ${(Number(data.problemBankSavedCount) || 0) + savedToProblemBank}문항`,
-      `이번 배치 모델: ${modelsUsed.at(-1) || provider.model}`,
+      `이번 문항 생성 서버 경로: ${providerKindUsed === "openai" ? "백업" : "기본"}`,
       `연속 빈 배치: ${consecutiveFailedBatches}회`,
     ],
   });
@@ -1043,9 +1058,6 @@ async function generateJobBatch(authUser, body) {
       modelCallCount: result.modelCallCount,
       retryCount: result.retryCount,
       exhausted: result.exhausted,
-      model: modelsUsed.at(-1) || provider.model,
-      modelsUsed: [...new Set(modelsUsed)],
-      providerAttempts: providerAttempts.slice(-30),
     },
   };
 }
@@ -1131,11 +1143,11 @@ export default async function handler(req, res) {
       return;
     }
     if (message.startsWith("ai-provider-not-configured")) {
-      res.status(503).json({ error: "비용 없는 NVIDIA 생성 모델이 연결되지 않았습니다. 서버 API 설정을 확인해주세요." });
+      res.status(503).json({ error: "기본 생성 서버와 백업 생성 서버의 API 설정을 확인해주세요." });
       return;
     }
     const userMessage = message.startsWith("ai-provider-")
-      ? "세 개의 AI 생성 모델을 순차 확인했지만 응답을 완료하지 못했습니다. 저장된 문제 다음 배치부터 다시 시도해주세요."
+      ? "기본 생성 서버와 백업 생성 서버를 모두 확인했지만 응답을 완료하지 못했습니다. 저장된 문제 다음 문항부터 자동으로 다시 시도할 수 있습니다."
       : "문제 생성 배치를 처리하지 못했습니다. 잠시 후 다시 시도해주세요.";
     res.status(message.startsWith("ai-provider-") ? 503 : 500).json({ error: userMessage });
   }

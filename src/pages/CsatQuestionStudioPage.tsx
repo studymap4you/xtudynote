@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Download,
   FileText,
-  Info,
   LoaderCircle,
   PanelLeft,
   Paperclip,
@@ -53,6 +52,8 @@ type AttachedSource = {
 
 const ACTIVE_JOB_STORAGE_KEY = "xtudy-csat-question-job-v1";
 const MAX_SOURCE_LENGTH = 120_000;
+const MAX_BATCH_REQUEST_RETRIES = 4;
+const BATCH_RETRY_DELAYS_MS = [2_000, 4_000, 7_000, 10_000];
 
 function canExtractText(file: File): boolean {
   return /\.(txt|md|csv|tsv|json|html?|pdf|docx|xlsx?)$/iu.test(file.name)
@@ -107,37 +108,6 @@ function typeLabel(value: string): string {
   return labels[value] || value;
 }
 
-function eventTimeLabel(value: string): string {
-  const time = Date.parse(value);
-  if (!Number.isFinite(time) || time === 0) return "--:--:--";
-  return new Intl.DateTimeFormat("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(time);
-}
-
-function phaseLabel(value: string): string {
-  const labels: Record<string, string> = {
-    request: "REQUEST",
-    database: "DATABASE",
-    plan: "PLAN",
-    batch: "BATCH",
-    source: "SOURCE",
-    "question-bank": "QUESTION BANK",
-    rules: "RULES",
-    prompt: "PROMPT",
-    model: "MODEL",
-    generation: "GENERATION",
-    validation: "VALIDATION",
-    storage: "STORAGE",
-    complete: "COMPLETE",
-    failed: "FAILED",
-  };
-  return labels[value] || value.toUpperCase();
-}
-
 function mergeProgressEvents(current: CsatProgressEvent[], incoming: CsatProgressEvent[]): CsatProgressEvent[] {
   const byId = new Map(current.map((event) => [event.id, event]));
   incoming.forEach((event) => byId.set(event.id, event));
@@ -146,15 +116,6 @@ function mergeProgressEvents(current: CsatProgressEvent[], incoming: CsatProgres
 
 function latestProgressSequence(events: CsatProgressEvent[]): number {
   return events.reduce((latest, event) => Math.max(latest, event.sequence), 0);
-}
-
-function ProgressStatusIcon({ event, active }: { event: CsatProgressEvent; active: boolean }) {
-  if (event.status === "running" && active) return <LoaderCircle className={styles.spinner} size={15} aria-hidden="true" />;
-  if (event.status === "running") return <Info size={15} aria-hidden="true" />;
-  if (event.status === "completed") return <Check size={15} aria-hidden="true" />;
-  if (event.status === "warning") return <AlertTriangle size={15} aria-hidden="true" />;
-  if (event.status === "error") return <X size={15} aria-hidden="true" />;
-  return <Info size={15} aria-hidden="true" />;
 }
 
 function ConceptAssemblyNotice({
@@ -246,7 +207,6 @@ export function CsatQuestionStudioPage() {
   const [conceptError, setConceptError] = useState<string | null>(null);
   const pauseRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const progressLogRef = useRef<HTMLDivElement | null>(null);
   const progressCursorRef = useRef(0);
   const conceptRequestRef = useRef(0);
   const conceptCacheRef = useRef(new Map<string, ConceptAssemblyResult>());
@@ -295,12 +255,6 @@ export function CsatQuestionStudioPage() {
     }
     progressCursorRef.current = Math.max(job.progressSequence || 0, latestProgressSequence(job.progressEvents || []));
   }, [job?.id]);
-
-  useEffect(() => {
-    const log = progressLogRef.current;
-    if (!log || !job?.progressEvents.length || generationComplete) return;
-    log.scrollTop = log.scrollHeight;
-  }, [generationComplete, job?.progressEvents.length]);
 
   const refreshHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -423,16 +377,32 @@ export function CsatQuestionStudioPage() {
     setError(null);
     setPreviewOpen(false);
     let working = initialJob;
+    let consecutiveRequestFailures = 0;
     try {
       while (working.acceptedCount < working.targetQuestionCount && !pauseRef.current) {
-        setStatusText(`다음 2문항 배치를 준비하고 있습니다 · ${working.acceptedCount}/${working.targetQuestionCount}`);
-        const stopPolling = beginProgressPolling(working.id);
-        let response;
+        const questionSequence = working.acceptedCount + 1;
+        setStatusText(`서버에서 ${questionSequence}번 문항 생성 중`);
+        let response: Awaited<ReturnType<typeof generateNextCsatQuestionBatch>>;
         try {
-          response = await generateNextCsatQuestionBatch(working.id);
-        } finally {
-          await stopPolling();
+          const stopPolling = beginProgressPolling(working.id);
+          try {
+            response = await generateNextCsatQuestionBatch(working.id);
+          } finally {
+            await stopPolling();
+          }
+        } catch (caught) {
+          const message = caught instanceof Error ? caught.message : "생성 서버 요청에 실패했습니다.";
+          const retryable = !/로그인|API 설정|원문소스|문제은행 DB/iu.test(message);
+          if (retryable && consecutiveRequestFailures < MAX_BATCH_REQUEST_RETRIES && !pauseRef.current) {
+            const delayMs = BATCH_RETRY_DELAYS_MS[consecutiveRequestFailures] || 10_000;
+            consecutiveRequestFailures += 1;
+            setStatusText(`서버에서 ${questionSequence}번 문항 생성 중`);
+            await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+            continue;
+          }
+          throw caught;
         }
+        consecutiveRequestFailures = 0;
         working = response.job;
         progressCursorRef.current = Math.max(
           working.progressSequence || 0,
@@ -440,11 +410,9 @@ export function CsatQuestionStudioPage() {
         );
         setJob(working);
         window.localStorage.setItem(ACTIVE_JOB_STORAGE_KEY, working.id);
-        setStatusText(
-          response.batch.accepted > 0
-            ? `문제 검수 완료 ${working.acceptedCount}/${working.targetQuestionCount} · 이번 배치 ${response.batch.accepted}문항 통과`
-            : `이번 배치가 품질 기준을 통과하지 못했습니다 · 누적 ${working.acceptedCount}/${working.targetQuestionCount}`,
-        );
+        setStatusText(working.status === "completed"
+          ? `문제 검수 완료 ${working.acceptedCount}/${working.targetQuestionCount}`
+          : `서버에서 ${working.acceptedCount + 1}번 문항 생성 중`);
         void refreshHistory();
         if (working.status === "completed" || working.status === "failed") break;
         await new Promise((resolve) => window.setTimeout(resolve, 250));
@@ -683,34 +651,14 @@ export function CsatQuestionStudioPage() {
                   <div className={styles.jobHeadline}>
                     {running ? <LoaderCircle className={styles.spinner} size={19} /> : <Check size={19} />}
                     <div>
-                      <strong>{job.latestProgress?.title || statusText}</strong>
-                      <span>{job.latestProgress?.summary || "서버의 다음 진행 이벤트를 기다리고 있습니다."}</span>
+                      <strong>{statusText}</strong>
+                      <span>{job.latestProgress?.phase === "model"
+                        ? "생성 서버의 응답을 확인하고 있습니다."
+                        : job.latestProgress?.summary || "서버의 다음 진행 상태를 기다리고 있습니다."}</span>
                     </div>
                     <b>{job.acceptedCount}/{job.targetQuestionCount}</b>
                   </div>
                   <div className={styles.progressTrack} aria-label={`문제 생성 진행률 ${progress}%`}><span style={{ width: `${progress}%` }} /></div>
-                  <div ref={progressLogRef} className={styles.progressTimeline} role="log" aria-label="교재 생성 전체 진행 기록" aria-live="polite" aria-relevant="additions">
-                    {job.progressEvents.length ? job.progressEvents.map((event) => (
-                      <article key={event.id} className={styles.progressEvent} data-status={event.status}>
-                        <div className={styles.progressEventMarker}>
-                          <ProgressStatusIcon event={event} active={running && event.id === job.latestProgress?.id} />
-                        </div>
-                        <div className={styles.progressEventBody}>
-                          <header>
-                            <span>{phaseLabel(event.phase)}{event.batchNumber ? ` · BATCH ${event.batchNumber}` : ""}</span>
-                            <time dateTime={event.createdAt}>{eventTimeLabel(event.createdAt)}</time>
-                          </header>
-                          <strong>{event.title}</strong>
-                          {event.summary ? <p>{event.summary}</p> : null}
-                          {event.details.length ? (
-                            <ul>{event.details.map((detail, index) => <li key={`${event.id}-${index}`}>{detail}</li>)}</ul>
-                          ) : null}
-                        </div>
-                      </article>
-                    )) : (
-                      <div className={styles.progressEmpty}><LoaderCircle className={styles.spinner} size={16} /> 진행 기록을 불러오고 있습니다.</div>
-                    )}
-                  </div>
                   <div className={styles.jobActions}>
                     {running ? (
                       <button type="button" onClick={() => { pauseRef.current = true; setStatusText("현재 배치 검수 후 일시정지합니다."); }}><Pause size={16} /> 일시정지</button>

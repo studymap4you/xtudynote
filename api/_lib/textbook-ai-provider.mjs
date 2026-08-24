@@ -117,6 +117,39 @@ export function resolveTextbookAiProvider(env = process.env, modelScope = "acade
   };
 }
 
+export function resolveTextbookAiProviderChain(
+  env = process.env,
+  modelScope = "academy",
+  { includeOpenAiFallback = false } = {},
+) {
+  const requested = String(env.TEXTBOOK_AI_PROVIDER || "nvidia").trim().toLowerCase();
+  if (!["nvidia", "auto", "openai"].includes(requested)) {
+    return [resolveTextbookAiProvider(env, modelScope)];
+  }
+
+  const nvidiaProvider = resolveTextbookAiProvider(
+    { ...env, TEXTBOOK_AI_PROVIDER: "nvidia" },
+    modelScope,
+  );
+  const openAiProvider = resolveTextbookAiProvider(
+    {
+      ...env,
+      TEXTBOOK_AI_PROVIDER: "openai",
+      TEXTBOOK_ALLOW_PAID_OPENAI: includeOpenAiFallback
+        ? "true"
+        : env.TEXTBOOK_ALLOW_PAID_OPENAI,
+    },
+    modelScope,
+  );
+  const providers = [];
+
+  if (requested !== "openai" && nvidiaProvider.kind !== "mock") providers.push(nvidiaProvider);
+  if ((requested === "openai" || requested === "auto" || includeOpenAiFallback) && openAiProvider.kind !== "mock") {
+    providers.push(openAiProvider);
+  }
+  return providers.length ? providers : [resolveTextbookAiProvider(env, modelScope)];
+}
+
 export function extractJsonObject(text) {
   const trimmed = String(text ?? "")
     .trim()
@@ -448,4 +481,64 @@ export async function requestTextbookJson({
     value: attempts,
   });
   throw error;
+}
+
+export async function requestTextbookJsonWithFallback({
+  providers,
+  requestOptions,
+  onProviderFailed,
+}) {
+  const configuredProviders = Array.isArray(providers)
+    ? providers.filter((provider) => provider && provider.kind !== "mock")
+    : [];
+  if (configuredProviders.length === 0) throw new Error("ai-provider-not-configured");
+
+  const attempts = [];
+  let lastError;
+  for (let providerIndex = 0; providerIndex < configuredProviders.length; providerIndex += 1) {
+    const provider = configuredProviders[providerIndex];
+    const options = typeof requestOptions === "function"
+      ? requestOptions(provider, providerIndex)
+      : requestOptions || {};
+    try {
+      const value = await requestTextbookJson({ ...options, provider });
+      const responseMeta = textbookAiResponseMeta(value) || {};
+      const providerAttempts = Array.isArray(responseMeta.attempts) ? responseMeta.attempts : [];
+      attempts.push(...providerAttempts);
+      return {
+        value,
+        meta: {
+          kind: provider.kind,
+          model: responseMeta.model || provider.model,
+          attempts,
+        },
+      };
+    } catch (error) {
+      lastError = error;
+      const providerAttempts = Array.isArray(error?.providerAttempts) ? error.providerAttempts : [];
+      attempts.push(...providerAttempts);
+      if (typeof onProviderFailed === "function" && providerIndex < configuredProviders.length - 1) {
+        try {
+          await onProviderFailed({ provider, providerIndex, error, attempts: [...attempts] });
+        } catch (progressError) {
+          console.warn(
+            "[textbook-ai] fallback progress callback failed",
+            progressError instanceof Error ? progressError.message : progressError,
+          );
+        }
+      }
+    }
+  }
+
+  const failure = new Error(
+    lastError instanceof Error
+      ? lastError.message
+      : "ai-provider-request-failed:all-providers:unknown",
+  );
+  Object.defineProperty(failure, "providerAttempts", {
+    configurable: false,
+    enumerable: false,
+    value: attempts,
+  });
+  throw failure;
 }

@@ -142,7 +142,7 @@ test("규칙 JSON과 5개년 문제은행 reference를 유형별로 순환한다
   assert.deepEqual(rotated.map((item) => item.year), [2023, 2022, 2026]);
 });
 
-test("TEST A: 고3 수능 영어 40문항을 2문항 이하 배치로 완성한다", async () => {
+test("TEST A: 고3 수능 영어 40문항을 1문항 배치로 완성한다", async () => {
   const request = parseUserRequest("고3 수능 영어 문제 40개 만들어줘.");
   const rules = loadQuestionRules();
   const { sourceProvider, referenceProvider } = providers();
@@ -156,7 +156,7 @@ test("TEST A: 고3 수능 영어 40문항을 2문항 이하 배치로 완성한�
     idFactory: deterministicIdFactory(),
     generateBatch: async ({ assignments, references, request: batchRequest }) => {
       modelCalls += 1;
-      assert.ok(assignments.length >= 1 && assignments.length <= 2);
+      assert.equal(assignments.length, 1);
       return { questions: assignments.map((assignment) => mockQuestion(
         assignment,
         rules,
@@ -168,14 +168,14 @@ test("TEST A: 고3 수능 영어 40문항을 2문항 이하 배치로 완성한�
   });
   assert.equal(result.completed, true);
   assert.equal(result.questions.length, 40);
-  assert.equal(result.batchCount, 20);
-  assert.equal(result.modelCallCount, 20);
-  assert.equal(modelCalls, 20);
+  assert.equal(result.batchCount, 40);
+  assert.equal(result.modelCallCount, 40);
+  assert.equal(modelCalls, 40);
   assert.equal(result.questions.some((question) => /보강|placeholder|filler/iu.test(question.stem)), false);
   assert.ok(new Set(result.questions.map((question) => question.sourceId)).size >= 20);
 });
 
-test("홀수 문항 요청은 2문항씩 생성하고 마지막 1문항만 별도 처리한다", async () => {
+test("모든 요청은 1문항씩 생성하고 저장한다", async () => {
   const request = parseUserRequest("고3 수능 영어 문제 7개 만들어줘.");
   const rules = loadQuestionRules();
   const { sourceProvider, referenceProvider } = providers();
@@ -202,8 +202,8 @@ test("홀수 문항 요청은 2문항씩 생성하고 마지막 1문항만 별�
   });
   assert.equal(result.completed, true);
   assert.equal(result.questions.length, 7);
-  assert.equal(result.batchCount, 4);
-  assert.deepEqual(assignmentSizes, [2, 2, 2, 1]);
+  assert.equal(result.batchCount, 7);
+  assert.deepEqual(assignmentSizes, [1, 1, 1, 1, 1, 1, 1]);
   assert.ok(progressStages.includes("assignments-prepared"));
   assert.ok(progressStages.includes("generation-attempt-started"));
   assert.ok(progressStages.includes("model-response-parsed"));
@@ -235,8 +235,8 @@ test("TEST B: 상위권 50문항은 빈칸·순서·삽입 유형만 우선한�
   const expectedTypes = new Set(["BLANK_SHORT", "BLANK_LONG", "PARAGRAPH_ORDER", "SENTENCE_INSERTION"]);
   assert.equal(result.completed, true);
   assert.equal(result.questions.length, 50);
-  assert.equal(result.batchCount, 25);
-  assert.equal(result.modelCallCount, 25);
+  assert.equal(result.batchCount, 50);
+  assert.equal(result.modelCallCount, 50);
   assert.ok(result.questions.every((question) => expectedTypes.has(question.questionType)));
   assert.ok(result.questions.every((question) => question.difficulty === "high"));
 });
@@ -255,7 +255,7 @@ test("TEST C: 요지 문항의 거부 후보는 저장하지 않고 실제 재�
     idFactory: deterministicIdFactory(),
     generateBatch: async ({ assignments, generationAttempt, references, request: batchRequest }) => {
       call += 1;
-      assert.ok(assignments.length >= 1 && assignments.length <= 2);
+      assert.equal(assignments.length, 1);
       return {
         questions: assignments.map((assignment, index) => mockQuestion(
           assignment,

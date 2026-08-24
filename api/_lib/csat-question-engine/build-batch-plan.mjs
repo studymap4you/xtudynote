@@ -1,5 +1,5 @@
 export const QUESTION_BATCH_MIN = 1;
-export const QUESTION_BATCH_MAX = 2;
+export const QUESTION_BATCH_MAX = 1;
 export const MAX_BATCH_RETRY = 3;
 
 const DEFAULT_CSAT_TYPE_DISTRIBUTION = Object.freeze([

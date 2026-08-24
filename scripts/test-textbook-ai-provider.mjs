@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   requestTextbookJson,
+  requestTextbookJsonWithFallback,
   resolveTextbookAiProvider,
+  resolveTextbookAiProviderChain,
   textbookAiResponseMeta,
 } from "../api/_lib/textbook-ai-provider.mjs";
 
@@ -29,6 +31,56 @@ test("question provider includes all three fallback models", () => {
     "meta/muse-glimmer-30b",
     "google/diffusiongemma-26b-a4b-it",
   ]);
+});
+
+test("question provider chain falls back from NVIDIA to OpenAI when explicitly enabled", () => {
+  const providers = resolveTextbookAiProviderChain({
+    NVIDIA_API_KEY: "nvidia-test-key",
+    OPENAI_API_KEY: "openai-test-key",
+  }, "questions", { includeOpenAiFallback: true });
+  assert.deepEqual(providers.map((provider) => provider.kind), ["nvidia", "openai"]);
+  assert.equal(providers[1].model, "gpt-4o-mini");
+});
+
+test("question provider chain keeps NVIDIA-only operation when no OpenAI key exists", () => {
+  const providers = resolveTextbookAiProviderChain({
+    NVIDIA_API_KEY: "nvidia-test-key",
+  }, "questions", { includeOpenAiFallback: true });
+  assert.deepEqual(providers.map((provider) => provider.kind), ["nvidia"]);
+});
+
+test("all NVIDIA question models failing causes an actual OpenAI fallback request", async () => {
+  const requestedModels = [];
+  globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    requestedModels.push(body.model);
+    if (body.model !== "gpt-4o-mini") return new Response("busy", { status: 503 });
+    return Response.json({ choices: [{ message: { content: '{"ok":true}' } }] });
+  };
+
+  const providers = resolveTextbookAiProviderChain({
+    NVIDIA_API_KEY: "nvidia-test-key",
+    OPENAI_API_KEY: "openai-test-key",
+  }, "questions", { includeOpenAiFallback: true });
+  const result = await requestTextbookJsonWithFallback({
+    providers,
+    requestOptions: {
+      messages: [{ role: "user", content: "return json" }],
+      retryDelaysMs: [0],
+      retryStrategy: "round-robin",
+    },
+  });
+
+  assert.deepEqual(requestedModels, [
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "meta/muse-glimmer-30b",
+    "google/diffusiongemma-26b-a4b-it",
+    "gpt-4o-mini",
+  ]);
+  assert.equal(result.value.ok, true);
+  assert.equal(result.meta.kind, "openai");
+  assert.equal(result.meta.model, "gpt-4o-mini");
+  assert.equal(JSON.stringify(result).includes("openai-test-key"), false);
 });
 
 test("question provider can use isolated keys without a shared NVIDIA key", async () => {

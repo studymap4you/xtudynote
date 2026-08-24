@@ -214,6 +214,6 @@ test("TEST 8: 6개 Template 변경은 같은 Concept/Question 데이터를 사�
   assert.equal(JSON.stringify({ section, questions }), original);
 });
 
-test("Question Engine의 2문항 배치 상한은 그대로 유지된다", () => {
-  assert.equal(QUESTION_BATCH_MAX, 2);
+test("Question Engine은 안정성을 위해 1문항씩 생성한다", () => {
+  assert.equal(QUESTION_BATCH_MAX, 1);
 });
