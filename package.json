@@ -18,7 +18,9 @@
     "test:csat-question-engine": "node --test scripts/test-csat-question-engine.mjs",
     "test:concept-assembly": "node --experimental-strip-types --test scripts/test-concept-assembly.mjs",
     "test:csat-models-live": "node scripts/smoke-test-nvidia-csat-models.mjs",
-    "test:csat-render-engine": "node --experimental-strip-types --test scripts/test-csat-render-engine.mjs"
+    "test:csat-render-engine": "node --experimental-strip-types --test scripts/test-csat-render-engine.mjs",
+    "collect:exams": ".venv-exam-collector/bin/python workers/exam-collector/xuniverse_ebsi_collector.py --from-queue",
+    "test:exam-collector": ".venv-exam-collector/bin/python -m unittest workers/exam-collector/test_collector.py"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",

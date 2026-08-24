@@ -95,6 +95,10 @@ export function SuperAdminDashboard() {
               <span className="ui-en">Knowledge curation</span>
               <span className="ui-ko">지식 큐레이션</span>
             </Link>
+            <Link to="/admin/problem-bank/exam-collector" className="btn btn--stack">
+              <span className="ui-en">Problem bank exam ingestion</span>
+              <span className="ui-ko">문제은행 · 모의고사 수집</span>
+            </Link>
             <p className="super-admin-actions__group-label ui-ko">스토어 · 기타</p>
             <Link to="/admin/materials" className="btn btn--ghost btn--stack super-admin-actions__materials-hub">
               <span className="ui-en">Materials hub (overview)</span>

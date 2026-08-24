@@ -302,5 +302,10 @@ service firebase.storage {
 
       allow delete: if isActiveSuperAdmin();
     }
+
+    /** 문제은행 원본 시험 파일 — Admin SDK ingestion worker 전용 */
+    match /exam-files/{allPaths=**} {
+      allow read, write: if false;
+    }
   }
 }

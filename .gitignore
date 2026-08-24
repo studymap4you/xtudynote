@@ -8,3 +8,6 @@ functions/node_modules
 .vercel
 .env*.local
 firebase-debug*.log
+.venv-exam-collector/
+workers/exam-collector/__pycache__/
+workers/exam-collector/*.pyc

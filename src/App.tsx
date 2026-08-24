@@ -11,6 +11,7 @@ import { PendingMaterialReviewsPage } from "@/pages/admin/PendingMaterialReviews
 import { KnowledgeCurationPage } from "@/pages/admin/KnowledgeCurationPage";
 import { AdminClassroomsPage } from "@/pages/admin/AdminClassroomsPage";
 import { AdminMaterialsHubPage } from "@/pages/admin/AdminMaterialsHubPage";
+import { ExamCollectorPage } from "@/pages/admin/ExamCollectorPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { LibraryThemesPage } from "@/pages/LibraryThemesPage";
 import { LogicDashboardPage } from "@/pages/LogicDashboardPage";
@@ -216,6 +217,14 @@ export default function App() {
         element={
           <SuperAdminRoute>
             <AdminMaterialsHubPage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/problem-bank/exam-collector"
+        element={
+          <SuperAdminRoute>
+            <ExamCollectorPage />
           </SuperAdminRoute>
         }
       />

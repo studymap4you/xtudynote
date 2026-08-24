@@ -14,6 +14,9 @@
     },
     "api/csat-question-engine.mjs": {
       "maxDuration": 300
+    },
+    "api/admin-exam-collector.mjs": {
+      "maxDuration": 30
     }
   },
   "headers": [

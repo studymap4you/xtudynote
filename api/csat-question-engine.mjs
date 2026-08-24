@@ -358,8 +358,8 @@ async function createJob(authUser, body) {
       title: "전역 문제은행 연결 설정을 기다리고 있습니다",
       summary: "기존 문제 생성 로직으로 계속 진행합니다.",
       details: [
-        "PROBLEM_BANK_API_URL: 미설정",
-        "PROBLEM_BANK_SERVICE_TOKEN: 미설정 또는 비활성",
+        "연결 방식: xstudy-problem-bank Firestore 직접 연결",
+        "PROBLEM_BANK_SERVICE_ACCOUNT_JSON 또는 공용 서버 자격 증명: 미설정",
         "문제은행 연결 실패가 기존 생성 기능을 중단시키지 않습니다.",
       ],
     });

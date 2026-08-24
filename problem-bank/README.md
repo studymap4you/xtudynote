@@ -1,40 +1,41 @@
 # Xstudy Global Problem Bank
 
-Independent, server-only problem infrastructure for Xstudy Universe.
+Private problem and exam metadata infrastructure for Xstudy Universe. The project ID is fixed to `xstudy-problem-bank`.
 
-## Architecture
+## Runtime architecture
 
 ```text
 Xstudy frontend
-  -> Xstudy server
-    -> HTTPS + bearer service token
-      -> problemBankApi (xstudy-problem-bank, asia-northeast3)
-        -> Firestore Native Mode
+  -> Xstudy Vercel API (Firebase Admin SDK)
+    -> xstudy-problem-bank Firestore
+
+Admin collection screen
+  -> lightweight Vercel queue API
+    -> exam_collection_jobs
+      -> external ingestion worker
+        -> EBSi public archive
+        -> Xtudy Object Storage
+        -> exams metadata
 ```
 
-The runtime policy is:
+No separate Problem Bank HTTP Function is required. Browser clients never receive a problem-bank credential and cannot access the database directly.
+
+The question runtime policy remains:
 
 ```text
 Search -> Reuse -> Generate Missing -> Validate -> Save
 ```
 
-The existing `xtudynote` Firebase project is not a deployment target for this
-directory. `.firebaserc`, the deployment wrapper, and the predeploy guard all
-require the exact project ID `xstudy-problem-bank`.
+## Firestore schema
 
-## Firestore Schema
-
-Only these top-level collections are used:
-
-- `problems`: problem content, metadata, validation state, embedding, and usage count
+- `problems`: validated question content and search metadata
 - `sources`: normalized source records referenced by `sourceId`
-- `generation_runs`: reuse and generation metrics for one workbook request
+- `generation_runs`: workbook reuse and generation metrics
 - `duplicate_clusters`: canonical and duplicate question IDs
 - `usage_events`: idempotent workbook/question usage events
-
-Every entity stores its own permanent ID (`questionId`, `sourceId`,
-`generationRunId`, `clusterId`, or `eventId`). Firestore document IDs are
-internal hashes and are never returned as business identifiers.
+- `exams`: one mock exam per subject/grade/year/month
+- `exam_collection_jobs`: external worker queue and aggregate progress
+- `exam_collection_jobs/{jobId}/targets`: target-level ingestion results
 
 Problem states:
 
@@ -44,158 +45,57 @@ raw -> approved -> gold
   \-> duplicate
 ```
 
-Only `approved` and `gold` are eligible for normal search results.
+Only `approved` and `gold` problems are reused by the generation engine. Exam parsing is intentionally outside the current ingestion migration; new exams start with `parse_status: not_started`.
 
-## Search
+## Storage
 
-Search first applies metadata filters for subject, language, exam family,
-question type, and status. It then attempts a Firestore nearest-neighbor query
-and applies deterministic reranking for:
+Binary exam files are not stored in Firestore, GitHub, or the frontend `public/` directory. The worker reuses the private Xtudy Firebase Storage bucket:
 
-- semantic/vector similarity
-- exact question type match
-- difficulty distance
-- concept and skill overlap
-- quality score
-- usage diversity and recent-use penalty
-- duplicate-cluster diversity
-
-The initial zero-cost embedding implementation is a deterministic 256-dimension
-feature-hash vector. `EmbeddingProvider` and `ProblemSearchProvider` are
-interfaces, so a Vertex or another embedding/search provider can replace it
-without changing the generation engine. If the vector index is still building,
-search falls back to metadata filtering plus in-process cosine scoring.
-
-## API
-
-All endpoints require:
-
-```http
-Authorization: Bearer <PROBLEM_BANK_SERVICE_TOKEN>
-Content-Type: application/json
+```text
+gs://xtudynote.firebasestorage.app/exam-files/english/
+  grade1/2025/03/question.pdf
+  grade1/2025/03/answer.pdf
+  grade1/2025/03/script.pdf
 ```
 
-Endpoints:
+The extension follows the official file. Some EBSi answer keys are PNG files, while full explanations are normally PDF files. A full PDF explanation is preferred when both are available.
 
-- `POST /api/problems/search`
-- `POST /api/problems`
-- `GET /api/problems/:questionId`
-- `POST /api/problems/:questionId/usage`
-- `POST /api/generation-runs`
+## Server credentials
 
-Example search body:
+Vercel accepts either a dedicated credential or the existing server credential:
 
-```json
-{
-  "subject": "english",
-  "language": "en",
-  "examFamily": "csat",
-  "questionType": "blank",
-  "difficulty": 4,
-  "count": 10,
-  "sourceText": "Evidence-based reasoning in an unfamiliar passage",
-  "excludeQuestionIds": [],
-  "workbookId": "workbook-id"
-}
+```env
+PROBLEM_BANK_PROJECT_ID=xstudy-problem-bank
+PROBLEM_BANK_SERVICE_ACCOUNT_JSON={...}
 ```
 
-Search never fails merely because the bank is short. It returns
-`requestedCount`, `foundCount`, and `missingCount` so Xstudy generates only the
-missing portion.
+If `PROBLEM_BANK_SERVICE_ACCOUNT_JSON` is omitted, the server uses `FIREBASE_SERVICE_ACCOUNT_JSON`. That service account must have Firestore read/write IAM permission on `xstudy-problem-bank`. Never expose either value through a `VITE_` variable.
 
-`POST /api/problems` always persists a new problem as `raw` first. It then
-checks permanent-ID uniqueness, answer and explanation presence, structure,
-and content similarity before moving the record to `approved`, `rejected`, or
-`duplicate`.
+The ingestion worker supports the same JSON variables, `GOOGLE_APPLICATION_CREDENTIALS`, and a short-lived local Firebase CLI session. See [`workers/exam-collector/README.md`](../workers/exam-collector/README.md).
 
 ## Security
 
-- Firestore and Storage rules deny every client read and write.
-- Only the Admin SDK inside the API accesses the database.
-- Writes require the server-side bearer token.
-- The Cloud Function can be invoked over HTTPS, but its handler rejects every
-  request without the secret token.
-- Secrets, source text, full problem text, and personal data are not logged.
-- Service account JSON and `.env` files must never be committed.
-- Xstudy receives only `PROBLEM_BANK_API_URL` and
-  `PROBLEM_BANK_SERVICE_TOKEN` as server environment variables. Never create a
-  `VITE_` version of either variable.
-
-## Local Development
-
-Requirements: Node.js 20+, Firebase CLI, and a Firebase project named exactly
-`xstudy-problem-bank`.
-
-```bash
-cd problem-bank/functions
-npm install
-npm test
-
-cd ..
-firebase emulators:start --project xstudy-problem-bank
-```
-
-For emulator requests, put a local token in `functions/.env` using
-`functions/.env.example` as the field list. Do not commit that file.
+- Firestore rules deny all browser reads and writes.
+- Only Admin SDK server code and the external worker access Firestore.
+- The admin queue API verifies the Xtudy Firebase ID token and active `super_admin` role.
+- The Vercel endpoint never launches Playwright or downloads exam files.
+- Logs and API responses do not include credentials.
 
 ## Deployment
 
-The Firebase project must use the Blaze plan before Cloud Functions v2 and
-Secret Manager can be provisioned. Firestore itself can remain within its free
-quota, but Firebase requires billing to be linked before those two server
-services are enabled.
+Deploying a Cloud Function for this repository is unnecessary. Firestore rules and indexes remain deployable independently:
 
-1. Confirm `xstudy-problem-bank` exists and enable Firestore Native Mode in
-   `asia-northeast3`.
-2. Link a billing account and switch this project to Blaze in the Firebase
-   console. Do not change the `xtudynote` project.
-3. Set the API secret:
-
-   ```bash
-   firebase functions:secrets:set PROBLEM_BANK_SERVICE_TOKEN --project xstudy-problem-bank
-   ```
-
-4. From `problem-bank`, deploy only through the guarded command:
-
-   ```bash
-   PROBLEM_BANK_PROJECT_ID=xstudy-problem-bank npm run deploy
-   ```
-
-The command deploys only Functions and Firestore rules/indexes to the separate
-project. Vector index creation can continue in the background; the metadata
-fallback keeps search available during that period. `storage.rules` is ready
-for a future binary-assets bucket, but Storage is intentionally not required
-for the initial text problem bank.
-
-After deployment, configure the Xstudy server environment:
-
-```env
-PROBLEM_BANK_API_URL=https://<region-project-function-url>
-PROBLEM_BANK_SERVICE_TOKEN=<same-secret-value>
+```bash
+npx firebase-tools deploy --only firestore --project xstudy-problem-bank --config problem-bank/firebase.json
 ```
 
-When these values are absent, the current Xstudy generation flow remains
-unchanged and does not attempt a Problem Bank call.
+GitHub/Vercel deploys the Xtudy API and admin UI. Run the exam worker separately on a trusted machine or worker host.
 
 ## Tests
 
 ```bash
-cd problem-bank/functions
-npm test
+npm run test:csat-question-engine
+npm run test:exam-collector
 ```
 
-The suite verifies:
-
-- raw persistence before approval
-- missing-answer rejection
-- approved/gold-only search
-- permanent question ID uniqueness
-- duplicate clustering
-- 10 requested / 7 reused / 3 generated behavior
-
-## Migration Strategy
-
-`ProblemRepository`, `ProblemSearchProvider`, `EmbeddingProvider`, and
-`ValidationService` isolate storage and search details. A future migration to
-AlloyDB, Vertex AI Vector Search, or another backend keeps permanent entity IDs
-and does not require the Xstudy generation engine to depend on Firestore.
+The independent Function implementation remains in `problem-bank/functions` as a tested reference and rollback path, but it is not required by the selected direct-Firestore runtime.

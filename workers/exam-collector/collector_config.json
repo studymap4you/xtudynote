@@ -1,0 +1,10 @@
+{
+  "source": "EBSi official previous-exam archive",
+  "subject": "english",
+  "grades": [1, 2, 3],
+  "months": [3, 6, 9, 10],
+  "minimum_year": 2006,
+  "problem_bank_project_id": "xstudy-problem-bank",
+  "storage_bucket": "xtudynote.firebasestorage.app",
+  "storage_prefix": "exam-files/english"
+}

@@ -27,6 +27,12 @@ const MATERIAL_LINKS = [
     titleEn: "Knowledge curation",
     desc: "검색·저장·학습자료",
   },
+  {
+    to: "/admin/problem-bank/exam-collector",
+    titleKo: "문제은행 · 모의고사 수집",
+    titleEn: "Exam ingestion",
+    desc: "EBSi 영어 기출 수집 현황",
+  },
 ] as const;
 
 export function AdminMaterialsHubPage() {
@@ -37,7 +43,7 @@ export function AdminMaterialsHubPage() {
         <header className="admin-materials-hub__hero">
           <h1 className="admin-materials-hub__h1">전체 자료관리</h1>
           <p className="admin-materials-hub__lede ui-ko">
-            자료 검수·콘텐츠 DB·홈 배경·지식 큐레이션으로 이동합니다. 상단「대시보드」에서도 같은 링크를 쓸 수
+            자료 검수·콘텐츠 DB·홈 배경·지식 큐레이션·문제은행으로 이동합니다. 상단「대시보드」에서도 같은 링크를 쓸 수
             있습니다.
           </p>
         </header>

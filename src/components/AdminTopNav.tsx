@@ -14,7 +14,8 @@ function useMaterialsNavActive(): boolean {
     pathname.startsWith("/admin/contents") ||
     pathname.startsWith("/admin/pending-materials") ||
     pathname.startsWith("/admin/landing-hero") ||
-    pathname.startsWith("/admin/knowledge-curation")
+    pathname.startsWith("/admin/knowledge-curation") ||
+    pathname.startsWith("/admin/problem-bank")
   );
 }
 
