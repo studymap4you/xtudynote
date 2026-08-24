@@ -435,7 +435,7 @@ export function CsatQuestionStudioPage() {
                 <div className={styles.jobPanel} aria-live="polite">
                   <div className={styles.jobHeadline}>
                     {running ? <LoaderCircle className={styles.spinner} size={19} /> : <Check size={19} />}
-                    <div><strong>{statusText}</strong><span>규칙 DB {job.rulesVersion} · 모델 호출 {job.modelCallCount}회 · 거부 {job.rejectedCount}문항</span></div>
+                    <div><strong>{statusText}</strong><span>규칙 DB {job.rulesVersion} · 모델 호출 {job.modelCallCount}회 · 거부 {job.rejectedCount}문항{job.model ? ` · ${job.model}` : ""}</span></div>
                     <b>{job.acceptedCount}/{job.targetQuestionCount}</b>
                   </div>
                   <div className={styles.progressTrack} aria-label={`문제 생성 진행률 ${progress}%`}><span style={{ width: `${progress}%` }} /></div>

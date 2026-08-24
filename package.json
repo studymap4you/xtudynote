@@ -16,6 +16,7 @@
     "test:wordnet": "node --test scripts/test-wordnet-lexicon.mjs",
     "test:wordnet-live": "node scripts/smoke-test-wordnet.mjs",
     "test:csat-question-engine": "node --test scripts/test-csat-question-engine.mjs",
+    "test:csat-models-live": "node scripts/smoke-test-nvidia-csat-models.mjs",
     "test:csat-render-engine": "node --experimental-strip-types --test scripts/test-csat-render-engine.mjs"
   },
   "dependencies": {

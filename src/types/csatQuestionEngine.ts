@@ -72,6 +72,14 @@ export type CsatQuestionJob = CsatQuestionJobSummary & {
   warning?: string;
 };
 
+export type CsatProviderAttempt = {
+  model: string;
+  attempt: number;
+  status: number | null;
+  durationMs: number;
+  error: string | null;
+};
+
 export type CsatQuestionBatchResult = {
   job: CsatQuestionJob;
   batchQuestions: GeneratedCsatQuestion[];
@@ -83,5 +91,8 @@ export type CsatQuestionBatchResult = {
     modelCallCount: number;
     retryCount: number;
     exhausted: boolean;
+    model?: string;
+    modelsUsed?: string[];
+    providerAttempts?: CsatProviderAttempt[];
   };
 };

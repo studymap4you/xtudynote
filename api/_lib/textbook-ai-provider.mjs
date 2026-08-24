@@ -5,6 +5,11 @@ const DEFAULT_NVIDIA_ACADEMY_MODELS = [
   "nvidia/nemotron-3.5-lightning-30b-a3b",
 ];
 const DEFAULT_NVIDIA_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b";
+const DEFAULT_NVIDIA_QUESTION_MODELS = [
+  DEFAULT_NVIDIA_MODEL,
+  "meta/muse-glimmer-30b",
+  "google/diffusiongemma-26b-a4b-it",
+];
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 const RESPONSE_META = Symbol("textbook-ai-response-meta");
 
@@ -27,8 +32,35 @@ function nvidiaModels(env, modelScope) {
     .map((model) => model.trim())
     .filter(Boolean);
   const configuredPrimary = String(env[`NVIDIA_MODEL_${scope}`] || env.NVIDIA_MODEL || "").trim();
-  const defaults = modelScope === "academy" ? DEFAULT_NVIDIA_ACADEMY_MODELS : [DEFAULT_NVIDIA_MODEL];
+  const defaults = modelScope === "academy"
+    ? DEFAULT_NVIDIA_ACADEMY_MODELS
+    : modelScope === "questions"
+      ? DEFAULT_NVIDIA_QUESTION_MODELS
+      : [DEFAULT_NVIDIA_MODEL];
   return uniqueModels([configuredPrimary, ...configuredList, ...defaults]);
+}
+
+function nvidiaModelApiKeys(env, models, genericKey) {
+  const aliases = {
+    "nvidia/nemotron-3.5-lightning-30b-a3b": [
+      "NVIDIA_API_KEY_NEMOTRON",
+      "NVIDIA_API_KEY_NEMOTRON_LIGHTNING",
+    ],
+    "meta/muse-glimmer-30b": ["NVIDIA_API_KEY_MUSE_GLIMMER", "NVIDIA_API_KEY_MUSE"],
+    "google/diffusiongemma-26b-a4b-it": [
+      "NVIDIA_API_KEY_DIFFUSIONGEMMA",
+      "NVIDIA_API_KEY_DIFFUSION_GEMMA",
+    ],
+  };
+  return Object.fromEntries(
+    models.flatMap((model) => {
+      const specificKey = (aliases[model] || [])
+        .map((name) => String(env[name] || "").trim())
+        .find(Boolean);
+      const apiKey = specificKey || genericKey;
+      return apiKey ? [[model, apiKey]] : [];
+    }),
+  );
 }
 
 export function resolveTextbookAiProvider(env = process.env, modelScope = "academy") {
@@ -37,16 +69,21 @@ export function resolveTextbookAiProvider(env = process.env, modelScope = "acade
   const openAiKey = String(env.OPENAI_API_KEY || "").trim();
   const allowPaidOpenAi = envFlag(env.TEXTBOOK_ALLOW_PAID_OPENAI);
 
-  if ((requested === "nvidia" || requested === "auto") && nvidiaKey) {
-    const models = nvidiaModels(env, modelScope);
-    return {
-      kind: "nvidia",
-      apiKey: nvidiaKey,
-      baseUrl: normalizedBaseUrl(env.NVIDIA_BASE_URL, DEFAULT_NVIDIA_BASE_URL),
-      model: models[0],
-      models,
-      enableThinking: !/^(0|false|no|off)$/i.test(String(env.NVIDIA_ENABLE_THINKING ?? "true")),
-    };
+  if (requested === "nvidia" || requested === "auto") {
+    const configuredModels = nvidiaModels(env, modelScope);
+    const modelApiKeys = nvidiaModelApiKeys(env, configuredModels, nvidiaKey);
+    const models = configuredModels.filter((model) => modelApiKeys[model]);
+    if (models.length > 0) {
+      return {
+        kind: "nvidia",
+        apiKey: modelApiKeys[models[0]],
+        modelApiKeys,
+        baseUrl: normalizedBaseUrl(env.NVIDIA_BASE_URL, DEFAULT_NVIDIA_BASE_URL),
+        model: models[0],
+        models,
+        enableThinking: !/^(0|false|no|off)$/i.test(String(env.NVIDIA_ENABLE_THINKING ?? "true")),
+      };
+    }
   }
 
   if ((requested === "openai" || requested === "auto") && allowPaidOpenAi && openAiKey) {
@@ -110,8 +147,97 @@ function wait(delayMs) {
 }
 
 function retryableProviderError(error) {
+  if (typeof error?.retryable === "boolean") return error.retryable;
   const message = String(error?.message || "");
   return /json-parse-failed|provider-timeout|network-failed|request-failed:[^:]+:(408|425|429|5\d\d)/.test(message);
+}
+
+function providerError(message, { status, retryAfterMs, retryable } = {}) {
+  const error = new Error(message);
+  if (Number.isFinite(status)) error.status = status;
+  if (Number.isFinite(retryAfterMs)) error.retryAfterMs = retryAfterMs;
+  if (typeof retryable === "boolean") error.retryable = retryable;
+  return error;
+}
+
+function retryAfterMs(response) {
+  const value = String(response.headers.get("retry-after") || "").trim();
+  if (!value) return 0;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1_000);
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : 0;
+}
+
+async function fetchProvider(url, options, timeoutMs, providerKind) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw providerError(`ai-provider-timeout:${providerKind}`, { retryable: true });
+    }
+    throw providerError(`ai-provider-network-failed:${providerKind}`, { retryable: true });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function responsePayload(response) {
+  const text = await response.text().catch(() => "");
+  if (!text) return { text, data: null };
+  try {
+    return { text, data: JSON.parse(text) };
+  } catch {
+    return { text, data: null };
+  }
+}
+
+function asyncRequestId(response, data) {
+  return String(
+    response.headers.get("nvcf-reqid") ||
+      response.headers.get("x-request-id") ||
+      data?.requestId ||
+      data?.request_id ||
+      data?.id ||
+      "",
+  ).trim();
+}
+
+async function resolveProviderResponse({ response, provider, apiKey, deadline }) {
+  let current = response;
+  let requestId = "";
+  while (current.status === 202) {
+    const payload = await responsePayload(current);
+    requestId = asyncRequestId(current, payload.data) || requestId;
+    if (!requestId) {
+      throw providerError(`ai-provider-request-failed:${provider.kind}:202`, {
+        status: 202,
+        retryable: true,
+      });
+    }
+    const delayMs = Math.max(500, retryAfterMs(current) || 1_000);
+    const remainingBeforeWait = deadline - Date.now();
+    if (remainingBeforeWait <= delayMs + 1_000) {
+      throw providerError(`ai-provider-timeout:${provider.kind}`, { retryable: true });
+    }
+    await wait(delayMs);
+    const remainingMs = deadline - Date.now();
+    current = await fetchProvider(
+      `${provider.baseUrl}/status/${encodeURIComponent(requestId)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
+        },
+      },
+      Math.max(1_000, remainingMs),
+      provider.kind,
+    );
+  }
+  return current;
 }
 
 async function requestProviderJson({ provider, model, messages, maxTokens, temperature, timeoutMs }) {
@@ -124,53 +250,77 @@ async function requestProviderJson({ provider, model, messages, maxTokens, tempe
 
   if (provider.kind === "nvidia") {
     body.top_p = 0.95;
-    body.chat_template_kwargs = { enable_thinking: provider.enableThinking };
-    if (provider.enableThinking) body.reasoning_budget = Math.min(maxTokens, 4_096);
+    if (model === "meta/muse-glimmer-30b") {
+      if (provider.enableThinking) body.reasoning_effort = "medium";
+    } else {
+      body.chat_template_kwargs = { enable_thinking: provider.enableThinking };
+      if (provider.enableThinking) body.reasoning_budget = Math.min(maxTokens, 4_096);
+    }
   } else {
     body.response_format = { type: "json_object" };
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let response;
-  try {
-    response = await fetch(`${provider.baseUrl}/chat/completions`, {
+  const apiKey = provider.modelApiKeys?.[model] || provider.apiKey;
+  if (!apiKey) throw providerError(`ai-provider-key-missing:${provider.kind}`, { retryable: false });
+  const deadline = Date.now() + timeoutMs;
+  let response = await fetchProvider(
+    `${provider.baseUrl}/chat/completions`,
+    {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${provider.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error?.name === "AbortError") throw new Error(`ai-provider-timeout:${provider.kind}`);
-    throw new Error(`ai-provider-network-failed:${provider.kind}`);
-  } finally {
-    clearTimeout(timer);
-  }
+    },
+    timeoutMs,
+    provider.kind,
+  );
+  response = await resolveProviderResponse({ response, provider, apiKey, deadline });
 
   if (!response.ok) {
-    const detail = await response.text().catch(() => "");
+    const payload = await responsePayload(response);
     console.error(
       `[textbook-ai] ${model} request failed`,
       response.status,
-      detail.slice(0, 600),
+      payload.text.slice(0, 600),
     );
-    throw new Error(`ai-provider-request-failed:${provider.kind}:${response.status}`);
-  }
-
-  const data = await response.json();
-  const parsed = extractJsonObject(data?.choices?.[0]?.message?.content);
-  if (!parsed) throw new Error(`ai-provider-json-parse-failed:${provider.kind}`);
-  if (parsed && typeof parsed === "object") {
-    Object.defineProperty(parsed, RESPONSE_META, {
-      configurable: false,
-      enumerable: false,
-      value: { kind: provider.kind, model },
+    throw providerError(`ai-provider-request-failed:${provider.kind}:${response.status}`, {
+      status: response.status,
+      retryAfterMs: retryAfterMs(response),
+      retryable: [408, 425, 429].includes(response.status) || response.status >= 500,
     });
   }
-  return parsed;
+
+  const { data } = await responsePayload(response);
+  const parsed = extractJsonObject(data?.choices?.[0]?.message?.content);
+  if (!parsed) {
+    throw providerError(`ai-provider-json-parse-failed:${provider.kind}`, {
+      status: response.status,
+      retryable: true,
+    });
+  }
+  return { value: parsed, status: response.status };
+}
+
+function providerAttemptDiagnostic({ model, attempt, startedAt, status, error }) {
+  return {
+    model,
+    attempt,
+    status: Number.isFinite(status) ? status : Number(error?.status) || null,
+    durationMs: Math.max(0, Date.now() - startedAt),
+    error: error ? String(error?.message || error).slice(0, 180) : null,
+  };
+}
+
+function attachResponseMeta(value, meta) {
+  if (!value || typeof value !== "object") return value;
+  Object.defineProperty(value, RESPONSE_META, {
+    configurable: false,
+    enumerable: false,
+    value: meta,
+  });
+  return value;
 }
 
 export async function requestTextbookJson({
@@ -181,40 +331,79 @@ export async function requestTextbookJson({
   timeoutMs = 55_000,
   retryDelaysMs = [0, 900, 2_400],
   maxElapsedMs = Number.POSITIVE_INFINITY,
+  retryStrategy = "model-first",
 }) {
   if (!provider || provider.kind === "mock" || !provider.apiKey) {
     throw new Error("ai-provider-not-configured");
   }
   const models = uniqueModels(Array.isArray(provider.models) ? provider.models : [provider.model]);
   const startedAt = Date.now();
+  const attempts = [];
+  const disabledModels = new Set();
+  const retryAfterByModel = new Map();
   let lastError;
-  for (const model of models) {
-    for (let attempt = 0; attempt < retryDelaysMs.length; attempt += 1) {
-      await wait(Number(retryDelaysMs[attempt]) || 0);
-      const remainingMs = maxElapsedMs - (Date.now() - startedAt);
-      if (remainingMs < 5_000) {
-        throw lastError || new Error(`ai-provider-time-budget-exhausted:${provider.kind}`);
+  const attemptIndexes = retryDelaysMs.map((_, index) => index);
+  const schedule = retryStrategy === "round-robin"
+    ? attemptIndexes.flatMap((attempt) => models.map((model) => ({ model, attempt })))
+    : models.flatMap((model) => attemptIndexes.map((attempt) => ({ model, attempt })));
+
+  for (const { model, attempt } of schedule) {
+    if (disabledModels.has(model)) continue;
+    const delayMs = Math.max(
+      Number(retryDelaysMs[attempt]) || 0,
+      Number(retryAfterByModel.get(model)) || 0,
+    );
+    retryAfterByModel.delete(model);
+    const remainingBeforeWait = maxElapsedMs - (Date.now() - startedAt);
+    if (remainingBeforeWait <= delayMs + 4_000) {
+      if (lastError) break;
+      throw new Error(`ai-provider-time-budget-exhausted:${provider.kind}`);
+    }
+    await wait(delayMs);
+    const remainingMs = maxElapsedMs - (Date.now() - startedAt);
+    if (remainingMs < 5_000) break;
+    const attemptStartedAt = Date.now();
+    try {
+      const result = await requestProviderJson({
+        provider,
+        model,
+        messages,
+        maxTokens,
+        temperature,
+        timeoutMs: Math.min(timeoutMs, Math.max(4_000, remainingMs - 1_000)),
+      });
+      attempts.push(providerAttemptDiagnostic({
+        model,
+        attempt: attempt + 1,
+        startedAt: attemptStartedAt,
+        status: result.status,
+      }));
+      return attachResponseMeta(result.value, { kind: provider.kind, model, attempts });
+    } catch (error) {
+      lastError = error;
+      attempts.push(providerAttemptDiagnostic({
+        model,
+        attempt: attempt + 1,
+        startedAt: attemptStartedAt,
+        error,
+      }));
+      const canRetry = retryableProviderError(error);
+      if (!canRetry) disabledModels.add(model);
+      if (canRetry && Number(error?.retryAfterMs) > 0) {
+        retryAfterByModel.set(model, Number(error.retryAfterMs));
       }
-      try {
-        return await requestProviderJson({
-          provider,
-          model,
-          messages,
-          maxTokens,
-          temperature,
-          timeoutMs: Math.min(timeoutMs, Math.max(4_000, remainingMs - 1_000)),
-        });
-      } catch (error) {
-        lastError = error;
-        const canRetry = retryableProviderError(error);
-        if (!canRetry) break;
-        console.warn(
-          `[textbook-ai] retrying ${model}`,
-          `${attempt + 1}/${retryDelaysMs.length}`,
-          String(error?.message || error),
-        );
-      }
+      console.warn(
+        canRetry ? `[textbook-ai] retrying ${model}` : `[textbook-ai] moving past ${model}`,
+        `${attempt + 1}/${retryDelaysMs.length}`,
+        String(error?.message || error),
+      );
     }
   }
-  throw lastError || new Error(`ai-provider-request-failed:${provider.kind}:unknown`);
+  const error = lastError || new Error(`ai-provider-request-failed:${provider.kind}:unknown`);
+  Object.defineProperty(error, "providerAttempts", {
+    configurable: false,
+    enumerable: false,
+    value: attempts,
+  });
+  throw error;
 }

@@ -10,6 +10,7 @@ import { searchSourceDocuments } from "./_lib/csat-question-engine/source-reposi
 import {
   requestTextbookJson,
   resolveTextbookAiProvider,
+  textbookAiResponseMeta,
 } from "./_lib/textbook-ai-provider.mjs";
 
 const GENERATION_VERSION = "csat-question-engine-v1";
@@ -231,31 +232,55 @@ async function generateJobBatch(authUser, body) {
   if (provider.kind === "mock") throw new Error(`ai-provider-not-configured:${provider.reason || "unknown"}`);
   const batchNumber = (Number(data.batchCount) || 0) + 1;
   const batchId = `batch-${String(batchNumber).padStart(3, "0")}-${randomUUID().slice(0, 8)}`;
+  const providerAttempts = [];
+  const modelsUsed = [];
 
-  const result = await generateNextValidatedBatch({
-    request,
-    targetTypes,
-    sources,
-    references,
-    rules,
-    existingQuestions,
-    batchId,
-    generateBatch: async (promptContext) => {
-      const prompt = buildQuestionPrompt(promptContext);
-      return requestTextbookJson({
-        provider: { ...provider, models: [provider.model] },
-        messages: [
-          { role: "system", content: prompt.system },
-          { role: "user", content: prompt.user },
-        ],
-        maxTokens: 16_000,
-        temperature: 0.32,
-        timeoutMs: 84_000,
-        maxElapsedMs: 88_000,
-        retryDelaysMs: [0],
-      });
-    },
-  });
+  let result;
+  try {
+    result = await generateNextValidatedBatch({
+      request,
+      targetTypes,
+      sources,
+      references,
+      rules,
+      existingQuestions,
+      batchId,
+      generateBatch: async (promptContext) => {
+        const prompt = buildQuestionPrompt(promptContext);
+        const response = await requestTextbookJson({
+          provider: { ...provider, enableThinking: false },
+          messages: [
+            { role: "system", content: prompt.system },
+            { role: "user", content: prompt.user },
+          ],
+          maxTokens: 16_000,
+          temperature: 0.32,
+          timeoutMs: 55_000,
+          maxElapsedMs: 250_000,
+          retryDelaysMs: [0, 2_500],
+          retryStrategy: "round-robin",
+        });
+        const meta = textbookAiResponseMeta(response);
+        if (meta?.model) modelsUsed.push(meta.model);
+        if (Array.isArray(meta?.attempts)) providerAttempts.push(...meta.attempts);
+        return response;
+      },
+    });
+  } catch (error) {
+    const failedAttempts = Array.isArray(error?.providerAttempts) ? error.providerAttempts : [];
+    providerAttempts.push(...failedAttempts);
+    const lastAttempt = providerAttempts.at(-1);
+    await owned.ref.update({
+      ...stripUndefined({
+        model: lastAttempt?.model || provider.model,
+        provider: provider.kind,
+        lastProviderAttempts: providerAttempts.slice(-24),
+        warning: "AI 모델 연결이 일시적으로 중단되었습니다. 세 모델을 순차 확인한 뒤 이어서 시도할 수 있습니다.",
+      }),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    throw error;
+  }
 
   const remaining = request.targetQuestionCount - existingQuestions.length;
   const accepted = result.accepted.slice(0, remaining);
@@ -286,6 +311,9 @@ async function generateJobBatch(authUser, body) {
       missingAssignments: result.missingAssignments,
       modelCallCount: result.modelCallCount,
       retryCount: result.retryCount,
+      model: modelsUsed.at(-1) || provider.model,
+      modelsUsed: [...new Set(modelsUsed)],
+      providerAttempts: providerAttempts.slice(-30),
       sourceIds: sources.map((source) => source.id),
       referenceQuestionIds: references.map((reference) => reference.id),
     }),
@@ -301,7 +329,7 @@ async function generateJobBatch(authUser, body) {
       batchCount: batchNumber,
       consecutiveFailedBatches,
       sourceUsage,
-      model: provider.model,
+      model: modelsUsed.at(-1) || provider.model,
       provider: provider.kind,
       warning: failed
         ? "일부 문제 생성 과정에서 오류가 발생했습니다. 현재까지 생성된 문제를 확인하거나 다시 시도할 수 있습니다."
@@ -321,6 +349,9 @@ async function generateJobBatch(authUser, body) {
       modelCallCount: result.modelCallCount,
       retryCount: result.retryCount,
       exhausted: result.exhausted,
+      model: modelsUsed.at(-1) || provider.model,
+      modelsUsed: [...new Set(modelsUsed)],
+      providerAttempts: providerAttempts.slice(-30),
     },
   };
 }
@@ -401,8 +432,8 @@ export default async function handler(req, res) {
       return;
     }
     const userMessage = message.startsWith("ai-provider-")
-      ? "AI 생성 모델이 응답하지 않았습니다. 저장된 문제 다음 배치부터 다시 시도해주세요."
+      ? "세 개의 AI 생성 모델을 순차 확인했지만 응답을 완료하지 못했습니다. 저장된 문제 다음 배치부터 다시 시도해주세요."
       : "문제 생성 배치를 처리하지 못했습니다. 잠시 후 다시 시도해주세요.";
-    res.status(500).json({ error: userMessage });
+    res.status(message.startsWith("ai-provider-") ? 503 : 500).json({ error: userMessage });
   }
 }
