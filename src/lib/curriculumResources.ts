@@ -25,8 +25,8 @@ import type {
 export const CURRICULUM_CATALOGS: Record<CurriculumCatalogId, CurriculumCatalog> = {
   high_school: {
     id: "high_school",
-    title: "고등내신",
-    titleEn: "High School English",
+    title: "내신부교재",
+    titleEn: "Supplementary Textbooks",
     basePath: "/high-school-exams",
     categories: [
       { id: "grade1_mock", label: "고1 모의고사", labelEn: "Grade 10 Mock Exams" },
@@ -37,8 +37,8 @@ export const CURRICULUM_CATALOGS: Record<CurriculumCatalogId, CurriculumCatalog>
   },
   supplementary: {
     id: "supplementary",
-    title: "내신부교재",
-    titleEn: "Supplementary Textbooks",
+    title: "고등내신",
+    titleEn: "High School English",
     basePath: "/supplementary-materials",
     categories: [
       { id: "ebs_special_lecture", label: "수능특강", labelEn: "EBS CSAT Special Lecture" },
