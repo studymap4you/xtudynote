@@ -60,6 +60,7 @@ import { NewsletterBuilderPage } from "@/pages/NewsletterBuilder";
 import { TextbookAutoSimplePage } from "@/pages/TextbookAutoSimplePage";
 import { KoreanEducationPage } from "@/pages/KoreanEducationPage";
 import { LectureRecordingPage } from "@/pages/lecture/LectureRecordingPage";
+import { CurriculumResourcesPage } from "@/pages/CurriculumResourcesPage";
 
 export default function App() {
   const { pathname } = useLocation();
@@ -78,6 +79,18 @@ export default function App() {
       <Route path="/library" element={<LibraryPage />} />
       <Route path="/library/themes" element={<LibraryThemesPage />} />
       <Route path="/content/:id" element={<ContentDetailPage />} />
+      <Route
+        path="/high-school-exams/:category?"
+        element={<CurriculumResourcesPage catalogId="high_school" />}
+      />
+      <Route
+        path="/supplementary-materials/:category?"
+        element={<CurriculumResourcesPage catalogId="supplementary" />}
+      />
+      <Route
+        path="/csat/:category?"
+        element={<CurriculumResourcesPage catalogId="csat" />}
+      />
       <Route path="/homework" element={<HomeworkSearchPage />} />
       <Route
         path="/logic-dashboard"

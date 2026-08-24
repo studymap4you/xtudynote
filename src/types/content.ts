@@ -1,4 +1,5 @@
 import type { LearningThemeId } from "@/types/learningTheme";
+import type { CurriculumCatalogId, CurriculumCategoryId, CurriculumResourceFile } from "@/types/curriculumResource";
 
 export type ContentType = "share" | "paid" | "homework";
 export type ContentStatus = "pending" | "approved" | "rejected" | "internal";
@@ -23,6 +24,11 @@ export interface ContentDocument {
   libraryCategory?: LibraryCategory;
   /** 테마별 분류 (복수 선택) */
   themes?: LearningThemeId[];
+  /** 상단 학습 자료 포털 분류 (마스터 직접 등록 자료) */
+  resourceCatalog?: CurriculumCatalogId;
+  resourceCategory?: CurriculumCategoryId;
+  resourceSource?: "manual";
+  resourceFiles?: CurriculumResourceFile[];
   /** 유료 콘텐츠 썸네일 Storage 전체 경로 */
   thumbnailPath?: string | null;
   /** 샘플 PDF 등 HTTPS 다운로드 URL (학생용「샘플 보기」등) */

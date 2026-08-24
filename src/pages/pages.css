@@ -5293,6 +5293,12 @@ button.top-nav__auth-link--logout:hover {
   gap: 0.35rem 0.45rem;
 }
 
+.top-nav--split .top-nav__main-cluster .nav-pill {
+  min-width: 5.1rem;
+  padding-right: 0.72rem;
+  padding-left: 0.72rem;
+}
+
 /* 공통 네비 필 — 한글(주)·영문(부); 활성 시 #2D333B 계열 (랜딩 컴팩트은 셸 보정으로 색만 별도) */
 .top-nav--split .nav-pill,
 .admin-top-nav .nav-pill,

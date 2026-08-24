@@ -17,6 +17,9 @@
     },
     "api/admin-exam-collector.mjs": {
       "maxDuration": 30
+    },
+    "api/exam-library.mjs": {
+      "maxDuration": 30
     }
   },
   "headers": [
