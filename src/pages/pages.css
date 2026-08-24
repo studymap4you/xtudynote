@@ -5333,7 +5333,7 @@ button.top-nav__auth-link--logout:hover {
 }
 .app-shell--landing .top-nav.top-nav--landing.top-nav--landing-compact .nav-pill .nav-pill__sub {
   font-size: 0.62rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
 }
 
 /* 랜딩 컴팩트: 대시보드/로그인 CTA는 덜 튀게(은은한 테두리+살짝 진한 바탕) */
@@ -5365,7 +5365,7 @@ button.top-nav__auth-link--logout:hover {
 .nav-pill__title {
   font-size: 0.84rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   line-height: 1.15;
   color: rgba(248, 250, 252, 0.95);
 }
@@ -5373,7 +5373,7 @@ button.top-nav__auth-link--logout:hover {
 .nav-pill__sub {
   font-size: 0.58rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: rgba(148, 163, 184, 0.88);
   line-height: 1.1;
