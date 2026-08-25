@@ -118,7 +118,7 @@ export async function searchSourceDocuments({
   const snapshot = await firestore
     .collection("contents")
     .where("libraryCategory", "==", "source_material")
-    .limit(250)
+    .limit(500)
     .get();
   const records = snapshot.docs
     .map(normalizeSourceRecord)
@@ -157,4 +157,3 @@ export async function searchSourceDocuments({
     .slice(0, Math.max(3, limit))
     .map(({ retrievalScore: _retrievalScore, ...source }) => source);
 }
-

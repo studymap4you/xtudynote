@@ -8,13 +8,52 @@ import XLSX from "xlsx";
 
 const PROJECT_ID = "xtudynote";
 const STORAGE_BUCKET = "xtudynote.firebasestorage.app";
+const cliArgs = process.argv.slice(2);
+
+function argumentValue(name) {
+  const prefix = `--${name}=`;
+  return cliArgs.find((argument) => argument.startsWith(prefix))?.slice(prefix.length);
+}
+
+function integerOption(name, fallback, minimum = 0) {
+  const raw = argumentValue(name) ?? process.env[name.replaceAll("-", "_").toUpperCase()];
+  if (raw == null || raw === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < minimum) {
+    throw new Error(`--${name} must be an integer greater than or equal to ${minimum}`);
+  }
+  return value;
+}
+
 const SOURCE_ROOT = path.resolve(
-  process.env.OPEN_ACCESS_PAPERS_ROOT || "/Users/chogihwa/Downloads/open_access_100_papers",
+  argumentValue("root")
+    || process.env.OPEN_ACCESS_PAPERS_ROOT
+    || "/Users/chogihwa/Downloads/open_access_100_papers",
 );
-const args = new Set(process.argv.slice(2));
+const EXPECTED_COUNT = integerOption("expected-count", 100, 1);
+const NUMBER_OFFSET = integerOption("number-offset", 0);
+const SOURCE_CORPUS = sanitizeOption(
+  argumentValue("source-corpus") || process.env.OPEN_ACCESS_SOURCE_CORPUS || "open-access-100-papers",
+  "source-corpus",
+);
+const DATABASE_VERSION = sanitizeOption(
+  argumentValue("database-version")
+    || process.env.OPEN_ACCESS_DATABASE_VERSION
+    || "open-access-paper-sources-v1",
+  "database-version",
+);
+const args = new Set(cliArgs);
 const shouldImport = args.has("--import");
 const shouldVerify = args.has("--verify");
 const dryRun = args.has("--dry-run");
+
+function sanitizeOption(value, name) {
+  const normalized = String(value ?? "").trim();
+  if (!/^[a-z0-9][a-z0-9._-]{0,119}$/i.test(normalized)) {
+    throw new Error(`--${name} contains unsupported characters`);
+  }
+  return normalized;
+}
 
 function sanitizeText(value, maxLength = 4_000) {
   return String(value ?? "").trim().slice(0, maxLength);
@@ -107,8 +146,10 @@ async function loadIndex() {
       textFile: sanitizeText(row.text_file, 500),
     }))
     .sort((a, b) => a.number - b.number);
-  if (rows.length !== 100 || rows.some((row, index) => row.number !== index + 1)) {
-    throw new Error(`INDEX.csv must contain paper numbers 1-100 exactly; found ${rows.length}`);
+  if (rows.length !== EXPECTED_COUNT || rows.some((row, index) => row.number !== index + 1)) {
+    throw new Error(
+      `INDEX.csv must contain paper numbers 1-${EXPECTED_COUNT} exactly; found ${rows.length}`,
+    );
   }
   return rows;
 }
@@ -146,7 +187,8 @@ async function setStorageMetadata(accessToken, storagePath, contentType, fingerp
         metadata: {
           firebaseStorageDownloadTokens: downloadToken,
           sourceFingerprint: fingerprint,
-          sourceCollection: "open-access-100-papers",
+          sourceCollection: SOURCE_CORPUS,
+          sourceDatabaseVersion: DATABASE_VERSION,
           accessPolicy: "master-only",
         },
       }),
@@ -166,7 +208,13 @@ async function uploadAsset(accessToken, source, storagePath, contentType) {
     && Number(current.size) === source.bytes.length
     && current.metadata?.sourceFingerprint === source.fingerprint
   ) {
-    if (!currentToken || current.contentType !== contentType) {
+    if (
+      !currentToken
+      || current.contentType !== contentType
+      || current.metadata?.sourceCollection !== SOURCE_CORPUS
+      || current.metadata?.sourceDatabaseVersion !== DATABASE_VERSION
+      || current.metadata?.accessPolicy !== "master-only"
+    ) {
       await setStorageMetadata(accessToken, storagePath, contentType, source.fingerprint, currentToken);
     }
     return "kept";
@@ -190,16 +238,18 @@ async function uploadAsset(accessToken, source, storagePath, contentType) {
 }
 
 function paperId(number) {
-  return `open-access-paper-${String(number).padStart(3, "0")}`;
+  return `open-access-paper-${String(number + NUMBER_OFFSET).padStart(3, "0")}`;
 }
 
 function storagePaths(number) {
-  const folder = `contents/system-private-reference/open-access-papers/${String(number).padStart(3, "0")}`;
+  const globalNumber = number + NUMBER_OFFSET;
+  const folder = `contents/system-private-reference/open-access-papers/${String(globalNumber).padStart(3, "0")}`;
   return { pdf: `${folder}/paper.pdf`, text: `${folder}/paper.txt` };
 }
 
 function libraryDocument(row, paths, fingerprints) {
-  const paperNumber = String(row.number).padStart(3, "0");
+  const globalNumber = row.number + NUMBER_OFFSET;
+  const paperNumber = String(globalNumber).padStart(3, "0");
   const title = escapeHtml(row.title);
   const field = escapeHtml(row.field);
   const doi = escapeHtml(row.doi);
@@ -230,8 +280,10 @@ function libraryDocument(row, paths, fingerprints) {
     classroomId: null,
     classroomTitle: null,
     sourceDatabase: "open_access_paper_sources",
-    sourceDatabaseVersion: "open-access-paper-sources-v1",
-    sourcePaperNumber: row.number,
+    sourceDatabaseVersion: DATABASE_VERSION,
+    sourceCorpus: SOURCE_CORPUS,
+    sourceCorpusPaperNumber: row.number,
+    sourcePaperNumber: globalNumber,
     sourceField: row.field,
     sourceDoi: row.doi,
     sourceCollection: row.sourceCollection,
@@ -283,17 +335,40 @@ async function importPapers(accessToken, rows, manifest) {
         text: text.fingerprint,
       })),
     );
-    console.log(`[${String(row.number).padStart(3, "0")}/100] ${row.title}`);
+    const localNumber = String(row.number).padStart(3, "0");
+    const globalNumber = String(row.number + NUMBER_OFFSET).padStart(3, "0");
+    console.log(`[${localNumber}/${EXPECTED_COUNT} -> ${globalNumber}] ${row.title}`);
   }
   await commitWrites(accessToken, writes);
-  console.log(JSON.stringify({ registered: writes.length, uploadedAssets: uploaded, keptAssets: kept }));
+  console.log(JSON.stringify({
+    registered: writes.length,
+    globalRange: `${NUMBER_OFFSET + 1}-${NUMBER_OFFSET + EXPECTED_COUNT}`,
+    sourceCorpus: SOURCE_CORPUS,
+    uploadedAssets: uploaded,
+    keptAssets: kept,
+  }));
 }
 
 async function verifyImport(accessToken, rows) {
   const [contentsResponse, storageResponse] = await Promise.all([
     fetch(
-      `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/contents?pageSize=300`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          structuredQuery: {
+            from: [{ collectionId: "contents" }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: "sourceDatabase" },
+                op: "EQUAL",
+                value: { stringValue: "open_access_paper_sources" },
+              },
+            },
+          },
+        }),
+      },
     ),
     fetch(
       `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(STORAGE_BUCKET)}/o?prefix=${encodeURIComponent("contents/system-private-reference/open-access-papers/")}&maxResults=1000`,
@@ -304,7 +379,10 @@ async function verifyImport(accessToken, rows) {
   const contents = await contentsResponse.json();
   const storage = await storageResponse.json();
   const documents = new Map(
-    (contents.documents || []).map((document) => [document.name.split("/").pop(), document.fields || {}]),
+    (contents || [])
+      .map((result) => result.document)
+      .filter(Boolean)
+      .map((document) => [document.name.split("/").pop(), document.fields || {}]),
   );
   const objects = new Map((storage.items || []).map((item) => [item.name, item]));
   const errors = [];
@@ -315,15 +393,25 @@ async function verifyImport(accessToken, rows) {
     if (!fields) errors.push(`Missing Firestore document: ${id}`);
     if (fields?.status?.stringValue !== "internal") errors.push(`Invalid status: ${id}`);
     if (fields?.libraryCategory?.stringValue !== "source_material") errors.push(`Invalid category: ${id}`);
+    if (fields?.sourceDatabaseVersion?.stringValue !== DATABASE_VERSION) {
+      errors.push(`Invalid database version: ${id}`);
+    }
     for (const storagePath of [paths.pdf, paths.text]) {
       const item = objects.get(storagePath);
       if (!item) errors.push(`Missing Storage object: ${storagePath}`);
       if (!item?.metadata?.firebaseStorageDownloadTokens) errors.push(`Missing download token: ${storagePath}`);
       if (item?.metadata?.accessPolicy !== "master-only") errors.push(`Invalid access policy: ${storagePath}`);
+      if (item?.metadata?.sourceCollection !== SOURCE_CORPUS) {
+        errors.push(`Invalid source corpus: ${storagePath}`);
+      }
     }
   }
   if (errors.length) throw new Error(errors.slice(0, 20).join("\n"));
-  console.log(JSON.stringify({ verifiedDocuments: rows.length, verifiedAssets: rows.length * 2 }));
+  console.log(JSON.stringify({
+    verifiedDocuments: rows.length,
+    verifiedAssets: rows.length * 2,
+    sourceCorpus: SOURCE_CORPUS,
+  }));
 }
 
 if (!shouldImport && !shouldVerify && !dryRun) {
@@ -337,7 +425,14 @@ if (dryRun) {
     await prepareSourceAsset(row.pdfFile, manifest);
     await prepareSourceAsset(row.textFile, manifest);
   }
-  console.log(JSON.stringify({ papers: rows.length, assets: rows.length * 2, checksums: "valid" }));
+  console.log(JSON.stringify({
+    papers: rows.length,
+    assets: rows.length * 2,
+    globalRange: `${NUMBER_OFFSET + 1}-${NUMBER_OFFSET + EXPECTED_COUNT}`,
+    sourceCorpus: SOURCE_CORPUS,
+    databaseVersion: DATABASE_VERSION,
+    checksums: "valid",
+  }));
 }
 if (shouldImport || shouldVerify) {
   const accessToken = await createCliAccessToken();

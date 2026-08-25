@@ -69,7 +69,7 @@ async function listInternalLibrary() {
     .firestore()
     .collection("contents")
     .where("status", "==", "internal")
-    .limit(500)
+    .limit(1000)
     .get();
   return snapshot.docs
     .map(normalizeLibraryItem)

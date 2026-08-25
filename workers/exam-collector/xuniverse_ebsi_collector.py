@@ -24,6 +24,8 @@ BASE = "https://www.ebsi.co.kr/ebs/xip/xipc/previousPaperList.ebs?targetCd={targ
 AJAX_URL = "https://www.ebsi.co.kr/ebs/xip/xipc/previousPaperListAjax.ajax"
 DOWNLOAD_PREFIX = "https://wdown.ebsi.co.kr/W61001/01exam"
 GRADES = {1: "D100", 2: "D200", 3: "D300"}
+SUBJECT_IDS = {1: ("17014",), 2: ("120013", "17014"), 3: ("80003", "17014")}
+ARCHIVE_MONTH_OVERRIDES = {(2022, 9): 8}
 DEFAULT_MONTHS = (3, 6, 9, 10)
 FILE_KINDS = ("question", "answer", "script")
 CALL_PATTERN = re.compile(r"goDownLoad(?P<kind>[PJHD])\(\s*(['\"])(?P<url>.*?)\2", re.I | re.S)
@@ -368,22 +370,29 @@ class EbsiCollector:
 
     def archive_markup(self, grade: int, year: int, month: int) -> str:
         target = GRADES[grade]
+        archive_month = ARCHIVE_MONTH_OVERRIDES.get((year, month), month)
         self.request.get(BASE.format(target=target), timeout=60_000)
-        response = self.request.post(
-            AJAX_URL,
-            form={
-                "targetCd": target,
-                "yearList": str(year),
-                "monthList": f"{month:02d}",
-                "arOrd": "3",
-                "subjIdList": "17014",
-                "sort": "recent",
-            },
-            timeout=60_000,
-        )
-        if not response.ok:
-            raise RuntimeError(f"ebsi-archive-http-{response.status}")
-        return response.text()
+        last_markup = ""
+        for subject_id in SUBJECT_IDS[grade]:
+            response = self.request.post(
+                AJAX_URL,
+                form={
+                    "targetCd": target,
+                    "yearList": str(year),
+                    "monthList": f"{archive_month:02d}",
+                    "arOrd": "3",
+                    "subjIdList": subject_id,
+                    "sort": "recent",
+                },
+                timeout=60_000,
+            )
+            if not response.ok:
+                raise RuntimeError(f"ebsi-archive-http-{response.status}")
+            last_markup = response.text()
+            title, candidates = discover_candidates(last_markup)
+            if candidates and any(token in title for token in ("영어", "외국어")):
+                return last_markup
+        return last_markup
 
     def download(self, candidate: DownloadCandidate) -> tuple[bytes, str, str]:
         response = self.request.get(candidate.url, timeout=60_000)

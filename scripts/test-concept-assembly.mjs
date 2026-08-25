@@ -8,6 +8,11 @@ import { runConceptAssemblyPipeline } from "../api/_lib/concept-assembly/run-con
 import { selectLatestConceptRecord } from "../api/_lib/concept-assembly/select-latest-concept-record.mjs";
 import { sortConceptBlocks } from "../api/_lib/concept-assembly/sort-concept-blocks.mjs";
 import { conceptContentHash, validateConceptIntegrity } from "../api/_lib/concept-assembly/validate-concept-integrity.mjs";
+import {
+  buildConceptRecordDocuments,
+  buildSyntaxRecordDocuments,
+  normalizeConceptSourceDataset,
+} from "../api/_lib/concept-assembly/source-dataset-adapter.mjs";
 import { attachConceptsToQuestions } from "../src/lib/conceptAssembly/attachConceptsToQuestions.ts";
 import { buildConceptRenderUnits, splitConceptContentForRender } from "../src/lib/conceptAssembly/buildConceptRenderUnits.ts";
 import { CSAT_TEMPLATE_IDS } from "../src/lib/renderEngine/templateIds.ts";
@@ -54,6 +59,33 @@ function repository(records) {
 
 function mockQuestion(index) {
   return Object.freeze({ id: `q-${index}`, sequence: index, answer: (index % 5) + 1 });
+}
+
+function conceptSourceFixture() {
+  const coreRecords = Array.from({ length: 20 }, (_, index) => ({
+    concept_id: `csat_reading_type_${String(index + 1).padStart(2, "0")}`,
+    title: `수능 유형 ${index + 1}`,
+    assembly_ready: {
+      definition: `유형 ${index + 1}의 개념 설명`,
+      strategy_steps: [
+        { step: 1, text: `유형 ${index + 1}의 핵심 단서를 찾는다.` },
+        { step: 2, text: `유형 ${index + 1}의 논리 관계를 확인한다.` },
+      ],
+    },
+    source_refs: [{ book: "2027학년도 EBS 수능특강 영어", section: `유형 ${index + 1}`, page: index + 10, kind: "solving_strategies" }],
+    normalization_note: "테스트용 정규화 레코드",
+  }));
+  const syntaxRecords = Array.from({ length: 200 }, (_, index) => ({
+    concept_id: `syntax_explanation_${String(index + 1).padStart(3, "0")}`,
+    source_extract: `구문 설명 ${index + 1}: 관계절과 부사절의 구조를 분석한다.`,
+    tags: index % 2 === 0 ? ["관계절", "부사절"] : ["to부정사", "명사구"],
+    source_ref: { book: "2026학년도 EBS 수능완성 영어", start_page: index + 1, end_page: index + 1, kind: "구문 해설" },
+  }));
+  return normalizeConceptSourceDataset({
+    manifest: { version: "1.0", core_type_concepts: 20, syntax_explanation_blocks: 200 },
+    coreRecords,
+    syntaxRecords,
+  });
 }
 
 test("TEST 1: 같은 conceptKey에서는 최신 2027 원문을 선택한다", () => {
@@ -216,4 +248,46 @@ test("TEST 8: 6개 Template 변경은 같은 Concept/Question 데이터를 사�
 
 test("Question Engine은 안정성을 위해 1문항씩 생성한다", () => {
   assert.equal(QUESTION_BATCH_MAX, 1);
+});
+
+test("개념 조립 원본 20개를 기존 registry의 38개 concept record로 정규화한다", () => {
+  const dataset = conceptSourceFixture();
+  const documents = buildConceptRecordDocuments({ dataset, datasetFingerprint: "fixture-fingerprint" });
+  assert.equal(documents.length, 38);
+  assert.equal(new Set(documents.map((document) => document.id)).size, 38);
+  assert.equal(documents.filter((document) => document.data.questionTypes.includes("GRAMMAR")).length, 1);
+  const grammar = documents.find((document) => document.data.questionTypes.includes("GRAMMAR"));
+  assert.equal(grammar?.data.syntaxSourceCollection, "concept_syntax_records");
+  assert.equal(grammar?.data.syntaxSupportCount, 200);
+  assert.match(grammar?.data.content || "", /관계절/);
+});
+
+test("구문 설명 200개를 마스터 전용 검색 레코드로 보존한다", () => {
+  const dataset = conceptSourceFixture();
+  const documents = buildSyntaxRecordDocuments({ dataset, datasetFingerprint: "fixture-fingerprint" });
+  assert.equal(documents.length, 200);
+  assert.equal(new Set(documents.map((document) => document.id)).size, 200);
+  assert.ok(documents.every((document) => document.data.retrievalRole === "concept_assembly_syntax_support"));
+  assert.ok(documents.every((document) => document.data.sourceAccessPolicy === "master_only"));
+  assert.ok(documents.every((document) => document.data.allowedUse === "reference_only"));
+});
+
+test("등록된 개념 원본은 마스터 조립에서 사용되고 일반 계정에는 노출되지 않는다", async () => {
+  const dataset = conceptSourceFixture();
+  const source = buildConceptRecordDocuments({ dataset, datasetFingerprint: "fixture-fingerprint" })
+    .find((document) => document.data.questionTypes.includes("PURPOSE"))?.data;
+  assert.ok(source);
+  const masterResult = await runConceptAssemblyPipeline({
+    repository: repository([source]),
+    questionTypes: ["PURPOSE"],
+    isSuperAdmin: true,
+  });
+  const regularResult = await runConceptAssemblyPipeline({
+    repository: repository([source]),
+    questionTypes: ["PURPOSE"],
+    isSuperAdmin: false,
+  });
+  assert.equal(masterResult.status, "ready");
+  assert.match(masterResult.section.blocks[0]?.content || "", /풀이 절차/);
+  assert.equal(regularResult.status, "missing");
 });

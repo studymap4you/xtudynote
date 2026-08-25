@@ -35,6 +35,41 @@ class CollectorParsingTest(unittest.TestCase):
     def test_deterministic_ids(self):
         self.assertEqual(collector.exam_id(2, 2025, 9), "exam_english_g2_2025_09")
         self.assertEqual(collector.target_id(3, 2024, 10), "g3_2024_10")
+        self.assertEqual(collector.ARCHIVE_MONTH_OVERRIDES[(2022, 9)], 8)
+
+    def test_uses_grade_specific_subject_id_with_legacy_fallback(self):
+        class FakeResponse:
+            ok = True
+            status = 200
+
+            def __init__(self, body):
+                self.body = body
+
+            def text(self):
+                return self.body
+
+        class FakeRequest:
+            def __init__(self):
+                self.subject_ids = []
+
+            def get(self, *_args, **_kwargs):
+                return FakeResponse("")
+
+            def post(self, _url, form, **_kwargs):
+                self.subject_ids.append(form["subjIdList"])
+                if form["subjIdList"] == "17014":
+                    return FakeResponse(
+                        '<div class="qus_tit">고2 3월 학평 영어</div>'
+                        '<button onclick="goDownLoadP(\'/question.pdf\')">문제</button>'
+                    )
+                return FakeResponse("")
+
+        request = FakeRequest()
+        instance = collector.EbsiCollector(request, None, "exam-files/english", True)
+        markup = instance.archive_markup(2, 2013, 3)
+
+        self.assertIn("고2 3월 학평 영어", markup)
+        self.assertEqual(request.subject_ids, ["120013", "17014"])
 
 
 if __name__ == "__main__":
