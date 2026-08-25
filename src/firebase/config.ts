@@ -5,7 +5,7 @@ import { getStorage } from "firebase/storage";
 
 /** Used when `import.meta.env` has no VITE_FIREBASE_* (e.g. CI without .env). */
 const FB_FALLBACK: FirebaseOptions = {
-  apiKey: "AIzaSyD0z3F9bb1Nql-QEABmc96XrRxgYcr20bk",
+  apiKey: "AIzaSyD0z3F9bb1Nql-QeABmc96XrRxgYcr20bk",
   authDomain: "xtudynote.firebaseapp.com",
   projectId: "xtudynote",
   storageBucket: "xtudynote.firebasestorage.app",
