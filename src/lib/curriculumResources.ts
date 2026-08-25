@@ -130,31 +130,31 @@ export const HIGH_SCHOOL_TEXTBOOK_GROUPS: TextbookCatalogGroup[] = [
   },
 ];
 
-const HIGH_SCHOOL_TEXTBOOK_CATEGORIES = HIGH_SCHOOL_TEXTBOOK_GROUPS.flatMap((group) => group.categories);
+const HIGH_SCHOOL_RESOURCE_CATEGORIES: CurriculumCatalog["categories"] = [
+  { id: "grade1_mock", label: "고1 모의고사", labelEn: "Grade 10 Mock Exams" },
+  { id: "grade2_mock", label: "고2 모의고사", labelEn: "Grade 11 Mock Exams" },
+  { id: "grade3_mock", label: "고3 모의고사", labelEn: "Grade 12 Mock Exams" },
+  { id: "high_school_csat", label: "수능", labelEn: "CSAT" },
+  { id: "ebs_special_lecture", label: "수능특강", labelEn: "EBS CSAT Special Lecture" },
+  { id: "ebs_complete", label: "수능완성", labelEn: "EBS CSAT Complete" },
+  { id: "olympos", label: "올림포스", labelEn: "EBS Olympus" },
+  { id: "supplementary_archive", label: "기타 부교재", labelEn: "Other Supplementary Materials" },
+];
 
 export const CURRICULUM_CATALOGS: Record<CurriculumCatalogId, CurriculumCatalog> = {
   high_school: {
     id: "high_school",
-    title: "내신부교재",
-    titleEn: "Supplementary Textbooks",
+    title: "고등 내신",
+    titleEn: "High School English",
     basePath: "/high-school-exams",
-    categories: [
-      { id: "grade1_mock", label: "고1 모의고사", labelEn: "Grade 10 Mock Exams" },
-      { id: "grade2_mock", label: "고2 모의고사", labelEn: "Grade 11 Mock Exams" },
-      { id: "grade3_mock", label: "고3 모의고사", labelEn: "Grade 12 Mock Exams" },
-      { id: "high_school_csat", label: "수능", labelEn: "CSAT" },
-      { id: "ebs_special_lecture", label: "수능특강", labelEn: "EBS CSAT Special Lecture" },
-      { id: "ebs_complete", label: "수능완성", labelEn: "EBS CSAT Complete" },
-      { id: "olympos", label: "올림포스", labelEn: "EBS Olympus" },
-      { id: "supplementary_archive", label: "기타 부교재", labelEn: "Other Supplementary Materials" },
-    ],
+    categories: HIGH_SCHOOL_RESOURCE_CATEGORIES,
   },
   supplementary: {
     id: "supplementary",
     title: "고등 내신",
     titleEn: "High School English",
-    basePath: "/supplementary-materials",
-    categories: HIGH_SCHOOL_TEXTBOOK_CATEGORIES,
+    basePath: "/high-school-exams",
+    categories: HIGH_SCHOOL_RESOURCE_CATEGORIES,
   },
   csat: {
     id: "csat",

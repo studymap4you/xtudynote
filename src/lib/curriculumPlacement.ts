@@ -1,7 +1,6 @@
 import type {
   CurriculumCatalogId,
   CurriculumCategoryId,
-  TextbookResourceCategoryId,
 } from "@/types/curriculumResource";
 
 export interface CurriculumPlacement {
@@ -75,20 +74,17 @@ function collectSearchText(data: Record<string, unknown>): string {
     .join(" ");
 }
 
-export function textbookSourceIdToCategory(value: unknown): TextbookResourceCategoryId | null {
+function isRetiredTextbookIdentifier(value: unknown): boolean {
   const identifier = cleanText(value).replace(/_/gu, "-");
-  const prefixes: Array<[string, string]> = [
-    ["common-english-1-", "textbook_common1_"],
-    ["common-english-2-", "textbook_common2_"],
-    ["english-1-", "textbook_english1_"],
-    ["english-2-", "textbook_english2_"],
-    ["reading-writing-", "textbook_reading_writing_"],
-    ["advanced-english-", "textbook_advanced_"],
+  const prefixes = [
+    "common-english-1-",
+    "common-english-2-",
+    "english-1-",
+    "english-2-",
+    "reading-writing-",
+    "advanced-english-",
   ];
-  const match = prefixes.find(([prefix]) => identifier.startsWith(prefix));
-  if (!match) return null;
-  const suffix = identifier.slice(match[0].length).replace(/-/gu, "_");
-  return suffix ? (`${match[1]}${suffix}` as TextbookResourceCategoryId) : null;
+  return prefixes.some((prefix) => identifier.startsWith(prefix));
 }
 
 function csatYear(text: string): number | null {
@@ -108,12 +104,18 @@ function csatPlacement(year: number | null): CurriculumPlacement {
 }
 
 export function inferCurriculumPlacements(data: Record<string, unknown>): CurriculumPlacement[] {
+  const text = collectSearchText(data);
+  const compact = compactText(text);
+  const isRetiredTextbook = isRetiredTextbookIdentifier(data.identifier)
+    || cleanText(data.sourceDatabase) === "official_textbook_catalog"
+    || compact.includes("영어교과서")
+    || compact.includes("englishtextbook");
+  if (isRetiredTextbook) return [];
+
   const explicit = explicitPlacements(data);
   if (explicit.length) return explicit;
   if (cleanText(data.libraryCategory) === "source_material") return [];
 
-  const text = collectSearchText(data);
-  const compact = compactText(text);
   if (!compact) return [];
 
   if (compact.includes("수능특강") || compact.includes("ebsspecial")) {
@@ -143,16 +145,6 @@ export function inferCurriculumPlacements(data: Record<string, unknown>): Curric
       { catalog: "high_school", category: "high_school_csat" },
       csatPlacement(csatYear(text)),
     ]);
-  }
-
-  const textbookCategory = textbookSourceIdToCategory(data.identifier);
-  if (textbookCategory) return [{ catalog: "supplementary", category: textbookCategory }];
-  if (
-    compact.includes("영어교과서")
-    || compact.includes("공통영어")
-    || compact.includes("englishtextbook")
-  ) {
-    return [{ catalog: "supplementary", category: "textbook_general" }];
   }
 
   if (cleanText(data.libraryCategory) === "problem_bank") {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inferCurriculumPlacements, textbookSourceIdToCategory } from "../src/lib/curriculumPlacement.ts";
+import { inferCurriculumPlacements } from "../src/lib/curriculumPlacement.ts";
 
 test("CSAT papers are placed in the supplementary CSAT entry and their school year", () => {
   assert.deepEqual(
@@ -38,17 +38,21 @@ test("source materials remain exclusive to the source-material library", () => {
   );
 });
 
-test("problem-bank textbook identifiers map to their publisher category", () => {
-  assert.equal(
-    textbookSourceIdToCategory("common-english-1-ne-minbyeongcheon"),
-    "textbook_common1_ne_minbyeongcheon",
-  );
+test("retired publisher textbook sources stay out of curriculum menus", () => {
   assert.deepEqual(
     inferCurriculumPlacements({
       identifier: "common-english-1-ne-minbyeongcheon",
       libraryCategory: "problem_bank",
     }),
-    [{ catalog: "supplementary", category: "textbook_common1_ne_minbyeongcheon" }],
+    [],
+  );
+  assert.deepEqual(
+    inferCurriculumPlacements({
+      subject: "영어 교과서 출판사 자료",
+      resourceCatalog: "high_school",
+      resourceCategory: "supplementary_archive",
+    }),
+    [],
   );
 });
 

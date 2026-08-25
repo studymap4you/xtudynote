@@ -85,7 +85,7 @@ export default function App() {
       />
       <Route
         path="/supplementary-materials/:category?"
-        element={<CurriculumResourcesPage catalogId="supplementary" />}
+        element={<Navigate to="/high-school-exams" replace />}
       />
       <Route
         path="/csat/:category?"

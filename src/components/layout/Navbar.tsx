@@ -6,8 +6,8 @@ function pillClass(isActive: boolean): string {
 
 export function TopNavMainLinks() {
   const { pathname } = useLocation();
-  const highSchoolActive = pathname.startsWith("/high-school-exams");
-  const supplementaryActive = pathname.startsWith("/supplementary-materials");
+  const highSchoolActive = pathname.startsWith("/high-school-exams")
+    || pathname.startsWith("/supplementary-materials");
   const csatActive = pathname.startsWith("/csat");
   const textbookActive = pathname === "/" || pathname.startsWith("/tools/textbook-auto");
   const libraryActive = pathname.startsWith("/library") || pathname.startsWith("/content/");
@@ -15,11 +15,6 @@ export function TopNavMainLinks() {
   return (
     <div className="top-nav__main-cluster">
       <NavLink to="/high-school-exams" className={() => pillClass(highSchoolActive)}>
-        <span className="nav-pill__title">내신부교재</span>
-        <span className="nav-pill__sub">Supplementary</span>
-      </NavLink>
-
-      <NavLink to="/supplementary-materials" className={() => pillClass(supplementaryActive)}>
         <span className="nav-pill__title">고등내신</span>
         <span className="nav-pill__sub">High school</span>
       </NavLink>
