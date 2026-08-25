@@ -43,7 +43,15 @@ function formatAuthError(err: unknown): string {
 }
 
 export function LoginPage() {
-  const { signIn, signInWithGoogle, firebaseUser, profile, loading } = useAuth();
+  const {
+    signIn,
+    signInWithGoogle,
+    firebaseUser,
+    profile,
+    loading,
+    authError,
+    clearAuthError,
+  } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +93,7 @@ export function LoginPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    clearAuthError();
     setBusy(true);
     try {
       await signIn(email, password);
@@ -97,6 +106,7 @@ export function LoginPage() {
 
   async function onGoogleSignIn() {
     setError(null);
+    clearAuthError();
     setGoogleBusy(true);
     try {
       await signInWithGoogle();
@@ -131,7 +141,7 @@ export function LoginPage() {
               <span className="ui-ko">{audienceHint}</span>
             </p>
           ) : null}
-          {error && <p className="auth-error">{error}</p>}
+          {(error || authError) && <p className="auth-error">{error || authError}</p>}
           <form onSubmit={onSubmit}>
             <div className="auth-field">
               <label htmlFor="email">

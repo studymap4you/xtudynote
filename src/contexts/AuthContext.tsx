@@ -8,12 +8,14 @@ import {
   type ReactNode,
 } from "react";
 import {
+  browserLocalPersistence,
   browserPopupRedirectResolver,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  setPersistence,
   type User,
 } from "firebase/auth";
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
@@ -30,11 +32,13 @@ interface AuthContextValue {
   firebaseUser: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  authError: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signUp: (email: string, password: string, choice: SignupRoleChoice) => Promise<void>;
   logOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  clearAuthError: () => void;
   isSuperAdmin: boolean;
   isTeacherApproved: boolean;
   isPendingTeacher: boolean;
@@ -43,6 +47,16 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function describeAuthError(error: unknown): string {
+  if (error && typeof error === "object") {
+    const code = "code" in error ? String(error.code ?? "").trim() : "";
+    const message = "message" in error ? String(error.message ?? "").trim() : "";
+    if (message && code) return `${message} [${code}]`;
+    if (message) return message;
+  }
+  return error instanceof Error ? error.message : "로그인 계정 정보를 준비하지 못했습니다.";
+}
 
 function resolveRoleOnSignup(email: string, choice: SignupRoleChoice): UserRole {
   if (email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
@@ -82,78 +96,114 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
+    let disposed = false;
+    let authRevision = 0;
     let unsubDoc: (() => void) | undefined;
     const unsubAuth = onAuthStateChanged(auth, (user) => {
+      const revision = ++authRevision;
       unsubDoc?.();
+      unsubDoc = undefined;
       setFirebaseUser(user);
       if (!user) {
         setProfile(null);
         setLoading(false);
         return;
       }
-      const ref = doc(db, "users", user.uid);
-      unsubDoc = onSnapshot(
-        ref,
-        (snap) => {
-          if (!snap.exists()) {
-            setProfile(null);
-            setLoading(false);
-            return;
-          }
-          const d = snap.data();
-          const createdRaw = d.createdAt as { toMillis?: () => number } | undefined;
-          const verSubRaw = d.verificationSubmittedAt as
-            | { toMillis?: () => number }
-            | number
-            | undefined;
-          const verificationSubmittedAt =
-            typeof verSubRaw === "number"
-              ? verSubRaw
-              : typeof verSubRaw?.toMillis === "function"
-                ? verSubRaw.toMillis()
-                : undefined;
-          const p: UserProfile = {
-            uid: user.uid,
-            email: (d.email as string) ?? user.email ?? "",
-            role: d.role as UserProfile["role"],
-            accountStatus: (d.accountStatus as UserProfile["accountStatus"]) ?? "active",
-            verificationFileUrls: d.verificationFileUrls as string[] | undefined,
-            verificationSubmittedAt,
-            createdAt: createdRaw?.toMillis?.() ?? Date.now(),
-            displayName: d.displayName as string | undefined,
-            bankName: d.bankName as string | undefined,
-            bankAccountNumber: d.bankAccountNumber as string | undefined,
-            accountHolder: d.accountHolder as string | undefined,
-          };
-          setProfile(p);
+      setLoading(true);
+      setAuthError(null);
+
+      const isGoogleAccount = user.providerData.some((provider) => provider.providerId === "google.com");
+      const prepareProfile = isGoogleAccount
+        ? ensureUserProfileAfterSignIn(user)
+        : Promise.resolve();
+
+      void prepareProfile
+        .then(() => {
+          if (disposed || revision !== authRevision) return;
+          const ref = doc(db, "users", user.uid);
+          unsubDoc = onSnapshot(
+            ref,
+            (snap) => {
+              if (disposed || revision !== authRevision) return;
+              if (!snap.exists()) {
+                setProfile(null);
+                setAuthError("로그인 계정의 사용자 프로필이 없습니다. 다시 로그인해주세요.");
+                setLoading(false);
+                return;
+              }
+              const d = snap.data();
+              const createdRaw = d.createdAt as { toMillis?: () => number } | undefined;
+              const verSubRaw = d.verificationSubmittedAt as
+                | { toMillis?: () => number }
+                | number
+                | undefined;
+              const verificationSubmittedAt =
+                typeof verSubRaw === "number"
+                  ? verSubRaw
+                  : typeof verSubRaw?.toMillis === "function"
+                    ? verSubRaw.toMillis()
+                    : undefined;
+              const p: UserProfile = {
+                uid: user.uid,
+                email: (d.email as string) ?? user.email ?? "",
+                role: d.role as UserProfile["role"],
+                accountStatus: (d.accountStatus as UserProfile["accountStatus"]) ?? "active",
+                verificationFileUrls: d.verificationFileUrls as string[] | undefined,
+                verificationSubmittedAt,
+                createdAt: createdRaw?.toMillis?.() ?? Date.now(),
+                displayName: d.displayName as string | undefined,
+                bankName: d.bankName as string | undefined,
+                bankAccountNumber: d.bankAccountNumber as string | undefined,
+                accountHolder: d.accountHolder as string | undefined,
+              };
+              setProfile(p);
+              setAuthError(null);
+              setLoading(false);
+              if (p.accountStatus === "banned") {
+                signOut(auth).catch(() => {});
+              }
+            },
+            (profileError) => {
+              if (disposed || revision !== authRevision) return;
+              setProfile(null);
+              setAuthError(describeAuthError(profileError));
+              setLoading(false);
+            },
+          );
+        })
+        .catch((profileError) => {
+          if (disposed || revision !== authRevision) return;
+          setProfile(null);
+          setAuthError(describeAuthError(profileError));
           setLoading(false);
-          if (p.accountStatus === "banned") {
-            signOut(auth).catch(() => {});
-          }
-        },
-        () => setLoading(false)
-      );
+        });
     });
     return () => {
+      disposed = true;
+      authRevision += 1;
       unsubDoc?.();
       unsubAuth();
     };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    setAuthError(null);
+    await setPersistence(auth, browserLocalPersistence);
     const cred = await signInWithEmailAndPassword(auth, email, password);
     await ensureUserProfileAfterSignIn(cred.user);
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    const cred = await signInWithPopup(
+    setAuthError(null);
+    await setPersistence(auth, browserLocalPersistence);
+    await signInWithPopup(
       auth,
       googleAuthProvider,
       browserPopupRedirectResolver
     );
-    await ensureUserProfileAfterSignIn(cred.user);
   }, []);
 
   const signUp = useCallback(
@@ -172,8 +222,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logOut = useCallback(async () => {
+    setAuthError(null);
     await signOut(auth);
   }, []);
+
+  const clearAuthError = useCallback(() => setAuthError(null), []);
 
   const refreshProfile = useCallback(async () => {
     const u = auth.currentUser;
@@ -217,11 +270,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       firebaseUser,
       profile,
       loading,
+      authError,
       signIn,
       signInWithGoogle,
       signUp,
       logOut,
       refreshProfile,
+      clearAuthError,
       isSuperAdmin,
       isTeacherApproved,
       isPendingTeacher,
@@ -232,11 +287,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     firebaseUser,
     profile,
     loading,
+    authError,
     signIn,
     signInWithGoogle,
     signUp,
     logOut,
     refreshProfile,
+    clearAuthError,
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
