@@ -53,7 +53,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  const enforcementEnabled = account?.enforcementEnabled ?? false;
+  const enforcementEnabled = account?.enforcementEnabled ?? true;
   const entitled = useMemo(() => canUsePremiumFeatures(account?.subscription ?? null, {
     enforcementEnabled,
     isSuperAdmin,

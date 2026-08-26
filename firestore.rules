@@ -1955,6 +1955,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /bank_transfer_requests/{userId} {
+      allow read, write: if false;
+    }
+
     // ——— homework_dispatches ———
     match /homework_dispatches/{dispatchId} {
       allow read: if isActiveSuperAdmin()

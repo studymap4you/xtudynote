@@ -8,6 +8,7 @@ import {
   addBillingMonths,
   billingCycleId,
   canUsePremiumFeatures,
+  createBankTransferPaidSubscription,
   createPaidSubscriptionPendingCharge,
   createTrialSubscription,
   finalizePendingCancellation,
@@ -24,6 +25,7 @@ import {
   TossPaymentsBillingProvider,
 } from "../api/_lib/billing/providers.mjs";
 import {
+  approveBankTransferRequest,
   processDueSubscription,
   resolveCheckoutPurpose,
 } from "../api/_lib/billing/service.mjs";
@@ -243,9 +245,9 @@ test("18. 1월 31일 anchor는 2월 마지막 유효 일자로 이동한다", ()
   );
 });
 
-test("19. grace period 안의 past_due는 이용 가능하고 종료 후 제한된다", () => {
+test("19. 결제 실패 상태는 유예기간과 관계없이 이용이 제한된다", () => {
   const failed = markPaymentFailed(trial(), start, { pastDueGraceDays: 7 });
-  assert.equal(canUsePremiumFeatures(failed, { enforcementEnabled: true, now: start }), true);
+  assert.equal(canUsePremiumFeatures(failed, { enforcementEnabled: true, now: start }), false);
   assert.equal(canUsePremiumFeatures(failed, { enforcementEnabled: true, now: new Date("2026-09-03T03:30:01.000Z") }), false);
 });
 
@@ -267,6 +269,7 @@ test("21. live billing 비활성 상태에서는 운영 키를 준비 완료로 
     TOSS_PAYMENTS_SECRET_KEY: "live_sk_example",
     BILLING_TRIAL_HASH_SECRET: "billing-test-secret-with-32-characters",
     BILLING_LIVE_ENABLED: "false",
+    BILLING_PG_CHECKOUT_ENABLED: "true",
   });
   assert.equal(config.liveEnabled, false);
   assert.equal(config.toss.ready, false);
@@ -360,6 +363,7 @@ test("24. 같은 결제 대상을 두 번 처리해도 provider 청구는 한 �
     TOSS_PAYMENTS_SECRET_KEY: "test_sk_example",
     BILLING_TRIAL_HASH_SECRET: "billing-test-secret-with-32-characters",
     BILLING_LIVE_ENABLED: "false",
+    BILLING_PG_CHECKOUT_ENABLED: "true",
   });
   let providerCalls = 0;
   const fetchImpl = async (_url, init) => {
@@ -382,4 +386,83 @@ test("24. 같은 결제 대상을 두 번 처리해도 provider 청구는 한 �
   assert.equal(second.skipped, true);
   assert.equal(providerCalls, 1);
   assert.equal(db.values.get("subscriptions/user-a").status, "active");
+});
+
+test("25. 운영 접근 제어는 기존 false 환경값이 남아 있어도 기본 활성화된다", () => {
+  const config = getBillingRuntimeConfig({ BILLING_ENFORCEMENT_ENABLED: "false" });
+  assert.equal(config.enforcementEnabled, true);
+});
+
+test("26. 무통장 입금 승인 시 결제일부터 달력 한 달 구독이 생성된다", () => {
+  const subscription = createBankTransferPaidSubscription({
+    uid: "bank-user",
+    plan,
+    paymentMethodId: "bank_bank-user",
+    paidAt: start,
+  });
+  assert.equal(subscription.provider, "bank_transfer");
+  assert.equal(subscription.status, "active");
+  assert.equal(subscription.currentPeriodEndsAt.toISOString(), "2026-09-26T03:30:00.000Z");
+  assert.equal(canUsePremiumFeatures(subscription, { enforcementEnabled: true, now: start }), true);
+});
+
+test("27. 만료된 무통장 구독은 active 문서가 남아 있어도 이용할 수 없다", () => {
+  const subscription = createBankTransferPaidSubscription({
+    uid: "bank-user",
+    plan,
+    paymentMethodId: "bank_bank-user",
+    paidAt: start,
+  });
+  assert.equal(canUsePremiumFeatures(subscription, {
+    enforcementEnabled: true,
+    now: subscription.currentPeriodEndsAt,
+  }), false);
+});
+
+test("28. 이용기간 중 재입금 승인은 남은 기간 뒤에 한 달을 연장한다", () => {
+  const first = createBankTransferPaidSubscription({
+    uid: "bank-user",
+    plan,
+    paymentMethodId: "bank_bank-user",
+    paidAt: start,
+  });
+  const renewed = createBankTransferPaidSubscription({
+    uid: "bank-user",
+    plan,
+    paymentMethodId: "bank_bank-user",
+    existingSubscription: first,
+    paidAt: new Date("2026-09-01T00:00:00.000Z"),
+  });
+  assert.equal(renewed.currentPeriodEndsAt.toISOString(), "2026-10-26T03:30:00.000Z");
+});
+
+test("29. 관리자가 입금을 승인해야만 결제 거래와 active 구독이 함께 저장된다", async () => {
+  const db = new MemoryFirestore([
+    ["billing_plans/standard", { ...plan, createdAt: start, updatedAt: start }],
+    ["bank_transfer_requests/bank-user", {
+      requestId: "bankreq_test",
+      uid: "bank-user",
+      email: "bank@example.com",
+      planId: "standard",
+      amount: 18_000,
+      currency: "KRW",
+      depositorName: "테스트입금자",
+      status: "pending",
+      submittedAt: start,
+      createdAt: start,
+      updatedAt: start,
+    }],
+  ]);
+  const config = getBillingRuntimeConfig({});
+  await approveBankTransferRequest({
+    db,
+    config,
+    actor: { uid: "admin" },
+    uid: "bank-user",
+    requestId: "bankreq_test",
+    now: start,
+  });
+  assert.equal(db.values.get("bank_transfer_requests/bank-user").status, "approved");
+  assert.equal(db.values.get("subscriptions/bank-user").status, "active");
+  assert.equal(db.values.get("payment_transactions/bank_bankreq_test").status, "paid");
 });

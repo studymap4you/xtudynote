@@ -64,7 +64,6 @@ import { CurriculumResourcesPage } from "@/pages/CurriculumResourcesPage";
 import { BillingPage } from "@/pages/BillingPage";
 import { BillingCallbackPage } from "@/pages/BillingCallbackPage";
 import { AdminBillingPage } from "@/pages/admin/AdminBillingPage";
-import { PremiumFeatureRoute } from "@/components/PremiumFeatureRoute";
 
 export default function App() {
   const { pathname } = useLocation();
@@ -76,9 +75,7 @@ export default function App() {
         path="/"
         element={
           <ProtectedRoute>
-            <PremiumFeatureRoute>
-              <TextbookAutoSimplePage />
-            </PremiumFeatureRoute>
+            <TextbookAutoSimplePage />
           </ProtectedRoute>
         }
       />
@@ -432,9 +429,7 @@ export default function App() {
         path="/tools/textbook-auto"
         element={
           <ProtectedRoute>
-            <PremiumFeatureRoute>
-              <TextbookAutoSimplePage />
-            </PremiumFeatureRoute>
+            <TextbookAutoSimplePage />
           </ProtectedRoute>
         }
       />

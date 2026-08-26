@@ -412,6 +412,93 @@
   font-weight: 700;
 }
 
+.bankAccountPanel {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  border: 1px solid #b9d3eb;
+  border-radius: 7px;
+  padding: 16px;
+  background: #f4f9fd;
+}
+
+.bankIcon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 6px;
+  background: #dceefa;
+  color: #1269a9;
+}
+
+.bankAccountPanel span,
+.bankAccountPanel strong,
+.bankAccountPanel small {
+  display: block;
+}
+
+.bankAccountPanel span,
+.bankAccountPanel small {
+  color: #65758a;
+  font-size: 12px;
+}
+
+.bankAccountPanel strong {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+  color: #14273d;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.bankAccountPanel > button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #9ec2df;
+  border-radius: 5px;
+  padding: 0 12px;
+  background: #fff;
+  color: #155f95;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.depositorField {
+  display: block;
+  margin-top: 18px;
+}
+
+.depositorField > span {
+  display: block;
+  margin-bottom: 7px;
+  color: #33465d;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.depositorField input {
+  width: min(420px, 100%);
+  min-height: 44px;
+  box-sizing: border-box;
+  border: 1px solid #c7d3e0;
+  border-radius: 6px;
+  padding: 0 12px;
+  background: #fff;
+  color: #17263a;
+  font: inherit;
+}
+
+.depositorField input:focus {
+  border-color: #2584cc;
+  outline: 2px solid rgba(37, 132, 204, 0.14);
+}
+
 .consentBox {
   margin-top: 20px;
   border: 1px solid #dce3ec;
@@ -670,5 +757,23 @@
   .sectionTitle button,
   .loadError button {
     width: 100%;
+  }
+
+  .bankAccountPanel {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .bankIcon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .bankAccountPanel > button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .bankAccountPanel strong {
+    font-size: 17px;
   }
 }

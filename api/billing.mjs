@@ -10,13 +10,16 @@ import {
 } from "./_lib/billing/admin.mjs";
 import { BILLING_TERMS_VERSION, getBillingRuntimeConfig } from "./_lib/billing/config.mjs";
 import {
+  approveBankTransferRequest,
   cancelBillingSubscription,
   finalizeBillingCheckout,
   getAdminBillingOverview,
   getBillingAccount,
   getPublicBillingConfiguration,
   getRetryPolicy,
+  rejectBankTransferRequest,
   startBillingCheckout,
+  submitBankTransferRequest,
   updateRetryPolicy,
 } from "./_lib/billing/service.mjs";
 
@@ -42,7 +45,12 @@ export default async function handler(req, res) {
       });
       return;
     }
-    if (action === "admin-overview" || action === "admin-update-retry-policy") {
+    if ([
+      "admin-overview",
+      "admin-update-retry-policy",
+      "admin-approve-bank-transfer",
+      "admin-reject-bank-transfer",
+    ].includes(action)) {
       const actor = await requireBillingUser(req, { superAdmin: true });
       if (req.method === "GET" && action === "admin-overview") {
         res.status(200).json(await getAdminBillingOverview({ db, config }));
@@ -53,6 +61,30 @@ export default async function handler(req, res) {
         const body = parseBody(req);
         const retryPolicy = await updateRetryPolicy({ db, values: body, actor });
         res.status(200).json({ ok: true, retryPolicy });
+        return;
+      }
+      if (req.method === "POST" && action === "admin-approve-bank-transfer") {
+        assertTrustedOrigin(req);
+        const body = parseBody(req);
+        res.status(200).json(await approveBankTransferRequest({
+          db,
+          config,
+          actor,
+          uid: String(body.uid || ""),
+          requestId: String(body.requestId || ""),
+        }));
+        return;
+      }
+      if (req.method === "POST" && action === "admin-reject-bank-transfer") {
+        assertTrustedOrigin(req);
+        const body = parseBody(req);
+        res.status(200).json(await rejectBankTransferRequest({
+          db,
+          actor,
+          uid: String(body.uid || ""),
+          requestId: String(body.requestId || ""),
+          reason: String(body.reason || ""),
+        }));
         return;
       }
       res.status(405).json({ error: "method-not-allowed" });
@@ -72,6 +104,19 @@ export default async function handler(req, res) {
     }
     assertTrustedOrigin(req);
     const body = parseBody(req);
+    if (action === "submit-bank-transfer") {
+      const account = await submitBankTransferRequest({
+        db,
+        config,
+        user,
+        depositorName: String(body.depositorName || ""),
+        consent: body.consent,
+        termsVersion: String(body.termsVersion || ""),
+        consentIp: clientIp(req),
+      });
+      res.status(201).json({ ...account, termsVersion: BILLING_TERMS_VERSION });
+      return;
+    }
     if (action === "start-checkout") {
       const checkout = await startBillingCheckout({
         db,

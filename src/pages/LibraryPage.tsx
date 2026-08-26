@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   collection,
   onSnapshot,
@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { LEARNING_THEME_OPTIONS, type LearningThemeId } from "@/types/learningTheme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { db } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
 import { recordStudentDownload } from "@/lib/studentDownloads";
@@ -108,6 +109,8 @@ function listTitle(row: LibraryRow): string {
 
 export function LibraryPage() {
   const { firebaseUser, profile } = useAuth();
+  const { entitled, loading: subscriptionLoading } = useSubscription();
+  const navigate = useNavigate();
   const canSeeInternalReferences = profile?.role === "super_admin" && profile.accountStatus === "active";
   const canRequestInternalReferences = Boolean(
     firebaseUser &&
@@ -296,6 +299,11 @@ export function LibraryPage() {
       window.alert("파일 다운로드는 로그인 후 이용할 수 있습니다.");
       return;
     }
+    if (subscriptionLoading || !entitled) {
+      window.alert("자료 다운로드는 구독 결제 후 이용할 수 있습니다.");
+      navigate("/billing");
+      return;
+    }
     if (selectedRows.length === 0 || !selectedRows.some((r) => r.allFilePaths.length > 0)) {
       window.alert("다운로드할 파일이 있는 자료를 선택해 주세요.");
       return;
@@ -334,6 +342,11 @@ export function LibraryPage() {
             {canRequestInternalReferences ? "승인된 자료 · 관리자 비공개 참고 자료" : "승인된 자료 · 공유 / 유료 / 과제"}
           </span>
         </div>
+        {!entitled ? (
+          <p className="library-query-hint" role="status">
+            자료 목록과 상세 내용은 자유롭게 볼 수 있습니다. 파일 다운로드는 <Link to="/billing">구독 후 이용</Link>할 수 있습니다.
+          </p>
+        ) : null}
 
         {themeLabel && (
           <p className="library-query-hint" role="status">

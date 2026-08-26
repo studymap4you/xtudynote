@@ -1,4 +1,5 @@
 import admin from "firebase-admin";
+import { requirePremiumBillingUser } from "./_lib/billing/admin.mjs";
 import { getProblemBankFirestore } from "./_lib/problem-bank/admin.mjs";
 
 const VALID_GRADES = new Set([1, 2, 3]);
@@ -14,20 +15,6 @@ function ensurePrimaryAdmin() {
     credential: admin.credential.cert(JSON.parse(raw)),
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET || DEFAULT_BUCKET,
   });
-}
-
-async function requireActiveUser(req) {
-  const authorization = String(req.headers.authorization || "");
-  const bearer = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
-  if (!bearer) throw Object.assign(new Error("authentication-required"), { statusCode: 401 });
-  ensurePrimaryAdmin();
-  const decoded = await admin.auth().verifyIdToken(bearer);
-  const snapshot = await admin.firestore().doc(`users/${decoded.uid}`).get();
-  const user = snapshot.data() || {};
-  if (user.accountStatus !== "active" || !["student", "teacher", "super_admin"].includes(user.role)) {
-    throw Object.assign(new Error("active-account-required"), { statusCode: 403 });
-  }
-  return decoded;
 }
 
 function cleanText(value, maxLength = 1_000) {
@@ -110,8 +97,9 @@ export default async function handler(req, res) {
       res.status(405).json({ error: "method-not-allowed" });
       return;
     }
-    await requireActiveUser(req);
     if (req.query?.examId || req.query?.fileType) {
+      await requirePremiumBillingUser(req);
+      ensurePrimaryAdmin();
       res.status(200).json({ url: await createDownload(req) });
       return;
     }

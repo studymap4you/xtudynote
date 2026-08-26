@@ -18,16 +18,17 @@ const OFFICIAL_EXAM_FILE_TYPES = new Set<OfficialExamFileType>(["question", "ans
 const ERROR_MESSAGES: Record<string, string> = {
   "authentication-required": "로그인이 필요합니다.",
   "active-account-required": "활성 사용자만 자료를 이용할 수 있습니다.",
+  "premium-subscription-required": "구독 결제 후 자료를 다운로드할 수 있습니다.",
   "problem-bank-not-configured": "공식 모의고사 자료 연결이 설정되지 않았습니다.",
   "problem-bank-permission-denied": "공식 모의고사 자료 저장소에 연결할 수 없습니다.",
   "exam-not-found": "시험 자료를 찾을 수 없습니다.",
   "exam-file-not-found": "선택한 파일이 등록되어 있지 않습니다.",
 };
 
-async function authenticatedRequest<T>(user: User, url: string): Promise<T> {
-  const token = await user.getIdToken();
+async function apiRequest<T>(user: User | null, url: string): Promise<T> {
+  const token = user ? await user.getIdToken() : null;
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   const payload = (await response.json().catch(() => ({}))) as T & { error?: string };
   if (!response.ok) {
@@ -37,9 +38,9 @@ async function authenticatedRequest<T>(user: User, url: string): Promise<T> {
   return payload;
 }
 
-export async function loadOfficialExamResources(user: User, grade: number): Promise<OfficialExamResource[]> {
-  const payload = await authenticatedRequest<{ items?: unknown }>(
-    user,
+export async function loadOfficialExamResources(grade: number): Promise<OfficialExamResource[]> {
+  const payload = await apiRequest<{ items?: unknown }>(
+    null,
     `/api/exam-library?grade=${encodeURIComponent(grade)}`,
   );
   return normalizeOfficialExamResources(payload.items);
@@ -81,6 +82,6 @@ export async function getOfficialExamDownloadUrl(
   fileType: OfficialExamFileType,
 ): Promise<string> {
   const params = new URLSearchParams({ examId, fileType });
-  const payload = await authenticatedRequest<{ url: string }>(user, `/api/exam-library?${params.toString()}`);
+  const payload = await apiRequest<{ url: string }>(user, `/api/exam-library?${params.toString()}`);
   return payload.url;
 }

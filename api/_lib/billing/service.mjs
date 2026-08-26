@@ -10,6 +10,7 @@ import {
   auditHash,
   billingCycleId,
   canUsePremiumFeatures,
+  createBankTransferPaidSubscription,
   createPaidSubscriptionPendingCharge,
   createTrialSubscription,
   finalizePendingCancellation,
@@ -108,9 +109,35 @@ export function serializePlan(plan, now = new Date()) {
   }).trialEndsAt;
   return {
     ...plan,
-    todayAmount: plan.trialPrice,
+    todayAmount: plan.salePrice,
     nextBillingAt: iso(next),
     nextBillingAmount: plan.salePrice,
+  };
+}
+
+function serializeBankTransfer(config, plan) {
+  return {
+    bankName: cleanText(config.bankTransfer.bankName, 80),
+    accountNumber: cleanText(config.bankTransfer.accountNumber, 40),
+    accountHolder: cleanText(config.bankTransfer.accountHolder, 80),
+    amount: plan.salePrice,
+    currency: plan.currency,
+    ready: Boolean(config.bankTransfer.ready),
+  };
+}
+
+function serializeBankTransferRequest(data) {
+  if (!data) return null;
+  return {
+    id: cleanText(data.requestId, 100),
+    status: cleanText(data.status, 30),
+    depositorName: cleanText(data.depositorName, 80),
+    amount: integer(data.amount),
+    currency: cleanText(data.currency || "KRW", 12),
+    submittedAt: iso(data.submittedAt),
+    approvedAt: iso(data.approvedAt),
+    rejectedAt: iso(data.rejectedAt),
+    rejectionReason: cleanText(data.rejectionReason, 300),
   };
 }
 
@@ -185,6 +212,7 @@ export async function getPublicBillingConfiguration({ db, config, now = new Date
   return {
     plan: serializePlan(plan, now),
     providers: publicProviderAvailability(config),
+    bankTransfer: serializeBankTransfer(config, plan),
     mode: config.mode,
     liveEnabled: config.liveEnabled,
     enforcementEnabled: config.enforcementEnabled,
@@ -192,7 +220,7 @@ export async function getPublicBillingConfiguration({ db, config, now = new Date
 }
 
 export async function getBillingAccount({ db, config, user, now = new Date() }) {
-  const [plan, subscriptionSnapshot, transactionsSnapshot] = await Promise.all([
+  const [plan, subscriptionSnapshot, transactionsSnapshot, bankTransferRequestSnapshot] = await Promise.all([
     ensureStandardPlan(db, now),
     db.doc(`subscriptions/${user.uid}`).get(),
     db.collection("payment_transactions")
@@ -200,6 +228,7 @@ export async function getBillingAccount({ db, config, user, now = new Date() }) 
       .orderBy("attemptedAt", "desc")
       .limit(HISTORY_LIMIT)
       .get(),
+    db.doc(`bank_transfer_requests/${user.uid}`).get(),
   ]);
   const subscription = subscriptionSnapshot.exists ? subscriptionSnapshot.data() : null;
   const trialHistorySnapshot = config.trialGuardReady && user.email
@@ -214,6 +243,10 @@ export async function getBillingAccount({ db, config, user, now = new Date() }) 
   return {
     plan: serializePlan(plan, now),
     providers: publicProviderAvailability(config),
+    bankTransfer: serializeBankTransfer(config, plan),
+    bankTransferRequest: bankTransferRequestSnapshot.exists
+      ? serializeBankTransferRequest(bankTransferRequestSnapshot.data())
+      : null,
     mode: config.mode,
     liveEnabled: config.liveEnabled,
     enforcementEnabled: config.enforcementEnabled,
@@ -225,6 +258,201 @@ export async function getBillingAccount({ db, config, user, now = new Date() }) 
     paymentMethod: methodSnapshot?.exists ? serializePaymentMethod(methodSnapshot.data()) : null,
     transactions,
   };
+}
+
+export async function submitBankTransferRequest({
+  db,
+  config,
+  user,
+  depositorName,
+  consent,
+  termsVersion,
+  consentIp,
+  now = new Date(),
+}) {
+  if (!config.bankTransfer.ready) throw billingError("bank-transfer-unavailable", 503);
+  if (consent !== true) throw billingError("bank-transfer-consent-required", 400);
+  if (termsVersion !== BILLING_TERMS_VERSION) throw billingError("billing-terms-version-invalid", 400);
+  const cleanDepositorName = cleanText(depositorName, 80);
+  if (cleanDepositorName.length < 2) throw billingError("bank-transfer-depositor-required", 400);
+  const plan = await ensureStandardPlan(db, now);
+  const requestRef = db.doc(`bank_transfer_requests/${user.uid}`);
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(requestRef);
+    const existing = snapshot.exists ? snapshot.data() : null;
+    if (existing?.status === "pending") return;
+    const requestId = randomId("bankreq");
+    transaction.set(requestRef, {
+      requestId,
+      uid: user.uid,
+      email: cleanText(user.email, 200),
+      displayName: cleanText(user.displayName, 120),
+      planId: plan.planId,
+      amount: plan.salePrice,
+      currency: plan.currency,
+      depositorName: cleanDepositorName,
+      status: "pending",
+      termsVersion,
+      consentAt: now,
+      consentIpHash: config.trialGuardReady ? auditHash(consentIp, config.trialHashSecret) : null,
+      submittedAt: now,
+      approvedAt: null,
+      rejectedAt: null,
+      rejectionReason: "",
+      createdAt: now,
+      updatedAt: now,
+    });
+    transaction.create(db.collection("billing_events").doc(), {
+      uid: user.uid,
+      type: "bank_transfer_submitted",
+      provider: "bank_transfer",
+      planId: plan.planId,
+      requestId,
+      amount: plan.salePrice,
+      createdAt: now,
+    });
+  });
+  return getBillingAccount({ db, config, user, now });
+}
+
+export async function approveBankTransferRequest({
+  db,
+  config,
+  actor,
+  uid,
+  requestId,
+  now = new Date(),
+}) {
+  const targetUid = cleanText(uid, 160);
+  const expectedRequestId = cleanText(requestId, 100);
+  if (!targetUid || targetUid.includes("/")) throw billingError("bank-transfer-request-not-found", 404);
+  const plan = await ensureStandardPlan(db, now);
+  const requestRef = db.doc(`bank_transfer_requests/${targetUid}`);
+  const subscriptionRef = db.doc(`subscriptions/${targetUid}`);
+  const paymentMethodId = `bank_${targetUid}`;
+  const paymentMethodRef = db.doc(`payment_methods/${paymentMethodId}`);
+  let approvedRequestId = expectedRequestId;
+  await db.runTransaction(async (transaction) => {
+    const [requestSnapshot, subscriptionSnapshot] = await Promise.all([
+      transaction.get(requestRef),
+      transaction.get(subscriptionRef),
+    ]);
+    if (!requestSnapshot.exists) throw billingError("bank-transfer-request-not-found", 404);
+    const request = requestSnapshot.data();
+    approvedRequestId = cleanText(request.requestId, 100);
+    if (expectedRequestId && expectedRequestId !== approvedRequestId) {
+      throw billingError("bank-transfer-request-stale", 409);
+    }
+    if (request.status === "approved") return;
+    if (request.status !== "pending") throw billingError("bank-transfer-request-not-pending", 409);
+    if (integer(request.amount) !== plan.salePrice || request.planId !== plan.planId) {
+      throw billingError("billing-plan-invalid", 409);
+    }
+    const existingSubscription = subscriptionSnapshot.exists ? subscriptionSnapshot.data() : null;
+    const subscription = createBankTransferPaidSubscription({
+      uid: targetUid,
+      plan,
+      paymentMethodId,
+      existingSubscription,
+      paidAt: now,
+    });
+    const transactionId = `bank_${approvedRequestId}`;
+    transaction.set(paymentMethodRef, {
+      uid: targetUid,
+      provider: "bank_transfer",
+      status: "active",
+      credentials: {},
+      summary: {
+        label: `${config.bankTransfer.bankName} 무통장 입금`,
+        last4: config.bankTransfer.accountNumber.slice(-4),
+        method: "무통장 입금",
+      },
+      registeredAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    transaction.set(subscriptionRef, subscription);
+    transaction.set(db.doc(`payment_transactions/${transactionId}`), {
+      id: transactionId,
+      billingCycleId: transactionId,
+      uid: targetUid,
+      planId: plan.planId,
+      provider: "bank_transfer",
+      paymentMethodId,
+      amount: plan.salePrice,
+      currency: plan.currency,
+      status: "paid",
+      attempt: 1,
+      providerOrderId: approvedRequestId,
+      providerTransactionId: approvedRequestId,
+      paymentMethod: "무통장 입금",
+      receiptUrl: "",
+      attemptedAt: request.submittedAt || now,
+      paidAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    transaction.update(requestRef, {
+      status: "approved",
+      approvedAt: now,
+      approvedByUid: actor.uid,
+      transactionId,
+      updatedAt: now,
+    });
+    transaction.create(db.collection("billing_events").doc(), {
+      uid: targetUid,
+      actorUid: actor.uid,
+      type: "bank_transfer_approved",
+      provider: "bank_transfer",
+      planId: plan.planId,
+      requestId: approvedRequestId,
+      amount: plan.salePrice,
+      createdAt: now,
+    });
+  });
+  return { ok: true, uid: targetUid, requestId: approvedRequestId };
+}
+
+export async function rejectBankTransferRequest({
+  db,
+  actor,
+  uid,
+  requestId,
+  reason,
+  now = new Date(),
+}) {
+  const targetUid = cleanText(uid, 160);
+  const expectedRequestId = cleanText(requestId, 100);
+  const rejectionReason = cleanText(reason, 300);
+  if (!targetUid || targetUid.includes("/")) throw billingError("bank-transfer-request-not-found", 404);
+  if (rejectionReason.length < 2) throw billingError("bank-transfer-rejection-reason-invalid", 400);
+  const requestRef = db.doc(`bank_transfer_requests/${targetUid}`);
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(requestRef);
+    if (!snapshot.exists) throw billingError("bank-transfer-request-not-found", 404);
+    const request = snapshot.data();
+    if (expectedRequestId && expectedRequestId !== cleanText(request.requestId, 100)) {
+      throw billingError("bank-transfer-request-stale", 409);
+    }
+    if (request.status !== "pending") throw billingError("bank-transfer-request-not-pending", 409);
+    transaction.update(requestRef, {
+      status: "rejected",
+      rejectionReason,
+      rejectedAt: now,
+      rejectedByUid: actor.uid,
+      updatedAt: now,
+    });
+    transaction.create(db.collection("billing_events").doc(), {
+      uid: targetUid,
+      actorUid: actor.uid,
+      type: "bank_transfer_rejected",
+      provider: "bank_transfer",
+      requestId: cleanText(request.requestId, 100),
+      reason: rejectionReason,
+      createdAt: now,
+    });
+  });
+  return { ok: true, uid: targetUid, requestId: expectedRequestId };
 }
 
 async function ensureBillingCustomer({ db, config, user, now }) {
@@ -411,6 +639,10 @@ async function deactivateMethodBestEffort({ db, config, methodId, now, fetchImpl
   const snapshot = await ref.get();
   if (!snapshot.exists || snapshot.data()?.status === "inactive") return;
   const method = snapshot.data();
+  if (method.provider === "bank_transfer") {
+    await ref.update({ status: "inactive", deactivatedAt: now, updatedAt: now });
+    return;
+  }
   try {
     const provider = getBillingProvider(method.provider, config, fetchImpl);
     await provider.deactivatePaymentMethod({ credentials: method.credentials });
@@ -814,6 +1046,39 @@ async function finalizeCancellation({ db, config, uid, subscription, now, fetchI
   return { uid, status: "cancelled" };
 }
 
+async function expireBankTransferSubscription({ db, uid, now }) {
+  const ref = db.doc(`subscriptions/${uid}`);
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists) return;
+    const current = snapshot.data();
+    const periodEndsAt = asDate(current.currentPeriodEndsAt);
+    if (
+      current.provider !== "bank_transfer"
+      || current.status !== "active"
+      || !periodEndsAt
+      || periodEndsAt.getTime() > now.getTime()
+    ) return;
+    transaction.set(ref, {
+      ...current,
+      status: "past_due",
+      nextBillingAt: null,
+      billingCycleAnchorAt: null,
+      lastPaymentStatus: "renewal_required",
+      retryCount: 0,
+      graceEndsAt: null,
+      updatedAt: now,
+    });
+    transaction.create(db.collection("billing_events").doc(), {
+      uid,
+      type: "bank_transfer_subscription_expired",
+      provider: "bank_transfer",
+      createdAt: now,
+    });
+  });
+  return { uid, status: "expired" };
+}
+
 export async function runBillingScheduler({ db, config, now = new Date(), fetchImpl = fetch }) {
   const retryPolicy = await getRetryPolicy({ db, config });
   const effectiveConfig = { ...config, ...retryPolicy };
@@ -840,6 +1105,8 @@ export async function runBillingScheduler({ db, config, now = new Date(), fetchI
           now,
           fetchImpl,
         });
+      } else if (subscription.provider === "bank_transfer" && subscription.status === "active") {
+        result = await expireBankTransferSubscription({ db, uid: snapshot.id, now });
       } else if (["trial", "active", "past_due"].includes(subscription.status)) {
         result = await processDueSubscription({
           db,
@@ -863,6 +1130,7 @@ export async function runBillingScheduler({ db, config, now = new Date(), fetchI
     else if (result.status === "failed") summary.failed += 1;
     else if (result.status === "reconciliation_required") summary.reconciliationRequired += 1;
     else if (result.status === "cancelled") summary.cancelled += 1;
+    else if (result.status === "expired") summary.failed += 1;
     else summary.skipped += 1;
     summary.results.push(result);
   }
@@ -935,9 +1203,10 @@ export async function updateRetryPolicy({ db, values, actor, now = new Date() })
 }
 
 export async function getAdminBillingOverview({ db, config, now = new Date() }) {
-  const [subscriptionSnapshot, paymentSnapshot, plan, retryPolicy] = await Promise.all([
+  const [subscriptionSnapshot, paymentSnapshot, bankTransferSnapshot, plan, retryPolicy] = await Promise.all([
     db.collection("subscriptions").limit(1_000).get(),
     db.collection("payment_transactions").limit(1_000).get(),
+    db.collection("bank_transfer_requests").limit(1_000).get(),
     ensureStandardPlan(db, now),
     getRetryPolicy({ db, config }),
   ]);
@@ -968,6 +1237,26 @@ export async function getAdminBillingOverview({ db, config, now = new Date() }) 
   const successfulPayments = payments.filter((item) => item.status === "paid");
   const failedPayments = payments.filter((item) => ["failed", "reconciliation_required"].includes(item.status));
   const recurringSubscribers = counts.active + counts.cancel_pending;
+  const bankTransferRequests = bankTransferSnapshot.docs
+    .map((snapshot) => {
+      const request = snapshot.data();
+      return {
+        uid: snapshot.id,
+        requestId: cleanText(request.requestId, 100),
+        email: cleanText(request.email, 200),
+        displayName: cleanText(request.displayName, 120),
+        depositorName: cleanText(request.depositorName, 80),
+        amount: integer(request.amount),
+        currency: cleanText(request.currency || "KRW", 12),
+        status: cleanText(request.status, 30),
+        submittedAt: iso(request.submittedAt),
+        approvedAt: iso(request.approvedAt),
+        rejectedAt: iso(request.rejectedAt),
+        rejectionReason: cleanText(request.rejectionReason, 300),
+      };
+    })
+    .filter((request) => request.status === "pending")
+    .sort((left, right) => Date.parse(right.submittedAt || "") - Date.parse(left.submittedAt || ""));
   return {
     plan: serializePlan(plan, now),
     mode: config.mode,
@@ -977,6 +1266,7 @@ export async function getAdminBillingOverview({ db, config, now = new Date() }) 
     successfulPayments: successfulPayments.length,
     failedPayments: failedPayments.length,
     retryPolicy,
+    bankTransferRequests,
     subscriptions: rows,
     recentTransactions: payments
       .sort((left, right) => Date.parse(right.attemptedAt || right.createdAt || "") - Date.parse(left.attemptedAt || left.createdAt || ""))

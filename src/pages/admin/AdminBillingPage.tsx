@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CreditCard, LoaderCircle, RefreshCw, Save } from "lucide-react";
+import { AlertCircle, Check, CreditCard, LoaderCircle, RefreshCw, Save, X } from "lucide-react";
 import { AdminTopNav } from "@/components/AdminTopNav";
 import { useAuth } from "@/contexts/AuthContext";
-import { loadAdminBillingOverview, saveBillingRetryPolicy } from "@/lib/billing/billingApi";
+import {
+  approveBankTransfer,
+  loadAdminBillingOverview,
+  rejectBankTransfer,
+  saveBillingRetryPolicy,
+} from "@/lib/billing/billingApi";
 import type { AdminBillingOverview, SubscriptionStatus } from "@/types/billing";
 import styles from "./adminBillingPage.module.css";
 
@@ -32,6 +37,7 @@ export function AdminBillingPage() {
   const [query, setQuery] = useState("");
   const [offsets, setOffsets] = useState("24, 72");
   const [graceDays, setGraceDays] = useState(7);
+  const [transferBusyId, setTransferBusyId] = useState("");
 
   const load = useCallback(async () => {
     if (!firebaseUser) return;
@@ -78,6 +84,34 @@ export function AdminBillingPage() {
     }
   }
 
+  async function approveTransfer(uid: string, requestId: string, depositorName: string) {
+    if (!firebaseUser || !window.confirm(`${depositorName} 명의의 입금이 확인되었나요? 승인하면 1개월 이용권이 즉시 활성화됩니다.`)) return;
+    setTransferBusyId(requestId);
+    try {
+      await approveBankTransfer(firebaseUser, { uid, requestId });
+      await load();
+    } catch (approveError) {
+      setError(approveError instanceof Error ? approveError.message : "입금 승인을 처리하지 못했습니다.");
+    } finally {
+      setTransferBusyId("");
+    }
+  }
+
+  async function rejectTransfer(uid: string, requestId: string) {
+    if (!firebaseUser) return;
+    const reason = window.prompt("사용자에게 표시할 반려 사유를 입력해주세요.", "입금 내역을 확인할 수 없습니다.");
+    if (!reason?.trim()) return;
+    setTransferBusyId(requestId);
+    try {
+      await rejectBankTransfer(firebaseUser, { uid, requestId, reason: reason.trim() });
+      await load();
+    } catch (rejectError) {
+      setError(rejectError instanceof Error ? rejectError.message : "입금 신청을 반려하지 못했습니다.");
+    } finally {
+      setTransferBusyId("");
+    }
+  }
+
   return (
     <div className="app-shell app-shell--admin app-shell--light">
       <AdminTopNav />
@@ -103,6 +137,37 @@ export function AdminBillingPage() {
             <div><span>예상 월 반복매출</span><strong>{won(overview.estimatedMonthlyRecurringRevenue)}</strong></div>
             <div><span>성공 결제</span><strong>{overview.successfulPayments}</strong></div>
             <div><span>실패·확인</span><strong>{overview.failedPayments}</strong></div>
+          </section>
+
+          <section className={styles.tableSection}>
+            <div className={styles.tableHeader}>
+              <div><p>BANK TRANSFER</p><h2>입금 승인 대기</h2></div>
+              <span className={styles.pendingCount}>{overview.bankTransferRequests.length}건</span>
+            </div>
+            <div className={styles.tableWrap}>
+              <table>
+                <thead><tr><th>신청자</th><th>입금자명</th><th>금액</th><th>신청일</th><th>처리</th></tr></thead>
+                <tbody>{overview.bankTransferRequests.map((request) => (
+                  <tr key={request.requestId}>
+                    <td><strong>{request.email || request.displayName || "이메일 없음"}</strong><small>{request.uid}</small></td>
+                    <td>{request.depositorName}</td>
+                    <td>{won(request.amount)}</td>
+                    <td>{dateLabel(request.submittedAt)}</td>
+                    <td>
+                      <div className={styles.transferActions}>
+                        <button type="button" className={styles.approveButton} onClick={() => void approveTransfer(request.uid, request.requestId, request.depositorName)} disabled={Boolean(transferBusyId)}>
+                          {transferBusyId === request.requestId ? <LoaderCircle size={15} className={styles.spin} aria-hidden /> : <Check size={15} aria-hidden />}승인
+                        </button>
+                        <button type="button" className={styles.rejectButton} onClick={() => void rejectTransfer(request.uid, request.requestId)} disabled={Boolean(transferBusyId)}>
+                          <X size={15} aria-hidden />반려
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              {!overview.bankTransferRequests.length ? <div className={styles.empty}><CreditCard aria-hidden />승인 대기 중인 입금 신청이 없습니다.</div> : null}
+            </div>
           </section>
 
           <section className={styles.policySection}>

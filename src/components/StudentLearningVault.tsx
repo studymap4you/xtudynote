@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   collection,
   onSnapshot,
@@ -9,6 +9,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { db } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
 import { removeStudentDownload } from "@/lib/studentDownloads";
@@ -29,6 +30,8 @@ function formatAt(raw: unknown): string {
 
 export function StudentLearningVault() {
   const { firebaseUser, profile } = useAuth();
+  const { entitled, loading: subscriptionLoading } = useSubscription();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<VaultRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -70,6 +73,11 @@ export function StudentLearningVault() {
   const redownload = useCallback(
     async (row: VaultRow) => {
       if (!firebaseUser) return;
+      if (subscriptionLoading || !entitled) {
+        window.alert("자료 재다운로드는 구독 결제 후 이용할 수 있습니다.");
+        navigate("/billing");
+        return;
+      }
       if (row.storagePaths.length === 0) {
         window.alert("저장된 파일 경로가 없습니다.");
         return;
@@ -83,7 +91,7 @@ export function StudentLearningVault() {
         setBusy(null);
       }
     },
-    [firebaseUser]
+    [entitled, firebaseUser, navigate, subscriptionLoading]
   );
 
   const remove = useCallback(

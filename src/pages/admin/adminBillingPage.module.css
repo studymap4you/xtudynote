@@ -99,6 +99,14 @@
 .tableSection { margin-top: 14px; overflow: hidden; }
 .tableHeader { justify-content: space-between; gap: 20px; padding: 20px 22px; }
 .tableHeader input { width: min(300px, 100%); }
+.pendingCount {
+  border-radius: 4px;
+  padding: 6px 9px;
+  background: #e7f2fb;
+  color: #1268a8;
+  font-size: 12px;
+  font-weight: 800;
+}
 .tableWrap { overflow-x: auto; border-top: 1px solid #e1e7ef; }
 .tableWrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .tableWrap th,
@@ -112,6 +120,21 @@
 .status_active { background: #e8f7f1; color: #08765a; }
 .status_past_due { background: #fff0f2; color: #aa3045; }
 .status_cancel_pending { background: #fff6e6; color: #87540a; }
+.transferActions { display: flex; gap: 6px; }
+.transferActions button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 5px;
+  padding: 0 10px;
+  cursor: pointer;
+  font-weight: 750;
+}
+.transferActions button:disabled { cursor: wait; opacity: .55; }
+.approveButton { border: 1px solid #138965; background: #138965; color: #fff; }
+.rejectButton { border: 1px solid #df9baa; background: #fff5f6; color: #a42e45; }
 .empty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 34px; color: #748197; }
 .error { gap: 8px; margin-bottom: 14px; border: 1px solid #f0bdc6; border-radius: 6px; padding: 11px 13px; background: #fff2f4; color: #a72b42; }
 .loading { min-height: 42vh; justify-content: center; gap: 9px; color: #65748a; }

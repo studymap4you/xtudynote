@@ -12,11 +12,14 @@ import {
   Pause,
   Play,
   Plus,
+  ShieldCheck,
   Trash2,
   X,
 } from "lucide-react";
 import { type ChangeEvent, type DragEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { DashboardShell } from "@/components/DashboardShell";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { CSATBookletPreview } from "@/components/renderEngine/CSATBookletPreview";
 import { CSATTemplatePicker } from "@/components/renderEngine/CSATTemplatePicker";
 import { attachConceptsToQuestions } from "@/lib/conceptAssembly/attachConceptsToQuestions";
@@ -189,6 +192,7 @@ function QuestionReviewItem({ question }: { question: GeneratedCsatQuestion }) {
 }
 
 export function CsatQuestionStudioPage() {
+  const { entitled, loading: subscriptionLoading } = useSubscription();
   const [userRequest, setUserRequest] = useState("");
   const [sources, setSources] = useState<AttachedSource[]>([]);
   const [job, setJob] = useState<CsatQuestionJob | null>(null);
@@ -257,6 +261,11 @@ export function CsatQuestionStudioPage() {
   }, [job?.id]);
 
   const refreshHistory = useCallback(async () => {
+    if (!entitled) {
+      setHistory([]);
+      setHistoryLoading(false);
+      return;
+    }
     setHistoryLoading(true);
     try {
       setHistory(await listCsatQuestionJobs());
@@ -265,7 +274,7 @@ export function CsatQuestionStudioPage() {
     } finally {
       setHistoryLoading(false);
     }
-  }, []);
+  }, [entitled]);
 
   const assembleConceptsForJob = useCallback(async (sourceJob: CsatQuestionJob): Promise<ConceptAssemblyResult | null> => {
     const questionTypes = [...new Set(
@@ -313,6 +322,7 @@ export function CsatQuestionStudioPage() {
 
   useEffect(() => {
     void refreshHistory();
+    if (!entitled) return;
     const activeId = window.localStorage.getItem(ACTIVE_JOB_STORAGE_KEY);
     if (!activeId) return;
     void getCsatQuestionJob(activeId)
@@ -323,7 +333,7 @@ export function CsatQuestionStudioPage() {
         void assembleConceptsForJob(stored);
       })
       .catch(() => window.localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY));
-  }, [assembleConceptsForJob, refreshHistory]);
+  }, [assembleConceptsForJob, entitled, refreshHistory]);
 
   const applyProgressSnapshot = useCallback((snapshot: CsatQuestionProgressSnapshot) => {
     progressCursorRef.current = Math.max(
@@ -372,6 +382,10 @@ export function CsatQuestionStudioPage() {
   }, [applyProgressSnapshot]);
 
   const runBatches = useCallback(async (initialJob: CsatQuestionJob) => {
+    if (subscriptionLoading || !entitled) {
+      setError("교재 제작은 구독 결제 후 이용할 수 있습니다.");
+      return;
+    }
     pauseRef.current = false;
     setRunning(true);
     setError(null);
@@ -426,9 +440,13 @@ export function CsatQuestionStudioPage() {
     } finally {
       setRunning(false);
     }
-  }, [beginProgressPolling, refreshHistory]);
+  }, [beginProgressPolling, entitled, refreshHistory, subscriptionLoading]);
 
   const startGeneration = useCallback(async () => {
+    if (subscriptionLoading || !entitled) {
+      setError("교재 제작은 구독 결제 후 이용할 수 있습니다.");
+      return;
+    }
     const instruction = userRequest.trim();
     if (!instruction) {
       setError("만들고 싶은 수능 영어 문제를 자연어로 입력해주세요.");
@@ -456,7 +474,7 @@ export function CsatQuestionStudioPage() {
       setError(caught instanceof Error ? caught.message : "문제 생성 작업을 시작하지 못했습니다.");
       setRunning(false);
     }
-  }, [assembleConceptsForJob, extractingCount, runBatches, sourceText, sources, userRequest]);
+  }, [assembleConceptsForJob, entitled, extractingCount, runBatches, sourceText, sources, subscriptionLoading, userRequest]);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const added = Array.from(files).map((file) => ({
@@ -503,6 +521,10 @@ export function CsatQuestionStudioPage() {
   }, [running]);
 
   const openHistoryItem = useCallback(async (id: string) => {
+    if (!entitled) {
+      setError("저장된 교재는 구독 결제 후 열 수 있습니다.");
+      return;
+    }
     if (running) return;
     setHistoryBusyId(id);
     setError(null);
@@ -522,9 +544,10 @@ export function CsatQuestionStudioPage() {
     } finally {
       setHistoryBusyId(null);
     }
-  }, [assembleConceptsForJob, running]);
+  }, [assembleConceptsForJob, entitled, running]);
 
   const removeHistoryItem = useCallback(async (id: string, title: string) => {
+    if (!entitled) return;
     if (!window.confirm(`'${title}' 문제 세트를 삭제할까요?`)) return;
     setHistoryBusyId(id);
     try {
@@ -536,9 +559,13 @@ export function CsatQuestionStudioPage() {
     } finally {
       setHistoryBusyId(null);
     }
-  }, [job?.id, refreshHistory, startNew]);
+  }, [entitled, job?.id, refreshHistory, startNew]);
 
   const downloadJson = useCallback(() => {
+    if (!entitled) {
+      setError("결과 다운로드는 구독 결제 후 이용할 수 있습니다.");
+      return;
+    }
     if (!job) return;
     const bookletContent = attachConceptsToQuestions(
       conceptResult?.section.blocks.length ? conceptResult.section : undefined,
@@ -564,7 +591,7 @@ export function CsatQuestionStudioPage() {
     anchor.download = `xuniverse-csat-questions-${job.id}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, [conceptResult, job]);
+  }, [conceptResult, entitled, job]);
 
   const handlePromptKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !running && !job) {
@@ -672,12 +699,19 @@ export function CsatQuestionStudioPage() {
               {job ? <ConceptAssemblyNotice status={conceptStatus} result={conceptResult} error={conceptError} /> : null}
 
               {error ? <p className={styles.error}>{error}</p> : null}
+              {!entitled ? (
+                <div className={styles.subscriptionNotice} role="status">
+                  <ShieldCheck size={18} aria-hidden="true" />
+                  <span>화면과 기능은 둘러볼 수 있습니다. 실제 교재 제작은 구독 결제 후 시작됩니다.</span>
+                  <Link to="/billing">구독하기</Link>
+                </div>
+              ) : null}
               <footer>
                 <input ref={fileInputRef} type="file" multiple hidden onChange={(event: ChangeEvent<HTMLInputElement>) => { if (event.target.files) addFiles(event.target.files); event.target.value = ""; }} />
                 <button type="button" className={styles.iconButton} onClick={() => fileInputRef.current?.click()} disabled={running || Boolean(job)} aria-label="원문 자료 첨부" title="원문 자료 첨부"><Paperclip size={18} /></button>
                 <span>{extractingCount ? `파일 ${extractingCount}개 분석 중` : sources.length ? `원문 ${sources.length}개 준비됨` : "원문 자료 첨부"}</span>
                 {!job ? (
-                  <button type="button" className={styles.sendButton} onClick={() => void startGeneration()} disabled={running || extractingCount > 0 || !userRequest.trim()} aria-label="문제 생성 시작" title="문제 생성 시작">
+                  <button type="button" className={styles.sendButton} onClick={() => void startGeneration()} disabled={running || extractingCount > 0 || !userRequest.trim() || subscriptionLoading || !entitled} aria-label="문제 생성 시작" title={entitled ? "문제 생성 시작" : "구독 후 생성할 수 있습니다"}>
                     {running ? <LoaderCircle className={styles.spinner} size={19} /> : <ArrowUp size={20} />}
                   </button>
                 ) : null}

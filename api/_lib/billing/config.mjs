@@ -1,5 +1,5 @@
 export const STANDARD_PLAN_ID = "standard";
-export const BILLING_TERMS_VERSION = "2026-08-26";
+export const BILLING_TERMS_VERSION = "2026-08-26-bank-transfer-v1";
 
 export const DEFAULT_STANDARD_PLAN = Object.freeze({
   planId: STANDARD_PLAN_ID,
@@ -69,17 +69,37 @@ function kakaoConfiguration(env, liveEnabled) {
   };
 }
 
+function bankTransferConfiguration(env) {
+  const bankName = text(env.BANK_TRANSFER_BANK_NAME) || "지역농협";
+  const accountNumber = text(env.BANK_TRANSFER_ACCOUNT_NUMBER) || "3521660492353";
+  const accountHolder = text(env.BANK_TRANSFER_ACCOUNT_HOLDER);
+  return {
+    bankName,
+    accountNumber,
+    accountHolder,
+    ready: Boolean(bankName && accountNumber),
+    reason: bankName && accountNumber ? null : "무통장 입금 계좌를 확인해주세요.",
+  };
+}
+
 export function getBillingRuntimeConfig(env = process.env) {
   const liveEnabled = text(env.BILLING_LIVE_ENABLED).toLowerCase() === "true";
-  const enforcementEnabled = text(env.BILLING_ENFORCEMENT_ENABLED).toLowerCase() === "true";
+  // Access control is fail-closed. It may only be disabled in an explicit test process.
+  const enforcementEnabled = !(
+    text(env.NODE_ENV).toLowerCase() === "test"
+    && text(env.BILLING_ACCESS_CONTROL_DISABLED_FOR_TESTS).toLowerCase() === "true"
+  );
+  const pgCheckoutEnabled = text(env.BILLING_PG_CHECKOUT_ENABLED).toLowerCase() === "true";
   const trialHashSecret = text(env.BILLING_TRIAL_HASH_SECRET);
   const cronSecret = text(env.CRON_SECRET);
   const toss = tossConfiguration(env, liveEnabled);
   const kakaopay = kakaoConfiguration(env, liveEnabled);
+  const bankTransfer = bankTransferConfiguration(env);
   const trialGuardReady = trialHashSecret.length >= 24;
   return {
     liveEnabled,
     enforcementEnabled,
+    pgCheckoutEnabled,
     mode: liveEnabled ? "live" : "test",
     trialHashSecret,
     trialGuardReady,
@@ -89,19 +109,31 @@ export function getBillingRuntimeConfig(env = process.env) {
     checkoutSessionMinutes: positiveInteger(env.BILLING_CHECKOUT_SESSION_MINUTES, 20),
     toss: {
       ...toss,
-      ready: toss.ready && trialGuardReady,
-      reason: trialGuardReady ? toss.reason : "무료체험 중복 방지용 서버 Secret 설정이 필요합니다.",
+      ready: pgCheckoutEnabled && toss.ready && trialGuardReady,
+      reason: pgCheckoutEnabled
+        ? trialGuardReady ? toss.reason : "무료체험 중복 방지용 서버 Secret 설정이 필요합니다."
+        : "현재는 무통장 입금만 지원합니다.",
     },
     kakaopay: {
       ...kakaopay,
-      ready: kakaopay.ready && trialGuardReady,
-      reason: trialGuardReady ? kakaopay.reason : "무료체험 중복 방지용 서버 Secret 설정이 필요합니다.",
+      ready: pgCheckoutEnabled && kakaopay.ready && trialGuardReady,
+      reason: pgCheckoutEnabled
+        ? trialGuardReady ? kakaopay.reason : "무료체험 중복 방지용 서버 Secret 설정이 필요합니다."
+        : "현재는 무통장 입금만 지원합니다.",
     },
+    bankTransfer,
   };
 }
 
 export function publicProviderAvailability(config) {
   return {
+    bank_transfer: {
+      id: "bank_transfer",
+      label: "무통장 입금",
+      sublabel: config.bankTransfer.bankName,
+      ready: config.bankTransfer.ready,
+      reason: config.bankTransfer.reason,
+    },
     toss: {
       id: "toss",
       label: "신용·체크카드",
@@ -118,4 +150,3 @@ export function publicProviderAvailability(config) {
     },
   };
 }
-

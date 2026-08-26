@@ -144,6 +144,57 @@ export function createPaidSubscriptionPendingCharge({ uid, plan, provider, payme
   };
 }
 
+export function createBankTransferPaidSubscription({
+  uid,
+  plan,
+  paymentMethodId,
+  existingSubscription = null,
+  paidAt = new Date(),
+}) {
+  const paidDate = asDate(paidAt);
+  if (!paidDate) throw new Error("billing-date-invalid");
+  const existingEndsAt = asDate(existingSubscription?.currentPeriodEndsAt);
+  const extendsCurrentPeriod = Boolean(
+    existingSubscription
+    && ["active", "cancel_pending"].includes(existingSubscription.status)
+    && existingEndsAt
+    && existingEndsAt.getTime() > paidDate.getTime()
+  );
+  const anchor = extendsCurrentPeriod
+    ? Number(existingSubscription.billingAnchorDay) || billingAnchorDay(existingEndsAt)
+    : billingAnchorDay(paidDate);
+  const periodStart = extendsCurrentPeriod
+    ? asDate(existingSubscription.currentPeriodStartedAt) || paidDate
+    : paidDate;
+  const periodEnd = addBillingMonths(extendsCurrentPeriod ? existingEndsAt : paidDate, 1, anchor);
+  return {
+    uid,
+    planId: plan.planId,
+    status: "active",
+    provider: "bank_transfer",
+    paymentMethodId,
+    listPrice: plan.listPrice,
+    billingAmount: plan.salePrice,
+    trialStartedAt: null,
+    trialEndsAt: null,
+    billingAnchorDay: anchor,
+    currentPeriodStartedAt: periodStart,
+    currentPeriodEndsAt: periodEnd,
+    nextBillingAt: periodEnd,
+    billingCycleAnchorAt: periodEnd,
+    cancelAtPeriodEnd: false,
+    cancelledAt: null,
+    lastPaymentAt: paidDate,
+    lastPaymentStatus: "paid",
+    retryCount: 0,
+    failureStartedAt: null,
+    graceEndsAt: null,
+    manualRenewal: true,
+    createdAt: asDate(existingSubscription?.createdAt) || paidDate,
+    updatedAt: paidDate,
+  };
+}
+
 export function markPaymentSucceeded(subscription, paidAt = new Date()) {
   const paidDate = asDate(paidAt);
   const periodStart = asDate(subscription.billingCycleAnchorAt)
@@ -253,9 +304,8 @@ export function isSubscriptionDue(subscription, now = new Date()) {
 export function canUsePremiumFeatures(subscription, { enforcementEnabled = false, now = new Date() } = {}) {
   if (!enforcementEnabled) return true;
   if (!subscription) return false;
-  if (["trial", "active", "cancel_pending"].includes(subscription.status)) return true;
-  if (subscription.status !== "past_due") return false;
-  const graceEndsAt = asDate(subscription.graceEndsAt);
-  return Boolean(graceEndsAt && graceEndsAt.getTime() >= asDate(now).getTime());
+  if (!["active", "cancel_pending"].includes(subscription.status)) return false;
+  const periodEndsAt = asDate(subscription.currentPeriodEndsAt);
+  const checkedAt = asDate(now);
+  return Boolean(periodEndsAt && checkedAt && periodEndsAt.getTime() > checkedAt.getTime());
 }
-

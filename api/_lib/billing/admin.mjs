@@ -1,5 +1,4 @@
 import admin from "firebase-admin";
-import { getBillingRuntimeConfig } from "./config.mjs";
 import { canUsePremiumFeatures } from "./domain.mjs";
 
 function parseServiceAccount(raw) {
@@ -61,9 +60,8 @@ export async function requireBillingUser(
 }
 
 export async function requirePremiumBillingUser(req, env = process.env) {
-  const config = getBillingRuntimeConfig(env);
-  const user = await requireBillingUser(req, { requireActive: config.enforcementEnabled }, env);
-  if (user.role === "super_admin" || !config.enforcementEnabled) return user;
+  const user = await requireBillingUser(req, { requireActive: true }, env);
+  if (user.role === "super_admin") return user;
   const snapshot = await getBillingFirestore(env).doc(`subscriptions/${user.uid}`).get();
   const subscription = snapshot.exists ? snapshot.data() : null;
   if (!canUsePremiumFeatures(subscription, { enforcementEnabled: true, now: new Date() })) {
@@ -147,6 +145,13 @@ const SAFE_ERROR_CODES = new Set([
   "server-auth-not-configured",
   "public-origin-not-configured",
   "premium-subscription-required",
+  "bank-transfer-unavailable",
+  "bank-transfer-consent-required",
+  "bank-transfer-depositor-required",
+  "bank-transfer-request-not-found",
+  "bank-transfer-request-stale",
+  "bank-transfer-request-not-pending",
+  "bank-transfer-rejection-reason-invalid",
 ]);
 
 export function safeBillingErrorCode(error) {

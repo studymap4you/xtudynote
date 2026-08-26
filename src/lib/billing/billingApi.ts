@@ -22,6 +22,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   "trial-already-used": "이 계정은 첫 달 무료 혜택을 이미 사용했습니다.",
   "trial-guard-not-configured": "무료체험 보호 설정이 완료되지 않았습니다.",
   "subscription-cannot-cancel": "현재 상태에서는 구독을 해지할 수 없습니다.",
+  "premium-subscription-required": "구독 결제 후 이용할 수 있습니다.",
+  "bank-transfer-unavailable": "무통장 입금 계좌를 확인하지 못했습니다.",
+  "bank-transfer-consent-required": "입금 확인 및 이용권 활성화 안내에 동의해주세요.",
+  "bank-transfer-depositor-required": "입금자명을 입력해주세요.",
+  "bank-transfer-request-not-found": "입금 신청을 찾을 수 없습니다.",
+  "bank-transfer-request-stale": "새 입금 신청이 있습니다. 목록을 새로고침해주세요.",
+  "bank-transfer-request-not-pending": "이미 처리된 입금 신청입니다.",
+  "bank-transfer-rejection-reason-invalid": "반려 사유를 두 글자 이상 입력해주세요.",
   "billing-request-failed": "결제 서버 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.",
 };
 
@@ -68,6 +76,16 @@ export function startBillingCheckout(
   });
 }
 
+export function submitBankTransfer(
+  user: User,
+  input: { depositorName: string; consent: boolean; termsVersion: string },
+): Promise<BillingAccount> {
+  return request(user, "/api/billing?action=submit-bank-transfer", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export function finalizeTossCheckout(
   user: User,
   input: { sessionId: string; authKey: string; customerKey: string },
@@ -106,5 +124,25 @@ export function saveBillingRetryPolicy(
   return request(user, "/api/billing?action=admin-update-retry-policy", {
     method: "POST",
     body: JSON.stringify(values),
+  });
+}
+
+export function approveBankTransfer(
+  user: User,
+  input: { uid: string; requestId: string },
+): Promise<{ ok: true; uid: string; requestId: string }> {
+  return request(user, "/api/billing?action=admin-approve-bank-transfer", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function rejectBankTransfer(
+  user: User,
+  input: { uid: string; requestId: string; reason: string },
+): Promise<{ ok: true; uid: string; requestId: string }> {
+  return request(user, "/api/billing?action=admin-reject-bank-transfer", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }

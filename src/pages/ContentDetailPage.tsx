@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   addDoc,
   collection,
@@ -15,6 +15,7 @@ import {
   where,
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { db } from "@/firebase/config";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
 import { recordStudentDownload } from "@/lib/studentDownloads";
@@ -52,6 +53,8 @@ function formatQaTime(raw: unknown): string {
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { firebaseUser, profile } = useAuth();
+  const { entitled, loading: subscriptionLoading } = useSubscription();
+  const navigate = useNavigate();
   const [content, setContent] = useState<ContentDocument | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [qa, setQa] = useState<QRow[]>([]);
@@ -228,6 +231,11 @@ export function ContentDetailPage() {
   async function downloadAll() {
     if (!firebaseUser) {
       window.alert("다운로드는 로그인 후 이용할 수 있습니다.");
+      return;
+    }
+    if (subscriptionLoading || !entitled) {
+      window.alert("자료 다운로드는 구독 결제 후 이용할 수 있습니다.");
+      navigate("/billing");
       return;
     }
     if (!content) return;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   BookOpenCheck,
   Download,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import {
   CURRICULUM_CATALOGS,
   deleteCurriculumResource,
@@ -189,6 +190,8 @@ function ResourceUploadDialog({
 export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCatalogId }) {
   const { category: categoryParam } = useParams<{ category?: string }>();
   const { firebaseUser, profile, isSuperAdmin } = useAuth();
+  const { entitled, loading: subscriptionLoading } = useSubscription();
+  const navigate = useNavigate();
   const catalog = CURRICULUM_CATALOGS[catalogId];
   const selectedCategory = catalog.categories.find((item) => item.id === categoryParam) ?? catalog.categories[0];
   const [manualRows, setManualRows] = useState<CurriculumResourceRow[]>([]);
@@ -219,12 +222,12 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
     let cancelled = false;
     setOfficialRows([]);
     setOfficialError("");
-    if (!firebaseUser || !officialGrade) {
+    if (!officialGrade) {
       setOfficialLoading(false);
       return () => { cancelled = true; };
     }
     setOfficialLoading(true);
-    void loadOfficialExamResources(firebaseUser, officialGrade)
+    void loadOfficialExamResources(officialGrade)
       .then((items) => {
         if (!cancelled) setOfficialRows(items);
       })
@@ -235,7 +238,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
         if (!cancelled) setOfficialLoading(false);
       });
     return () => { cancelled = true; };
-  }, [firebaseUser, officialGrade]);
+  }, [officialGrade]);
 
   useEffect(() => {
     setUploadOpen(false);
@@ -253,6 +256,11 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
   const downloadManual = async (row: CurriculumResourceRow) => {
     if (!firebaseUser) {
       window.alert("파일 다운로드는 로그인 후 이용할 수 있습니다.");
+      return;
+    }
+    if (subscriptionLoading || !entitled) {
+      window.alert("자료 다운로드는 구독 결제 후 이용할 수 있습니다.");
+      navigate("/billing");
       return;
     }
     if (!row.files.length) return;
@@ -275,7 +283,16 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
   };
 
   const downloadOfficial = async (exam: OfficialExamResource, fileType: OfficialExamFileType) => {
-    if (!firebaseUser) return;
+    if (!firebaseUser) {
+      window.alert("파일 다운로드는 로그인 후 이용할 수 있습니다.");
+      navigate("/login");
+      return;
+    }
+    if (subscriptionLoading || !entitled) {
+      window.alert("자료 다운로드는 구독 결제 후 이용할 수 있습니다.");
+      navigate("/billing");
+      return;
+    }
     const downloadKey = `${exam.id}:${fileType}`;
     setDownloadingId(downloadKey);
     const popup = window.open("about:blank", "_blank");
@@ -361,6 +378,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
 
             {error ? <p className={styles.error} role="alert">{error}</p> : null}
             {officialError && isSuperAdmin ? <p className={styles.notice} role="status">{officialError}</p> : null}
+            {!entitled ? <p className={styles.notice} role="status">자료 목록은 자유롭게 볼 수 있습니다. 파일 다운로드는 <Link to="/billing">구독 후 이용</Link>할 수 있습니다.</p> : null}
 
             {loading && totalCount === 0 ? (
               <div className={styles.loadingState}>

@@ -6,7 +6,6 @@ export function canUsePremiumFeatures(
 ): boolean {
   if (options.isSuperAdmin || !options.enforcementEnabled) return true;
   if (!subscription) return false;
-  if (["trial", "active", "cancel_pending"].includes(subscription.status)) return true;
-  if (subscription.status !== "past_due" || !subscription.graceEndsAt) return false;
-  return new Date(subscription.graceEndsAt).getTime() >= (options.now ?? new Date()).getTime();
+  if (!["active", "cancel_pending"].includes(subscription.status) || !subscription.currentPeriodEndsAt) return false;
+  return new Date(subscription.currentPeriodEndsAt).getTime() > (options.now ?? new Date()).getTime();
 }

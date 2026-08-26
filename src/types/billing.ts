@@ -1,4 +1,4 @@
-export type BillingProviderId = "toss" | "kakaopay";
+export type BillingProviderId = "bank_transfer" | "toss" | "kakaopay";
 export type SubscriptionStatus = "trial" | "active" | "past_due" | "cancel_pending" | "cancelled";
 
 export interface BillingPlan {
@@ -23,6 +23,27 @@ export interface BillingProviderAvailability {
   sublabel: string;
   ready: boolean;
   reason: string | null;
+}
+
+export interface BankTransferInfo {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  amount: number;
+  currency: string;
+  ready: boolean;
+}
+
+export interface BankTransferRequestSummary {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  depositorName: string;
+  amount: number;
+  currency: string;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string;
 }
 
 export interface SubscriptionSummary {
@@ -76,6 +97,8 @@ export interface PaymentTransactionSummary {
 export interface BillingAccount {
   plan: BillingPlan;
   providers: Record<BillingProviderId, BillingProviderAvailability>;
+  bankTransfer: BankTransferInfo;
+  bankTransferRequest: BankTransferRequestSummary | null;
   termsVersion: string;
   mode: "test" | "live";
   liveEnabled: boolean;
@@ -123,6 +146,20 @@ export interface AdminBillingOverview {
     pastDueGraceDays: number;
     updatedAt: string | null;
   };
+  bankTransferRequests: Array<{
+    uid: string;
+    requestId: string;
+    email: string;
+    displayName: string;
+    depositorName: string;
+    amount: number;
+    currency: string;
+    status: "pending";
+    submittedAt: string | null;
+    approvedAt: string | null;
+    rejectedAt: string | null;
+    rejectionReason: string;
+  }>;
   subscriptions: Array<{
     uid: string;
     email: string;
