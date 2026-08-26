@@ -61,7 +61,7 @@ Toss의 공식 브라우저 SDK는 무작위 `customerKey`를 인자로 요구�
 | `billing_checkout_sessions` | 만료·잠금이 있는 등록 세션 | 읽기·쓰기 거부 |
 | `billing_settings` | 관리자 재시도 정책 | 읽기·쓰기 거부 |
 
-서버 전용 collection은 Firebase Admin SDK만 접근합니다. 관리자 화면도 Client SDK로 이 문서들을 직접 읽지 않고 `/api/admin-billing`을 사용합니다.
+서버 전용 collection은 Firebase Admin SDK만 접근합니다. 관리자 화면도 Client SDK로 이 문서들을 직접 읽지 않고 `/api/billing`의 관리자 전용 액션을 사용합니다.
 
 ## 상태 전이
 

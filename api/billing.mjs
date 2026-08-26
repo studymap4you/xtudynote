@@ -12,10 +12,12 @@ import { BILLING_TERMS_VERSION, getBillingRuntimeConfig } from "./_lib/billing/c
 import {
   cancelBillingSubscription,
   finalizeBillingCheckout,
+  getAdminBillingOverview,
   getBillingAccount,
   getPublicBillingConfiguration,
   getRetryPolicy,
   startBillingCheckout,
+  updateRetryPolicy,
 } from "./_lib/billing/service.mjs";
 
 function queryAction(req) {
@@ -38,6 +40,22 @@ export default async function handler(req, res) {
         ...(await getPublicBillingConfiguration({ db, config })),
         termsVersion: BILLING_TERMS_VERSION,
       });
+      return;
+    }
+    if (action === "admin-overview" || action === "admin-update-retry-policy") {
+      const actor = await requireBillingUser(req, { superAdmin: true });
+      if (req.method === "GET" && action === "admin-overview") {
+        res.status(200).json(await getAdminBillingOverview({ db, config }));
+        return;
+      }
+      if (req.method === "POST" && action === "admin-update-retry-policy") {
+        assertTrustedOrigin(req);
+        const body = parseBody(req);
+        const retryPolicy = await updateRetryPolicy({ db, values: body, actor });
+        res.status(200).json({ ok: true, retryPolicy });
+        return;
+      }
+      res.status(405).json({ error: "method-not-allowed" });
       return;
     }
     const user = await requireBillingUser(req);

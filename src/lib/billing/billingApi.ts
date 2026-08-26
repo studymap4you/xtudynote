@@ -96,15 +96,15 @@ export function cancelSubscription(user: User): Promise<BillingAccount> {
 }
 
 export function loadAdminBillingOverview(user: User): Promise<AdminBillingOverview> {
-  return request(user, "/api/admin-billing");
+  return request(user, "/api/billing?action=admin-overview");
 }
 
 export function saveBillingRetryPolicy(
   user: User,
   values: { retryOffsetsHours: number[]; pastDueGraceDays: number },
 ): Promise<{ ok: true; retryPolicy: AdminBillingOverview["retryPolicy"] }> {
-  return request(user, "/api/admin-billing", {
+  return request(user, "/api/billing?action=admin-update-retry-policy", {
     method: "POST",
-    body: JSON.stringify({ action: "update-retry-policy", ...values }),
+    body: JSON.stringify(values),
   });
 }
