@@ -75,6 +75,10 @@ export function SuperAdminDashboard() {
             </span>
           </p>
           <div className="super-admin-actions">
+            <Link to="/admin" className="btn btn--primary btn--stack super-admin-actions__primary">
+              <span className="ui-en">Open master operations</span>
+              <span className="ui-ko">관리자 운영 현황 열기</span>
+            </Link>
             <p className="super-admin-actions__group-label ui-ko">전체 자료관리 · 세부 메뉴</p>
             <p className="super-admin-actions__group-hint ui-ko">
               자료 검수 대기, 콘텐츠 DB, 홈 배경, 지식 큐레이션 — 관리자 대시보드와「전체 자료관리」화면에서 동일하게 안내합니다.

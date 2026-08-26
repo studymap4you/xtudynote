@@ -6,6 +6,8 @@ service firebase.storage {
     }
     function isActiveSuperAdmin() {
       return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == 'waterfallingsound0827@gmail.com'
         && userDoc().role == 'super_admin'
         && userDoc().accountStatus == 'active';
     }
@@ -25,7 +27,7 @@ service firebase.storage {
     function hasPaidSubscription() {
       return request.auth != null
         && firestore.exists(/databases/(default)/documents/subscriptions/$(request.auth.uid))
-        && subscriptionDoc().status in ['active', 'cancel_pending']
+        && subscriptionDoc().status in ['trial', 'active', 'cancel_pending']
         && subscriptionDoc().currentPeriodEndsAt is timestamp
         && subscriptionDoc().currentPeriodEndsAt > request.time;
     }

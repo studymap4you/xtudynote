@@ -160,6 +160,41 @@ export interface AdminBillingOverview {
     rejectedAt: string | null;
     rejectionReason: string;
   }>;
+  visitors: {
+    today: string;
+    todayPageViews: number;
+    todayUniqueVisitors: number;
+    todayAuthenticatedVisitors: number;
+    totalPageViews: number;
+    totalUniqueVisitors: number;
+    updatedAt: string | null;
+    daily: Array<{
+      day: string;
+      pageViews: number;
+      uniqueVisitors: number;
+      authenticatedVisitors: number;
+    }>;
+  };
+  members: {
+    total: number;
+    active: number;
+    banned: number;
+    roleCounts: {
+      super_admin: number;
+      teacher: number;
+      pending_teacher: number;
+      student: number;
+    };
+    rows: Array<{
+      uid: string;
+      email: string;
+      displayName: string;
+      role: string;
+      accountStatus: string;
+      createdAt: string | null;
+    }>;
+    truncated: boolean;
+  };
   subscriptions: Array<{
     uid: string;
     email: string;

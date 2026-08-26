@@ -8,6 +8,8 @@
  */
 import admin from "firebase-admin";
 
+const MASTER_ADMIN_EMAIL = "waterfallingsound0827@gmail.com";
+
 function ensureAdmin() {
   if (admin.apps.length > 0) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -46,7 +48,8 @@ export default async function handler(req, res) {
     const decoded = await admin.auth().verifyIdToken(bearer);
     const userSnap = await admin.firestore().doc(`users/${decoded.uid}`).get();
     const data = userSnap.data();
-    if (!data || data.role !== "super_admin" || data.accountStatus !== "active") {
+    const email = String(decoded.email || data?.email || "").trim().toLowerCase();
+    if (!data || email !== MASTER_ADMIN_EMAIL || data.role !== "super_admin" || data.accountStatus !== "active") {
       res.status(403).json({ error: "Super admin only" });
       return;
     }

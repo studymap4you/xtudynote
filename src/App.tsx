@@ -64,12 +64,15 @@ import { CurriculumResourcesPage } from "@/pages/CurriculumResourcesPage";
 import { BillingPage } from "@/pages/BillingPage";
 import { BillingCallbackPage } from "@/pages/BillingCallbackPage";
 import { AdminBillingPage } from "@/pages/admin/AdminBillingPage";
+import { AdminOperationsPage } from "@/pages/admin/AdminOperationsPage";
+import { SiteVisitTracker } from "@/components/SiteVisitTracker";
 
 export default function App() {
   const { pathname } = useLocation();
 
   return (
     <>
+    <SiteVisitTracker />
     <Routes>
       <Route
         path="/"
@@ -222,6 +225,14 @@ export default function App() {
       />
       <Route
         path="/admin"
+        element={
+          <SuperAdminRoute>
+            <AdminOperationsPage />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/members"
         element={
           <SuperAdminRoute>
             <AdminPanelPage />

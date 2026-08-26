@@ -260,7 +260,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(() => {
-    const isSuperAdmin = profile?.role === "super_admin" && profile.accountStatus === "active";
+    const isSuperAdmin = profile?.role === "super_admin"
+      && profile.accountStatus === "active"
+      && (firebaseUser?.email || profile.email).trim().toLowerCase() === SUPER_ADMIN_EMAIL;
     const isTeacherApproved = profile?.role === "teacher" && profile.accountStatus === "active";
     const isPendingTeacher =
       profile?.role === "pending_teacher" && profile.accountStatus === "active";

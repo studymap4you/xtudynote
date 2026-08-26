@@ -109,7 +109,7 @@ export function serializePlan(plan, now = new Date()) {
   }).trialEndsAt;
   return {
     ...plan,
-    todayAmount: plan.salePrice,
+    todayAmount: plan.trialPrice,
     nextBillingAt: iso(next),
     nextBillingAmount: plan.salePrice,
   };
@@ -141,11 +141,11 @@ function serializeBankTransferRequest(data) {
   };
 }
 
-function serializeSubscription(subscription, config, role = "student") {
+function serializeSubscription(subscription, config, isMasterAdmin = false) {
   if (!subscription) {
     return {
       subscription: null,
-      entitled: role === "super_admin" || canUsePremiumFeatures(null, config),
+      entitled: isMasterAdmin || canUsePremiumFeatures(null, config),
     };
   }
   const publicSubscription = {
@@ -171,7 +171,7 @@ function serializeSubscription(subscription, config, role = "student") {
   };
   return {
     subscription: publicSubscription,
-    entitled: role === "super_admin" || canUsePremiumFeatures(subscription, config),
+    entitled: isMasterAdmin || canUsePremiumFeatures(subscription, config),
   };
 }
 
@@ -250,11 +250,15 @@ export async function getBillingAccount({ db, config, user, now = new Date() }) 
     mode: config.mode,
     liveEnabled: config.liveEnabled,
     enforcementEnabled: config.enforcementEnabled,
-    trialEligible: Boolean(config.trialGuardReady && !trialHistorySnapshot?.exists),
+    trialEligible: Boolean(
+      config.trialGuardReady
+      && !trialHistorySnapshot?.exists
+      && !subscriptionSnapshot.exists
+    ),
     ...serializeSubscription(subscription, {
       enforcementEnabled: config.enforcementEnabled,
       now,
-    }, user.role),
+    }, user.isMasterAdmin),
     paymentMethod: methodSnapshot?.exists ? serializePaymentMethod(methodSnapshot.data()) : null,
     transactions,
   };
@@ -270,12 +274,56 @@ export async function submitBankTransferRequest({
   consentIp,
   now = new Date(),
 }) {
-  if (!config.bankTransfer.ready) throw billingError("bank-transfer-unavailable", 503);
   if (consent !== true) throw billingError("bank-transfer-consent-required", 400);
   if (termsVersion !== BILLING_TERMS_VERSION) throw billingError("billing-terms-version-invalid", 400);
+  const plan = await ensureStandardPlan(db, now);
+  if (config.trialGuardReady && user.email) {
+    const customer = await ensureBillingCustomer({ db, config, user, now });
+    const trialRef = db.doc(`trial_history/${customer.identityHash}`);
+    const subscriptionRef = db.doc(`subscriptions/${user.uid}`);
+    let trialStarted = false;
+    await db.runTransaction(async (transaction) => {
+      const [trialSnapshot, subscriptionSnapshot] = await Promise.all([
+        transaction.get(trialRef),
+        transaction.get(subscriptionRef),
+      ]);
+      if (trialSnapshot.exists || subscriptionSnapshot.exists) return;
+      const subscription = createTrialSubscription({
+        uid: user.uid,
+        plan,
+        provider: "bank_transfer",
+        paymentMethodId: null,
+        now,
+      });
+      transaction.create(trialRef, {
+        identityHash: trialRef.id,
+        firstUid: user.uid,
+        planId: plan.planId,
+        provider: "bank_transfer",
+        trialStartedAt: now,
+        trialEndsAt: subscription.trialEndsAt,
+        createdAt: now,
+      });
+      transaction.set(subscriptionRef, subscription);
+      transaction.create(db.collection("billing_events").doc(), {
+        uid: user.uid,
+        type: "bank_transfer_trial_started",
+        provider: "bank_transfer",
+        planId: plan.planId,
+        amount: plan.trialPrice,
+        termsVersion,
+        consentAt: now,
+        consentIpHash: auditHash(consentIp, config.trialHashSecret),
+        createdAt: now,
+      });
+      trialStarted = true;
+    });
+    if (trialStarted) return getBillingAccount({ db, config, user, now });
+  }
+
+  if (!config.bankTransfer.ready) throw billingError("bank-transfer-unavailable", 503);
   const cleanDepositorName = cleanText(depositorName, 80);
   if (cleanDepositorName.length < 2) throw billingError("bank-transfer-depositor-required", 400);
-  const plan = await ensureStandardPlan(db, now);
   const requestRef = db.doc(`bank_transfer_requests/${user.uid}`);
   await db.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(requestRef);
@@ -1055,7 +1103,7 @@ async function expireBankTransferSubscription({ db, uid, now }) {
     const periodEndsAt = asDate(current.currentPeriodEndsAt);
     if (
       current.provider !== "bank_transfer"
-      || current.status !== "active"
+      || !["trial", "active"].includes(current.status)
       || !periodEndsAt
       || periodEndsAt.getTime() > now.getTime()
     ) return;
@@ -1064,14 +1112,16 @@ async function expireBankTransferSubscription({ db, uid, now }) {
       status: "past_due",
       nextBillingAt: null,
       billingCycleAnchorAt: null,
-      lastPaymentStatus: "renewal_required",
+      lastPaymentStatus: current.status === "trial" ? "trial_ended" : "renewal_required",
       retryCount: 0,
       graceEndsAt: null,
       updatedAt: now,
     });
     transaction.create(db.collection("billing_events").doc(), {
       uid,
-      type: "bank_transfer_subscription_expired",
+      type: current.status === "trial"
+        ? "bank_transfer_trial_expired"
+        : "bank_transfer_subscription_expired",
       provider: "bank_transfer",
       createdAt: now,
     });
@@ -1105,7 +1155,7 @@ export async function runBillingScheduler({ db, config, now = new Date(), fetchI
           now,
           fetchImpl,
         });
-      } else if (subscription.provider === "bank_transfer" && subscription.status === "active") {
+      } else if (subscription.provider === "bank_transfer" && ["trial", "active"].includes(subscription.status)) {
         result = await expireBankTransferSubscription({ db, uid: snapshot.id, now });
       } else if (["trial", "active", "past_due"].includes(subscription.status)) {
         result = await processDueSubscription({

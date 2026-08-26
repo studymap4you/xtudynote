@@ -1,5 +1,8 @@
+import { createHash } from "node:crypto";
+
 export const STANDARD_PLAN_ID = "standard";
-export const BILLING_TERMS_VERSION = "2026-08-26-bank-transfer-v1";
+export const BILLING_TERMS_VERSION = "2026-08-26-bank-transfer-trial-v2";
+export const MASTER_ADMIN_EMAIL = "waterfallingsound0827@gmail.com";
 
 export const DEFAULT_STANDARD_PLAN = Object.freeze({
   planId: STANDARD_PLAN_ID,
@@ -90,8 +93,12 @@ export function getBillingRuntimeConfig(env = process.env) {
     && text(env.BILLING_ACCESS_CONTROL_DISABLED_FOR_TESTS).toLowerCase() === "true"
   );
   const pgCheckoutEnabled = text(env.BILLING_PG_CHECKOUT_ENABLED).toLowerCase() === "true";
-  const trialHashSecret = text(env.BILLING_TRIAL_HASH_SECRET);
   const cronSecret = text(env.CRON_SECRET);
+  const configuredTrialSecret = text(env.BILLING_TRIAL_HASH_SECRET);
+  const fallbackTrialSeed = cronSecret || text(env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  const trialHashSecret = configuredTrialSecret || (fallbackTrialSeed
+    ? createHash("sha256").update(fallbackTrialSeed).digest("hex")
+    : "");
   const toss = tossConfiguration(env, liveEnabled);
   const kakaopay = kakaoConfiguration(env, liveEnabled);
   const bankTransfer = bankTransferConfiguration(env);

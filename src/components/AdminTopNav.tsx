@@ -34,6 +34,10 @@ export function AdminTopNav() {
         </Link>
         <nav className="admin-nav-tabs" aria-label="관리자 메뉴">
           <NavLink to="/admin" className={adminPillClass} end>
+            <span className="nav-pill__title">운영 현황</span>
+            <span className="nav-pill__sub">Overview</span>
+          </NavLink>
+          <NavLink to="/admin/members" className={adminPillClass}>
             <span className="nav-pill__title">전체 회원관리</span>
             <span className="nav-pill__sub">All members</span>
           </NavLink>

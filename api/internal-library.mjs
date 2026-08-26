@@ -1,5 +1,7 @@
 import admin from "firebase-admin";
 
+const MASTER_ADMIN_EMAIL = "waterfallingsound0827@gmail.com";
+
 function ensureFirebaseAdmin() {
   if (admin.apps.length > 0) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -56,10 +58,12 @@ function normalizeLibraryItem(snapshot) {
   };
 }
 
-async function requireActiveSuperAdmin(uid) {
+async function requireActiveSuperAdmin(authUser) {
+  const uid = authUser.uid;
   const snapshot = await admin.firestore().doc(`users/${uid}`).get();
   const profile = snapshot.data() || {};
-  if (!snapshot.exists || profile.role !== "super_admin" || profile.accountStatus !== "active") {
+  const email = String(authUser.email || profile.email || "").trim().toLowerCase();
+  if (!snapshot.exists || email !== MASTER_ADMIN_EMAIL || profile.role !== "super_admin" || profile.accountStatus !== "active") {
     throw new Error("admin-access-required");
   }
 }
@@ -90,7 +94,7 @@ export default async function handler(req, res) {
 
   try {
     const authUser = await requireAuthenticatedUser(req);
-    await requireActiveSuperAdmin(authUser.uid);
+    await requireActiveSuperAdmin(authUser);
     res.status(200).json({ items: await listInternalLibrary() });
   } catch (error) {
     const message = error instanceof Error ? error.message : "비공개 자료를 불러오지 못했습니다.";

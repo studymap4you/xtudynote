@@ -85,7 +85,7 @@ export function AdminBillingPage() {
   }
 
   async function approveTransfer(uid: string, requestId: string, depositorName: string) {
-    if (!firebaseUser || !window.confirm(`${depositorName} 명의의 입금이 확인되었나요? 승인하면 1개월 이용권이 즉시 활성화됩니다.`)) return;
+    if (!firebaseUser || !window.confirm(`${depositorName} 명의의 입금이 확인되었나요? 승인하면 유료 이용기간 1개월이 활성화 또는 연장됩니다.`)) return;
     setTransferBusyId(requestId);
     try {
       await approveBankTransfer(firebaseUser, { uid, requestId });

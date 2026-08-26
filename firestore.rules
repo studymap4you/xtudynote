@@ -19,6 +19,7 @@ service cloud.firestore {
     }
     function isActiveSuperAdmin() {
       return signedIn()
+        && isSuperAdminEmail()
         && userData(request.auth.uid).role == 'super_admin'
         && userData(request.auth.uid).accountStatus == 'active';
     }
@@ -1956,6 +1957,18 @@ service cloud.firestore {
     }
 
     match /bank_transfer_requests/{userId} {
+      allow read, write: if false;
+    }
+
+    match /site_metrics/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /site_visitors/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /site_visit_days/{document=**} {
       allow read, write: if false;
     }
 

@@ -19,7 +19,7 @@ import type { BillingProviderId, SubscriptionStatus } from "@/types/billing";
 import styles from "./billingPage.module.css";
 
 const STATUS_LABEL: Record<SubscriptionStatus, string> = {
-  trial: "이용 확인 필요",
+  trial: "첫 달 무료 이용 중",
   active: "이용 중",
   past_due: "갱신 필요",
   cancel_pending: "종료 예정",
@@ -59,7 +59,7 @@ export function BillingPage() {
   useEffect(() => {
     if (!account) return;
     const needsRenewal = !account.subscription
-      || ["past_due", "cancelled", "trial"].includes(account.subscription.status);
+      || ["past_due", "cancelled"].includes(account.subscription.status);
     setShowSetup(needsRenewal);
     setDepositorName((current) => current || profile?.displayName || firebaseUser?.displayName || "");
   }, [account, firebaseUser?.displayName, profile?.displayName]);
@@ -73,7 +73,7 @@ export function BillingPage() {
 
   async function submitTransfer() {
     if (!firebaseUser || !account) return;
-    if (!depositorName.trim()) {
+    if (!account.trialEligible && !depositorName.trim()) {
       setError("입금자명을 입력해주세요.");
       return;
     }
@@ -85,13 +85,13 @@ export function BillingPage() {
     setError(null);
     try {
       setAccount(await submitBankTransfer(firebaseUser, {
-        depositorName: depositorName.trim(),
+        depositorName: account.trialEligible ? "" : depositorName.trim(),
         consent,
         termsVersion: account.termsVersion,
       }));
       setConsent(false);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "입금 신청을 등록하지 못했습니다.");
+      setError(submitError instanceof Error ? submitError.message : "구독 신청을 처리하지 못했습니다.");
     } finally {
       setBusy(null);
     }
@@ -137,6 +137,7 @@ export function BillingPage() {
   const subscription = account.subscription;
   const transferRequest = account.bankTransferRequest;
   const transferPending = transferRequest?.status === "pending";
+  const startsFreeTrial = account.trialEligible;
 
   return (
     <DashboardShell light>
@@ -145,7 +146,7 @@ export function BillingPage() {
           <div>
             <p className={styles.eyebrow}>XTUDY MEMBERSHIP</p>
             <h1>구독 관리</h1>
-            <p>교재 제작과 자료 다운로드는 입금 확인 후 활성화됩니다.</p>
+            <p>첫 달은 0원이며, 이후에는 무통장 입금 확인 후 한 달씩 연장됩니다.</p>
           </div>
           <span className={`${styles.modeBadge} ${styles.live}`}>무통장 입금</span>
         </header>
@@ -167,16 +168,16 @@ export function BillingPage() {
           <div className={styles.planIdentity}>
             <span>STANDARD</span>
             <h2>{account.plan.name}</h2>
-            <p>입금 확인일부터 1개월 이용 · 자동결제 없음</p>
+            <p>첫 달 무료 · 이후 1개월 단위 무통장 입금 · 자동결제 없음</p>
           </div>
           <div className={styles.priceBlock}>
             <div><del>{won(account.plan.listPrice)}</del><span>{account.plan.discountRate}% 할인</span></div>
-            <strong>{won(account.plan.salePrice)}</strong><small>/ 1개월</small>
-            <p>관리자 입금 확인 후 활성화</p>
+            <strong>{account.trialEligible ? "첫 달 0원" : won(account.plan.salePrice)}</strong><small>{account.trialEligible ? "" : "/ 1개월"}</small>
+            <p>{account.trialEligible ? `이후 ${won(account.plan.salePrice)} / 1개월` : "관리자 입금 확인 후 활성화"}</p>
           </div>
           {!account.entitled ? (
             <button type="button" className={styles.primaryButton} onClick={() => setShowSetup(true)}>
-              무통장 입금으로 구독하기
+              {account.trialEligible ? "첫 달 0원으로 시작하기" : "무통장 입금으로 구독하기"}
             </button>
           ) : (
             <div className={styles.currentStatus}>
@@ -186,7 +187,7 @@ export function BillingPage() {
           )}
         </section>
 
-        {subscription && !["cancelled", "trial"].includes(subscription.status) ? (
+        {subscription && subscription.status !== "cancelled" ? (
           <section className={styles.accountSection} aria-labelledby="billing-current-title">
             <div className={styles.sectionTitle}>
               <div><p>CURRENT SUBSCRIPTION</p><h2 id="billing-current-title">현재 구독</h2></div>
@@ -196,8 +197,8 @@ export function BillingPage() {
             </div>
             <div className={styles.factGrid}>
               <div><CalendarDays aria-hidden /><span>이용 기간</span><strong>{dateLabel(subscription.currentPeriodStartedAt)} - {dateLabel(subscription.currentPeriodEndsAt)}</strong></div>
-              <div><ReceiptText aria-hidden /><span>갱신 방식</span><strong>무통장 입금 후 관리자 확인</strong></div>
-              <div><Building2 aria-hidden /><span>결제수단</span><strong>{account.paymentMethod?.label || "무통장 입금"}</strong></div>
+              <div><ReceiptText aria-hidden /><span>현재 이용</span><strong>{subscription.status === "trial" ? "첫 달 무료" : "무통장 입금 승인"}</strong></div>
+              <div><Building2 aria-hidden /><span>다음 갱신</span><strong>{subscription.status === "trial" ? `${dateLabel(subscription.trialEndsAt)} 이후 입금` : "무통장 입금"}</strong></div>
               <div><ShieldCheck aria-hidden /><span>서비스 이용</span><strong>{account.entitled ? "교재 제작·다운로드 가능" : "이용 제한"}</strong></div>
             </div>
             {subscription.status === "past_due" ? <p className={styles.pastDue}>이용기간이 끝났습니다. 다시 입금 신청하면 1개월 이용권을 갱신할 수 있습니다.</p> : null}
@@ -213,9 +214,9 @@ export function BillingPage() {
         {showSetup ? (
           <section className={styles.setupSection} aria-labelledby="bank-transfer-title">
             <div className={styles.sectionTitle}>
-              <div><p>BANK TRANSFER</p><h2 id="bank-transfer-title">무통장 입금 신청</h2></div>
+              <div><p>{startsFreeTrial ? "FREE FIRST MONTH" : "BANK TRANSFER"}</p><h2 id="bank-transfer-title">{startsFreeTrial ? "첫 달 무료 시작" : "무통장 입금 신청"}</h2></div>
             </div>
-            <div className={styles.bankAccountPanel}>
+            {!startsFreeTrial ? <div className={styles.bankAccountPanel}>
               <div className={styles.bankIcon}><Building2 aria-hidden /></div>
               <div>
                 <span>입금 계좌</span>
@@ -226,33 +227,38 @@ export function BillingPage() {
                 {copied ? <CheckCircle2 size={18} aria-hidden /> : <Copy size={18} aria-hidden />}
                 {copied ? "복사됨" : "복사"}
               </button>
-            </div>
+            </div> : null}
             <div className={styles.scheduleGrid}>
-              <div><span>입금 금액</span><strong>{won(account.bankTransfer.amount)}</strong></div>
-              <div><span>이용 기간</span><strong>승인일부터 1개월</strong></div>
-              <div><span>승인 방식</span><strong>관리자 입금 확인</strong></div>
+              <div><span>{startsFreeTrial ? "오늘 결제" : "입금 금액"}</span><strong>{startsFreeTrial ? "0원" : won(account.bankTransfer.amount)}</strong></div>
+              <div><span>이용 기간</span><strong>{startsFreeTrial ? "시작일부터 1개월" : "승인일부터 1개월"}</strong></div>
+              <div><span>{startsFreeTrial ? "다음 달" : "승인 방식"}</span><strong>{startsFreeTrial ? won(account.bankTransfer.amount) : "관리자 입금 확인"}</strong></div>
               <div><span>자동결제</span><strong>사용하지 않음</strong></div>
             </div>
-            <label className={styles.depositorField}>
+            {!startsFreeTrial ? <label className={styles.depositorField}>
               <span>입금자명</span>
               <input value={depositorName} onChange={(event) => setDepositorName(event.target.value)} maxLength={80} placeholder="실제 입금자명" disabled={transferPending} />
-            </label>
+            </label> : null}
             <div className={styles.consentBox}>
-              <ul>
+              {startsFreeTrial ? <ul>
+                <li>오늘 결제금액은 0원이며 즉시 교재 제작과 자료 다운로드가 열립니다.</li>
+                <li>무료 이용은 계정당 한 번, 시작일부터 달력 기준 1개월 제공됩니다.</li>
+                <li>무료기간이 끝난 뒤 계속 이용하려면 {won(account.bankTransfer.amount)}을 입금하고 승인을 받아야 합니다.</li>
+                <li>자동결제되지 않으며 무료기간 종료만으로 비용이 청구되지 않습니다.</li>
+              </ul> : <ul>
                 <li>정확히 {won(account.bankTransfer.amount)}을 입금해주세요.</li>
                 <li>입금자명과 신청한 이름이 같아야 확인할 수 있습니다.</li>
                 <li>관리자 확인 전에는 교재 제작과 자료 다운로드가 제한됩니다.</li>
                 <li>현재는 자동 갱신되지 않으며, 연장할 때마다 입금 신청이 필요합니다.</li>
-              </ul>
+              </ul>}
               <label>
                 <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} disabled={transferPending} />
-                <span>입금 확인 및 1개월 이용권 활성화 안내를 확인했습니다. <small>필수</small></span>
+                <span>{startsFreeTrial ? "첫 달 무료 및 이후 무통장 갱신 안내를 확인했습니다." : "입금 확인 및 1개월 이용권 활성화 안내를 확인했습니다."} <small>필수</small></span>
               </label>
             </div>
             <div className={styles.setupActions}>
               {subscription ? <button type="button" className={styles.secondaryButton} onClick={() => setShowSetup(false)}>닫기</button> : null}
-              <button type="button" className={styles.primaryButton} onClick={() => void submitTransfer()} disabled={!consent || !depositorName.trim() || transferPending || busy !== null || !account.bankTransfer.ready}>
-                {busy === "submit" ? <><LoaderCircle className={styles.spin} size={18} aria-hidden />신청 중</> : transferPending ? "입금 확인 대기 중" : "입금 신청 완료하기"}
+              <button type="button" className={styles.primaryButton} onClick={() => void submitTransfer()} disabled={!consent || (!startsFreeTrial && !depositorName.trim()) || transferPending || busy !== null || (!startsFreeTrial && !account.bankTransfer.ready)}>
+                {busy === "submit" ? <><LoaderCircle className={styles.spin} size={18} aria-hidden />처리 중</> : transferPending ? "입금 확인 대기 중" : startsFreeTrial ? "0원으로 한 달 시작하기" : "입금 신청 완료하기"}
               </button>
             </div>
           </section>

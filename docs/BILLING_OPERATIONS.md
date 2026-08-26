@@ -78,7 +78,8 @@ Toss·KakaoPay checkout 코드는 향후 전환을 위해 보존되며 `BILLING_
 - 무료체험 해지: 즉시 `cancelled`, 다음 결제 없음
 - 유료 해지: `cancel_pending`, 현재 기간 종료 시 `cancelled`
 - 해지 완료 시 Kakao SID 비활성화 또는 Toss billingKey 삭제를 시도합니다.
-- `trial`과 `past_due`는 현재 entitlement를 부여하지 않습니다.
+- 만료 전 `trial`, `active`, `cancel_pending`은 교재 제작과 자료 다운로드 entitlement를 부여합니다.
+- 무통장 입금 신규 사용자는 입금 없이 첫 달 `trial`을 시작하고, 무료기간 종료 후에는 관리자 입금 승인으로 한 달씩 연장합니다.
 
 무료체험은 `trial_history/{HMAC(normalizedEmail)}`로 유지되므로 같은 이메일의 탈퇴·재가입은 두 번째 무료체험을 받지 않습니다. HMAC 원문 이메일은 trial history 문서에 저장하지 않습니다.
 
@@ -106,7 +107,7 @@ BILLING_CHECKOUT_SESSION_MINUTES=20
 CRON_SECRET
 ```
 
-`BILLING_TRIAL_HASH_SECRET`와 `CRON_SECRET`은 각각 24자 이상의 서로 다른 무작위 값이어야 합니다.
+`BILLING_TRIAL_HASH_SECRET`은 별도의 24자 이상 무작위 값 사용을 권장합니다. 값이 없으면 서버가 `CRON_SECRET`, 그마저 없으면 `FIREBASE_SERVICE_ACCOUNT_JSON`의 SHA-256 값으로 무료 이용 중복 방지용 키를 파생합니다. `CRON_SECRET`은 Cron 요청 검증을 위해 별도로 등록합니다.
 
 ## PG 계약 및 수동 설정
 
@@ -146,7 +147,8 @@ https://xtudynote.vercel.app/billing/callback/kakaopay
 ## 운영 화면과 검사
 
 - 사용자: `/billing`
-- 관리자: `/admin/billing`
+- 통합 관리자: `/admin`
+- 구독 상세 관리자: `/admin/billing`
 - Cron: `/api/billing-cron`
 
 ```bash

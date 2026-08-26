@@ -22,6 +22,7 @@ import {
   submitBankTransferRequest,
   updateRetryPolicy,
 } from "./_lib/billing/service.mjs";
+import { getSiteOperationsOverview, recordSiteVisit } from "./_lib/admin/site-analytics.mjs";
 
 function queryAction(req) {
   return String(req.query?.action || "account").trim();
@@ -45,6 +46,29 @@ export default async function handler(req, res) {
       });
       return;
     }
+    if (req.method === "POST" && action === "track-visit") {
+      assertTrustedOrigin(req);
+      const body = parseBody(req);
+      let visitorUser = null;
+      if (String(req.headers?.authorization || "").startsWith("Bearer ")) {
+        try {
+          visitorUser = await requireBillingUser(req, { requireActive: false });
+        } catch {
+          visitorUser = null;
+        }
+      }
+      await recordSiteVisit({
+        db,
+        config,
+        visitorId: String(body.visitorId || ""),
+        ip: clientIp(req),
+        userAgent: String(req.headers?.["user-agent"] || ""),
+        path: String(body.path || "/"),
+        user: visitorUser,
+      });
+      res.status(204).end();
+      return;
+    }
     if ([
       "admin-overview",
       "admin-update-retry-policy",
@@ -53,7 +77,11 @@ export default async function handler(req, res) {
     ].includes(action)) {
       const actor = await requireBillingUser(req, { superAdmin: true });
       if (req.method === "GET" && action === "admin-overview") {
-        res.status(200).json(await getAdminBillingOverview({ db, config }));
+        const [billing, operations] = await Promise.all([
+          getAdminBillingOverview({ db, config }),
+          getSiteOperationsOverview({ db }),
+        ]);
+        res.status(200).json({ ...billing, ...operations });
         return;
       }
       if (req.method === "POST" && action === "admin-update-retry-policy") {

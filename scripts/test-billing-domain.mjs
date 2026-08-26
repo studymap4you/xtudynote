@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  BILLING_TERMS_VERSION,
   DEFAULT_STANDARD_PLAN,
   getBillingRuntimeConfig,
 } from "../api/_lib/billing/config.mjs";
@@ -28,6 +29,7 @@ import {
   approveBankTransferRequest,
   processDueSubscription,
   resolveCheckoutPurpose,
+  submitBankTransferRequest,
 } from "../api/_lib/billing/service.mjs";
 
 const plan = { ...DEFAULT_STANDARD_PLAN };
@@ -94,6 +96,51 @@ class MemoryDocumentReference {
   }
 }
 
+class MemoryQuery {
+  constructor(db, path, filters = [], sort = null, maximum = Infinity) {
+    this.db = db;
+    this.path = path;
+    this.filters = filters;
+    this.sort = sort;
+    this.maximum = maximum;
+  }
+
+  doc(id = `event-${++this.db.sequence}`) {
+    return this.db.doc(`${this.path}/${id}`);
+  }
+
+  where(field, operator, value) {
+    assert.equal(operator, "==");
+    return new MemoryQuery(this.db, this.path, [...this.filters, { field, value }], this.sort, this.maximum);
+  }
+
+  orderBy(field, direction = "asc") {
+    return new MemoryQuery(this.db, this.path, this.filters, { field, direction }, this.maximum);
+  }
+
+  limit(maximum) {
+    return new MemoryQuery(this.db, this.path, this.filters, this.sort, maximum);
+  }
+
+  async get() {
+    const prefix = `${this.path}/`;
+    let docs = [...this.db.values.entries()]
+      .filter(([path]) => path.startsWith(prefix) && !path.slice(prefix.length).includes("/"))
+      .map(([path, value]) => new MemorySnapshot(this.db.doc(path), value))
+      .filter((snapshot) => this.filters.every(({ field, value }) => snapshot.data()?.[field] === value));
+    if (this.sort) {
+      const factor = this.sort.direction === "desc" ? -1 : 1;
+      docs = docs.sort((left, right) => {
+        const leftValue = left.data()?.[this.sort.field];
+        const rightValue = right.data()?.[this.sort.field];
+        return factor * (new Date(leftValue || 0).getTime() - new Date(rightValue || 0).getTime());
+      });
+    }
+    docs = docs.slice(0, this.maximum);
+    return { docs, size: docs.length, empty: docs.length === 0 };
+  }
+}
+
 class MemoryFirestore {
   constructor(entries = []) {
     this.values = new Map(entries);
@@ -105,9 +152,7 @@ class MemoryFirestore {
   }
 
   collection(path) {
-    return {
-      doc: (id = `event-${++this.sequence}`) => this.doc(`${path}/${id}`),
-    };
+    return new MemoryQuery(this, path);
   }
 
   async runTransaction(callback) {
@@ -465,4 +510,83 @@ test("29. 관리자가 입금을 승인해야만 결제 거래와 active 구독�
   assert.equal(db.values.get("bank_transfer_requests/bank-user").status, "approved");
   assert.equal(db.values.get("subscriptions/bank-user").status, "active");
   assert.equal(db.values.get("payment_transactions/bank_bankreq_test").status, "paid");
+});
+
+test("30. 무통장 구독도 첫 달 무료기간 동안 프리미엄 기능을 이용한다", () => {
+  const subscription = createTrialSubscription({
+    uid: "bank-trial-user",
+    plan,
+    provider: "bank_transfer",
+    paymentMethodId: null,
+    now: start,
+  });
+  assert.equal(subscription.status, "trial");
+  assert.equal(subscription.provider, "bank_transfer");
+  assert.equal(canUsePremiumFeatures(subscription, { enforcementEnabled: true, now: start }), true);
+  assert.equal(canUsePremiumFeatures(subscription, {
+    enforcementEnabled: true,
+    now: subscription.trialEndsAt,
+  }), false);
+});
+
+test("31. 무료기간 중 입금 승인은 무료 종료일 뒤에 유료 한 달을 이어 붙인다", () => {
+  const free = createTrialSubscription({
+    uid: "bank-trial-user",
+    plan,
+    provider: "bank_transfer",
+    paymentMethodId: null,
+    now: start,
+  });
+  const paid = createBankTransferPaidSubscription({
+    uid: "bank-trial-user",
+    plan,
+    paymentMethodId: "bank_bank-trial-user",
+    existingSubscription: free,
+    paidAt: new Date("2026-09-01T00:00:00.000Z"),
+  });
+  assert.equal(paid.status, "active");
+  assert.equal(paid.trialEndsAt.toISOString(), "2026-09-26T03:30:00.000Z");
+  assert.equal(paid.currentPeriodEndsAt.toISOString(), "2026-10-26T03:30:00.000Z");
+});
+
+test("32. 서버 인증 설정이 있으면 별도 무료체험 Secret이 없어도 중복 방지 키를 안전하게 파생한다", () => {
+  const config = getBillingRuntimeConfig({
+    FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({ private_key: "test-private-key-material-long-enough" }),
+  });
+  assert.equal(config.trialGuardReady, true);
+  assert.equal(config.trialHashSecret.length, 64);
+});
+
+test("33. 무통장 신규 구독은 입금 신청 없이 무료 한 달 구독과 중복 방지 이력을 함께 만든다", async () => {
+  const db = new MemoryFirestore([
+    ["billing_plans/standard", { ...plan, createdAt: start, updatedAt: start }],
+  ]);
+  const config = getBillingRuntimeConfig({
+    BILLING_TRIAL_HASH_SECRET: "billing-test-secret-with-32-characters",
+  });
+  const user = {
+    uid: "bank-trial-service-user",
+    email: "bank-trial@example.com",
+    displayName: "무료이용자",
+    role: "student",
+    isMasterAdmin: false,
+  };
+  const account = await submitBankTransferRequest({
+    db,
+    config,
+    user,
+    depositorName: "",
+    consent: true,
+    termsVersion: BILLING_TERMS_VERSION,
+    consentIp: "127.0.0.1",
+    now: start,
+  });
+
+  const customer = db.values.get(`billing_customers/${user.uid}`);
+  assert.equal(account.subscription.status, "trial");
+  assert.equal(account.subscription.provider, "bank_transfer");
+  assert.equal(account.entitled, true);
+  assert.equal(account.trialEligible, false);
+  assert.equal(db.values.has(`trial_history/${customer.identityHash}`), true);
+  assert.equal(db.values.has(`bank_transfer_requests/${user.uid}`), false);
 });

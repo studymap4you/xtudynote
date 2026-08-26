@@ -15,7 +15,7 @@ export function DashboardShell({
   /** 관리자 서브화면: 은은한 배경·본문 글래스 카드 */
   adminChrome?: boolean;
 }) {
-  const { firebaseUser, logOut } = useAuth();
+  const { firebaseUser, isSuperAdmin, logOut } = useAuth();
 
   const shellClass = [light ? "app-shell app-shell--light" : "app-shell", adminChrome ? "app-shell--admin" : ""]
     .filter(Boolean)
@@ -31,6 +31,12 @@ export function DashboardShell({
           <TopNavMainLinks />
         </nav>
         <div className="top-nav__tail">
+          {isSuperAdmin ? (
+            <NavLink to="/admin" className="nav-pill nav-pill--tail">
+              <span className="nav-pill__title">관리자</span>
+              <span className="nav-pill__sub">Admin</span>
+            </NavLink>
+          ) : null}
           <NavLink to="/billing" className="nav-pill nav-pill--tail">
             <span className="nav-pill__title">구독</span>
             <span className="nav-pill__sub">Billing</span>

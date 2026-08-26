@@ -1,4 +1,5 @@
 import admin from "firebase-admin";
+import { MASTER_ADMIN_EMAIL } from "./config.mjs";
 import { canUsePremiumFeatures } from "./domain.mjs";
 
 function parseServiceAccount(raw) {
@@ -48,20 +49,24 @@ export async function requireBillingUser(
   if (requireActive && (!profileSnapshot.exists || profile.accountStatus !== "active")) {
     throw Object.assign(new Error("active-account-required"), { statusCode: 403 });
   }
-  if (superAdmin && profile.role !== "super_admin") {
+  const email = String(decoded.email || profile.email || "").trim();
+  const isMasterAdmin = profile.role === "super_admin"
+    && email.toLowerCase() === MASTER_ADMIN_EMAIL;
+  if (superAdmin && !isMasterAdmin) {
     throw Object.assign(new Error("admin-access-required"), { statusCode: 403 });
   }
   return {
     uid: decoded.uid,
-    email: String(decoded.email || profile.email || "").trim(),
+    email,
     displayName: String(decoded.name || profile.displayName || "").trim(),
     role: String(profile.role || "student"),
+    isMasterAdmin,
   };
 }
 
 export async function requirePremiumBillingUser(req, env = process.env) {
   const user = await requireBillingUser(req, { requireActive: true }, env);
-  if (user.role === "super_admin") return user;
+  if (user.isMasterAdmin) return user;
   const snapshot = await getBillingFirestore(env).doc(`subscriptions/${user.uid}`).get();
   const subscription = snapshot.exists ? snapshot.data() : null;
   if (!canUsePremiumFeatures(subscription, { enforcementEnabled: true, now: new Date() })) {

@@ -156,7 +156,7 @@ export function createBankTransferPaidSubscription({
   const existingEndsAt = asDate(existingSubscription?.currentPeriodEndsAt);
   const extendsCurrentPeriod = Boolean(
     existingSubscription
-    && ["active", "cancel_pending"].includes(existingSubscription.status)
+    && ["trial", "active", "cancel_pending"].includes(existingSubscription.status)
     && existingEndsAt
     && existingEndsAt.getTime() > paidDate.getTime()
   );
@@ -175,8 +175,8 @@ export function createBankTransferPaidSubscription({
     paymentMethodId,
     listPrice: plan.listPrice,
     billingAmount: plan.salePrice,
-    trialStartedAt: null,
-    trialEndsAt: null,
+    trialStartedAt: asDate(existingSubscription?.trialStartedAt),
+    trialEndsAt: asDate(existingSubscription?.trialEndsAt),
     billingAnchorDay: anchor,
     currentPeriodStartedAt: periodStart,
     currentPeriodEndsAt: periodEnd,
@@ -304,7 +304,7 @@ export function isSubscriptionDue(subscription, now = new Date()) {
 export function canUsePremiumFeatures(subscription, { enforcementEnabled = false, now = new Date() } = {}) {
   if (!enforcementEnabled) return true;
   if (!subscription) return false;
-  if (!["active", "cancel_pending"].includes(subscription.status)) return false;
+  if (!["trial", "active", "cancel_pending"].includes(subscription.status)) return false;
   const periodEndsAt = asDate(subscription.currentPeriodEndsAt);
   const checkedAt = asDate(now);
   return Boolean(periodEndsAt && checkedAt && periodEndsAt.getTime() > checkedAt.getTime());
