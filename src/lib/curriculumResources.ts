@@ -74,10 +74,22 @@ function safeFileName(name: string): string {
 }
 
 function timestampMs(value: unknown): number {
-  if (typeof value === "number") return value;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  if (value instanceof Date) return value.getTime();
   if (value && typeof value === "object" && "toMillis" in value) {
     const toMillis = (value as { toMillis?: unknown }).toMillis;
     if (typeof toMillis === "function") return Number(toMillis.call(value)) || 0;
+  }
+  if (value && typeof value === "object" && "toDate" in value) {
+    const toDate = (value as { toDate?: unknown }).toDate;
+    if (typeof toDate === "function") {
+      const date = toDate.call(value);
+      return date instanceof Date ? date.getTime() : 0;
+    }
   }
   return 0;
 }
@@ -152,7 +164,11 @@ export function listenCurriculumResources(
             description: String(data.learningTopic ?? data.introduction ?? "").trim(),
             files: normalizeFiles(data),
             authorId: String(data.authorId ?? ""),
-            createdAtMs: timestampMs(data.createdAt),
+            createdAtMs:
+              timestampMs(data.createdAt) ||
+              timestampMs(data.uploadedAt) ||
+              timestampMs(data.importedAt) ||
+              timestampMs(data.updatedAt),
           }));
       })
       .sort((left, right) => right.createdAtMs - left.createdAtMs || left.title.localeCompare(right.title, "ko"));

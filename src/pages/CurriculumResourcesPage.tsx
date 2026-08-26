@@ -21,6 +21,7 @@ import {
   listenCurriculumResources,
   uploadCurriculumResource,
 } from "@/lib/curriculumResources";
+import { buildCurriculumResourceFeed } from "@/lib/curriculumResourceFeed";
 import { downloadStoragePathsSequentially } from "@/lib/downloads";
 import {
   getOfficialExamDownloadUrl,
@@ -248,7 +249,11 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
     () => manualRows.filter((row) => row.category === selectedCategory.id),
     [manualRows, selectedCategory.id],
   );
-  const totalCount = visibleManualRows.length + officialRows.length;
+  const visibleResources = useMemo(
+    () => buildCurriculumResourceFeed(visibleManualRows, officialRows),
+    [officialRows, visibleManualRows],
+  );
+  const totalCount = visibleResources.length;
   const loading = manualLoading || officialLoading;
   const selectedResourceTitle = selectedCategory.label;
   const selectedResourceTitleEn = selectedCategory.labelEn;
@@ -392,69 +397,75 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
               </div>
             ) : (
               <div className={styles.resourceList}>
-                {officialRows.map((exam) => (
-                  <article key={exam.id} className={styles.resourceCard}>
-                    <div className={styles.resourceIcon}><GraduationCap size={22} aria-hidden /></div>
-                    <div className={styles.resourceBody}>
-                      <div className={styles.resourceTitleRow}>
-                        <div>
-                          <span className={styles.sourceBadge}>EBSi 공식 자료</span>
-                          <h3>{exam.title}</h3>
+                {visibleResources.map((resource) => {
+                  if (resource.kind === "official") {
+                    const { exam } = resource;
+                    return (
+                      <article key={resource.key} className={styles.resourceCard}>
+                        <div className={styles.resourceIcon}><GraduationCap size={22} aria-hidden /></div>
+                        <div className={styles.resourceBody}>
+                          <div className={styles.resourceTitleRow}>
+                            <div>
+                              <span className={styles.sourceBadge}>EBSi 공식 자료</span>
+                              <h3>{exam.title}</h3>
+                            </div>
+                            <time>{formatDate(exam.collectedAt)}</time>
+                          </div>
+                          <p>{exam.year}년 · 고{exam.grade} · {exam.month}월 · {exam.organizer}</p>
+                          <div className={styles.fileActions}>
+                            {exam.files.map((fileType) => {
+                              const key = `${exam.id}:${fileType}`;
+                              return (
+                                <button key={fileType} type="button" onClick={() => void downloadOfficial(exam, fileType)} disabled={downloadingId === key}>
+                                  {downloadingId === key ? <LoaderCircle size={16} className={styles.spin} aria-hidden /> : <Download size={16} aria-hidden />}
+                                  {FILE_TYPE_LABEL[fileType]}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <time>{formatDate(exam.collectedAt)}</time>
-                      </div>
-                      <p>{exam.year}년 · 고{exam.grade} · {exam.month}월 · {exam.organizer}</p>
-                      <div className={styles.fileActions}>
-                        {exam.files.map((fileType) => {
-                          const key = `${exam.id}:${fileType}`;
-                          return (
-                            <button key={fileType} type="button" onClick={() => void downloadOfficial(exam, fileType)} disabled={downloadingId === key}>
-                              {downloadingId === key ? <LoaderCircle size={16} className={styles.spin} aria-hidden /> : <Download size={16} aria-hidden />}
-                              {FILE_TYPE_LABEL[fileType]}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </article>
-                ))}
+                      </article>
+                    );
+                  }
 
-                {visibleManualRows.map((row) => (
-                  <article key={row.id} className={styles.resourceCard}>
-                    <div className={styles.resourceIcon}><FileText size={22} aria-hidden /></div>
-                    <div className={styles.resourceBody}>
-                      <div className={styles.resourceTitleRow}>
-                        <div>
-                          <span className={styles.sourceBadgeManual}>등록 자료</span>
-                          <h3>{row.title}</h3>
+                  const { row } = resource;
+                  return (
+                    <article key={resource.key} className={styles.resourceCard}>
+                      <div className={styles.resourceIcon}><FileText size={22} aria-hidden /></div>
+                      <div className={styles.resourceBody}>
+                        <div className={styles.resourceTitleRow}>
+                          <div>
+                            <span className={styles.sourceBadgeManual}>등록 자료</span>
+                            <h3>{row.title}</h3>
+                          </div>
+                          <time>{formatDate(row.createdAtMs)}</time>
                         </div>
-                        <time>{formatDate(row.createdAtMs)}</time>
-                      </div>
-                      {row.description ? <p>{row.description}</p> : null}
-                      <ul className={styles.fileList}>
-                        {row.files.map((file) => (
-                          <li key={file.path}>
-                            <FileText size={15} aria-hidden />
-                            <span>{file.name}</span>
-                            <small>{formatFileSize(file.size)}</small>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className={styles.cardFooter}>
-                        <button type="button" className={styles.downloadButton} onClick={() => void downloadManual(row)} disabled={!row.files.length || downloadingId === row.id}>
-                          {downloadingId === row.id ? <LoaderCircle size={17} className={styles.spin} aria-hidden /> : <Download size={17} aria-hidden />}
-                          {row.files.length > 1 ? "전체 다운로드" : "다운로드"}
-                        </button>
-                        {isSuperAdmin ? (
-                          <button type="button" className={styles.deleteButton} onClick={() => void removeManual(row)} disabled={deletingId === row.id} title="자료 삭제">
-                            {deletingId === row.id ? <LoaderCircle size={17} className={styles.spin} aria-hidden /> : <Trash2 size={17} aria-hidden />}
-                            <span className={styles.srOnly}>자료 삭제</span>
+                        {row.description ? <p>{row.description}</p> : null}
+                        <ul className={styles.fileList}>
+                          {row.files.map((file) => (
+                            <li key={file.path}>
+                              <FileText size={15} aria-hidden />
+                              <span>{file.name}</span>
+                              <small>{formatFileSize(file.size)}</small>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className={styles.cardFooter}>
+                          <button type="button" className={styles.downloadButton} onClick={() => void downloadManual(row)} disabled={!row.files.length || downloadingId === row.id}>
+                            {downloadingId === row.id ? <LoaderCircle size={17} className={styles.spin} aria-hidden /> : <Download size={17} aria-hidden />}
+                            {row.files.length > 1 ? "전체 다운로드" : "다운로드"}
                           </button>
-                        ) : null}
+                          {isSuperAdmin ? (
+                            <button type="button" className={styles.deleteButton} onClick={() => void removeManual(row)} disabled={deletingId === row.id} title="자료 삭제">
+                              {deletingId === row.id ? <LoaderCircle size={17} className={styles.spin} aria-hidden /> : <Trash2 size={17} aria-hidden />}
+                              <span className={styles.srOnly}>자료 삭제</span>
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>
