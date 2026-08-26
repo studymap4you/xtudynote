@@ -10,7 +10,9 @@ const MAIN_PROJECT_ID = "xtudynote";
 const PROBLEM_BANK_PROJECT_ID = "xstudy-problem-bank";
 const STORAGE_BUCKET = "xtudynote.firebasestorage.app";
 const DATASET_ID = "high-school-variant-problem-bank-v1";
-const DATASET_VERSION = "2026-08-26.1";
+const DATASET_VERSION = "2026-08-26.2";
+const WORKBOOKS_PER_GRADE = 10;
+const QUESTIONS_PER_WORKBOOK = 50;
 const WORK_ROOT = path.resolve("tmp/variant-problem-bank");
 const OUTPUT_ROOT = path.resolve("output/pdf");
 const SOURCE_ROOT = process.env.VARIANT_PROBLEM_BANK_SOURCE_ROOT
@@ -144,8 +146,21 @@ function storagePathForGrade(grade) {
   return `problem-bank-sources/variant/grade${grade}/problem-bank.pdf`;
 }
 
-function workbookPathForGrade(grade) {
-  return path.join(OUTPUT_ROOT, `xstudy-grade${grade}-english-variant-workbook-10.pdf`);
+function workbookPathForGrade(grade, volume) {
+  return path.join(
+    OUTPUT_ROOT,
+    `xstudy-grade${grade}-english-variant-workbook-${String(volume).padStart(2, "0")}-50.pdf`,
+  );
+}
+
+function workbookStoragePath(grade, volume) {
+  return `contents/system-variant-workbooks/grade${grade}/xstudy-variant-50-volume${String(volume).padStart(2, "0")}-v1.pdf`;
+}
+
+function workbookContentDocumentPath(grade, volume) {
+  return volume === 1
+    ? `contents/variant-workbook-grade${grade}-v1`
+    : `contents/variant-workbook-grade${grade}-volume${String(volume).padStart(2, "0")}-v1`;
 }
 
 async function resolveSourceFile(fileName) {
@@ -575,51 +590,78 @@ function parseGradeText(extracted, sourceConfig) {
   };
 }
 
-function selectEvenly(candidates, count, usedSourceIds) {
+const workbookQuestionPlan = Object.freeze([
+  { type: "purpose", count: 3 },
+  { type: "emotion_change", count: 2 },
+  { type: "claim", count: 3 },
+  { type: "main_idea", count: 3 },
+  { type: "title", count: 3 },
+  { type: "topic", count: 4 },
+  { type: "factual_description", count: 4 },
+  { type: "grammar", count: 4 },
+  { type: "vocabulary", count: 3 },
+  { type: "implied_meaning", count: 1 },
+  { type: "blank_short", count: 3 },
+  { type: "blank_long", count: 3 },
+  { type: "irrelevant_sentence", count: 2 },
+  { type: "paragraph_order", count: 3 },
+  { type: "sentence_insertion", count: 3 },
+  { type: "summary", count: 5 },
+  { type: "grammar_correction", count: 1 },
+]);
+
+function selectEvenly(candidates, count, usedSourceIds, usedQuestionIds, volumeIndex) {
   const selected = [];
+  const selectedQuestionIds = new Set();
   for (let index = 0; index < count; index += 1) {
-    const target = Math.floor(((index + 1) / (count + 1)) * candidates.length);
+    const globalOrdinal = volumeIndex * count + index + 1;
+    const totalRequired = count * WORKBOOKS_PER_GRADE;
+    const target = Math.floor((globalOrdinal / (totalRequired + 1)) * candidates.length);
     let picked = null;
     for (let offset = 0; offset < candidates.length; offset += 1) {
       const positions = [target + offset, target - offset];
       picked = positions
         .filter((position) => position >= 0 && position < candidates.length)
         .map((position) => candidates[position])
-        .find((problem) => !usedSourceIds.has(problem.sourceId));
+        .find((problem) => !usedSourceIds.has(problem.sourceId)
+          && !usedQuestionIds.has(problem.questionId)
+          && !selectedQuestionIds.has(problem.questionId));
       if (picked) break;
+    }
+    if (!picked) {
+      for (let offset = 0; offset < candidates.length; offset += 1) {
+        const positions = [target + offset, target - offset];
+        picked = positions
+          .filter((position) => position >= 0 && position < candidates.length)
+          .map((position) => candidates[position])
+          .find((problem) => !usedQuestionIds.has(problem.questionId)
+            && !selectedQuestionIds.has(problem.questionId));
+        if (picked) break;
+      }
     }
     if (!picked) break;
     selected.push(picked);
+    selectedQuestionIds.add(picked.questionId);
     usedSourceIds.add(picked.sourceId);
   }
   return selected;
 }
 
-function buildWorkbookManifest(parsed, sourceConfig) {
-  const plan = [
-    { type: "topic", count: 4 },
-    { type: "factual_description", count: 3 },
-    { type: "grammar", count: 1 },
-    { type: "blank_long", count: 1 },
-    { type: "paragraph_order", count: 1 },
-  ];
-  const usedSourceIds = new Set();
-  const selected = [];
-  for (const item of plan) {
-    const candidates = parsed.problems
-      .filter((problem) => problem.questionType === item.type)
-      .filter((problem) => problem.status === "approved")
-      .filter((problem) => Number(problem.validation.answerConfidence) >= 0.94)
-      .filter((problem) => wordCount(problem.passage) >= 70 && wordCount(problem.passage) <= 230)
-      .filter((problem) => problem.question.length + problem.choices.join(" ").length <= 7_500)
-      .sort((left, right) => left.sourcePassageSequence - right.sourcePassageSequence);
-    const typeSelection = selectEvenly(candidates, item.count, usedSourceIds);
-    if (typeSelection.length !== item.count) {
-      throw new Error(`고${sourceConfig.grade} ${item.type} 문항을 ${item.count}개 선별하지 못했습니다.`);
+function mixQuestionTypes(groupedSelections, volumeIndex) {
+  const queues = groupedSelections.map((group) => [...group]);
+  const mixed = [];
+  while (queues.some((queue) => queue.length > 0)) {
+    for (let offset = 0; offset < queues.length; offset += 1) {
+      const queueIndex = (offset + volumeIndex) % queues.length;
+      const problem = queues[queueIndex].shift();
+      if (problem) mixed.push(problem);
     }
-    selected.push(...typeSelection);
   }
-  const questions = selected.map((problem, index) => ({
+  return mixed;
+}
+
+function manifestQuestion(problem, index, sourceConfig) {
+  return {
     number: index + 1,
     questionId: problem.questionId,
     sourceId: problem.sourceId,
@@ -633,26 +675,89 @@ function buildWorkbookManifest(parsed, sourceConfig) {
     answer: problem.answer,
     explanation: problem.explanation,
     answerConfidence: problem.validation.answerConfidence,
-  }));
-  return {
-    schemaVersion: "xstudy-variant-workbook-v1",
-    workbookId: `xstudy-grade${sourceConfig.grade}-variant-10-v1`,
-    title: `고${sourceConfig.grade} 영어 변형문제 실전 10제`,
-    subtitle: "문제은행 기반 학교 시험 대비",
-    grade: sourceConfig.grade,
-    schoolGrade: sourceConfig.schoolGrade,
-    datasetId: DATASET_ID,
-    sourceFingerprint: parsed.summary.sourceFingerprint,
-    styleReferenceArchiveId: styleReference.archiveId,
-    template: {
-      id: "xstudy-blue-editorial-v1",
-      styleReference: styleReference.fileName,
-      canvaConnection: "connected-pending-template-entitlement",
-    },
-    composition: Object.fromEntries(plan.map((item) => [item.type, item.count])),
-    questions,
-    createdAt: new Date().toISOString(),
   };
+}
+
+function buildWorkbookManifests(parsed, sourceConfig) {
+  const candidatePools = new Map(workbookQuestionPlan.map((item) => [
+    item.type,
+    parsed.problems
+      .filter((problem) => problem.questionType === item.type)
+      .filter((problem) => problem.status === "approved")
+      .filter((problem) => Number(problem.validation.answerConfidence) >= 0.94)
+      .filter((problem) => wordCount(problem.passage) >= 70 && wordCount(problem.passage) <= 230)
+      .filter((problem) => problem.question.length + problem.choices.join(" ").length <= 7_500)
+      .sort((left, right) => left.sourcePassageSequence - right.sourcePassageSequence),
+  ]));
+  console.log(
+    `고${sourceConfig.grade} 교재 후보: ${JSON.stringify(Object.fromEntries(
+      [...candidatePools].map(([type, problems]) => [type, problems.length]),
+    ))}`,
+  );
+  const usedQuestionIds = new Set();
+  const manifests = [];
+  for (let volumeIndex = 0; volumeIndex < WORKBOOKS_PER_GRADE; volumeIndex += 1) {
+    const usedQuestionCountBeforeVolume = usedQuestionIds.size;
+    const usedSourceIds = new Set();
+    const groupedSelections = workbookQuestionPlan.map((item) => {
+      const candidates = candidatePools.get(item.type) || [];
+      const typeSelection = selectEvenly(
+        candidates,
+        item.count,
+        usedSourceIds,
+        usedQuestionIds,
+        volumeIndex,
+      );
+      if (typeSelection.length !== item.count) {
+        throw new Error(
+          `고${sourceConfig.grade} ${volumeIndex + 1}권 ${item.type} 문항을 ${item.count}개 선별하지 못했습니다.`,
+        );
+      }
+      typeSelection.forEach((problem) => usedQuestionIds.add(problem.questionId));
+      return typeSelection;
+    });
+    const selected = mixQuestionTypes(groupedSelections, volumeIndex);
+    if (selected.length !== QUESTIONS_PER_WORKBOOK) {
+      throw new Error(`고${sourceConfig.grade} ${volumeIndex + 1}권 문항 수가 ${selected.length}개입니다.`);
+    }
+    if (usedQuestionIds.size !== usedQuestionCountBeforeVolume + QUESTIONS_PER_WORKBOOK) {
+      throw new Error(`고${sourceConfig.grade} ${volumeIndex + 1}권에 중복 문항이 있습니다.`);
+    }
+    const volume = volumeIndex + 1;
+    manifests.push({
+      schemaVersion: "xstudy-variant-workbook-v2",
+      workbookId: `xstudy-grade${sourceConfig.grade}-variant-50-v1-volume${String(volume).padStart(2, "0")}`,
+      title: `고${sourceConfig.grade} 영어 변형문제 실전 50제 · 제${volume}권`,
+      subtitle: "문제은행 기반 학교 시험 대비",
+      grade: sourceConfig.grade,
+      schoolGrade: sourceConfig.schoolGrade,
+      volume,
+      volumeCount: WORKBOOKS_PER_GRADE,
+      questionCount: QUESTIONS_PER_WORKBOOK,
+      datasetId: DATASET_ID,
+      sourceFingerprint: parsed.summary.sourceFingerprint,
+      styleReferenceArchiveId: styleReference.archiveId,
+      template: {
+        id: "xstudy-blue-editorial-v1",
+        styleReference: styleReference.fileName,
+        canvaConnection: "connected-pending-template-entitlement",
+      },
+      composition: Object.fromEntries(workbookQuestionPlan.map((item) => [item.type, item.count])),
+      summaryGroups: [
+        { label: "핵심 독해", count: 18 },
+        { label: "내용·어휘", count: 8 },
+        { label: "어법", count: 5 },
+        { label: "빈칸 추론", count: 6 },
+        { label: "문장·흐름", count: 13 },
+      ],
+      questions: selected.map((problem, index) => manifestQuestion(problem, index, sourceConfig)),
+      createdAt: new Date().toISOString(),
+    });
+  }
+  if (usedQuestionIds.size !== WORKBOOKS_PER_GRADE * QUESTIONS_PER_WORKBOOK) {
+    throw new Error(`고${sourceConfig.grade} 전체 고유 문항 수가 ${usedQuestionIds.size}개입니다.`);
+  }
+  return manifests;
 }
 
 async function prepareGrade(sourceConfig) {
@@ -671,12 +776,20 @@ async function prepareGrade(sourceConfig) {
     const anomalies = [...counts].filter(([, count]) => count !== 19).slice(0, 20);
     throw new Error(`고${sourceConfig.grade} 문항 수 불일치: ${parsed.summary.questionCount}/${sourceConfig.expectedQuestions} · ${JSON.stringify(anomalies)}`);
   }
-  const manifest = buildWorkbookManifest(parsed, sourceConfig);
+  const manifests = buildWorkbookManifests(parsed, sourceConfig);
   await mkdir(WORK_ROOT, { recursive: true });
-  await writeFile(path.join(WORK_ROOT, `grade${sourceConfig.grade}-workbook.json`), JSON.stringify(manifest, null, 2), "utf8");
+  for (const manifest of manifests) {
+    await writeFile(
+      path.join(WORK_ROOT, `grade${sourceConfig.grade}-workbook-${String(manifest.volume).padStart(2, "0")}.json`),
+      JSON.stringify(manifest, null, 2),
+      "utf8",
+    );
+  }
   await writeFile(path.join(WORK_ROOT, `grade${sourceConfig.grade}-summary.json`), JSON.stringify(parsed.summary, null, 2), "utf8");
-  console.log(`고${sourceConfig.grade} 분석 완료: ${parsed.summary.questionCount}문항, 승인 ${parsed.summary.approvedQuestionCount}문항`);
-  return { sourceConfig, sourcePath, parsed, manifest };
+  console.log(
+    `고${sourceConfig.grade} 분석 완료: ${parsed.summary.questionCount}문항, 승인 ${parsed.summary.approvedQuestionCount}문항, 50문항 교재 ${manifests.length}권`,
+  );
+  return { sourceConfig, sourcePath, parsed, manifests };
 }
 
 function firestoreValue(value) {
@@ -864,10 +977,10 @@ async function importGrade(accessToken, prepared) {
   )]);
 }
 
-function workbookContentDocument(grade, upload, outputStat) {
+function workbookContentDocument(grade, manifest, upload, outputStat) {
   const category = `grade${grade}_mock`;
-  const workbookId = `xstudy-grade${grade}-variant-10-v1`;
-  const title = `고${grade} 영어 변형문제 실전 10제`;
+  const workbookId = manifest.workbookId;
+  const title = manifest.title;
   return {
     authorId: "system-variant-problem-bank",
     teacherId: "system-variant-problem-bank",
@@ -875,8 +988,8 @@ function workbookContentDocument(grade, upload, outputStat) {
     audience: `고등학교 ${grade}학년`,
     section: category,
     identifier: workbookId,
-    learningTopic: "글의 주제 4문항 · 내용 일치 3문항 · 어법 1문항 · 빈칸 1문항 · 순서 1문항",
-    introduction: `<p><strong>${title}</strong>입니다.</p><p>검증된 문제은행에서 서로 다른 지문 10개를 골라 한 페이지 한 문항으로 구성했으며, 정답과 해설은 교재 뒤쪽에 분리했습니다.</p>`,
+    learningTopic: "17개 영어 유형 혼합 · 50문항 · 한 페이지 한 문항 · 통합 정답 및 해설",
+    introduction: `<p><strong>${title}</strong>입니다.</p><p>검증된 문제은행에서 서로 다른 지문 50개를 골라 17개 유형으로 구성했으며, 정답과 해설은 교재 뒤쪽에 분리했습니다.</p>`,
     lectureLink: null,
     learningMaterialFilePaths: [upload.storagePath],
     referenceMaterialFilePaths: [],
@@ -907,6 +1020,10 @@ function workbookContentDocument(grade, upload, outputStat) {
     sourceDatabase: "xstudy-problem-bank",
     sourceDatabaseVersion: DATASET_VERSION,
     workbookId,
+    workbookVolume: manifest.volume,
+    workbookVolumeCount: manifest.volumeCount,
+    workbookQuestionCount: manifest.questionCount,
+    workbookComposition: manifest.composition,
     canvaTemplateStatus: "connected-pending-paid-template-access",
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -955,25 +1072,40 @@ async function importStyleAndWorkbooks(accessToken, { registerProblemBankArchive
 
   const writes = [];
   for (const sourceConfig of gradeSources) {
-    const localPath = workbookPathForGrade(sourceConfig.grade);
-    const outputStat = await stat(localPath).catch(() => null);
-    if (!outputStat?.isFile()) {
-      throw new Error(`완성 교재가 없습니다. 먼저 npm run build:variant-workbooks 를 실행하세요: ${localPath}`);
+    for (let volume = 1; volume <= WORKBOOKS_PER_GRADE; volume += 1) {
+      const localPath = workbookPathForGrade(sourceConfig.grade, volume);
+      const manifestPath = path.join(
+        WORK_ROOT,
+        `grade${sourceConfig.grade}-workbook-${String(volume).padStart(2, "0")}.json`,
+      );
+      const [outputStat, manifestText] = await Promise.all([
+        stat(localPath).catch(() => null),
+        readFile(manifestPath, "utf8").catch(() => null),
+      ]);
+      if (!outputStat?.isFile() || !manifestText) {
+        throw new Error(`완성 교재 또는 manifest가 없습니다. 먼저 npm run build:variant-workbooks 를 실행하세요: ${localPath}`);
+      }
+      const manifest = JSON.parse(manifestText);
+      const upload = await uploadFile(
+        accessToken,
+        localPath,
+        workbookStoragePath(sourceConfig.grade, volume),
+        {
+          sourceRole: "published-workbook",
+          grade: String(sourceConfig.grade),
+          volume: String(volume),
+          accessPolicy: "subscriber-download",
+        },
+      );
+      writes.push(documentWrite(
+        MAIN_PROJECT_ID,
+        workbookContentDocumentPath(sourceConfig.grade, volume),
+        workbookContentDocument(sourceConfig.grade, manifest, upload, outputStat),
+      ));
     }
-    const upload = await uploadFile(
-      accessToken,
-      localPath,
-      `contents/system-variant-workbooks/grade${sourceConfig.grade}/xstudy-variant-10-v1.pdf`,
-      { sourceRole: "published-workbook", grade: String(sourceConfig.grade), accessPolicy: "subscriber-download" },
-    );
-    writes.push(documentWrite(
-      MAIN_PROJECT_ID,
-      `contents/variant-workbook-grade${sourceConfig.grade}-v1`,
-      workbookContentDocument(sourceConfig.grade, upload, outputStat),
-    ));
   }
   await commitWrites(accessToken, MAIN_PROJECT_ID, writes);
-  console.log("고1·고2·고3 완성 교재를 고등 내신 메뉴에 등록했습니다.");
+  console.log("고1·고2·고3 각 10권, 총 30권을 고등 내신 메뉴에 등록했습니다.");
 }
 
 async function getDocument(accessToken, projectId, documentPath) {
@@ -1027,13 +1159,26 @@ async function verifyImport(accessToken) {
       PROBLEM_BANK_PROJECT_ID,
       `source_archives/variant-problem-bank-grade${sourceConfig.grade}`,
     );
-    const content = await getDocument(
-      accessToken,
-      MAIN_PROJECT_ID,
-      `contents/variant-workbook-grade${sourceConfig.grade}-v1`,
-    );
-    const ok = count === sourceConfig.expectedQuestions && Boolean(archive) && Boolean(content);
-    result.push({ grade: sourceConfig.grade, count, expected: sourceConfig.expectedQuestions, archive: Boolean(archive), content: Boolean(content), ok });
+    const contents = [];
+    for (let volume = 1; volume <= WORKBOOKS_PER_GRADE; volume += 1) {
+      contents.push(await getDocument(
+        accessToken,
+        MAIN_PROJECT_ID,
+        workbookContentDocumentPath(sourceConfig.grade, volume),
+      ));
+    }
+    const contentCount = contents.filter(Boolean).length;
+    const ok = count === sourceConfig.expectedQuestions
+      && Boolean(archive)
+      && contentCount === WORKBOOKS_PER_GRADE;
+    result.push({
+      grade: sourceConfig.grade,
+      count,
+      expected: sourceConfig.expectedQuestions,
+      archive: Boolean(archive),
+      contentCount,
+      ok,
+    });
   }
   if (result.some((item) => !item.ok)) throw new Error(`등록 검증 실패: ${JSON.stringify(result)}`);
   console.log(`등록 검증 완료: ${JSON.stringify(result)}`);
@@ -1044,19 +1189,29 @@ async function verifyMainPublication(accessToken) {
   const result = [];
   for (const sourceConfig of gradeSources) {
     const source = await storageMetadata(accessToken, storagePathForGrade(sourceConfig.grade));
-    const workbookStoragePath = `contents/system-variant-workbooks/grade${sourceConfig.grade}/xstudy-variant-10-v1.pdf`;
-    const workbook = await storageMetadata(accessToken, workbookStoragePath);
-    const content = await getDocument(
-      accessToken,
-      MAIN_PROJECT_ID,
-      `contents/variant-workbook-grade${sourceConfig.grade}-v1`,
-    );
+    let workbookCount = 0;
+    let contentCount = 0;
+    for (let volume = 1; volume <= WORKBOOKS_PER_GRADE; volume += 1) {
+      const workbook = await storageMetadata(
+        accessToken,
+        workbookStoragePath(sourceConfig.grade, volume),
+      );
+      const content = await getDocument(
+        accessToken,
+        MAIN_PROJECT_ID,
+        workbookContentDocumentPath(sourceConfig.grade, volume),
+      );
+      if (workbook) workbookCount += 1;
+      if (content) contentCount += 1;
+    }
     result.push({
       grade: sourceConfig.grade,
       source: Boolean(source),
-      workbook: Boolean(workbook),
-      content: Boolean(content),
-      ok: Boolean(source && workbook && content),
+      workbookCount,
+      contentCount,
+      ok: Boolean(source)
+        && workbookCount === WORKBOOKS_PER_GRADE
+        && contentCount === WORKBOOKS_PER_GRADE,
     });
   }
   const style = await storageMetadata(

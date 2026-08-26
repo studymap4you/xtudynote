@@ -136,21 +136,22 @@ def draw_cover(pdf: canvas.Canvas, manifest: dict) -> None:
     pdf.drawString(24 * mm, PAGE_HEIGHT - 82 * mm, f"고{manifest['grade']} 영어")
     pdf.setFillColor(colors.HexColor("#A7DFFF"))
     pdf.setFont("Pretendard-Bold", 29)
-    pdf.drawString(24 * mm, PAGE_HEIGHT - 98 * mm, "변형문제 실전 10제")
+    pdf.drawString(24 * mm, PAGE_HEIGHT - 98 * mm, f"변형문제 실전 {len(manifest['questions'])}제")
     pdf.setFillColor(colors.HexColor("#D6E3F7"))
     pdf.setFont("Pretendard", 12)
-    pdf.drawString(25 * mm, PAGE_HEIGHT - 113 * mm, manifest["subtitle"])
+    pdf.drawString(
+        25 * mm,
+        PAGE_HEIGHT - 113 * mm,
+        f"{manifest['subtitle']} · 제{manifest['volume']}권 / 총 {manifest['volumeCount']}권",
+    )
 
     pdf.setStrokeColor(colors.HexColor("#385373"))
     pdf.setLineWidth(1)
     pdf.line(24 * mm, PAGE_HEIGHT - 128 * mm, PAGE_WIDTH - 24 * mm, PAGE_HEIGHT - 128 * mm)
 
     labels = [
-        ("글의 주제", "4"),
-        ("내용 일치", "3"),
-        ("어법", "1"),
-        ("빈칸", "1"),
-        ("글의 순서", "1"),
+        (str(item["label"]), str(item["count"]))
+        for item in manifest.get("summaryGroups", [])
     ]
     box_width = (PAGE_WIDTH - 48 * mm - 8 * mm) / 3
     for index, (label, count) in enumerate(labels):
@@ -261,6 +262,10 @@ def answer_display(value: object) -> str:
     return str(value or "-")
 
 
+def is_multiple_choice_answer(value: object) -> bool:
+    return answer_display(value) in CIRCLED
+
+
 def chunks(values: list[dict], size: int) -> Iterable[list[dict]]:
     for index in range(0, len(values), size):
         yield values[index:index + size]
@@ -292,13 +297,30 @@ def draw_answer_pages(pdf: canvas.Canvas, manifest: dict, page_number: int) -> i
             pdf.setFillColor(INK)
             pdf.setFont("Pretendard-Bold", 11)
             pdf.drawString(left + 17 * mm, y - 8.4 * mm, question["typeLabel"])
+            multiple_choice = is_multiple_choice_answer(question["answer"])
             pdf.setFillColor(CORAL)
-            pdf.setFont("Pretendard-Bold", 16)
-            pdf.drawRightString(left + width - 6 * mm, y - 10.5 * mm, answer_display(question["answer"]))
-            explanation_style = paragraph_style("explanation", 8.2, 11.4, INK)
+            pdf.setFont("Pretendard-Bold", 16 if multiple_choice else 8.2)
+            pdf.drawRightString(
+                left + width - 6 * mm,
+                y - 10.5 * mm,
+                answer_display(question["answer"]) if multiple_choice else "서술형",
+            )
+            explanation_text = question["explanation"]
+            explanation_size = 8.2
+            explanation_leading = 11.4
+            if not multiple_choice:
+                explanation_text = f"정답: {answer_display(question['answer'])}\n해설: {question['explanation']}"
+                explanation_size = 6.9
+                explanation_leading = 9.2
+            explanation_style = paragraph_style(
+                "explanation",
+                explanation_size,
+                explanation_leading,
+                INK,
+            )
             draw_paragraph(
                 pdf,
-                question["explanation"],
+                explanation_text,
                 left + 17 * mm,
                 y - 15 * mm,
                 width - 25 * mm,
@@ -316,8 +338,8 @@ def draw_answer_pages(pdf: canvas.Canvas, manifest: dict, page_number: int) -> i
 
 def build_workbook(manifest_path: Path, output_path: Path) -> dict:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if len(manifest.get("questions", [])) != 10:
-        raise ValueError(f"{manifest_path}: 10문항 manifest가 아닙니다.")
+    if len(manifest.get("questions", [])) != 50:
+        raise ValueError(f"{manifest_path}: 50문항 manifest가 아닙니다.")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     pdf = canvas.Canvas(str(output_path), pagesize=A4, pageCompression=1)
     set_metadata(pdf, manifest)
@@ -359,10 +381,17 @@ def main() -> None:
     grades = [options.grade] if options.grade else [1, 2, 3]
     reports = []
     for grade in grades:
-        manifest_path = WORK_ROOT / f"grade{grade}-workbook.json"
-        output_path = OUTPUT_ROOT / f"xstudy-grade{grade}-english-variant-workbook-10.pdf"
-        reports.append(build_workbook(manifest_path, output_path))
-        print(f"교재 생성 완료: {output_path}")
+        manifest_paths = sorted(WORK_ROOT.glob(f"grade{grade}-workbook-[0-9][0-9].json"))
+        if len(manifest_paths) != 10:
+            raise ValueError(f"고{grade} manifest가 {len(manifest_paths)}개입니다. 10개가 필요합니다.")
+        for manifest_path in manifest_paths:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            volume = int(manifest["volume"])
+            output_path = OUTPUT_ROOT / (
+                f"xstudy-grade{grade}-english-variant-workbook-{volume:02d}-50.pdf"
+            )
+            reports.append(build_workbook(manifest_path, output_path))
+            print(f"교재 생성 완료: {output_path}")
     report_path = WORK_ROOT / "workbook-render-report.json"
     report_path.write_text(json.dumps(reports, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"렌더 검증 보고서: {report_path}")
