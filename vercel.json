@@ -20,8 +20,23 @@
     },
     "api/exam-library.mjs": {
       "maxDuration": 30
+    },
+    "api/billing.mjs": {
+      "maxDuration": 120
+    },
+    "api/admin-billing.mjs": {
+      "maxDuration": 30
+    },
+    "api/billing-cron.mjs": {
+      "maxDuration": 300
     }
   },
+  "crons": [
+    {
+      "path": "/api/billing-cron",
+      "schedule": "0 1 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

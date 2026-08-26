@@ -48,6 +48,10 @@ export function AdminTopNav() {
             <span className="nav-pill__title">전체 자료관리</span>
             <span className="nav-pill__sub">All materials</span>
           </Link>
+          <NavLink to="/admin/billing" className={adminPillClass}>
+            <span className="nav-pill__title">구독 결제</span>
+            <span className="nav-pill__sub">Billing</span>
+          </NavLink>
         </nav>
         <div className="admin-top-nav__actions">
           <Link to="/dashboard" className="nav-pill nav-pill--tail">

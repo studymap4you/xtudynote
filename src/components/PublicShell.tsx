@@ -26,6 +26,10 @@ export function PublicShell({
         <div className="top-nav__tail">
           {firebaseUser ? (
             <>
+              <NavLink to="/billing" className="nav-pill nav-pill--tail">
+                <span className="nav-pill__title">구독</span>
+                <span className="nav-pill__sub">Billing</span>
+              </NavLink>
               <span className="top-nav__email" title={firebaseUser.email ?? ""}>
                 {firebaseUser.email}
               </span>

@@ -61,6 +61,10 @@ import { TextbookAutoSimplePage } from "@/pages/TextbookAutoSimplePage";
 import { KoreanEducationPage } from "@/pages/KoreanEducationPage";
 import { LectureRecordingPage } from "@/pages/lecture/LectureRecordingPage";
 import { CurriculumResourcesPage } from "@/pages/CurriculumResourcesPage";
+import { BillingPage } from "@/pages/BillingPage";
+import { BillingCallbackPage } from "@/pages/BillingCallbackPage";
+import { AdminBillingPage } from "@/pages/admin/AdminBillingPage";
+import { PremiumFeatureRoute } from "@/components/PremiumFeatureRoute";
 
 export default function App() {
   const { pathname } = useLocation();
@@ -72,7 +76,9 @@ export default function App() {
         path="/"
         element={
           <ProtectedRoute>
-            <TextbookAutoSimplePage />
+            <PremiumFeatureRoute>
+              <TextbookAutoSimplePage />
+            </PremiumFeatureRoute>
           </ProtectedRoute>
         }
       />
@@ -162,6 +168,14 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route
+        path="/billing"
+        element={<ProtectedRoute><BillingPage /></ProtectedRoute>}
+      />
+      <Route
+        path="/billing/callback/:provider"
+        element={<ProtectedRoute><BillingCallbackPage /></ProtectedRoute>}
+      />
+      <Route
         path="/dashboard"
         element={
           <ProtectedRoute>
@@ -216,6 +230,10 @@ export default function App() {
             <AdminPanelPage />
           </SuperAdminRoute>
         }
+      />
+      <Route
+        path="/admin/billing"
+        element={<SuperAdminRoute><AdminBillingPage /></SuperAdminRoute>}
       />
       <Route
         path="/admin/classrooms"
@@ -414,7 +432,9 @@ export default function App() {
         path="/tools/textbook-auto"
         element={
           <ProtectedRoute>
-            <TextbookAutoSimplePage />
+            <PremiumFeatureRoute>
+              <TextbookAutoSimplePage />
+            </PremiumFeatureRoute>
           </ProtectedRoute>
         }
       />

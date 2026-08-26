@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import admin from "firebase-admin";
+import { requirePremiumBillingUser } from "./_lib/billing/admin.mjs";
 import {
   buildNextBatchTypes,
   buildQuestionTypePlan,
@@ -28,21 +29,6 @@ const GENERATION_VERSION = "csat-question-engine-v1";
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || "xtudynote.firebasestorage.app";
 const MAX_SOURCE_TEXT_LENGTH = 120_000;
 const MAX_PROGRESS_EVENTS = 900;
-
-function ensureFirebaseAdmin() {
-  if (admin.apps.length > 0) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw || raw === "{}") throw new Error("server-auth-not-configured");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-async function requireAuthenticatedUser(req) {
-  ensureFirebaseAdmin();
-  const authHeader = String(req.headers?.authorization || "");
-  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  if (!bearer) throw new Error("authentication-required");
-  return admin.auth().verifyIdToken(bearer);
-}
 
 function sanitizeText(value, maxLength = 8_000) {
   return String(value ?? "").replace(/\u0000/g, "").trim().slice(0, maxLength);
@@ -1071,7 +1057,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const authUser = await requireAuthenticatedUser(req);
+    const authUser = await requirePremiumBillingUser(req);
     const id = sanitizeText(req.query?.id, 120);
     if (req.method === "GET" && !id) {
       res.status(200).json({ items: await listJobs(authUser.uid) });
@@ -1128,6 +1114,10 @@ export default async function handler(req, res) {
     }
     if (message === "server-auth-not-configured") {
       res.status(503).json({ error: "서버 로그인 검증 설정이 필요합니다." });
+      return;
+    }
+    if (message === "premium-subscription-required") {
+      res.status(402).json({ error: "Xtudy Standard 구독이 필요한 기능입니다." });
       return;
     }
     if (message === "question-request-required") {

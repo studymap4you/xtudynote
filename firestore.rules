@@ -1913,6 +1913,48 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ——— Billing: 가격·본인 상태·본인 결제 내역만 읽기. 쓰기는 Admin SDK 전용. ———
+    match /billing_plans/{planId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /subscriptions/{userId} {
+      allow read: if isActiveSuperAdmin()
+        || (isSignedInActiveAccount() && request.auth.uid == userId);
+      allow create, update, delete: if false;
+    }
+
+    match /payment_transactions/{transactionId} {
+      allow read: if isActiveSuperAdmin()
+        || (isSignedInActiveAccount() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    match /billing_customers/{userId} {
+      allow read, write: if false;
+    }
+
+    match /payment_methods/{paymentMethodId} {
+      allow read, write: if false;
+    }
+
+    match /billing_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /trial_history/{trialId} {
+      allow read, write: if false;
+    }
+
+    match /billing_checkout_sessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    match /billing_settings/{settingId} {
+      allow read, write: if false;
+    }
+
     // ——— homework_dispatches ———
     match /homework_dispatches/{dispatchId} {
       allow read: if isActiveSuperAdmin()

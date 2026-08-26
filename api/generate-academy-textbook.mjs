@@ -1,4 +1,5 @@
 import admin from "firebase-admin";
+import { requirePremiumBillingUser } from "./_lib/billing/admin.mjs";
 import { englishReferenceSeedProfiles } from "./_data/english-reference-profiles.mjs";
 import { examTextbookBlueprintProfiles } from "./_data/exam-textbook-blueprints.mjs";
 import {
@@ -200,23 +201,6 @@ const csatTypeKeywordRules = [
   { pattern: /함축|밑줄|implicit/i, types: ["implicit-meaning"] },
   { pattern: /장문|long passage/i, types: ["long-passage-title", "long-passage-vocabulary", "integrated-order", "reference-inference", "integrated-content-match"] },
 ];
-
-function ensureFirebaseAdmin() {
-  if (admin.apps.length > 0) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw || raw === "{}") {
-    throw new Error("server-auth-not-configured");
-  }
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-async function requireAuthenticatedUser(req) {
-  ensureFirebaseAdmin();
-  const authHeader = String(req.headers?.authorization || "");
-  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  if (!bearer) throw new Error("authentication-required");
-  return admin.auth().verifyIdToken(bearer);
-}
 
 function requestedCsatTypes(instruction) {
   const types = new Set();
@@ -1360,7 +1344,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const authUser = await requireAuthenticatedUser(req);
+    const authUser = await requirePremiumBillingUser(req);
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const action = sanitizeText(body.action, 20);
     const common = validateCommonBody(body);
@@ -2022,6 +2006,10 @@ export default async function handler(req, res) {
     }
     if (message === "server-auth-not-configured") {
       res.status(503).json({ error: "서버 로그인 검증 설정이 필요합니다." });
+      return;
+    }
+    if (message === "premium-subscription-required") {
+      res.status(402).json({ error: "Xtudy Standard 구독이 필요한 기능입니다." });
       return;
     }
     if (message.startsWith("ai-provider-not-configured")) {

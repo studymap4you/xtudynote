@@ -1,4 +1,5 @@
 import { requestTextbookJson, resolveTextbookAiProvider } from "./_lib/textbook-ai-provider.mjs";
+import { requirePremiumBillingUser } from "./_lib/billing/admin.mjs";
 
 const TEXT_SLICE_LIMIT = 28000;
 const DEFAULT_QUESTION_BATCH_SIZE = 10;
@@ -758,6 +759,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    await requirePremiumBillingUser(req);
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const generationType = body.generationType;
     const templateId = sanitizeText(body.templateId, 80);
@@ -804,7 +806,20 @@ export default async function handler(req, res) {
       meta: { model: provider.model, source: provider.kind },
     });
   } catch (error) {
-    console.error("[generate-premium-textbook]", error instanceof Error ? error.message : error);
+    const message = error instanceof Error ? error.message : "premium-generation-failed";
+    console.error("[generate-premium-textbook]", message);
+    if (message === "authentication-required" || message.includes("auth/id-token")) {
+      res.status(401).json({ error: "로그인 정보가 만료되었습니다. 다시 로그인해주세요." });
+      return;
+    }
+    if (message === "premium-subscription-required") {
+      res.status(402).json({ error: "Xtudy Standard 구독이 필요한 기능입니다." });
+      return;
+    }
+    if (message === "server-auth-not-configured") {
+      res.status(503).json({ error: "서버 로그인 검증 설정이 필요합니다." });
+      return;
+    }
     res.status(500).json({ error: "문항 생성 중 문제가 발생했습니다. 다시 시도해주세요." });
   }
 }

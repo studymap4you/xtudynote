@@ -1,5 +1,6 @@
 import type { PremiumTextbook, PremiumUploadedFileMetadata } from "@/types/premiumTextbook";
 import type { XUniversePremiumTemplateId } from "@/data/xuniversePremiumTemplates";
+import { auth } from "@/firebase/config";
 
 export type GeneratePremiumTextbookParams = {
   templateId: XUniversePremiumTemplateId;
@@ -31,10 +32,13 @@ export async function generatePremiumTextbook({
   pastedText,
   uploadedFiles,
 }: GeneratePremiumTextbookParams): Promise<GeneratePremiumTextbookResult> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("로그인 후 프리미엄 교재를 생성해주세요.");
   const response = await fetch("/api/generate-premium-textbook", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       generationType: "premium",
