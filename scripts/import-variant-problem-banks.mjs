@@ -5,12 +5,17 @@ import { createRequire } from "node:module";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import {
+  correctVariantQuestion,
+  VARIANT_QUESTION_CORRECTION_VERSION,
+} from "./lib/variant-question-corrector.mjs";
 
 const MAIN_PROJECT_ID = "xtudynote";
 const PROBLEM_BANK_PROJECT_ID = "xstudy-problem-bank";
 const STORAGE_BUCKET = "xtudynote.firebasestorage.app";
 const DATASET_ID = "high-school-variant-problem-bank-v1";
-const DATASET_VERSION = "2026-08-26.2";
+const DATASET_VERSION = "2026-08-27.2";
+const WORKBOOK_RENDER_REVISION = "v4";
 const WORKBOOKS_PER_GRADE = 10;
 const QUESTIONS_PER_WORKBOOK = 50;
 const WORK_ROOT = path.resolve("tmp/variant-problem-bank");
@@ -95,8 +100,10 @@ const args = new Set(process.argv.slice(2));
 const shouldImport = args.has("--import");
 const shouldVerify = args.has("--verify");
 const shouldPublishMain = args.has("--publish-main");
+const shouldVerifyMain = args.has("--verify-main");
+const shouldReplaceMainWorkbooks = args.has("--replace-main-workbooks");
 const shouldPrepare = args.has("--prepare")
-  || (!shouldImport && !shouldVerify && !shouldPublishMain);
+  || (!shouldImport && !shouldVerify && !shouldPublishMain && !shouldVerifyMain && !shouldReplaceMainWorkbooks);
 
 function clean(value, maxLength = 100_000) {
   return String(value ?? "")
@@ -130,6 +137,24 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function hasSourceIntegrityIssues(value) {
+  const source = clean(value, 40_000);
+  return /\(\s*[ABC]\s*\)/u.test(source)
+    || /\b[ABC]\s*[:)]\s*[^,.]{1,60}\s*\/\s*[^,.]{1,60}/u.test(source)
+    || /_{3,}|\[SENTENCE\s+BLANK\]/iu.test(source)
+    || /[①②③④⑤]|\[주어진\s*문장\]|\[남은\s*글\]/u.test(source)
+    || /^[“”'"(\[]*(?:and|but|or|because|although|while|which|that|however)\b/iu.test(source)
+    || /^[“”'"(\[]*[a-z]/u.test(source)
+    || !/[.!?][”’'"\])]*$/u.test(source)
+    || /\bher\s+had\b|\bhim\s+(?:is|was|has|had)\b|\bTVusing\b/iu.test(source)
+    || /\bwho\s+(?:this|that|these|those|earlier|previous)\b/iu.test(source)
+    || /\b[A-Za-z]{3,}\s+Oo\b|\bToy-M\s+aking\b/iu.test(source)
+    || /\bclich\s+s\b|\bUexk\s+ll\b|\bas\s+trange\b/iu.test(source)
+    || /\bw\s+[A-Z][A-Za-z]/u.test(source)
+    || /\b[A-Za-z]+\s+[.!?]/u.test(source)
+    || /\b[A-Za-z]{3,}-\s+[a-z]{1,5}\b/u.test(source);
+}
+
 function safeFileName(value) {
   return clean(value, 180).normalize("NFC").replace(/[^\w.\-가-힣]+/gu, "_") || "file.pdf";
 }
@@ -153,8 +178,8 @@ function workbookPathForGrade(grade, volume) {
   );
 }
 
-function workbookStoragePath(grade, volume) {
-  return `contents/system-variant-workbooks/grade${grade}/xstudy-variant-50-volume${String(volume).padStart(2, "0")}-v1.pdf`;
+function workbookStoragePath(grade, volume, revision = WORKBOOK_RENDER_REVISION) {
+  return `contents/system-variant-workbooks/grade${grade}/xstudy-variant-50-volume${String(volume).padStart(2, "0")}-${revision}.pdf`;
 }
 
 function workbookContentDocumentPath(grade, volume) {
@@ -422,8 +447,26 @@ function resolveAnswer(questionNumber, stem, choices, passage) {
 }
 
 function explanationFor(type, result) {
-  const prefix = questionTypeLabel[type] || "문항";
-  return `${prefix} 검증: ${result.evidence} 원문과 문항 구조를 자동 대조한 결과이며, 정답 신뢰도는 ${Math.round(result.confidence * 100)}%입니다.`;
+  const guide = {
+    purpose: "필자가 독자에게 기대하는 행동과 글의 기능을 함께 확인합니다.",
+    emotion_change: "사건 전후의 감정 표현을 시간 순서대로 연결합니다.",
+    claim: "반복되는 당위 표현과 결론 문장을 중심으로 판단합니다.",
+    main_idea: "세부 사례를 포괄하는 중심 판단과 선지의 범위를 비교합니다.",
+    title: "반복되는 핵심어와 전개 방향을 함께 담은 제목을 고릅니다.",
+    topic: "가장 자주 설명되는 대상과 핵심 관점을 묶어 확인합니다.",
+    factual_description: "대상·수치·인과·긍정과 부정이 바뀌지 않았는지 대조합니다.",
+    grammar: "주어와 동사의 관계, 수식 범위, 병렬 구조와 어형을 확인합니다.",
+    vocabulary: "앞뒤 문장의 의미 방향과 문맥상 정확한 뜻을 우선합니다.",
+    implied_meaning: "앞뒤 사례가 공통으로 드러내는 태도나 메시지로 바꾸어 봅니다.",
+    blank_short: "빈칸 전후의 연결어와 반복 개념으로 논리 방향을 확인합니다.",
+    blank_long: "글 전체의 중심 논리와 빈칸의 역할을 함께 확인합니다.",
+    irrelevant_sentence: "핵심어와 지시어가 앞뒤 문장에 이어지는지 살펴봅니다.",
+    paragraph_order: "대명사·관사·연결어와 시간 흐름으로 선후 관계를 연결합니다.",
+    sentence_insertion: "삽입 문장의 앞뒤 연결이 동시에 성립하는 위치를 찾습니다.",
+    summary: "핵심 주어와 결론을 유지하면서 세부 예시를 덜어 냅니다.",
+    grammar_correction: "의미를 유지한 채 어형·수 일치·수식 관계를 바로잡습니다.",
+  }[type] || "지문의 중심 내용과 문항의 판단 기준을 같은 기준으로 비교합니다.";
+  return `${result.evidence} 풀이할 때는 ${guide}`;
 }
 
 function parsePassageSection(sectionText, metadata, sourceConfig) {
@@ -610,7 +653,7 @@ const workbookQuestionPlan = Object.freeze([
   { type: "grammar_correction", count: 1 },
 ]);
 
-function selectEvenly(candidates, count, usedSourceIds, usedQuestionIds, volumeIndex) {
+function selectEvenly(candidates, count, usedSourceIds, usedQuestionIds, volumeIndex, isCandidateValid = () => true) {
   const selected = [];
   const selectedQuestionIds = new Set();
   for (let index = 0; index < count; index += 1) {
@@ -625,7 +668,8 @@ function selectEvenly(candidates, count, usedSourceIds, usedQuestionIds, volumeI
         .map((position) => candidates[position])
         .find((problem) => !usedSourceIds.has(problem.sourceId)
           && !usedQuestionIds.has(problem.questionId)
-          && !selectedQuestionIds.has(problem.questionId));
+          && !selectedQuestionIds.has(problem.questionId)
+          && isCandidateValid(problem));
       if (picked) break;
     }
     if (!picked) {
@@ -635,7 +679,8 @@ function selectEvenly(candidates, count, usedSourceIds, usedQuestionIds, volumeI
           .filter((position) => position >= 0 && position < candidates.length)
           .map((position) => candidates[position])
           .find((problem) => !usedQuestionIds.has(problem.questionId)
-            && !selectedQuestionIds.has(problem.questionId));
+            && !selectedQuestionIds.has(problem.questionId)
+            && isCandidateValid(problem));
         if (picked) break;
       }
     }
@@ -660,25 +705,38 @@ function mixQuestionTypes(groupedSelections, volumeIndex) {
   return mixed;
 }
 
-function manifestQuestion(problem, index, sourceConfig) {
-  return {
-    number: index + 1,
-    questionId: problem.questionId,
-    sourceId: problem.sourceId,
-    sourcePassageId: problem.sourceId.replace(`vpb_g${sourceConfig.grade}_`, ""),
-    type: problem.questionType,
+function correctedManifestQuestion(problem, sourceConfig) {
+  const sourcePassageId = problem.sourceId.replace(`vpb_g${sourceConfig.grade}_`, "");
+  return correctVariantQuestion({
+    ...problem,
+    sourcePassageId,
+  }, {
     typeLabel: questionTypeLabel[problem.questionType] || problem.subtype,
     difficulty: problem.difficulty,
-    passage: problem.passage,
-    stem: problem.question,
-    choices: problem.choices,
-    answer: problem.answer,
-    explanation: problem.explanation,
-    answerConfidence: problem.validation.answerConfidence,
+  });
+}
+
+function manifestQuestion(problem, index, sourceConfig, corrected = null) {
+  return {
+    number: index + 1,
+    ...(corrected || correctedManifestQuestion(problem, sourceConfig)),
   };
 }
 
 function buildWorkbookManifests(parsed, sourceConfig) {
+  const correctionCache = new Map();
+  const rejectedCorrections = new Map();
+  const isCandidateValid = (problem) => {
+    if (correctionCache.has(problem.questionId)) return true;
+    if (rejectedCorrections.has(problem.questionId)) return false;
+    try {
+      correctionCache.set(problem.questionId, correctedManifestQuestion(problem, sourceConfig));
+      return true;
+    } catch (error) {
+      rejectedCorrections.set(problem.questionId, error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  };
   const candidatePools = new Map(workbookQuestionPlan.map((item) => [
     item.type,
     parsed.problems
@@ -686,6 +744,7 @@ function buildWorkbookManifests(parsed, sourceConfig) {
       .filter((problem) => problem.status === "approved")
       .filter((problem) => Number(problem.validation.answerConfidence) >= 0.94)
       .filter((problem) => wordCount(problem.passage) >= 70 && wordCount(problem.passage) <= 230)
+      .filter((problem) => !hasSourceIntegrityIssues(problem.passage))
       .filter((problem) => problem.question.length + problem.choices.join(" ").length <= 7_500)
       .sort((left, right) => left.sourcePassageSequence - right.sourcePassageSequence),
   ]));
@@ -707,6 +766,7 @@ function buildWorkbookManifests(parsed, sourceConfig) {
         usedSourceIds,
         usedQuestionIds,
         volumeIndex,
+        isCandidateValid,
       );
       if (typeSelection.length !== item.count) {
         throw new Error(
@@ -725,7 +785,7 @@ function buildWorkbookManifests(parsed, sourceConfig) {
     }
     const volume = volumeIndex + 1;
     manifests.push({
-      schemaVersion: "xstudy-variant-workbook-v2",
+      schemaVersion: "xstudy-variant-workbook-v3",
       workbookId: `xstudy-grade${sourceConfig.grade}-variant-50-v1-volume${String(volume).padStart(2, "0")}`,
       title: `고${sourceConfig.grade} 영어 변형문제 실전 50제 · 제${volume}권`,
       subtitle: "문제은행 기반 학교 시험 대비",
@@ -735,6 +795,7 @@ function buildWorkbookManifests(parsed, sourceConfig) {
       volumeCount: WORKBOOKS_PER_GRADE,
       questionCount: QUESTIONS_PER_WORKBOOK,
       datasetId: DATASET_ID,
+      questionCorrectionVersion: VARIANT_QUESTION_CORRECTION_VERSION,
       sourceFingerprint: parsed.summary.sourceFingerprint,
       styleReferenceArchiveId: styleReference.archiveId,
       template: {
@@ -750,12 +811,20 @@ function buildWorkbookManifests(parsed, sourceConfig) {
         { label: "빈칸 추론", count: 6 },
         { label: "문장·흐름", count: 13 },
       ],
-      questions: selected.map((problem, index) => manifestQuestion(problem, index, sourceConfig)),
+      questions: selected.map((problem, index) => manifestQuestion(
+        problem,
+        index,
+        sourceConfig,
+        correctionCache.get(problem.questionId),
+      )),
       createdAt: new Date().toISOString(),
     });
   }
   if (usedQuestionIds.size !== WORKBOOKS_PER_GRADE * QUESTIONS_PER_WORKBOOK) {
     throw new Error(`고${sourceConfig.grade} 전체 고유 문항 수가 ${usedQuestionIds.size}개입니다.`);
+  }
+  if (rejectedCorrections.size) {
+    console.log(`고${sourceConfig.grade} 품질 검수 탈락 후보: ${rejectedCorrections.size}문항`);
   }
   return manifests;
 }
@@ -820,6 +889,12 @@ function documentWrite(projectId, documentPath, data) {
         .filter(([, value]) => value !== undefined)
         .map(([key, value]) => [key, firestoreValue(value)])),
     },
+  };
+}
+
+function documentDelete(projectId, documentPath) {
+  return {
+    delete: `projects/${projectId}/databases/(default)/documents/${documentPath}`,
   };
 }
 
@@ -912,6 +987,23 @@ async function uploadFile(accessToken, localPath, storagePath, metadata = {}) {
   if (!patchResponse.ok) throw new Error(`Storage metadata update failed (${patchResponse.status})`);
   console.log(`Storage 업로드: ${storagePath}`);
   return { storagePath, byteSize: bytes.length, fingerprint };
+}
+
+async function deleteStorageObject(accessToken, storagePath) {
+  const response = await fetch(
+    `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(STORAGE_BUCKET)}/o/${encodeURIComponent(storagePath)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+  if (response.status === 404) return false;
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Storage delete failed (${response.status}): ${detail.slice(0, 500)}`);
+  }
+  console.log(`이전 Storage 파일 삭제: ${storagePath}`);
+  return true;
 }
 
 async function importGrade(accessToken, prepared) {
@@ -1024,10 +1116,51 @@ function workbookContentDocument(grade, manifest, upload, outputStat) {
     workbookVolumeCount: manifest.volumeCount,
     workbookQuestionCount: manifest.questionCount,
     workbookComposition: manifest.composition,
+    workbookRenderRevision: WORKBOOK_RENDER_REVISION,
+    workbookAnswerLayout: "two-column-detailed",
     canvaTemplateStatus: "connected-pending-paid-template-access",
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+}
+
+async function stageWorkbookPublications(accessToken) {
+  const writes = [];
+  for (const sourceConfig of gradeSources) {
+    for (let volume = 1; volume <= WORKBOOKS_PER_GRADE; volume += 1) {
+      const localPath = workbookPathForGrade(sourceConfig.grade, volume);
+      const manifestPath = path.join(
+        WORK_ROOT,
+        `grade${sourceConfig.grade}-workbook-${String(volume).padStart(2, "0")}.json`,
+      );
+      const [outputStat, manifestText] = await Promise.all([
+        stat(localPath).catch(() => null),
+        readFile(manifestPath, "utf8").catch(() => null),
+      ]);
+      if (!outputStat?.isFile() || !manifestText) {
+        throw new Error(`완성 교재 또는 manifest가 없습니다. 먼저 npm run build:variant-workbooks 를 실행하세요: ${localPath}`);
+      }
+      const manifest = JSON.parse(manifestText);
+      const upload = await uploadFile(
+        accessToken,
+        localPath,
+        workbookStoragePath(sourceConfig.grade, volume),
+        {
+          sourceRole: "published-workbook",
+          grade: String(sourceConfig.grade),
+          volume: String(volume),
+          renderRevision: WORKBOOK_RENDER_REVISION,
+          accessPolicy: "subscriber-download",
+        },
+      );
+      writes.push(documentWrite(
+        MAIN_PROJECT_ID,
+        workbookContentDocumentPath(sourceConfig.grade, volume),
+        workbookContentDocument(sourceConfig.grade, manifest, upload, outputStat),
+      ));
+    }
+  }
+  return writes;
 }
 
 async function stageSourceArchives(accessToken) {
@@ -1070,42 +1203,34 @@ async function importStyleAndWorkbooks(accessToken, { registerProblemBankArchive
     )]);
   }
 
-  const writes = [];
+  const writes = await stageWorkbookPublications(accessToken);
+  await commitWrites(accessToken, MAIN_PROJECT_ID, writes);
+  console.log("고1·고2·고3 각 10권, 총 30권을 고등 내신 메뉴에 등록했습니다.");
+}
+
+async function replaceMainWorkbooks(accessToken) {
+  const replacementWrites = await stageWorkbookPublications(accessToken);
+  const removalWrites = [];
   for (const sourceConfig of gradeSources) {
     for (let volume = 1; volume <= WORKBOOKS_PER_GRADE; volume += 1) {
-      const localPath = workbookPathForGrade(sourceConfig.grade, volume);
-      const manifestPath = path.join(
-        WORK_ROOT,
-        `grade${sourceConfig.grade}-workbook-${String(volume).padStart(2, "0")}.json`,
-      );
-      const [outputStat, manifestText] = await Promise.all([
-        stat(localPath).catch(() => null),
-        readFile(manifestPath, "utf8").catch(() => null),
-      ]);
-      if (!outputStat?.isFile() || !manifestText) {
-        throw new Error(`완성 교재 또는 manifest가 없습니다. 먼저 npm run build:variant-workbooks 를 실행하세요: ${localPath}`);
-      }
-      const manifest = JSON.parse(manifestText);
-      const upload = await uploadFile(
-        accessToken,
-        localPath,
-        workbookStoragePath(sourceConfig.grade, volume),
-        {
-          sourceRole: "published-workbook",
-          grade: String(sourceConfig.grade),
-          volume: String(volume),
-          accessPolicy: "subscriber-download",
-        },
-      );
-      writes.push(documentWrite(
+      removalWrites.push(documentDelete(
         MAIN_PROJECT_ID,
         workbookContentDocumentPath(sourceConfig.grade, volume),
-        workbookContentDocument(sourceConfig.grade, manifest, upload, outputStat),
       ));
     }
   }
-  await commitWrites(accessToken, MAIN_PROJECT_ID, writes);
-  console.log("고1·고2·고3 각 10권, 총 30권을 고등 내신 메뉴에 등록했습니다.");
+
+  await commitWrites(accessToken, MAIN_PROJECT_ID, removalWrites);
+  console.log("기존 고1·고2·고3 변형문제 교재 30권을 운영 메뉴에서 내렸습니다.");
+  await commitWrites(accessToken, MAIN_PROJECT_ID, replacementWrites);
+  console.log("개선된 변형문제 교재 30권을 동일한 메뉴 위치에 다시 등록했습니다.");
+  await verifyMainPublication(accessToken);
+
+  for (const sourceConfig of gradeSources) {
+    for (let volume = 1; volume <= WORKBOOKS_PER_GRADE; volume += 1) {
+      await deleteStorageObject(accessToken, workbookStoragePath(sourceConfig.grade, volume, "v1"));
+    }
+  }
 }
 
 async function getDocument(accessToken, projectId, documentPath) {
@@ -1191,6 +1316,7 @@ async function verifyMainPublication(accessToken) {
     const source = await storageMetadata(accessToken, storagePathForGrade(sourceConfig.grade));
     let workbookCount = 0;
     let contentCount = 0;
+    let currentRevisionCount = 0;
     for (let volume = 1; volume <= WORKBOOKS_PER_GRADE; volume += 1) {
       const workbook = await storageMetadata(
         accessToken,
@@ -1202,16 +1328,22 @@ async function verifyMainPublication(accessToken) {
         workbookContentDocumentPath(sourceConfig.grade, volume),
       );
       if (workbook) workbookCount += 1;
-      if (content) contentCount += 1;
+      if (content) {
+        contentCount += 1;
+        const publishedPath = content.fields?.learningMaterialFilePaths?.arrayValue?.values?.[0]?.stringValue;
+        if (publishedPath === workbookStoragePath(sourceConfig.grade, volume)) currentRevisionCount += 1;
+      }
     }
     result.push({
       grade: sourceConfig.grade,
       source: Boolean(source),
       workbookCount,
       contentCount,
+      currentRevisionCount,
       ok: Boolean(source)
         && workbookCount === WORKBOOKS_PER_GRADE
-        && contentCount === WORKBOOKS_PER_GRADE,
+        && contentCount === WORKBOOKS_PER_GRADE
+        && currentRevisionCount === WORKBOOKS_PER_GRADE,
     });
   }
   const style = await storageMetadata(
@@ -1244,7 +1376,9 @@ if (shouldPrepare || shouldImport) {
 }
 
 let accessToken;
-if (shouldImport || shouldVerify || shouldPublishMain) accessToken = await createCliAccessToken();
+if (shouldImport || shouldVerify || shouldPublishMain || shouldVerifyMain || shouldReplaceMainWorkbooks) {
+  accessToken = await createCliAccessToken();
+}
 if (shouldImport) {
   for (const prepared of preparedGrades) await importGrade(accessToken, prepared);
   await importStyleAndWorkbooks(accessToken);
@@ -1255,3 +1389,5 @@ if (shouldPublishMain) {
   await importStyleAndWorkbooks(accessToken, { registerProblemBankArchive: false });
   await verifyMainPublication(accessToken);
 }
+if (shouldReplaceMainWorkbooks) await replaceMainWorkbooks(accessToken);
+if (shouldVerifyMain) await verifyMainPublication(accessToken);
