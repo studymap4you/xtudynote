@@ -1,5 +1,5 @@
 /**
- * 상단·히어로 브랜드 — X 강조 + Xtudy-Universe
+ * 상단·히어로 브랜드: X 강조 + Xtudy Universe
  */
 export function BrandLockup() {
   return (
@@ -8,7 +8,7 @@ export function BrandLockup() {
         <span className="brand-lockup__x" aria-hidden="true">
           X
         </span>
-        <span className="brand-lockup__rest">tudy-Universe</span>
+        <span className="brand-lockup__rest">tudy Universe</span>
       </span>
       <span className="brand-lockup__sep" aria-hidden="true">
         ·

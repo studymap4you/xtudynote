@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   BRAND_HERO_SUBLINE_1,
   BRAND_HERO_SUBLINE_2,
+  BRAND_HERO_DESCRIPTION_EN,
   BRAND_HERO_TITLE,
 } from "@/lib/brand";
 
@@ -35,6 +36,9 @@ export function Intro() {
                 <p className="intro-hero__lede intro-hero__lede--universe intro-hero__lede--second">
                   {BRAND_HERO_SUBLINE_2}
                 </p>
+                <p className="intro-hero__lede intro-hero__lede--english" lang="en">
+                  {BRAND_HERO_DESCRIPTION_EN}
+                </p>
               </div>
 
               <nav className="intro-hero__action-stack intro-hero__action-stack--simple" aria-label="시작 메뉴">
@@ -48,7 +52,7 @@ export function Intro() {
                       <span className="intro-landing-tile__badge" aria-hidden="true">
                         <School size={25} />
                       </span>
-                      <span className="intro-landing-tile__title">내 강의실</span>
+                      <h2 className="intro-landing-tile__title">내 강의실</h2>
                       <span className="intro-landing-tile__subtitle">강의와 모든 학습 도구</span>
                     </span>
                   </Link>
@@ -62,7 +66,7 @@ export function Intro() {
                       <span className="intro-landing-tile__badge" aria-hidden="true">
                         <BookOpenCheck size={25} />
                       </span>
-                      <span className="intro-landing-tile__title">교재 자동제작</span>
+                      <h2 className="intro-landing-tile__title">교재 자동제작</h2>
                       <span className="intro-landing-tile__subtitle">AI로 완성하는 수업 교재</span>
                     </span>
                   </Link>

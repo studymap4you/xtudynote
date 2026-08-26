@@ -66,22 +66,18 @@ import { BillingCallbackPage } from "@/pages/BillingCallbackPage";
 import { AdminBillingPage } from "@/pages/admin/AdminBillingPage";
 import { AdminOperationsPage } from "@/pages/admin/AdminOperationsPage";
 import { SiteVisitTracker } from "@/components/SiteVisitTracker";
+import { SeoController } from "@/components/SeoController";
+import { HomePage } from "@/pages/HomePage";
 
 export default function App() {
   const { pathname } = useLocation();
 
   return (
     <>
-    <SiteVisitTracker />
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <TextbookAutoSimplePage />
-          </ProtectedRoute>
-        }
-      />
+      <SeoController />
+      <SiteVisitTracker />
+      <Routes>
+      <Route path="/" element={<HomePage />} />
       <Route path="/library" element={<LibraryPage />} />
       <Route path="/library/themes" element={<LibraryThemesPage />} />
       <Route path="/content/:id" element={<ContentDetailPage />} />
@@ -446,8 +442,8 @@ export default function App() {
       />
       <Route path="/teacher/english-passage-lab" element={<Navigate to="/english-passage-lab" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-    {pathname !== "/" && pathname !== "/tools/textbook-auto" ? <WoohyukmonChatbot /> : null}
+      </Routes>
+      {pathname !== "/" && pathname !== "/tools/textbook-auto" ? <WoohyukmonChatbot /> : null}
     </>
   );
 }

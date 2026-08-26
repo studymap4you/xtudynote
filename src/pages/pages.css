@@ -932,6 +932,12 @@
 .intro-hero__lede--second {
   margin-top: 0.55rem;
 }
+.intro-hero__lede--english {
+  margin-top: 0.75rem;
+  color: #64748b;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
 .intro-hero__share {
   margin-top: var(--space-2);
   max-width: 100%;
@@ -1131,6 +1137,7 @@ button.intro-landing-tile {
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 .intro-landing-tile__title {
+  margin: 0;
   font-size: 1.02rem;
   font-weight: 800;
   letter-spacing: -0.03em;

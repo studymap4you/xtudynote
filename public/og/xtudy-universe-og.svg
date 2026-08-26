@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">Xtudy Universe</title>
+  <desc id="description">AI Education Platform for textbook and exam generation</desc>
+  <defs>
+    <linearGradient id="x" x1="120" y1="120" x2="350" y2="350" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff2d87" />
+      <stop offset="0.52" stop-color="#7b50ff" />
+      <stop offset="1" stop-color="#168aff" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#050914" />
+  <rect x="78" y="76" width="152" height="152" rx="28" fill="#0b1628" stroke="#1c3555" stroke-width="2" />
+  <path d="M105 102h37l22 41 22-41h38l-41 70 44 70h-38l-25-45-25 45H99l45-70-39-70Z" fill="url(#x)" transform="translate(8 -2) scale(.9)" />
+  <text x="78" y="344" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="76" font-weight="700">Xtudy Universe</text>
+  <text x="82" y="410" fill="#67c9ff" font-family="Inter, Arial, sans-serif" font-size="31" font-weight="600">AI Education Platform</text>
+  <text x="82" y="470" fill="#c9d7ea" font-family="Arial, sans-serif" font-size="28">AI 교재 자동제작 · 영어 변형문제 · 수능형 문제 생성</text>
+  <g transform="translate(918 80)">
+    <rect width="82" height="82" fill="#31b9d8" />
+    <rect x="82" width="82" height="82" fill="#f8fafc" />
+    <rect y="82" width="82" height="82" fill="#ff6b63" />
+    <rect x="82" y="82" width="82" height="82" fill="#ffc94f" />
+  </g>
+  <line x1="82" y1="548" x2="1118" y2="548" stroke="#173456" stroke-width="2" />
+  <text x="82" y="584" fill="#7894b5" font-family="Inter, Arial, sans-serif" font-size="20">xtudynote.vercel.app</text>
+</svg>
