@@ -24,7 +24,8 @@
     "test:exam-collector": ".venv-exam-collector/bin/python -m unittest workers/exam-collector/test_collector.py",
     "collect:textbooks": ".venv-textbook-collector/bin/python workers/textbook-collector/textbook_collector.py --register-catalog --collect",
     "test:textbook-collector": "python3 -m unittest workers/textbook-collector/test_textbook_collector.py",
-    "test:curriculum-placement": "node --experimental-strip-types --test scripts/test-curriculum-placement.mjs"
+    "test:curriculum-placement": "node --experimental-strip-types --test scripts/test-curriculum-placement.mjs",
+    "test:official-exam-resources": "node --experimental-strip-types --test scripts/test-official-exam-resources.mjs"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",

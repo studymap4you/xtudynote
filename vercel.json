@@ -20,9 +20,6 @@
     },
     "api/exam-library.mjs": {
       "maxDuration": 30
-    },
-    "api/textbook-library.mjs": {
-      "maxDuration": 30
     }
   },
   "headers": [

@@ -13,6 +13,8 @@ export interface OfficialExamResource {
   files: OfficialExamFileType[];
 }
 
+const OFFICIAL_EXAM_FILE_TYPES = new Set<OfficialExamFileType>(["question", "answer", "script"]);
+
 const ERROR_MESSAGES: Record<string, string> = {
   "authentication-required": "로그인이 필요합니다.",
   "active-account-required": "활성 사용자만 자료를 이용할 수 있습니다.",
@@ -36,11 +38,41 @@ async function authenticatedRequest<T>(user: User, url: string): Promise<T> {
 }
 
 export async function loadOfficialExamResources(user: User, grade: number): Promise<OfficialExamResource[]> {
-  const payload = await authenticatedRequest<{ items: OfficialExamResource[] }>(
+  const payload = await authenticatedRequest<{ items?: unknown }>(
     user,
     `/api/exam-library?grade=${encodeURIComponent(grade)}`,
   );
-  return payload.items;
+  return normalizeOfficialExamResources(payload.items);
+}
+
+export function normalizeOfficialExamResources(value: unknown): OfficialExamResource[] {
+  if (!Array.isArray(value)) {
+    throw new Error("공식 모의고사 자료 응답 형식이 올바르지 않습니다.");
+  }
+  return value.flatMap((raw): OfficialExamResource[] => {
+    if (!raw || typeof raw !== "object") return [];
+    const item = raw as Record<string, unknown>;
+    const id = String(item.id ?? "").trim();
+    const files = Array.isArray(item.files)
+      ? [...new Set(item.files.map(String).filter(
+          (fileType): fileType is OfficialExamFileType =>
+            OFFICIAL_EXAM_FILE_TYPES.has(fileType as OfficialExamFileType),
+        ))]
+      : [];
+    if (!id || files.length === 0) return [];
+    const grade = Number(item.grade) || 0;
+    const month = Number(item.month) || 0;
+    return [{
+      id,
+      title: String(item.title ?? "").trim() || `고${grade || "-"} ${month || "-"}월 영어 모의고사`,
+      year: Number(item.year) || 0,
+      grade,
+      month,
+      organizer: String(item.organizer ?? "").trim() || "EBSi",
+      collectedAt: typeof item.collectedAt === "string" ? item.collectedAt : null,
+      files,
+    }];
+  });
 }
 
 export async function getOfficialExamDownloadUrl(
