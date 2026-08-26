@@ -18,3 +18,5 @@ workers/textbook-collector/*.sqlite3
 workers/textbook-collector/downloads/
 workers/textbook-collector/manifest.local.json
 workers/textbook-collector/catalog.authorized.local.json
+output/pdf/
+tmp/variant-problem-bank/
