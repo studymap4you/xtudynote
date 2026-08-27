@@ -5,6 +5,7 @@ import { buildCurriculumResourceFeed } from "../src/lib/curriculumResourceFeed.t
 import {
   ENGLISH_MOCK_EXAM_QUESTION_NUMBERS,
   MOCK_EXAM_VARIANT_TYPES,
+  createMockExamPlaceholderSessions,
   formatMockExamSession,
   sortMockExamSessionsNewestFirst,
 } from "../src/lib/mockExamNavigation.ts";
@@ -103,4 +104,13 @@ test("mock exam sessions are displayed from the latest year and month", () => {
 
   assert.deepEqual(sessions.map((exam) => exam.id), ["latest", "middle", "old"]);
   assert.equal(formatMockExamSession(sessions[0]), "2026년 06월");
+});
+
+test("empty or unavailable storage can still expose the navigation structure", () => {
+  const sessions = createMockExamPlaceholderSessions(1, new Date("2026-08-28T00:00:00.000Z"), 5);
+  assert.deepEqual(
+    sessions.map((exam) => formatMockExamSession(exam)),
+    ["2026년 06월", "2026년 03월", "2025년 10월", "2025년 09월", "2025년 06월"],
+  );
+  assert.equal(sessions.every((exam) => exam.placeholder && exam.files.length === 0), true);
 });

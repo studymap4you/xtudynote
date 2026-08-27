@@ -472,6 +472,20 @@
   margin-top: 0;
 }
 
+.filePending {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  padding: 0.42rem 0.62rem;
+  border: 1px dashed #c4d3de;
+  border-radius: 5px;
+  color: #6f7f93;
+  background: #f8fafc;
+  font-size: 0.7rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
 .questionTotal,
 .variantStatus {
   display: inline-flex;
@@ -1234,6 +1248,23 @@
 }
 
 @media (max-width: 560px) {
+  .sidebar nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
+    overflow-x: visible;
+    padding-bottom: 0;
+  }
+
+  .sidebar nav > .categoryGroup {
+    min-width: 0;
+    flex: initial;
+  }
+
+  .categoryGroupActive {
+    grid-column: 1 / -1;
+  }
+
   .pageHeader h1 {
     font-size: 1.4rem;
   }

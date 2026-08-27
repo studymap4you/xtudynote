@@ -35,6 +35,7 @@ import {
 import {
   ENGLISH_MOCK_EXAM_QUESTION_NUMBERS,
   MOCK_EXAM_VARIANT_TYPES,
+  createMockExamPlaceholderSessions,
   formatMockExamSession,
   sortMockExamSessionsNewestFirst,
 } from "@/lib/mockExamNavigation";
@@ -262,10 +263,13 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
     [manualRows, selectedCategory.id],
   );
   const sortedOfficialRows = useMemo(
-    () => sortMockExamSessionsNewestFirst(
-      officialRows.filter((exam) => exam.grade === officialGrade),
-    ),
-    [officialGrade, officialRows],
+    () => {
+      const matchingRows = officialRows.filter((exam) => exam.grade === officialGrade);
+      if (matchingRows.length) return sortMockExamSessionsNewestFirst(matchingRows);
+      if (!officialGrade || officialLoading) return [];
+      return createMockExamPlaceholderSessions(officialGrade);
+    },
+    [officialGrade, officialLoading, officialRows],
   );
   const selectedExam = useMemo(
     () => sortedOfficialRows.find((exam) => exam.id === selectedExamId) ?? null,
@@ -432,7 +436,10 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
                 const active = category.id === selectedCategory.id;
                 const showExamSessions = active && Boolean(officialGrade);
                 return (
-                  <div key={category.id} className={styles.categoryGroup}>
+                  <div
+                    key={category.id}
+                    className={`${styles.categoryGroup} ${active ? styles.categoryGroupActive : ""}`}
+                  >
                     <Link
                       to={`${catalog.basePath}/${category.id}`}
                       className={active ? styles.categoryActive : styles.categoryLink}
@@ -533,6 +540,9 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
                               </button>
                             );
                           })}
+                          {selectedExam.placeholder ? (
+                            <span className={styles.filePending}>원문 자료 등록 대기</span>
+                          ) : null}
                         </div>
                       </div>
                     </header>

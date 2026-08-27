@@ -11,6 +11,7 @@ export interface OfficialExamResource {
   organizer: string;
   collectedAt: string | null;
   files: OfficialExamFileType[];
+  placeholder?: boolean;
 }
 
 const OFFICIAL_EXAM_FILE_TYPES = new Set<OfficialExamFileType>(["question", "answer", "script"]);

@@ -24,6 +24,40 @@ export const MOCK_EXAM_VARIANT_TYPES = Object.freeze([
   { id: "grammar_correction", label: "어법 오류 수정", labelEn: "Grammar Correction" },
 ]);
 
+const MOCK_EXAM_MONTHS = Object.freeze([3, 6, 9, 10]);
+
+export function createMockExamPlaceholderSessions(
+  grade: number,
+  now: Date = new Date(),
+  count = 6,
+): OfficialExamResource[] {
+  const sessions: OfficialExamResource[] = [];
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  for (let year = currentYear; sessions.length < count; year -= 1) {
+    const months = MOCK_EXAM_MONTHS
+      .filter((month) => year < currentYear || month <= currentMonth)
+      .sort((left, right) => right - left);
+    for (const month of months) {
+      sessions.push({
+        id: `placeholder-grade${grade}-${year}-${String(month).padStart(2, "0")}`,
+        title: `${year}년 고${grade} ${month}월 영어 모의고사`,
+        year,
+        grade,
+        month,
+        organizer: "자료 연결 대기",
+        collectedAt: null,
+        files: [],
+        placeholder: true,
+      });
+      if (sessions.length >= count) break;
+    }
+  }
+
+  return sessions;
+}
+
 function collectedAtMs(exam: OfficialExamResource): number {
   if (!exam.collectedAt) return 0;
   const parsed = Date.parse(exam.collectedAt);

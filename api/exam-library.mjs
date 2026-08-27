@@ -48,10 +48,14 @@ function serializeExam(snapshot) {
 async function listExams(req) {
   const grade = Number(req.query?.grade);
   if (!VALID_GRADES.has(grade)) throw Object.assign(new Error("grade-invalid"), { statusCode: 400 });
-  const snapshot = await getProblemBankFirestore().collection("exams").limit(500).get();
+  const snapshot = await getProblemBankFirestore()
+    .collection("exams")
+    .where("grade", "==", grade)
+    .limit(200)
+    .get();
   return snapshot.docs
     .map(serializeExam)
-    .filter((exam) => exam.grade === grade && exam.files.length > 0)
+    .filter((exam) => exam.files.length > 0)
     .sort((left, right) => right.year - left.year || right.month - left.month);
 }
 
@@ -87,8 +91,8 @@ function errorCode(error) {
 
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Cache-Control", "private, no-store");
   if (req.method === "OPTIONS") {
+    res.setHeader("Cache-Control", "no-store");
     res.status(204).end();
     return;
   }
@@ -98,13 +102,16 @@ export default async function handler(req, res) {
       return;
     }
     if (req.query?.examId || req.query?.fileType) {
+      res.setHeader("Cache-Control", "private, no-store");
       await requirePremiumBillingUser(req);
       ensurePrimaryAdmin();
       res.status(200).json({ url: await createDownload(req) });
       return;
     }
+    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
     res.status(200).json({ items: await listExams(req) });
   } catch (error) {
+    res.setHeader("Cache-Control", "private, no-store");
     console.error("[exam-library]", error);
     res.status(Number(error?.statusCode) || 500).json({ error: errorCode(error) });
   }
