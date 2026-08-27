@@ -1,18 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
-import { promisify } from "node:util";
-import { gunzip } from "node:zlib";
-import admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import {
   getQuestionRule,
   SUPPORTED_DISTRACTOR_PATTERNS,
 } from "../csat-question-engine/load-question-rules.mjs";
 import { semanticFingerprint } from "../csat-question-engine/deduplicate-questions.mjs";
-import { getProblemBankApp, getProblemBankFirestore, problemBankSettings } from "./admin.mjs";
-
-const gunzipAsync = promisify(gunzip);
-const STORAGE_SHARD_DATASET_ID = "question-bank-54473-v1";
-const storageShardCache = new Map();
+import { getProblemBankFirestore, problemBankSettings } from "./admin.mjs";
 
 function text(value, maxLength = 20_000) {
   return String(value ?? "").replace(/\u0000/gu, "").trim().slice(0, maxLength);
@@ -196,33 +189,6 @@ function problemEmbeddingText(problem) {
   ].filter(Boolean).join("\n");
 }
 
-export async function loadStorageProblemShard({ questionType, grade, env = process.env }) {
-  if (env.PROBLEM_BANK_STORAGE_SHARDS_ENABLED === "false") return [];
-  const normalizedType = text(questionType, 80).replace(/[^a-z0-9_-]/giu, "_").toLowerCase();
-  const normalizedGrade = Number(grade) || 12;
-  const storagePath = `problem-bank-shards/${STORAGE_SHARD_DATASET_ID}/${normalizedType}/grade${normalizedGrade}.jsonl.gz`;
-  if (storageShardCache.has(storagePath)) return storageShardCache.get(storagePath);
-  while (storageShardCache.size >= 12) storageShardCache.delete(storageShardCache.keys().next().value);
-  const loading = (async () => {
-    const bucketName = env.PROBLEM_BANK_STORAGE_BUCKET
-      || env.FIREBASE_STORAGE_BUCKET
-      || "xtudynote.firebasestorage.app";
-    const [compressed] = await admin.storage(getProblemBankApp(env)).bucket(bucketName).file(storagePath).download();
-    const uncompressed = await gunzipAsync(compressed);
-    return uncompressed.toString("utf8")
-      .split(/\r?\n/u)
-      .filter(Boolean)
-      .map((line) => problemFromData(JSON.parse(line)));
-  })();
-  storageShardCache.set(storagePath, loading);
-  try {
-    return await loading;
-  } catch (error) {
-    storageShardCache.delete(storagePath);
-    throw error;
-  }
-}
-
 export function isProblemBankConfigured(env = process.env) {
   return problemBankSettings(env).enabled;
 }
@@ -288,7 +254,7 @@ async function searchProblemType({ request, questionType, count, excludeQuestion
     conceptTags: [questionType],
     skillTags: normalizedTags(request.requestedTypes),
   };
-  const firestoreSearch = firestore
+  const snapshot = await firestore
     .collection("problems")
     .where("subject", "==", query.subject)
     .where("language", "==", query.language)
@@ -297,24 +263,7 @@ async function searchProblemType({ request, questionType, count, excludeQuestion
     .where("status", "in", ["approved", "gold"])
     .limit(Math.min(200, Math.max(20, count * 8)))
     .get();
-  const storageSearch = loadStorageProblemShard({
-    questionType: query.questionType,
-    grade: gradeNumber(request.targetGrade),
-    env,
-  });
-  const [firestoreResult, storageResult] = await Promise.allSettled([firestoreSearch, storageSearch]);
-  if (firestoreResult.status === "rejected" && storageResult.status === "rejected") {
-    throw firestoreResult.reason || storageResult.reason;
-  }
-  const firestoreProblems = firestoreResult.status === "fulfilled"
-    ? firestoreResult.value.docs.map((doc) => problemFromData(doc.data()))
-    : [];
-  const storageProblems = storageResult.status === "fulfilled" ? storageResult.value : [];
-  const mergedProblems = [...new Map(
-    [...storageProblems, ...firestoreProblems]
-      .filter((problem) => problem.questionId)
-      .map((problem) => [problem.questionId, problem]),
-  ).values()];
+  const mergedProblems = snapshot.docs.map((doc) => problemFromData(doc.data()));
   const excluded = new Set(excludeQuestionIds);
   const selectedClusters = new Set();
   const candidates = mergedProblems
@@ -375,7 +324,7 @@ export async function searchReusableProblemBankQuestions({
       requestedCount,
       foundCount: selected.length,
       missingCount: Math.max(0, requestedCount - selected.length),
-      searchMode: "firestore-storage-quality-gate",
+      searchMode: "firestore-quality-gate",
     });
     for (const problem of selected) {
       if (!problem.questionId || usedIds.has(problem.questionId)) continue;

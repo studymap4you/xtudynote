@@ -146,14 +146,14 @@ test("정책·품질 게이트를 통과한 문항만 시험지 원문항과 교
     qualityScore: 96,
     validation: { valid: true, policyPassed: true, qualityGateVersion: "source-grounded-import-v1" },
     reusePolicy: ["textbook-structure-reference", "exam-exact"],
-    datasetId: "question-bank-54473-v1",
+    datasetId: "future-approved-question-bank-v1",
     transformation: { kind: "word-blank" },
   };
   assert.equal(validateProblemBankProblemForReuse(approved, "exam-exact").valid, true);
   assert.equal(validateProblemBankProblemForReuse({ ...approved, policyStatus: "needs_review" }, "exam-exact").valid, false);
   const reference = problemBankProblemToStructuralReference(approved);
   assert.equal(reference.questionType, "BLANK_SHORT");
-  assert.equal(reference.sourceDatasetId, "question-bank-54473-v1");
+  assert.equal(reference.sourceDatasetId, "future-approved-question-bank-v1");
   assert.doesNotMatch(JSON.stringify(reference), /conceptninehundred/u);
 });
 
