@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeOfficialExamResources } from "../src/lib/officialExamResources.ts";
 import { buildCurriculumResourceFeed } from "../src/lib/curriculumResourceFeed.ts";
+import {
+  ENGLISH_MOCK_EXAM_QUESTION_NUMBERS,
+  MOCK_EXAM_VARIANT_TYPES,
+  formatMockExamSession,
+  sortMockExamSessionsNewestFirst,
+} from "../src/lib/mockExamNavigation.ts";
 
 test("official exam responses are normalized before rendering", () => {
   assert.deepEqual(normalizeOfficialExamResources([
@@ -79,4 +85,22 @@ test("manual and official resources share one newest-first feed", () => {
     feed.map((item) => item.kind === "manual" ? `manual:${item.row.id}` : `official:${item.exam.id}`),
     ["manual:manual-new", "official:official-middle", "manual:manual-old"],
   );
+});
+
+test("mock exam navigation exposes every English question and 17 empty variant slots", () => {
+  assert.equal(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.length, 45);
+  assert.deepEqual(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS, Array.from({ length: 45 }, (_, index) => index + 1));
+  assert.equal(MOCK_EXAM_VARIANT_TYPES.length, 17);
+  assert.equal(new Set(MOCK_EXAM_VARIANT_TYPES.map((item) => item.id)).size, 17);
+});
+
+test("mock exam sessions are displayed from the latest year and month", () => {
+  const sessions = sortMockExamSessionsNewestFirst([
+    { id: "old", title: "2025년 9월", year: 2025, grade: 1, month: 9, organizer: "교육청", collectedAt: null, files: ["question"] },
+    { id: "latest", title: "2026년 6월", year: 2026, grade: 1, month: 6, organizer: "교육청", collectedAt: null, files: ["question"] },
+    { id: "middle", title: "2026년 3월", year: 2026, grade: 1, month: 3, organizer: "교육청", collectedAt: null, files: ["question"] },
+  ]);
+
+  assert.deepEqual(sessions.map((exam) => exam.id), ["latest", "middle", "old"]);
+  assert.equal(formatMockExamSession(sessions[0]), "2026년 06월");
 });

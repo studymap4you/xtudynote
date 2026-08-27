@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   BookOpenCheck,
+  ChevronRight,
   Download,
+  FileQuestion,
   FileText,
   GraduationCap,
+  ListChecks,
   LoaderCircle,
   School,
   Target,
@@ -29,6 +32,12 @@ import {
   type OfficialExamFileType,
   type OfficialExamResource,
 } from "@/lib/officialExamResources";
+import {
+  ENGLISH_MOCK_EXAM_QUESTION_NUMBERS,
+  MOCK_EXAM_VARIANT_TYPES,
+  formatMockExamSession,
+  sortMockExamSessionsNewestFirst,
+} from "@/lib/mockExamNavigation";
 import { recordStudentDownload } from "@/lib/studentDownloads";
 import type {
   CurriculumCatalogId,
@@ -204,6 +213,9 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deletingId, setDeletingId] = useState("");
   const [downloadingId, setDownloadingId] = useState("");
+  const [selectedExamId, setSelectedExamId] = useState("");
+  const [selectedQuestionNumber, setSelectedQuestionNumber] = useState(1);
+  const [selectedVariantType, setSelectedVariantType] = useState("purpose");
 
   useEffect(() => {
     setManualLoading(true);
@@ -249,6 +261,38 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
     () => manualRows.filter((row) => row.category === selectedCategory.id),
     [manualRows, selectedCategory.id],
   );
+  const sortedOfficialRows = useMemo(
+    () => sortMockExamSessionsNewestFirst(
+      officialRows.filter((exam) => exam.grade === officialGrade),
+    ),
+    [officialGrade, officialRows],
+  );
+  const selectedExam = useMemo(
+    () => sortedOfficialRows.find((exam) => exam.id === selectedExamId) ?? null,
+    [selectedExamId, sortedOfficialRows],
+  );
+  const selectedVariant = MOCK_EXAM_VARIANT_TYPES.find((item) => item.id === selectedVariantType)
+    ?? MOCK_EXAM_VARIANT_TYPES[0];
+
+  useEffect(() => {
+    if (!officialGrade) {
+      setSelectedExamId("");
+      setSelectedQuestionNumber(1);
+      setSelectedVariantType("purpose");
+      return;
+    }
+    setSelectedExamId((current) => (
+      sortedOfficialRows.some((exam) => exam.id === current)
+        ? current
+        : sortedOfficialRows[0]?.id ?? ""
+    ));
+  }, [officialGrade, sortedOfficialRows]);
+
+  useEffect(() => {
+    setSelectedQuestionNumber(1);
+    setSelectedVariantType("purpose");
+  }, [selectedExamId]);
+
   const visibleResources = useMemo(
     () => buildCurriculumResourceFeed(visibleManualRows, officialRows),
     [officialRows, visibleManualRows],
@@ -332,6 +376,43 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
     }
   };
 
+  const renderManualResource = (row: CurriculumResourceRow, key: string) => (
+    <article key={key} className={styles.resourceCard}>
+      <div className={styles.resourceIcon}><FileText size={22} aria-hidden /></div>
+      <div className={styles.resourceBody}>
+        <div className={styles.resourceTitleRow}>
+          <div>
+            <span className={styles.sourceBadgeManual}>등록 자료</span>
+            <h3>{row.title}</h3>
+          </div>
+          <time>{formatDate(row.createdAtMs)}</time>
+        </div>
+        {row.description ? <p>{row.description}</p> : null}
+        <ul className={styles.fileList}>
+          {row.files.map((file) => (
+            <li key={file.path}>
+              <FileText size={15} aria-hidden />
+              <span>{file.name}</span>
+              <small>{formatFileSize(file.size)}</small>
+            </li>
+          ))}
+        </ul>
+        <div className={styles.cardFooter}>
+          <button type="button" className={styles.downloadButton} onClick={() => void downloadManual(row)} disabled={!row.files.length || downloadingId === row.id}>
+            {downloadingId === row.id ? <LoaderCircle size={17} className={styles.spin} aria-hidden /> : <Download size={17} aria-hidden />}
+            {row.files.length > 1 ? "전체 다운로드" : "다운로드"}
+          </button>
+          {isSuperAdmin ? (
+            <button type="button" className={styles.deleteButton} onClick={() => void removeManual(row)} disabled={deletingId === row.id} title="자료 삭제">
+              {deletingId === row.id ? <LoaderCircle size={17} className={styles.spin} aria-hidden /> : <Trash2 size={17} aria-hidden />}
+              <span className={styles.srOnly}>자료 삭제</span>
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </article>
+  );
+
   return (
     <PublicShell>
       <main className={styles.page}>
@@ -347,20 +428,60 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
           <aside className={styles.sidebar} aria-label={`${catalog.title} 분류`}>
             <div className={styles.sidebarLabel}>CATEGORY</div>
             <nav>
-              {catalog.categories.map((category) => (
-                <Link
-                  key={category.id}
-                  to={`${catalog.basePath}/${category.id}`}
-                  className={category.id === selectedCategory.id ? styles.categoryActive : styles.categoryLink}
-                  aria-current={category.id === selectedCategory.id ? "page" : undefined}
-                >
-                  <BookOpenCheck size={18} aria-hidden />
-                  <span>
-                    <strong>{category.label}</strong>
-                    <small>{category.labelEn}</small>
-                  </span>
-                </Link>
-              ))}
+              {catalog.categories.map((category) => {
+                const active = category.id === selectedCategory.id;
+                const showExamSessions = active && Boolean(officialGrade);
+                return (
+                  <div key={category.id} className={styles.categoryGroup}>
+                    <Link
+                      to={`${catalog.basePath}/${category.id}`}
+                      className={active ? styles.categoryActive : styles.categoryLink}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      <BookOpenCheck size={18} aria-hidden />
+                      <span>
+                        <strong>{category.label}</strong>
+                        <small>{category.labelEn}</small>
+                      </span>
+                    </Link>
+
+                    {showExamSessions ? (
+                      <section className={styles.examSessionNav} aria-label={`${category.label} 시험 목록`}>
+                        <header>
+                          <span>EXAMS</span>
+                          <strong>최신순</strong>
+                        </header>
+                        {officialLoading ? (
+                          <div className={styles.examSessionStatus}>
+                            <LoaderCircle size={15} className={styles.spin} aria-hidden />
+                            <span>시험 목록 불러오는 중</span>
+                          </div>
+                        ) : sortedOfficialRows.length ? (
+                          <div className={styles.examSessionList}>
+                            {sortedOfficialRows.map((exam) => (
+                              <button
+                                key={exam.id}
+                                type="button"
+                                className={exam.id === selectedExamId ? styles.examSessionActive : styles.examSessionButton}
+                                onClick={() => setSelectedExamId(exam.id)}
+                                aria-pressed={exam.id === selectedExamId}
+                              >
+                                <span>
+                                  <strong>{formatMockExamSession(exam)}</strong>
+                                  <small>{exam.organizer}</small>
+                                </span>
+                                <ChevronRight size={15} aria-hidden />
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className={styles.examSessionStatus}>등록된 시험 없음</div>
+                        )}
+                      </section>
+                    ) : null}
+                  </div>
+                );
+              })}
             </nav>
           </aside>
 
@@ -385,7 +506,125 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
             {officialError && isSuperAdmin ? <p className={styles.notice} role="status">{officialError}</p> : null}
             {!entitled ? <p className={styles.notice} role="status">자료 목록은 자유롭게 볼 수 있습니다. 파일 다운로드는 <Link to="/billing">구독 후 이용</Link>할 수 있습니다.</p> : null}
 
-            {loading && totalCount === 0 ? (
+            {officialGrade ? (
+              <div className={styles.mockExamSection}>
+                {officialLoading && !selectedExam ? (
+                  <div className={styles.loadingState}>
+                    <LoaderCircle size={24} className={styles.spin} aria-hidden />
+                    <span>시험 목록을 불러오는 중입니다.</span>
+                  </div>
+                ) : selectedExam ? (
+                  <section className={styles.mockExamBrowser} aria-label={`${selectedResourceTitle} 문항 탐색`}>
+                    <header className={styles.mockExamBrowserHeader}>
+                      <div>
+                        <span>SELECTED EXAM</span>
+                        <h3>{selectedExam.title}</h3>
+                        <p>{formatMockExamSession(selectedExam)} · 고{selectedExam.grade} · {selectedExam.organizer}</p>
+                      </div>
+                      <div className={styles.selectedExamActions}>
+                        <span className={styles.questionTotal}>45문항</span>
+                        <div className={styles.fileActions}>
+                          {selectedExam.files.map((fileType) => {
+                            const key = `${selectedExam.id}:${fileType}`;
+                            return (
+                              <button key={fileType} type="button" onClick={() => void downloadOfficial(selectedExam, fileType)} disabled={downloadingId === key}>
+                                {downloadingId === key ? <LoaderCircle size={16} className={styles.spin} aria-hidden /> : <Download size={16} aria-hidden />}
+                                {FILE_TYPE_LABEL[fileType]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </header>
+
+                    <div className={styles.mockExamBrowserGrid}>
+                      <section className={styles.questionPanel} aria-labelledby="mock-exam-question-heading">
+                        <header className={styles.browserPanelHeader}>
+                          <div>
+                            <ListChecks size={19} aria-hidden />
+                            <span>ALL QUESTIONS</span>
+                            <h3 id="mock-exam-question-heading">전체 문항</h3>
+                          </div>
+                          <strong>45</strong>
+                        </header>
+                        <div className={styles.questionNumberGrid} aria-label="문항 번호">
+                          {ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.map((questionNumber) => (
+                            <button
+                              key={questionNumber}
+                              type="button"
+                              className={questionNumber === selectedQuestionNumber ? styles.questionNumberActive : styles.questionNumberButton}
+                              onClick={() => setSelectedQuestionNumber(questionNumber)}
+                              aria-pressed={questionNumber === selectedQuestionNumber}
+                              aria-label={`${questionNumber}번 문항`}
+                            >
+                              {String(questionNumber).padStart(2, "0")}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section className={styles.variantPanel} aria-labelledby="mock-exam-variant-heading">
+                        <header className={styles.browserPanelHeader}>
+                          <div>
+                            <FileQuestion size={19} aria-hidden />
+                            <span>VARIANT TYPES</span>
+                            <h3 id="mock-exam-variant-heading">{selectedQuestionNumber}번 변형 문제</h3>
+                          </div>
+                          <strong>17</strong>
+                        </header>
+                        <ol className={styles.variantTypeList}>
+                          {MOCK_EXAM_VARIANT_TYPES.map((variant, index) => (
+                            <li key={variant.id}>
+                              <button
+                                type="button"
+                                className={variant.id === selectedVariantType ? styles.variantTypeActive : styles.variantTypeButton}
+                                onClick={() => setSelectedVariantType(variant.id)}
+                                aria-pressed={variant.id === selectedVariantType}
+                              >
+                                <span className={styles.variantIndex}>{String(index + 1).padStart(2, "0")}</span>
+                                <span className={styles.variantLabel}>
+                                  <strong>{variant.label}</strong>
+                                  <small>{variant.labelEn}</small>
+                                </span>
+                                <span className={styles.variantStatus}>미등록</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ol>
+                        <div className={styles.variantEmptyPreview} aria-live="polite">
+                          <FileQuestion size={21} aria-hidden />
+                          <span>
+                            <strong>{selectedQuestionNumber}번 · {selectedVariant.label}</strong>
+                            <small>변형 문제 등록 대기</small>
+                          </span>
+                        </div>
+                      </section>
+                    </div>
+                  </section>
+                ) : (
+                  <div className={styles.mockExamEmpty}>
+                    <FileQuestion size={30} aria-hidden />
+                    <strong>등록된 공식 모의고사가 없습니다.</strong>
+                    <span>시험 파일이 등록되면 문항과 변형 유형 탐색 화면이 열립니다.</span>
+                  </div>
+                )}
+
+                {visibleManualRows.length ? (
+                  <section className={styles.manualResourceSection} aria-labelledby="manual-resource-heading">
+                    <header>
+                      <div>
+                        <span>UPLOADED FILES</span>
+                        <h3 id="manual-resource-heading">추가 등록 자료</h3>
+                      </div>
+                      <strong>{visibleManualRows.length}개</strong>
+                    </header>
+                    <div className={styles.resourceList}>
+                      {visibleManualRows.map((row) => renderManualResource(row, `manual:${row.id}`))}
+                    </div>
+                  </section>
+                ) : null}
+              </div>
+            ) : loading && totalCount === 0 ? (
               <div className={styles.loadingState}>
                 <LoaderCircle size={24} className={styles.spin} aria-hidden />
                 <span>자료를 불러오는 중입니다.</span>
@@ -427,44 +666,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
                       </article>
                     );
                   }
-
-                  const { row } = resource;
-                  return (
-                    <article key={resource.key} className={styles.resourceCard}>
-                      <div className={styles.resourceIcon}><FileText size={22} aria-hidden /></div>
-                      <div className={styles.resourceBody}>
-                        <div className={styles.resourceTitleRow}>
-                          <div>
-                            <span className={styles.sourceBadgeManual}>등록 자료</span>
-                            <h3>{row.title}</h3>
-                          </div>
-                          <time>{formatDate(row.createdAtMs)}</time>
-                        </div>
-                        {row.description ? <p>{row.description}</p> : null}
-                        <ul className={styles.fileList}>
-                          {row.files.map((file) => (
-                            <li key={file.path}>
-                              <FileText size={15} aria-hidden />
-                              <span>{file.name}</span>
-                              <small>{formatFileSize(file.size)}</small>
-                            </li>
-                          ))}
-                        </ul>
-                        <div className={styles.cardFooter}>
-                          <button type="button" className={styles.downloadButton} onClick={() => void downloadManual(row)} disabled={!row.files.length || downloadingId === row.id}>
-                            {downloadingId === row.id ? <LoaderCircle size={17} className={styles.spin} aria-hidden /> : <Download size={17} aria-hidden />}
-                            {row.files.length > 1 ? "전체 다운로드" : "다운로드"}
-                          </button>
-                          {isSuperAdmin ? (
-                            <button type="button" className={styles.deleteButton} onClick={() => void removeManual(row)} disabled={deletingId === row.id} title="자료 삭제">
-                              {deletingId === row.id ? <LoaderCircle size={17} className={styles.spin} aria-hidden /> : <Trash2 size={17} aria-hidden />}
-                              <span className={styles.srOnly}>자료 삭제</span>
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    </article>
-                  );
+                  return renderManualResource(resource.row, resource.key);
                 })}
               </div>
             )}
