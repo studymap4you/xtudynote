@@ -6,7 +6,11 @@ import { loadQuestionRules } from "../api/_lib/csat-question-engine/load-questio
 import { parseUserRequest } from "../api/_lib/csat-question-engine/parse-user-request.mjs";
 import { searchQuestionBank } from "../api/_lib/csat-question-engine/question-bank-repository.mjs";
 import { runQuestionGenerationPipeline } from "../api/_lib/csat-question-engine/run-question-generation-pipeline.mjs";
-import { problemBankProblemToLocalQuestion } from "../api/_lib/problem-bank/client.mjs";
+import {
+  problemBankProblemToLocalQuestion,
+  problemBankProblemToStructuralReference,
+  validateProblemBankProblemForReuse,
+} from "../api/_lib/problem-bank/client.mjs";
 
 function alphaWord(number) {
   let value = number + 1;
@@ -115,6 +119,42 @@ test("전역 문제은행 유형을 기존 규칙 ID로 복원해 확보 문항�
     buildNextBatchTypes(["BLANK_SHORT", "MAIN_IDEA"], [reused], 2),
     ["MAIN_IDEA"],
   );
+});
+
+test("정책·품질 게이트를 통과한 문항만 시험지 원문항과 교재 구조 참고로 재사용한다", () => {
+  const approved = {
+    questionId: "QB54473_TEST_001",
+    questionType: "blank_short",
+    subtype: "빈칸 추론 - 단어형",
+    difficulty: 4,
+    sourceId: "qb54473_source_001",
+    passage: passage(901).text,
+    question: "Which option best completes the blank in the passage?",
+    choices: ["First", "Second", "Third", "Fourth", "Fifth"],
+    answer: 2,
+    explanation: "두 번째 선택지만 빈칸 전후의 대조 관계와 결론을 함께 유지하므로 정답이다. 다른 선택지는 범위나 의미 방향이 달라진다.",
+    evidence: { reasoning: "빈칸 앞의 대조와 마지막 결론이 같은 의미 방향을 요구한다." },
+    choiceRationales: [
+      { index: 1, isCorrect: false, distractorPattern: "PARTIAL_TRUTH", rationale: "일부 내용만 반영한다." },
+      { index: 2, isCorrect: true, rationale: "본문의 핵심 관계를 보존한다." },
+      { index: 3, isCorrect: false, distractorPattern: "ADJACENT_TOPIC", rationale: "인접 주제이지만 빈칸 논리와 다르다." },
+      { index: 4, isCorrect: false, distractorPattern: "POLARITY_REVERSAL", rationale: "의미 방향을 반대로 바꾼다." },
+      { index: 5, isCorrect: false, distractorPattern: "SCOPE_SHIFT", rationale: "본문보다 범위를 넓힌다." },
+    ],
+    status: "approved",
+    policyStatus: "approved",
+    qualityScore: 96,
+    validation: { valid: true, policyPassed: true, qualityGateVersion: "source-grounded-import-v1" },
+    reusePolicy: ["textbook-structure-reference", "exam-exact"],
+    datasetId: "question-bank-54473-v1",
+    transformation: { kind: "word-blank" },
+  };
+  assert.equal(validateProblemBankProblemForReuse(approved, "exam-exact").valid, true);
+  assert.equal(validateProblemBankProblemForReuse({ ...approved, policyStatus: "needs_review" }, "exam-exact").valid, false);
+  const reference = problemBankProblemToStructuralReference(approved);
+  assert.equal(reference.questionType, "BLANK_SHORT");
+  assert.equal(reference.sourceDatasetId, "question-bank-54473-v1");
+  assert.doesNotMatch(JSON.stringify(reference), /conceptninehundred/u);
 });
 
 test("규칙 JSON과 5개년 문제은행 reference를 유형별로 순환한다", async () => {

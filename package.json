@@ -34,6 +34,13 @@
     "correct:variant-workbooks": "node scripts/correct-variant-workbook-manifests.mjs",
     "build:variant-workbooks": "${CODEX_PYTHON:-python3} scripts/build-variant-workbooks.py",
     "test:variant-question-corrector": "node --test scripts/test-variant-question-corrector.mjs",
+    "prepare:question-bank-54473": "node scripts/import-question-bank-54473.mjs --prepare",
+    "import:question-bank-54473": "node scripts/import-question-bank-54473.mjs --import --verify",
+    "import:question-bank-54473-storage": "node scripts/import-question-bank-54473.mjs --import --storage-only --verify",
+    "verify:question-bank-54473": "node scripts/import-question-bank-54473.mjs --verify --storage-only",
+    "verify:question-bank-54473-firestore": "node scripts/import-question-bank-54473.mjs --verify",
+    "test:question-bank-54473": "node --test scripts/test-question-bank-54473.mjs",
+    "test:question-bank-54473-live": "node scripts/smoke-test-question-bank-54473-storage.mjs",
     "test:billing": "node --test scripts/test-billing-domain.mjs"
   },
   "dependencies": {

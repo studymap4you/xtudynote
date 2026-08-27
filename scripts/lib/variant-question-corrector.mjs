@@ -21,6 +21,7 @@ const CHOICE_TYPES = new Set([
   "summary",
 ]);
 const SEMANTIC_TYPES = new Set(["purpose", "claim", "main_idea", "title", "topic", "implied_meaning", "blank_long"]);
+const OPEN_ENDED_TYPES = new Set(["writing_reorder", "writing_conditional", "grammar_correction"]);
 const STOP_WORDS = new Set([
   "a", "an", "the", "of", "about", "after", "again", "against", "also", "among", "another", "because", "before", "being",
   "between", "both", "could", "does", "doing", "during", "each", "every", "from", "further", "have",
@@ -1303,7 +1304,11 @@ function summaryQuestion(problem, source) {
 
 function grammarCorrectionQuestion(problem, source) {
   const answer = text(problem.answer, 2_000);
-  if (!answer || comparable(answer).length < 10) throw new Error(`${problem.questionId}: 어법 오류 수정 정답을 복원하지 못했습니다.`);
+  if (!answer
+    || comparable(answer).length < 10
+    || !comparable(source).includes(comparable(answer))) {
+    throw new Error(`${problem.questionId}: 어법 오류 수정 정답을 원문에서 복원하지 못했습니다.`);
+  }
   return {
     passage: source,
     stem: text(problem.question ?? problem.stem, 8_000),
@@ -1314,6 +1319,81 @@ function grammarCorrectionQuestion(problem, source) {
     evidence: answer,
     explanation: `변형 문장을 원문의 문장 구조와 비교하면 바르게 고친 전체 문장은 “${answer}”입니다. 의미는 유지하고 어형과 수 일치만 바로잡습니다.`,
     transformation: { kind: "grammar-correction", correctedSentence: answer },
+  };
+}
+
+function writingSourceSentence(problem, source) {
+  const candidates = splitSentences(source)
+    .filter((sentence) => {
+      const count = englishWords(sentence).length;
+      return count >= 10 && count <= 28;
+    });
+  if (!candidates.length) throw new Error(`${problem.questionId}: 서술형에 사용할 원문 문장을 찾지 못했습니다.`);
+  const central = findCentralSentence(source);
+  const centralMatch = candidates.find((sentence) => comparable(sentence) === comparable(central));
+  return centralMatch || candidates[stableInteger(`${problem.questionId}:writing-source`) % candidates.length];
+}
+
+function phraseChunks(sentence, count = 4) {
+  const words = text(sentence, 4_000).split(/\s+/u).filter(Boolean);
+  const chunks = [];
+  let cursor = 0;
+  for (let index = 0; index < count; index += 1) {
+    const remainingWords = words.length - cursor;
+    const remainingChunks = count - index;
+    const size = Math.ceil(remainingWords / remainingChunks);
+    chunks.push(words.slice(cursor, cursor + size).join(" "));
+    cursor += size;
+  }
+  return chunks.filter(Boolean);
+}
+
+function writingReorderQuestion(problem, source) {
+  const answer = writingSourceSentence(problem, source);
+  const chunks = phraseChunks(answer);
+  if (chunks.length !== 4) throw new Error(`${problem.questionId}: 어구 배열 단위를 만들지 못했습니다.`);
+  const rotation = (stableInteger(`${problem.questionId}:writing-reorder`) % 3) + 1;
+  const shuffled = [...chunks.slice(rotation), ...chunks.slice(0, rotation)];
+  return {
+    passage: source,
+    stem: `글의 문맥에 맞게 <보기>의 어구를 모두 한 번씩 사용하여 원문의 문장을 완성하시오.\n<보기> ${shuffled.join(" / ")}`,
+    choices: [],
+    answer,
+    choiceRationales: [],
+    distractorPatterns: [],
+    evidence: answer,
+    explanation: "각 어구의 수식 관계와 문장 성분을 연결하면 원문 문장과 같은 순서가 됩니다. 제시된 어구는 빠뜨리거나 반복하지 않고 모두 한 번씩 사용합니다.",
+    transformation: {
+      kind: "writing-reorder",
+      sourceSentence: answer,
+      sourcePhrases: chunks,
+      shuffledPhrases: shuffled,
+      reconstructionValid: comparable(chunks.join(" ")) === comparable(answer),
+    },
+  };
+}
+
+function writingConditionalQuestion(problem, source) {
+  const answer = writingSourceSentence(problem, source);
+  const answerWords = englishWords(answer);
+  const keywords = topKeywords(answer, 8).slice(0, 3);
+  if (keywords.length < 3) throw new Error(`${problem.questionId}: 조건 영작 제시어를 만들지 못했습니다.`);
+  return {
+    passage: source,
+    stem: `글의 문맥에 맞게 원문의 문장을 영작하시오.\n<조건> 제시어 ${keywords.join(", ")}를 모두 사용할 것 / 총 ${answerWords.length}단어 / 제시어의 어형은 원문에 맞게 사용할 것`,
+    choices: [],
+    answer,
+    choiceRationales: [],
+    distractorPatterns: [],
+    evidence: answer,
+    explanation: `원문의 논리 관계와 어순을 유지하면서 제시어 ${keywords.join(", ")}를 모두 사용해야 합니다. 정답은 원문에서 확인되는 ${answerWords.length}단어 문장입니다.`,
+    transformation: {
+      kind: "writing-conditional",
+      sourceSentence: answer,
+      requiredWords: keywords,
+      expectedWordCount: answerWords.length,
+      reconstructionValid: keywords.every((keyword) => new RegExp(`\\b${escapeRegExp(keyword)}\\b`, "iu").test(answer)),
+    },
   };
 }
 
@@ -1328,6 +1408,8 @@ function questionPayload(problem, source) {
   if (problem.questionType === "paragraph_order") return paragraphOrderQuestion(problem, source);
   if (problem.questionType === "sentence_insertion") return sentenceInsertionQuestion(problem, source);
   if (problem.questionType === "summary") return summaryQuestion(problem, source);
+  if (problem.questionType === "writing_reorder") return writingReorderQuestion(problem, source);
+  if (problem.questionType === "writing_conditional") return writingConditionalQuestion(problem, source);
   if (problem.questionType === "grammar_correction") return grammarCorrectionQuestion(problem, source);
   throw new Error(`${problem.questionId}: 지원하지 않는 변형문제 유형 ${problem.questionType}`);
 }
@@ -1341,6 +1423,10 @@ function validateQuestion(question) {
   if (choiceQuestion && question.choices.length !== 5) issues.push("choice_count_not_five");
   if (choiceQuestion && (!Number.isInteger(question.answer) || question.answer < 1 || question.answer > 5)) issues.push("answer_out_of_range");
   if (choiceQuestion && new Set(question.choices.map(comparable)).size !== 5) issues.push("duplicate_choices");
+  if (OPEN_ENDED_TYPES.has(question.type)) {
+    if (typeof question.answer !== "string" || englishWords(question.answer).length < 6) issues.push("open_answer_missing");
+    if (!comparable(question.sourcePassage).includes(comparable(question.answer))) issues.push("open_answer_not_in_source");
+  }
   if (choiceQuestion) {
     const lengths = question.choices.map((choice) => choice.length).sort((left, right) => left - right);
     const medianLength = lengths[2] || 0;
@@ -1379,6 +1465,10 @@ function validateQuestion(question) {
     if (malformed) issues.push("semantic_distractor_not_plausible");
   }
   if (question.type === "summary" && !question.transformation?.reconstructionValid) issues.push("summary_reconstruction_failed");
+  if (["writing_reorder", "writing_conditional"].includes(question.type)
+    && !question.transformation?.reconstructionValid) {
+    issues.push("writing_reconstruction_failed");
+  }
   if (["paragraph_order", "sentence_insertion"].includes(question.type) && !question.transformation?.reconstructionValid) {
     issues.push("source_reconstruction_failed");
   }

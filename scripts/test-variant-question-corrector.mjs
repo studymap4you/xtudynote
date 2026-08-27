@@ -134,6 +134,37 @@ test("factual question keeps four source-grounded statements and one controlled 
   assert.equal(corrected.choiceRationales.filter((choice) => !choice.isCorrect).length, 4);
 });
 
+test("writing reorder rebuilds an exact source sentence from four shuffled phrases", () => {
+  const corrected = correctVariantQuestion(problem({
+    questionId: "VPB-TEST-WRITING-REORDER",
+    questionType: "writing_reorder",
+  }), { typeLabel: "어구 배열" });
+  assert.equal(corrected.choices.length, 0);
+  assert.equal(corrected.transformation.sourcePhrases.length, 4);
+  assert.notDeepEqual(corrected.transformation.sourcePhrases, corrected.transformation.shuffledPhrases);
+  assert.equal(corrected.transformation.reconstructionValid, true);
+  assert.match(source, new RegExp(corrected.answer.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
+});
+
+test("conditional writing answer and required words come from the source", () => {
+  const corrected = correctVariantQuestion(problem({
+    questionId: "VPB-TEST-WRITING-CONDITIONAL",
+    questionType: "writing_conditional",
+  }), { typeLabel: "조건 영작" });
+  assert.equal(corrected.choices.length, 0);
+  assert.equal(corrected.transformation.requiredWords.length, 3);
+  assert.equal(corrected.transformation.reconstructionValid, true);
+  assert.ok(corrected.transformation.requiredWords.every((word) => corrected.answer.toLowerCase().includes(word.toLowerCase())));
+});
+
+test("grammar correction rejects an answer that is not present in the source", () => {
+  assert.throws(() => correctVariantQuestion(problem({
+    questionId: "VPB-TEST-GRAMMAR-CORRECTION-BAD",
+    questionType: "grammar_correction",
+    answer: "This sentence was invented and is not present in the source passage.",
+  }), { typeLabel: "어법 오류 수정" }), /원문에서 복원하지 못했습니다/u);
+});
+
 test("title focuses on the passage conclusion instead of incidental family roles", () => {
   const automobileSource = [
     "Consider an innocent question asked years ago by a son to his father: Who invented the automobile?",

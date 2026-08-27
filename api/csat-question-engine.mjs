@@ -19,6 +19,7 @@ import {
   reportProblemBankGenerationRun,
   reportProblemBankUsage,
   saveGeneratedQuestionToProblemBank,
+  searchProblemBankStructuralReferences,
   searchReusableProblemBankQuestions,
 } from "./_lib/problem-bank/client.mjs";
 import {
@@ -354,6 +355,21 @@ async function createJob(authUser, body) {
     return loadJob(authUser.uid, ref.id);
   }
 
+  if (generationMode === "textbook") {
+    await recordProgress({
+      phase: "global-problem-bank",
+      status: "completed",
+      title: "검수된 문제은행을 교재 생성 참고자료로 연결했습니다",
+      summary: "문항을 그대로 복사하지 않고 유형 구조와 오답 설계 기준을 생성 단계에서 참조합니다.",
+      details: [
+        "참고 상태: approved, gold",
+        "품질 기준: 85점 이상 및 정책·원문 근거 검수 통과",
+        "교재 모드: 구조 참고 후 새 문항 생성",
+      ],
+    });
+    return loadJob(authUser.uid, ref.id);
+  }
+
   await recordProgress({
     phase: "global-problem-bank",
     status: "running",
@@ -371,6 +387,7 @@ async function createJob(authUser, body) {
       request,
       questionTypePlan,
       workbookId: ref.id,
+      reuseMode: "exam-exact",
     });
     const reusedQuestions = reusable.questions
       .map((problem, index) => problemBankProblemToLocalQuestion(problem, index + 1))
@@ -565,7 +582,7 @@ async function generateJobBatch(authUser, body) {
     });
     throw error;
   }
-  if (references.length === 0) {
+  if (references.length === 0 && !(data.generationMode === "textbook" && isProblemBankConfigured())) {
     await recordProgress({
       phase: "question-bank",
       status: "error",
@@ -575,11 +592,50 @@ async function generateJobBatch(authUser, body) {
     });
     throw new Error("question-bank-unavailable");
   }
+
+  if (data.generationMode === "textbook" && isProblemBankConfigured()) {
+    try {
+      const globalReferences = await searchProblemBankStructuralReferences({
+        request,
+        questionTypes: targetTypes,
+        limit: 18,
+      });
+      const merged = [...globalReferences.references, ...references];
+      references = [...new Map(merged.map((reference) => [reference.id, reference])).values()].slice(0, 30);
+      await recordProgress({
+        phase: "question-bank",
+        status: "completed",
+        title: `${globalReferences.references.length}개의 검수 문항 구조를 추가로 연결했습니다`,
+        summary: "문제은행 원문항은 복사하지 않고 교정된 출제 구조와 오답 패턴만 참고합니다.",
+        details: globalReferences.searches.map((search) => (
+          `${search.questionType} · 요청 ${search.requestedCount} · 확보 ${search.foundCount}`
+        )),
+      });
+    } catch (error) {
+      await recordProgress({
+        phase: "question-bank",
+        status: "warning",
+        title: "추가 문제은행 참고자료 없이 기존 수능 기준 문항으로 계속합니다",
+        summary: error instanceof Error ? error.message : "전역 문제은행을 불러오지 못했습니다.",
+        details: [],
+      });
+    }
+  }
+  if (references.length === 0) {
+    await recordProgress({
+      phase: "question-bank",
+      status: "error",
+      title: "일치하는 출제 기준 문항을 찾지 못했습니다",
+      summary: "기존 수능 문제은행과 검수 문제은행의 유형 매핑을 확인해야 합니다.",
+      details: targetTypes.map((type) => `미확보 유형: ${type}`),
+    });
+    throw new Error("question-bank-unavailable");
+  }
   await recordProgress({
     phase: "question-bank",
     status: "completed",
-    title: `${references.length}개의 수능 기준 문항을 연결했습니다`,
-    summary: "문항 내용은 복사하지 않고 출제 구조와 오답 설계 기준만 참조합니다.",
+    title: `${references.length}개의 출제 기준 문항을 연결했습니다`,
+    summary: "교재 모드에서는 문항 내용을 복사하지 않고 출제 구조와 오답 설계 기준만 참조합니다.",
     details: references.map((reference) => (
       `${reference.year || "연도 미상"} CSAT ${reference.questionNumber || "번호 미상"}번 · ${reference.questionType} · ${reference.id}`
     )),

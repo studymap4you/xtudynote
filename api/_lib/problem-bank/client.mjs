@@ -1,8 +1,18 @@
 import { createHash, randomBytes } from "node:crypto";
+import { promisify } from "node:util";
+import { gunzip } from "node:zlib";
+import admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { getQuestionRule } from "../csat-question-engine/load-question-rules.mjs";
+import {
+  getQuestionRule,
+  SUPPORTED_DISTRACTOR_PATTERNS,
+} from "../csat-question-engine/load-question-rules.mjs";
 import { semanticFingerprint } from "../csat-question-engine/deduplicate-questions.mjs";
-import { getProblemBankFirestore, problemBankSettings } from "./admin.mjs";
+import { getProblemBankApp, getProblemBankFirestore, problemBankSettings } from "./admin.mjs";
+
+const gunzipAsync = promisify(gunzip);
+const STORAGE_SHARD_DATASET_ID = "question-bank-54473-v1";
+const storageShardCache = new Map();
 
 function text(value, maxLength = 20_000) {
   return String(value ?? "").replace(/\u0000/gu, "").trim().slice(0, maxLength);
@@ -115,11 +125,19 @@ function problemFromData(data = {}) {
     choices: Array.isArray(data.choices) ? data.choices.map((choice) => text(choice, 2_000)) : [],
     answer: typeof data.answer === "number" ? data.answer : text(data.answer, 2_000),
     explanation: text(data.explanation, 12_000) || undefined,
+    choiceRationales: Array.isArray(data.choiceRationales) ? data.choiceRationales : [],
+    evidence: data.evidence && typeof data.evidence === "object" ? data.evidence : {},
+    transformation: data.transformation && typeof data.transformation === "object" ? data.transformation : {},
     conceptTags: normalizedTags(data.conceptTags),
     skillTags: normalizedTags(data.skillTags),
     qualityScore: Number(data.qualityScore) || 0,
     status: text(data.status, 40),
     validation: data.validation || {},
+    integrity: data.integrity || {},
+    policyStatus: text(data.policyStatus, 40),
+    reusePolicy: normalizedTags(data.reusePolicy),
+    datasetId: text(data.datasetId, 120) || undefined,
+    datasetVersion: text(data.datasetVersion, 120) || undefined,
     generator: data.generator,
     embedding: vectorArray(data.embedding),
     contentFingerprint: text(data.contentFingerprint, 100),
@@ -178,6 +196,33 @@ function problemEmbeddingText(problem) {
   ].filter(Boolean).join("\n");
 }
 
+export async function loadStorageProblemShard({ questionType, grade, env = process.env }) {
+  if (env.PROBLEM_BANK_STORAGE_SHARDS_ENABLED === "false") return [];
+  const normalizedType = text(questionType, 80).replace(/[^a-z0-9_-]/giu, "_").toLowerCase();
+  const normalizedGrade = Number(grade) || 12;
+  const storagePath = `problem-bank-shards/${STORAGE_SHARD_DATASET_ID}/${normalizedType}/grade${normalizedGrade}.jsonl.gz`;
+  if (storageShardCache.has(storagePath)) return storageShardCache.get(storagePath);
+  while (storageShardCache.size >= 12) storageShardCache.delete(storageShardCache.keys().next().value);
+  const loading = (async () => {
+    const bucketName = env.PROBLEM_BANK_STORAGE_BUCKET
+      || env.FIREBASE_STORAGE_BUCKET
+      || "xtudynote.firebasestorage.app";
+    const [compressed] = await admin.storage(getProblemBankApp(env)).bucket(bucketName).file(storagePath).download();
+    const uncompressed = await gunzipAsync(compressed);
+    return uncompressed.toString("utf8")
+      .split(/\r?\n/u)
+      .filter(Boolean)
+      .map((line) => problemFromData(JSON.parse(line)));
+  })();
+  storageShardCache.set(storagePath, loading);
+  try {
+    return await loading;
+  } catch (error) {
+    storageShardCache.delete(storagePath);
+    throw error;
+  }
+}
+
 export function isProblemBankConfigured(env = process.env) {
   return problemBankSettings(env).enabled;
 }
@@ -205,7 +250,33 @@ function countTypes(questionTypePlan) {
   return [...counts];
 }
 
-async function searchProblemType({ request, questionType, count, excludeQuestionIds, env }) {
+export function validateProblemBankProblemForReuse(problem, reuseMode = "exam-exact") {
+  const issues = [];
+  const choices = Array.isArray(problem?.choices) ? problem.choices.map((choice) => text(choice, 2_000)) : [];
+  const answer = answerIndex(problem, choices);
+  if (!["approved", "gold"].includes(text(problem?.status, 40))) issues.push("status_not_approved");
+  if (Number(problem?.qualityScore) < 85) issues.push("quality_score_below_85");
+  if (text(problem?.policyStatus, 40) !== "approved") issues.push("policy_not_approved");
+  if (problem?.validation?.valid !== true || problem?.validation?.policyPassed !== true) {
+    issues.push("quality_gate_not_passed");
+  }
+  if (!Array.isArray(problem?.reusePolicy) || !problem.reusePolicy.includes(reuseMode)) {
+    issues.push("reuse_policy_not_granted");
+  }
+  if (!problem?.questionId || !problem?.sourceId) issues.push("identity_missing");
+  if (text(problem?.passage, 30_000).length < 80) issues.push("passage_missing_or_short");
+  if (text(problem?.question, 4_000).length < 7) issues.push("stem_missing_or_short");
+  if (choices.length !== 5) issues.push("choices_not_five");
+  if (!Number.isInteger(answer) || answer < 1 || answer > 5) issues.push("answer_invalid");
+  if (new Set(choices.map((choice) => cleanComparable(choice))).size !== choices.length) issues.push("duplicate_choices");
+  if (text(problem?.explanation, 12_000).length < 40) issues.push("explanation_too_short");
+  if (/정답\s*신뢰도|자동\s*대조|AI\s*생성|모델\s*검증/iu.test(text(problem?.explanation, 12_000))) {
+    issues.push("internal_ai_phrase_exposed");
+  }
+  return { valid: issues.length === 0, issues };
+}
+
+async function searchProblemType({ request, questionType, count, excludeQuestionIds, reuseMode, env }) {
   const firestore = getProblemBankFirestore(env);
   const query = {
     subject: "english",
@@ -217,7 +288,7 @@ async function searchProblemType({ request, questionType, count, excludeQuestion
     conceptTags: [questionType],
     skillTags: normalizedTags(request.requestedTypes),
   };
-  const snapshot = await firestore
+  const firestoreSearch = firestore
     .collection("problems")
     .where("subject", "==", query.subject)
     .where("language", "==", query.language)
@@ -226,13 +297,37 @@ async function searchProblemType({ request, questionType, count, excludeQuestion
     .where("status", "in", ["approved", "gold"])
     .limit(Math.min(200, Math.max(20, count * 8)))
     .get();
-  const queryVector = hashEmbedding(queryEmbeddingText(query));
+  const storageSearch = loadStorageProblemShard({
+    questionType: query.questionType,
+    grade: gradeNumber(request.targetGrade),
+    env,
+  });
+  const [firestoreResult, storageResult] = await Promise.allSettled([firestoreSearch, storageSearch]);
+  if (firestoreResult.status === "rejected" && storageResult.status === "rejected") {
+    throw firestoreResult.reason || storageResult.reason;
+  }
+  const firestoreProblems = firestoreResult.status === "fulfilled"
+    ? firestoreResult.value.docs.map((doc) => problemFromData(doc.data()))
+    : [];
+  const storageProblems = storageResult.status === "fulfilled" ? storageResult.value : [];
+  const mergedProblems = [...new Map(
+    [...storageProblems, ...firestoreProblems]
+      .filter((problem) => problem.questionId)
+      .map((problem) => [problem.questionId, problem]),
+  ).values()];
   const excluded = new Set(excludeQuestionIds);
   const selectedClusters = new Set();
-  const candidates = snapshot.docs
-    .map((doc) => problemFromData(doc.data()))
+  const candidates = mergedProblems
     .filter((problem) => problem.questionId && !excluded.has(problem.questionId))
-    .map((problem) => ({ problem, similarity: cosineSimilarity(problem.embedding, queryVector) }))
+    .filter((problem) => validateProblemBankProblemForReuse(problem, reuseMode).valid)
+    .map((problem) => {
+      const dimension = problem.embedding.length || 256;
+      const problemVector = problem.embedding.length
+        ? problem.embedding
+        : hashEmbedding(problemEmbeddingText(problem), dimension);
+      const queryVector = hashEmbedding(queryEmbeddingText(query), dimension);
+      return { problem, similarity: cosineSimilarity(problemVector, queryVector) };
+    })
     .map((candidate) => ({ ...candidate, score: problemScore(candidate.problem, query, candidate.similarity) }))
     .sort((left, right) => right.score - left.score || left.problem.questionId.localeCompare(right.problem.questionId));
   const selected = [];
@@ -250,12 +345,13 @@ export async function searchReusableProblemBankQuestions({
   request,
   questionTypePlan,
   excludeQuestionIds = [],
+  reuseMode = "exam-exact",
   env = process.env,
 }) {
   if (!isProblemBankConfigured(env)) return { enabled: false, questions: [], searches: [] };
   const typeRequests = countTypes(questionTypePlan);
   const responses = await Promise.allSettled(typeRequests.map(([questionType, count]) => (
-    searchProblemType({ request, questionType, count, excludeQuestionIds, env })
+    searchProblemType({ request, questionType, count, excludeQuestionIds, reuseMode, env })
   )));
   const searches = [];
   const questions = [];
@@ -279,7 +375,7 @@ export async function searchReusableProblemBankQuestions({
       requestedCount,
       foundCount: selected.length,
       missingCount: Math.max(0, requestedCount - selected.length),
-      searchMode: "direct-firestore",
+      searchMode: "firestore-storage-quality-gate",
     });
     for (const problem of selected) {
       if (!problem.questionId || usedIds.has(problem.questionId)) continue;
@@ -301,6 +397,53 @@ function answerIndex(problem, choices) {
   return index >= 0 ? index + 1 : 0;
 }
 
+export function problemBankProblemToStructuralReference(problem) {
+  const transformationKind = text(problem?.transformation?.kind, 120) || "source-grounded-question";
+  const distractorPatterns = Array.isArray(problem?.choiceRationales)
+    ? [...new Set(problem.choiceRationales
+        .filter((item) => item?.isCorrect !== true)
+        .map((item) => text(item?.distractorPattern, 80))
+        .filter((pattern) => SUPPORTED_DISTRACTOR_PATTERNS.includes(pattern)))]
+    : [];
+  return {
+    id: text(problem?.questionId, 120),
+    exam: "Xstudy Problem Bank",
+    year: 0,
+    questionNumber: undefined,
+    questionType: text(problem?.questionType, 120).toUpperCase(),
+    score: Number(problem?.difficulty) >= 4 ? 3 : 2,
+    difficulty: Number(problem?.difficulty) >= 4 ? "high" : Number(problem?.difficulty) <= 2 ? "low" : "medium",
+    passageStructure: `검수된 원문 기반 ${transformationKind} 구조`,
+    answerStructure: text(problem?.evidence?.reasoning || problem?.explanation, 1_200),
+    distractorPatterns: distractorPatterns.slice(0, 5),
+    reasoningStructure: [
+      text(problem?.validation?.correctionVersion, 200),
+      text(problem?.validation?.qualityGateVersion, 200),
+    ].filter(Boolean),
+    bankQuestionType: text(problem?.subtype || problem?.questionType, 120),
+    sourceDatasetId: text(problem?.datasetId, 120) || undefined,
+  };
+}
+
+export async function searchProblemBankStructuralReferences({
+  request,
+  questionTypes,
+  limit = 18,
+  env = process.env,
+}) {
+  const questionTypePlan = [...new Set(questionTypes)].flatMap((questionType) => [questionType, questionType]);
+  const result = await searchReusableProblemBankQuestions({
+    request,
+    questionTypePlan,
+    reuseMode: "textbook-structure-reference",
+    env,
+  });
+  return {
+    ...result,
+    references: result.questions.map(problemBankProblemToStructuralReference).slice(0, limit),
+  };
+}
+
 export function problemBankProblemToLocalQuestion(problem, sequence = 0) {
   const choices = Array.isArray(problem?.choices)
     ? problem.choices.map((choice) => text(choice, 2_000)).filter(Boolean).slice(0, 5)
@@ -310,6 +453,8 @@ export function problemBankProblemToLocalQuestion(problem, sequence = 0) {
   const rule = getQuestionRule(questionType);
   const patterns = rule?.preferred_distractor_patterns || ["scope_shift"];
   const explanation = text(problem?.explanation, 5_000);
+  const rationales = new Map((Array.isArray(problem?.choiceRationales) ? problem.choiceRationales : [])
+    .map((item) => [Number(item?.index), item]));
   const question = {
     id: text(problem?.questionId, 120),
     questionType,
@@ -323,19 +468,28 @@ export function problemBankProblemToLocalQuestion(problem, sequence = 0) {
       index: index + 1,
       text: choice,
       isCorrect: answer === index + 1,
-      distractorPattern: answer === index + 1 ? undefined : patterns[index % patterns.length],
-      rationale: answer === index + 1
+      distractorPattern: answer === index + 1
+        ? undefined
+        : SUPPORTED_DISTRACTOR_PATTERNS.includes(text(rationales.get(index + 1)?.distractorPattern, 80))
+          ? text(rationales.get(index + 1)?.distractorPattern, 80)
+          : patterns[index % patterns.length],
+      rationale: text(rationales.get(index + 1)?.rationale, 1_500) || (answer === index + 1
         ? explanation || "문제은행의 검증된 정답입니다."
-        : "문제은행 검수 단계에서 오답으로 확인된 선택지입니다.",
+        : "문제은행 검수 단계에서 오답으로 확인된 선택지입니다."),
     })),
     answer,
     explanation,
-    evidence: { supportingSentence: undefined, reasoning: explanation },
+    evidence: {
+      supportingSentence: text(problem?.evidence?.supportingSentence, 2_000) || undefined,
+      reasoning: text(problem?.evidence?.reasoning, 3_000) || explanation,
+    },
     qualityMetadata: {
       reusedFromProblemBank: true,
       problemBankQuestionId: text(problem?.questionId, 120),
       problemBankQualityScore: Number(problem?.qualityScore) || 0,
       problemBankSequence: sequence,
+      problemBankDatasetId: text(problem?.datasetId, 120) || undefined,
+      problemBankQualityGateVersion: text(problem?.validation?.qualityGateVersion, 120) || undefined,
     },
   };
   return { ...question, semanticFingerprint: semanticFingerprint(question) };
