@@ -1,5 +1,7 @@
 export type CsatQuestionDifficulty = "low" | "medium" | "high";
 
+export type CsatGenerationMode = "textbook" | "exam";
+
 export type CsatQuestionChoice = {
   index: number;
   text: string;
@@ -62,6 +64,7 @@ export type CsatProgressEvent = {
 export type CsatQuestionJobSummary = {
   id: string;
   title: string;
+  generationMode: CsatGenerationMode;
   status: CsatQuestionJobStatus;
   userRequest: string;
   targetQuestionCount: number;

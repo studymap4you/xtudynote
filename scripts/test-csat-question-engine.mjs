@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildNextBatchTypes } from "../api/_lib/csat-question-engine/build-batch-plan.mjs";
+import { normalizeCsatGenerationMode } from "../api/_lib/csat-question-engine/generation-mode.mjs";
 import { loadQuestionRules } from "../api/_lib/csat-question-engine/load-question-rules.mjs";
 import { parseUserRequest } from "../api/_lib/csat-question-engine/parse-user-request.mjs";
 import { searchQuestionBank } from "../api/_lib/csat-question-engine/question-bank-repository.mjs";
@@ -88,6 +89,13 @@ function deterministicIdFactory() {
   let index = 0;
   return () => `question-${String(++index).padStart(3, "0")}`;
 }
+
+test("생성 유형은 시험지만 명시적으로 허용하고 기존 작업은 교재로 복원한다", () => {
+  assert.equal(normalizeCsatGenerationMode("exam"), "exam");
+  assert.equal(normalizeCsatGenerationMode("textbook"), "textbook");
+  assert.equal(normalizeCsatGenerationMode(undefined), "textbook");
+  assert.equal(normalizeCsatGenerationMode("unknown"), "textbook");
+});
 
 test("전역 문제은행 유형을 기존 규칙 ID로 복원해 확보 문항을 다시 생성하지 않는다", () => {
   const reused = problemBankProblemToLocalQuestion({

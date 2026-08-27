@@ -1,5 +1,6 @@
 import { auth } from "@/firebase/config";
 import type {
+  CsatGenerationMode,
   CsatQuestionBatchResult,
   CsatQuestionJob,
   CsatQuestionJobSummary,
@@ -29,6 +30,7 @@ async function engineRequest<T>(path = "", init?: RequestInit): Promise<T> {
 }
 
 export async function startCsatQuestionJob(params: {
+  generationMode: CsatGenerationMode;
   userRequest: string;
   sourceText: string;
   uploadedFiles: UploadedFileMetadata[];

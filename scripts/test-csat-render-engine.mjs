@@ -188,6 +188,20 @@ test("student mode는 잘못 전달된 정답표 옵션도 강제로 차단한�
   assert.equal(canRenderCSATReviewContent(options), false);
 });
 
+test("시험지는 review mode에서 문제 뒤 정답표와 상세 해설을 활성화한다", () => {
+  const options = resolveCSATRenderOptions({
+    mode: "review",
+    showAnswerKey: true,
+    showStudyChecklist: false,
+    showMotivationalCopy: false,
+  });
+  assert.equal(options.mode, "review");
+  assert.equal(options.showAnswerKey, true);
+  assert.equal(options.showStudyChecklist, false);
+  assert.equal(options.showMotivationalCopy, false);
+  assert.equal(canRenderCSATReviewContent(options), true);
+});
+
 test("40문항을 6개 공식 템플릿으로 바꿔도 내용·정답·순서를 유지하고 pagination만 재계산한다", () => {
   assert.equal(CSAT_TEMPLATE_IDS.length, 6);
   assertAllTemplatesPreserveQuestions(40);

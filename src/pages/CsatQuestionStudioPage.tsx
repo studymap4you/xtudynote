@@ -34,6 +34,7 @@ import {
   startCsatQuestionJob,
 } from "@/lib/csatQuestionEngine";
 import type {
+  CsatGenerationMode,
   CsatProgressEvent,
   CsatQuestionJob,
   CsatQuestionJobSummary,
@@ -194,6 +195,7 @@ function QuestionReviewItem({ question }: { question: GeneratedCsatQuestion }) {
 export function CsatQuestionStudioPage() {
   const { entitled, loading: subscriptionLoading } = useSubscription();
   const [userRequest, setUserRequest] = useState("");
+  const [generationMode, setGenerationMode] = useState<CsatGenerationMode>("textbook");
   const [sources, setSources] = useState<AttachedSource[]>([]);
   const [job, setJob] = useState<CsatQuestionJob | null>(null);
   const [history, setHistory] = useState<CsatQuestionJobSummary[]>([]);
@@ -216,6 +218,8 @@ export function CsatQuestionStudioPage() {
   const conceptCacheRef = useRef(new Map<string, ConceptAssemblyResult>());
 
   const extractingCount = sources.filter((source) => source.status === "extracting").length;
+  const activeGenerationMode = job?.generationMode || generationMode;
+  const isExamMode = activeGenerationMode === "exam";
   const progress = job ? Math.min(100, Math.round((job.acceptedCount / job.targetQuestionCount) * 100)) : 0;
   const generationComplete = Boolean(job && job.status === "completed" && job.questions.length >= job.targetQuestionCount);
   const sourceText = useMemo(
@@ -231,22 +235,22 @@ export function CsatQuestionStudioPage() {
     const level = job.request.targetLevel === "high" ? "High Level" : job.request.targetLevel === "low" ? "Foundation" : "Standard Level";
     return {
       title: job.title,
-      subtitle: "Reading · Reasoning · Accuracy",
+      subtitle: isExamMode ? "English CSAT Practice Test" : "Reading · Reasoning · Accuracy",
       target: `${job.request.targetGrade} · ${level}`,
       templateId: selectedTemplateId,
       questions: job.questions,
-      conceptSection: conceptResult?.section.blocks.length ? conceptResult.section : undefined,
+      conceptSection: !isExamMode && conceptResult?.section.blocks.length ? conceptResult.section : undefined,
       options: {
-        mode: "student",
+        mode: isExamMode ? "review" : "student",
         showDifficulty: false,
         showScore: true,
         showQuestionType: true,
-        showAnswerKey: false,
-        showStudyChecklist: selectedTemplateId === "xuniverse-csat-notebook-grid-v1",
-        showMotivationalCopy: true,
+        showAnswerKey: isExamMode,
+        showStudyChecklist: !isExamMode && selectedTemplateId === "xuniverse-csat-notebook-grid-v1",
+        showMotivationalCopy: !isExamMode,
       },
     };
-  }, [conceptResult, job, selectedTemplateId]);
+  }, [conceptResult, isExamMode, job, selectedTemplateId]);
 
   useEffect(() => {
     saveCSATTemplateId(selectedTemplateId);
@@ -277,6 +281,13 @@ export function CsatQuestionStudioPage() {
   }, [entitled]);
 
   const assembleConceptsForJob = useCallback(async (sourceJob: CsatQuestionJob): Promise<ConceptAssemblyResult | null> => {
+    if (sourceJob.generationMode === "exam") {
+      conceptRequestRef.current += 1;
+      setConceptResult(null);
+      setConceptStatus("idle");
+      setConceptError(null);
+      return null;
+    }
     const questionTypes = [...new Set(
       (sourceJob.questionTypePlan.length ? sourceJob.questionTypePlan : sourceJob.request.requestedTypes)
         .map((type) => type.trim().toUpperCase())
@@ -328,6 +339,7 @@ export function CsatQuestionStudioPage() {
     void getCsatQuestionJob(activeId)
       .then((stored) => {
         setJob(stored);
+        setGenerationMode(stored.generationMode);
         setUserRequest(stored.userRequest);
         setStatusText(stored.status === "completed" ? "문제 검수 완료" : "저장된 문제 세트를 이어서 생성할 수 있습니다.");
         void assembleConceptsForJob(stored);
@@ -461,11 +473,13 @@ export function CsatQuestionStudioPage() {
     setStatusText("요청을 구조화하고 Source DB를 확인하고 있습니다.");
     try {
       const created = await startCsatQuestionJob({
+        generationMode,
         userRequest: instruction,
         sourceText,
         uploadedFiles: sources.map((source) => ({ name: source.file.name, size: source.file.size, type: source.file.type })),
       });
       setJob(created);
+      setGenerationMode(created.generationMode);
       progressCursorRef.current = Math.max(created.progressSequence || 0, latestProgressSequence(created.progressEvents || []));
       window.localStorage.setItem(ACTIVE_JOB_STORAGE_KEY, created.id);
       await assembleConceptsForJob(created);
@@ -474,7 +488,7 @@ export function CsatQuestionStudioPage() {
       setError(caught instanceof Error ? caught.message : "문제 생성 작업을 시작하지 못했습니다.");
       setRunning(false);
     }
-  }, [assembleConceptsForJob, entitled, extractingCount, runBatches, sourceText, sources, subscriptionLoading, userRequest]);
+  }, [assembleConceptsForJob, entitled, extractingCount, generationMode, runBatches, sourceText, sources, subscriptionLoading, userRequest]);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const added = Array.from(files).map((file) => ({
@@ -531,6 +545,7 @@ export function CsatQuestionStudioPage() {
     try {
       const stored = await getCsatQuestionJob(id);
       setJob(stored);
+      setGenerationMode(stored.generationMode);
       progressCursorRef.current = Math.max(stored.progressSequence || 0, latestProgressSequence(stored.progressEvents || []));
       setUserRequest(stored.userRequest);
       setSources([]);
@@ -568,12 +583,13 @@ export function CsatQuestionStudioPage() {
     }
     if (!job) return;
     const bookletContent = attachConceptsToQuestions(
-      conceptResult?.section.blocks.length ? conceptResult.section : undefined,
+      !isExamMode && conceptResult?.section.blocks.length ? conceptResult.section : undefined,
       job.questions,
     );
     const payload = {
       schemaVersion: "xuniverse-csat-question-set-v1",
       bookletSchemaVersion: "xuniverse-concept-practice-booklet-v1",
+      generationMode: job.generationMode,
       request: job.request,
       rulesVersion: job.rulesVersion,
       sections: bookletContent.sections,
@@ -588,10 +604,10 @@ export function CsatQuestionStudioPage() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `xuniverse-csat-questions-${job.id}.json`;
+    anchor.download = `xuniverse-${isExamMode ? "exam" : "textbook"}-${job.id}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, [conceptResult, entitled, job]);
+  }, [conceptResult, entitled, isExamMode, job]);
 
   const handlePromptKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !running && !job) {
@@ -661,6 +677,31 @@ export function CsatQuestionStudioPage() {
                 />
               )}
 
+              {!job ? (
+                <div className={styles.generationMode} role="group" aria-label="생성할 문서 유형">
+                  <button
+                    type="button"
+                    data-active={generationMode === "textbook" || undefined}
+                    aria-pressed={generationMode === "textbook"}
+                    onClick={() => { setGenerationMode("textbook"); setError(null); }}
+                    disabled={running}
+                  >
+                    <BookOpen size={17} aria-hidden="true" />
+                    교재 생성
+                  </button>
+                  <button
+                    type="button"
+                    data-active={generationMode === "exam" || undefined}
+                    aria-pressed={generationMode === "exam"}
+                    onClick={() => { setGenerationMode("exam"); setError(null); }}
+                    disabled={running}
+                  >
+                    <FileText size={17} aria-hidden="true" />
+                    시험지 생성
+                  </button>
+                </div>
+              ) : null}
+
               {sources.length > 0 && !job ? (
                 <div className={styles.fileList}>
                   {sources.map((source) => (
@@ -696,13 +737,13 @@ export function CsatQuestionStudioPage() {
                 </div>
               ) : null}
 
-              {job ? <ConceptAssemblyNotice status={conceptStatus} result={conceptResult} error={conceptError} /> : null}
+              {job && !isExamMode ? <ConceptAssemblyNotice status={conceptStatus} result={conceptResult} error={conceptError} /> : null}
 
               {error ? <p className={styles.error}>{error}</p> : null}
               {!entitled ? (
                 <div className={styles.subscriptionNotice} role="status">
                   <ShieldCheck size={18} aria-hidden="true" />
-                  <span>화면과 기능은 둘러볼 수 있습니다. 실제 교재 제작은 구독 결제 후 시작됩니다.</span>
+                  <span>화면과 기능은 둘러볼 수 있습니다. 실제 교재·시험지 제작은 구독 결제 후 시작됩니다.</span>
                   <Link to="/billing">구독하기</Link>
                 </div>
               ) : null}
@@ -711,7 +752,7 @@ export function CsatQuestionStudioPage() {
                 <button type="button" className={styles.iconButton} onClick={() => fileInputRef.current?.click()} disabled={running || Boolean(job)} aria-label="원문 자료 첨부" title="원문 자료 첨부"><Paperclip size={18} /></button>
                 <span>{extractingCount ? `파일 ${extractingCount}개 분석 중` : sources.length ? `원문 ${sources.length}개 준비됨` : "원문 자료 첨부"}</span>
                 {!job ? (
-                  <button type="button" className={styles.sendButton} onClick={() => void startGeneration()} disabled={running || extractingCount > 0 || !userRequest.trim() || subscriptionLoading || !entitled} aria-label="문제 생성 시작" title={entitled ? "문제 생성 시작" : "구독 후 생성할 수 있습니다"}>
+                  <button type="button" className={styles.sendButton} onClick={() => void startGeneration()} disabled={running || extractingCount > 0 || !userRequest.trim() || subscriptionLoading || !entitled} aria-label={`${generationMode === "exam" ? "시험지" : "교재"} 생성 시작`} title={entitled ? `${generationMode === "exam" ? "시험지" : "교재"} 생성 시작` : "구독 후 생성할 수 있습니다"}>
                     {running ? <LoaderCircle className={styles.spinner} size={19} /> : <ArrowUp size={20} />}
                   </button>
                 ) : null}
@@ -724,14 +765,14 @@ export function CsatQuestionStudioPage() {
             {generationComplete && job?.questions.length ? (
               <section className={styles.results} aria-label="검수 통과 문제 목록">
                 <header>
-                  <div><small>VALIDATED QUESTION SET</small><h1>{job.title}</h1></div>
+                  <div><small>{isExamMode ? "VALIDATED EXAM PAPER" : "VALIDATED TEXTBOOK"}</small><h1>{job.title}</h1></div>
                   <div className={styles.resultActions}>
-                    <span>{conceptResult?.section.blocks.length || 0}개념 · {job.questions.length}문항</span>
-                    <button type="button" onClick={() => setPreviewOpen(true)}><BookOpen size={16} /> 문제집 미리보기</button>
+                    <span>{isExamMode ? `${job.questions.length}문항 · 정답 및 해설 포함` : `${conceptResult?.section.blocks.length || 0}개념 · ${job.questions.length}문항`}</span>
+                    <button type="button" onClick={() => setPreviewOpen(true)}>{isExamMode ? <FileText size={16} /> : <BookOpen size={16} />} {isExamMode ? "시험지 미리보기" : "교재 미리보기"}</button>
                     <button type="button" onClick={downloadJson}><Download size={16} /> JSON 다운로드</button>
                   </div>
                 </header>
-                <ConceptAssemblyNotice status={conceptStatus} result={conceptResult} error={conceptError} />
+                {!isExamMode ? <ConceptAssemblyNotice status={conceptStatus} result={conceptResult} error={conceptError} /> : null}
                 <div className={styles.questionList}>{job.questions.map((question) => <QuestionReviewItem key={question.id} question={question} />)}</div>
               </section>
             ) : null}

@@ -7,6 +7,7 @@ import {
   QUESTION_BATCH_MAX,
 } from "./_lib/csat-question-engine/build-batch-plan.mjs";
 import { buildQuestionPrompt } from "./_lib/csat-question-engine/build-question-prompt.mjs";
+import { normalizeCsatGenerationMode } from "./_lib/csat-question-engine/generation-mode.mjs";
 import { loadQuestionRules, CSAT_RULES_DB_VERSION } from "./_lib/csat-question-engine/load-question-rules.mjs";
 import { parseUserRequest } from "./_lib/csat-question-engine/parse-user-request.mjs";
 import { searchQuestionBank } from "./_lib/csat-question-engine/question-bank-repository.mjs";
@@ -117,12 +118,13 @@ function toIso(value) {
   return new Date(0).toISOString();
 }
 
-function jobTitle(request) {
+function jobTitle(request, generationMode) {
   const level = request.targetLevel === "high" ? "상위권" : request.targetLevel === "low" ? "기초" : "중위권";
   const types = request.requestedTypes.length
     ? request.requestedTypes.slice(0, 3).join(" · ")
     : "수능 영어 혼합 유형";
-  return `${level} ${types} ${request.targetQuestionCount}문항`;
+  const documentLabel = generationMode === "exam" ? "시험지" : "교재";
+  return `${documentLabel} · ${level} ${types} ${request.targetQuestionCount}문항`;
 }
 
 function normalizeJobSummary(snapshot) {
@@ -131,6 +133,7 @@ function normalizeJobSummary(snapshot) {
   return {
     id: snapshot.id,
     title: sanitizeText(data.title, 180) || "수능 영어 문제 세트",
+    generationMode: normalizeCsatGenerationMode(data.generationMode),
     status: ["planned", "generating", "completed", "failed", "paused"].includes(data.status)
       ? data.status
       : "planned",
@@ -245,6 +248,7 @@ async function deleteJob(uid, id) {
 async function createJob(authUser, body) {
   const jobStartedAt = Date.now();
   const request = parseUserRequest(body.userRequest);
+  const generationMode = normalizeCsatGenerationMode(body.generationMode);
   const sourceText = sanitizeText(body.sourceText, MAX_SOURCE_TEXT_LENGTH);
   const uploadedFiles = Array.isArray(body.uploadedFiles)
     ? body.uploadedFiles.map((file) => ({
@@ -274,7 +278,8 @@ async function createJob(authUser, body) {
   await ref.set({
     generationVersion: GENERATION_VERSION,
     ownerUid: authUser.uid,
-    title: jobTitle(request),
+    title: jobTitle(request, generationMode),
+    generationMode,
     status: "planned",
     request,
     questionTypePlan,
@@ -307,6 +312,7 @@ async function createJob(authUser, body) {
     title: "사용자 요청을 구조화했습니다",
     summary: `${request.targetQuestionCount}문항 생성 계획을 확정했습니다.`,
     details: [
+      `출력 유형: ${generationMode === "exam" ? "시험지" : "교재"}`,
       `대상 학년: ${request.targetGrade}`,
       `난이도: ${request.targetLevel}`,
       `요청 유형: ${request.requestedTypes.length ? request.requestedTypes.join(", ") : "수능 영어 혼합 유형"}`,

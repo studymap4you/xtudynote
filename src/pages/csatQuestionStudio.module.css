@@ -199,6 +199,45 @@
   color: #667d95;
 }
 
+.generationMode {
+  display: inline-flex;
+  gap: 5px;
+  margin: 0 38px 24px;
+  padding: 4px;
+  border: 1px solid #173f61;
+  border-radius: 7px;
+  background: #030a13;
+}
+
+.generationMode button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 132px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #7f9ab4;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.generationMode button:not(:disabled):hover {
+  border-color: #285e86;
+  color: #b7dcf4;
+}
+
+.generationMode button[data-active] {
+  border-color: #258bca;
+  background: #0b4776;
+  color: #eff9ff;
+  box-shadow: 0 0 14px rgb(32 168 255 / 14%);
+}
+
 .requestMessage {
   min-width: 0;
   min-height: 140px;
@@ -852,6 +891,18 @@
     min-height: 260px;
     padding: 25px 20px;
     font-size: 16px;
+  }
+
+  .generationMode {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: calc(100% - 40px);
+    margin: 0 20px 20px;
+  }
+
+  .generationMode button {
+    min-width: 0;
+    padding: 0 8px;
   }
 
   .requestMessage {
