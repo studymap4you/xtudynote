@@ -1,5 +1,5 @@
 import admin from "firebase-admin";
-import { MASTER_ADMIN_EMAIL } from "./config.mjs";
+import { isSuperAdminEmail } from "./config.mjs";
 import { canUsePremiumFeatures } from "./domain.mjs";
 
 function parseServiceAccount(raw) {
@@ -51,7 +51,7 @@ export async function requireBillingUser(
   }
   const email = String(decoded.email || profile.email || "").trim();
   const isMasterAdmin = profile.role === "super_admin"
-    && email.toLowerCase() === MASTER_ADMIN_EMAIL;
+    && isSuperAdminEmail(email);
   if (superAdmin && !isMasterAdmin) {
     throw Object.assign(new Error("admin-access-required"), { statusCode: 403 });
   }

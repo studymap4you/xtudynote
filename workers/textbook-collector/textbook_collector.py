@@ -326,7 +326,10 @@ class CloudRepository:
                 "collection_status": status,
                 "parse_status": existing.get("parse_status") or "not_started",
                 "visibility": "master_only",
-                "visible_to_emails": ["waterfallingsound0827@gmail.com"],
+                "visible_to_emails": [
+                    "waterfallingsound0827@gmail.com",
+                    "studymap0904@gmail.com",
+                ],
                 "source_kind": "official_textbook_catalog",
                 "updated_at": self.firestore_module.SERVER_TIMESTAMP,
                 "created_at": existing.get("created_at") or self.firestore_module.SERVER_TIMESTAMP,

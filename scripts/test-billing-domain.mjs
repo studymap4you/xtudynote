@@ -4,6 +4,7 @@ import {
   BILLING_TERMS_VERSION,
   DEFAULT_STANDARD_PLAN,
   getBillingRuntimeConfig,
+  isSuperAdminEmail,
 } from "../api/_lib/billing/config.mjs";
 import {
   addBillingMonths,
@@ -34,6 +35,12 @@ import {
 
 const plan = { ...DEFAULT_STANDARD_PLAN };
 const start = new Date("2026-08-26T03:30:00.000Z");
+
+test("지정된 두 관리자 이메일만 관리자 권한을 얻는다", () => {
+  assert.equal(isSuperAdminEmail("waterfallingsound0827@gmail.com"), true);
+  assert.equal(isSuperAdminEmail(" STUDYMAP0904@GMAIL.COM "), true);
+  assert.equal(isSuperAdminEmail("another-admin@gmail.com"), false);
+});
 
 function trial(overrides = {}) {
   return {

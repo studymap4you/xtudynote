@@ -1,8 +1,8 @@
 import admin from "firebase-admin";
 import { getProblemBankFirestore, problemBankSettings } from "./_lib/problem-bank/admin.mjs";
+import { isSuperAdminEmail } from "./_lib/billing/config.mjs";
 
 const VALID_GRADES = new Set([1, 2, 3]);
-const MASTER_ADMIN_EMAIL = "waterfallingsound0827@gmail.com";
 const VALID_MONTHS = new Set([3, 6, 9, 10]);
 const VALID_STATUSES = new Set([
   "queued",
@@ -30,7 +30,7 @@ async function requireSuperAdmin(req) {
   const userSnapshot = await admin.firestore().doc(`users/${decoded.uid}`).get();
   const user = userSnapshot.data() || {};
   const email = String(decoded.email || user.email || "").trim().toLowerCase();
-  if (email !== MASTER_ADMIN_EMAIL || user.role !== "super_admin" || user.accountStatus !== "active") {
+  if (!isSuperAdminEmail(email) || user.role !== "super_admin" || user.accountStatus !== "active") {
     throw Object.assign(new Error("super-admin-only"), { statusCode: 403 });
   }
   return { uid: decoded.uid, email };

@@ -3,6 +3,15 @@ import { createHash } from "node:crypto";
 export const STANDARD_PLAN_ID = "standard";
 export const BILLING_TERMS_VERSION = "2026-08-26-bank-transfer-trial-v2";
 export const MASTER_ADMIN_EMAIL = "waterfallingsound0827@gmail.com";
+export const SUPER_ADMIN_EMAILS = Object.freeze([
+  MASTER_ADMIN_EMAIL,
+  "studymap0904@gmail.com",
+]);
+
+export function isSuperAdminEmail(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  return SUPER_ADMIN_EMAILS.includes(normalized);
+}
 
 export const DEFAULT_STANDARD_PLAN = Object.freeze({
   planId: STANDARD_PLAN_ID,

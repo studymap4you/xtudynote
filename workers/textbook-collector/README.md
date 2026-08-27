@@ -80,6 +80,6 @@ Run one target:
 
 ## Firestore schema
 
-`textbook_sources/{id}` stores course, publisher, author, official source, rights status, visibility, collection status, SHA-256, Storage path, size, and parse status. All records are `master_only` for `waterfallingsound0827@gmail.com`.
+`textbook_sources/{id}` stores course, publisher, author, official source, rights status, visibility, collection status, SHA-256, Storage path, size, and parse status. All records are `master_only` for the designated Xtudy administrator accounts.
 
 The collector does not parse chapters or questions in this stage.

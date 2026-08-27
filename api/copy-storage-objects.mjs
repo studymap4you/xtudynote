@@ -7,8 +7,7 @@
  *   FIREBASE_STORAGE_BUCKET       = 선택, 기본 xtudynote.firebasestorage.app
  */
 import admin from "firebase-admin";
-
-const MASTER_ADMIN_EMAIL = "waterfallingsound0827@gmail.com";
+import { isSuperAdminEmail } from "./_lib/billing/config.mjs";
 
 function ensureAdmin() {
   if (admin.apps.length > 0) return;
@@ -49,7 +48,7 @@ export default async function handler(req, res) {
     const userSnap = await admin.firestore().doc(`users/${decoded.uid}`).get();
     const data = userSnap.data();
     const email = String(decoded.email || data?.email || "").trim().toLowerCase();
-    if (!data || email !== MASTER_ADMIN_EMAIL || data.role !== "super_admin" || data.accountStatus !== "active") {
+    if (!data || !isSuperAdminEmail(email) || data.role !== "super_admin" || data.accountStatus !== "active") {
       res.status(403).json({ error: "Super admin only" });
       return;
     }

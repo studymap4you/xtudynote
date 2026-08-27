@@ -21,7 +21,7 @@ import {
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db, googleAuthProvider } from "@/firebase/config";
 import {
-  SUPER_ADMIN_EMAIL,
+  isSuperAdminEmail,
   type UserProfile,
   type UserRole,
 } from "@/types/user";
@@ -59,7 +59,7 @@ function describeAuthError(error: unknown): string {
 }
 
 function resolveRoleOnSignup(email: string, choice: SignupRoleChoice): UserRole {
-  if (email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+  if (isSuperAdminEmail(email)) {
     return "super_admin";
   }
   if (choice === "teacher") return "pending_teacher";
@@ -69,12 +69,11 @@ function resolveRoleOnSignup(email: string, choice: SignupRoleChoice): UserRole 
 async function ensureUserProfileAfterSignIn(user: User) {
   const email = user.email;
   if (!email) return;
-  const emailNorm = email.toLowerCase();
-  const superNorm = SUPER_ADMIN_EMAIL.toLowerCase();
+  const isDesignatedAdmin = isSuperAdminEmail(email);
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) {
-    const role: UserRole = emailNorm === superNorm ? "super_admin" : "student";
+    const role: UserRole = isDesignatedAdmin ? "super_admin" : "student";
     await setDoc(ref, {
       email,
       role,
@@ -87,7 +86,7 @@ async function ensureUserProfileAfterSignIn(user: User) {
   }
   const data = snap.data();
   const currentRole = data.role as UserRole | undefined;
-  if (emailNorm === superNorm && currentRole !== "super_admin") {
+  if (isDesignatedAdmin && currentRole !== "super_admin") {
     await updateDoc(ref, { role: "super_admin" });
   }
 }
@@ -262,7 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(() => {
     const isSuperAdmin = profile?.role === "super_admin"
       && profile.accountStatus === "active"
-      && (firebaseUser?.email || profile.email).trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+      && isSuperAdminEmail(firebaseUser?.email || profile.email);
     const isTeacherApproved = profile?.role === "teacher" && profile.accountStatus === "active";
     const isPendingTeacher =
       profile?.role === "pending_teacher" && profile.accountStatus === "active";

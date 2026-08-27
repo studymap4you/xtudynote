@@ -23,7 +23,7 @@ import {
   loadAdminBillingOverview,
   rejectBankTransfer,
 } from "@/lib/billing/billingApi";
-import { SUPER_ADMIN_EMAIL } from "@/types/user";
+import { SUPER_ADMIN_EMAIL, isSuperAdminEmail } from "@/types/user";
 import type { AdminBillingOverview } from "@/types/billing";
 import styles from "./adminOperationsPage.module.css";
 
@@ -211,6 +211,7 @@ export function AdminOperationsPage() {
                 <thead><tr><th>회원</th><th>가입일</th><th>역할</th><th>상태</th><th>관리</th></tr></thead>
                 <tbody>{members.map((member) => {
                   const isMaster = member.email.toLowerCase() === SUPER_ADMIN_EMAIL;
+                  const isDesignatedAdmin = isSuperAdminEmail(member.email);
                   return <tr key={member.uid}>
                     <td><strong>{member.displayName || member.email || "이름 없음"}</strong><small>{member.email}<br />{member.uid}</small></td>
                     <td>{dateLabel(member.createdAt)}</td>
@@ -218,9 +219,10 @@ export function AdminOperationsPage() {
                     <td><span className={member.accountStatus === "banned" ? styles.banned : styles.active}>{member.accountStatus === "banned" ? "정지" : "활성"}</span></td>
                     <td><div className={styles.rowActions}>
                       {member.role === "pending_teacher" ? <button type="button" className={styles.approve} onClick={() => void updateMember(member.uid, { role: "teacher" }, "강사 승인")} disabled={Boolean(busyId)}><UserCheck size={15} aria-hidden />강사 승인</button> : null}
-                      {!isMaster && member.accountStatus !== "banned" ? <button type="button" className={styles.reject} onClick={() => void updateMember(member.uid, { accountStatus: "banned" }, "계정 정지")} disabled={Boolean(busyId)}><Ban size={15} aria-hidden />정지</button> : null}
-                      {!isMaster && member.accountStatus === "banned" ? <button type="button" className={styles.approve} onClick={() => void updateMember(member.uid, { accountStatus: "active" }, "계정 복구")} disabled={Boolean(busyId)}><Check size={15} aria-hidden />복구</button> : null}
+                      {!isDesignatedAdmin && member.accountStatus !== "banned" ? <button type="button" className={styles.reject} onClick={() => void updateMember(member.uid, { accountStatus: "banned" }, "계정 정지")} disabled={Boolean(busyId)}><Ban size={15} aria-hidden />정지</button> : null}
+                      {!isDesignatedAdmin && member.accountStatus === "banned" ? <button type="button" className={styles.approve} onClick={() => void updateMember(member.uid, { accountStatus: "active" }, "계정 복구")} disabled={Boolean(busyId)}><Check size={15} aria-hidden />복구</button> : null}
                       {isMaster ? <span className={styles.master}>마스터 계정</span> : null}
+                      {!isMaster && isDesignatedAdmin ? <span className={styles.master}>관리자 계정</span> : null}
                     </div></td>
                   </tr>;
                 })}</tbody>

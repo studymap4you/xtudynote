@@ -16,7 +16,7 @@ import { downloadStoragePathsSequentially } from "@/lib/downloads";
 import { recordStudentDownload } from "@/lib/studentDownloads";
 import { PublicShell } from "@/components/PublicShell";
 import type { ContentType, LibraryCategory } from "@/types/content";
-import { SUPER_ADMIN_EMAIL } from "@/types/user";
+import { isSuperAdminEmail } from "@/types/user";
 import "@/pages/pages.css";
 
 type LibraryVisibility = "public" | "internal";
@@ -114,7 +114,7 @@ export function LibraryPage() {
   const canSeeInternalReferences = profile?.role === "super_admin" && profile.accountStatus === "active";
   const canRequestInternalReferences = Boolean(
     firebaseUser &&
-      (canSeeInternalReferences || firebaseUser.email?.trim().toLowerCase() === SUPER_ADMIN_EMAIL),
+      (canSeeInternalReferences || isSuperAdminEmail(firebaseUser.email)),
   );
   const [searchParams] = useSearchParams();
   const librarySearch = (searchParams.get("q") ?? "").trim().toLowerCase();

@@ -1,6 +1,5 @@
 import admin from "firebase-admin";
-
-const MASTER_ADMIN_EMAIL = "waterfallingsound0827@gmail.com";
+import { isSuperAdminEmail } from "./_lib/billing/config.mjs";
 
 function ensureFirebaseAdmin() {
   if (admin.apps.length > 0) return;
@@ -63,7 +62,7 @@ async function requireActiveSuperAdmin(authUser) {
   const snapshot = await admin.firestore().doc(`users/${uid}`).get();
   const profile = snapshot.data() || {};
   const email = String(authUser.email || profile.email || "").trim().toLowerCase();
-  if (!snapshot.exists || email !== MASTER_ADMIN_EMAIL || profile.role !== "super_admin" || profile.accountStatus !== "active") {
+  if (!snapshot.exists || !isSuperAdminEmail(email) || profile.role !== "super_admin" || profile.accountStatus !== "active") {
     throw new Error("admin-access-required");
   }
 }
@@ -104,7 +103,7 @@ export default async function handler(req, res) {
       return;
     }
     if (message === "admin-access-required") {
-      res.status(403).json({ error: "마스터 계정만 비공개 자료를 볼 수 있습니다." });
+      res.status(403).json({ error: "지정된 관리자 계정만 비공개 자료를 볼 수 있습니다." });
       return;
     }
     if (message === "server-auth-not-configured") {
