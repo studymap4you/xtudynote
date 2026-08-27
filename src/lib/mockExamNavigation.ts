@@ -1,8 +1,9 @@
 import type { OfficialExamResource } from "./officialExamResources";
 
-export const ENGLISH_MOCK_EXAM_QUESTION_NUMBERS = Object.freeze(
-  Array.from({ length: 45 }, (_, index) => index + 1),
-);
+export const ENGLISH_MOCK_EXAM_QUESTION_NUMBERS = Object.freeze([
+  ...Array.from({ length: 7 }, (_, index) => index + 18),
+  ...Array.from({ length: 17 }, (_, index) => index + 29),
+]);
 
 export const MOCK_EXAM_VARIANT_TYPES = Object.freeze([
   { id: "purpose", label: "글의 목적", labelEn: "Purpose" },

@@ -88,9 +88,17 @@ test("manual and official resources share one newest-first feed", () => {
   );
 });
 
-test("mock exam navigation exposes every English question and 17 empty variant slots", () => {
-  assert.equal(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.length, 45);
-  assert.deepEqual(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS, Array.from({ length: 45 }, (_, index) => index + 1));
+test("mock exam navigation exposes the selectable English question ranges and 17 empty variant slots", () => {
+  const expectedQuestionNumbers = [
+    ...Array.from({ length: 7 }, (_, index) => index + 18),
+    ...Array.from({ length: 17 }, (_, index) => index + 29),
+  ];
+
+  assert.equal(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.length, 24);
+  assert.deepEqual(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS, expectedQuestionNumbers);
+  assert.equal(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.includes(17), false);
+  assert.equal(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.includes(25), false);
+  assert.equal(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.includes(28), false);
   assert.equal(MOCK_EXAM_VARIANT_TYPES.length, 17);
   assert.equal(new Set(MOCK_EXAM_VARIANT_TYPES.map((item) => item.id)).size, 17);
 });

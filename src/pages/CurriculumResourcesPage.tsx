@@ -215,7 +215,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
   const [deletingId, setDeletingId] = useState("");
   const [downloadingId, setDownloadingId] = useState("");
   const [selectedExamId, setSelectedExamId] = useState("");
-  const [selectedQuestionNumber, setSelectedQuestionNumber] = useState(1);
+  const [selectedQuestionNumber, setSelectedQuestionNumber] = useState(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS[0]);
   const [selectedVariantType, setSelectedVariantType] = useState("purpose");
 
   useEffect(() => {
@@ -281,7 +281,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
   useEffect(() => {
     if (!officialGrade) {
       setSelectedExamId("");
-      setSelectedQuestionNumber(1);
+      setSelectedQuestionNumber(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS[0]);
       setSelectedVariantType("purpose");
       return;
     }
@@ -293,7 +293,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
   }, [officialGrade, sortedOfficialRows]);
 
   useEffect(() => {
-    setSelectedQuestionNumber(1);
+    setSelectedQuestionNumber(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS[0]);
     setSelectedVariantType("purpose");
   }, [selectedExamId]);
 
@@ -529,7 +529,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
                         <p>{formatMockExamSession(selectedExam)} · 고{selectedExam.grade} · {selectedExam.organizer}</p>
                       </div>
                       <div className={styles.selectedExamActions}>
-                        <span className={styles.questionTotal}>45문항</span>
+                        <span className={styles.questionTotal}>{ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.length}문항</span>
                         <div className={styles.fileActions}>
                           {selectedExam.files.map((fileType) => {
                             const key = `${selectedExam.id}:${fileType}`;
@@ -555,7 +555,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
                             <span>ALL QUESTIONS</span>
                             <h3 id="mock-exam-question-heading">전체 문항</h3>
                           </div>
-                          <strong>45</strong>
+                          <strong>{ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.length}</strong>
                         </header>
                         <div className={styles.questionNumberGrid} aria-label="문항 번호">
                           {ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.map((questionNumber) => (
