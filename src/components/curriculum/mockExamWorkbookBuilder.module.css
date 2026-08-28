@@ -1,0 +1,46 @@
+.builder { display: grid; gap: 1rem; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.2rem; border: 1px solid #cbd9e8; border-radius: 10px; background: #f8fbfe; }
+.heading span { color: #64748b; font-size: .68rem; font-weight: 800; letter-spacing: .08em; }
+.heading h3 { margin: .2rem 0; font-size: 1.15rem; }
+.heading p { margin: 0; color: #526175; font-size: .82rem; }
+.summary { display: grid; min-width: 82px; padding: .65rem; border-radius: 8px; color: #fff; background: #075f9f; text-align: center; }
+.summary strong { font-size: 1.35rem; }
+.summary span { color: #dbeafe; letter-spacing: 0; }
+.gate, .loading, .error, .success, .shortfall { margin: 0; padding: .75rem .9rem; border-radius: 7px; font-size: .82rem; font-weight: 700; }
+.gate { color: #7c2d12; background: #fff7ed; }
+.loading { display: flex; gap: .45rem; color: #075f9f; background: #eff8ff; }
+.error, .shortfall { color: #9f1239; background: #fff1f2; }
+.success { color: #166534; background: #f0fdf4; }
+.bulkBar { display: flex; align-items: center; gap: .55rem; padding: .65rem; border: 1px solid #dde5ee; border-radius: 8px; }
+.bulkBar button, .questionRow header button { display: inline-flex; align-items: center; gap: .35rem; border: 1px solid #c9d5e2; border-radius: 6px; padding: .45rem .65rem; color: #334155; background: #fff; font-size: .74rem; font-weight: 700; cursor: pointer; }
+.bulkBar button:disabled, .questionRow header button:disabled { cursor: not-allowed; opacity: .45; }
+.bulkBar > span { margin-left: auto; color: #64748b; font-size: .74rem; }
+.questionList { display: grid; gap: .75rem; max-height: 760px; overflow: auto; padding-right: .25rem; }
+.questionRow { border: 1px solid #d9e2ec; border-radius: 9px; overflow: hidden; background: #fff; }
+.questionRow > header { display: flex; align-items: center; gap: .65rem; padding: .65rem .8rem; border-bottom: 1px solid #e5ebf1; background: #f7f9fc; }
+.questionRow > header > strong { color: #075f9f; font-size: .94rem; }
+.questionRow > header > span { color: #64748b; font-size: .72rem; }
+.questionRow > header > div { display: flex; gap: .35rem; margin-left: auto; }
+.checkboxGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: #e5ebf1; }
+.checkboxGrid label { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .45rem; min-height: 42px; padding: .5rem .65rem; background: #fff; cursor: pointer; }
+.checkboxGrid label:hover { background: #f0f8ff; }
+.checkboxGrid label[data-disabled] { color: #94a3b8; background: #f8fafc; cursor: not-allowed; }
+.checkboxGrid input { accent-color: #0876bd; }
+.checkboxGrid span { font-size: .76rem; font-weight: 700; }
+.checkboxGrid small { color: #64748b; font-size: .63rem; }
+.outputSection { display: grid; gap: 1rem; padding: 1.1rem; border: 1px solid #c8d7e7; border-radius: 10px; background: #fbfdff; }
+.outputHeading { display: flex; gap: .65rem; align-items: center; }
+.outputHeading h3 { margin: 0; font-size: 1.05rem; }
+.outputHeading p { margin: .2rem 0 0; color: #64748b; font-size: .78rem; }
+.countPicker { display: flex; flex-wrap: wrap; gap: .45rem; margin: 0; padding: .8rem; border: 1px solid #d9e2ec; border-radius: 8px; }
+.countPicker legend { padding: 0 .35rem; color: #475569; font-size: .75rem; font-weight: 800; }
+.countPicker label { cursor: pointer; }
+.countPicker input { position: absolute; opacity: 0; }
+.countPicker span { display: block; padding: .48rem .68rem; border: 1px solid #cbd5e1; border-radius: 999px; color: #475569; background: #fff; font-size: .75rem; font-weight: 750; }
+.countPicker input:checked + span { border-color: #0876bd; color: #075f9f; background: #eaf6ff; box-shadow: inset 0 0 0 1px #0876bd; }
+.buildButton { display: inline-flex; justify-self: end; align-items: center; gap: .45rem; min-height: 44px; padding: .65rem 1rem; border: 0; border-radius: 7px; color: #fff; background: #075f9f; font-weight: 800; cursor: pointer; }
+.buildButton:disabled { cursor: not-allowed; opacity: .5; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 1000px) { .checkboxGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .heading, .questionRow > header { align-items: flex-start; flex-direction: column; } .questionRow > header > div { margin-left: 0; flex-wrap: wrap; } .checkboxGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bulkBar { align-items: flex-start; flex-wrap: wrap; } .bulkBar > span { width: 100%; margin-left: 0; } }

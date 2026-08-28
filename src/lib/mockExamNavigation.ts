@@ -6,23 +6,17 @@ export const ENGLISH_MOCK_EXAM_QUESTION_NUMBERS = Object.freeze([
 ]);
 
 export const MOCK_EXAM_VARIANT_TYPES = Object.freeze([
-  { id: "purpose", label: "글의 목적", labelEn: "Purpose" },
-  { id: "emotion_change", label: "심경 변화", labelEn: "Emotion Change" },
-  { id: "claim", label: "필자의 주장", labelEn: "Claim" },
-  { id: "main_idea", label: "글의 요지", labelEn: "Main Idea" },
-  { id: "title", label: "글의 제목", labelEn: "Title" },
-  { id: "topic", label: "글의 주제", labelEn: "Topic" },
-  { id: "factual_description", label: "내용 일치·불일치", labelEn: "Factual Match" },
   { id: "grammar", label: "어법", labelEn: "Grammar" },
+  { id: "topic", label: "주제", labelEn: "Topic" },
+  { id: "title", label: "제목", labelEn: "Title" },
   { id: "vocabulary", label: "어휘", labelEn: "Vocabulary" },
-  { id: "implied_meaning", label: "함축 의미", labelEn: "Implied Meaning" },
-  { id: "blank_short", label: "빈칸 추론 (어구)", labelEn: "Short Blank" },
-  { id: "blank_long", label: "빈칸 추론 (문장)", labelEn: "Long Blank" },
-  { id: "irrelevant_sentence", label: "무관한 문장", labelEn: "Irrelevant Sentence" },
-  { id: "paragraph_order", label: "글의 순서", labelEn: "Paragraph Order" },
-  { id: "sentence_insertion", label: "문장 삽입", labelEn: "Sentence Insertion" },
-  { id: "summary", label: "요약문 완성", labelEn: "Summary" },
-  { id: "grammar_correction", label: "어법 오류 수정", labelEn: "Grammar Correction" },
+  { id: "implied_meaning", label: "함축 의미추론", labelEn: "Implied Meaning" },
+  { id: "summary", label: "요약문 완성", labelEn: "Summary Completion" },
+  { id: "blank_inference", label: "빈칸추론", labelEn: "Blank Inference" },
+  { id: "paragraph_order", label: "문장의 순서", labelEn: "Sentence Order" },
+  { id: "sentence_insertion", label: "문장삽입", labelEn: "Sentence Insertion" },
+  { id: "irrelevant_sentence", label: "글의 흐름", labelEn: "Irrelevant Sentence" },
+  { id: "factual_description", label: "내용일치", labelEn: "Factual Match" },
 ]);
 
 const MOCK_EXAM_MONTHS = Object.freeze([3, 6, 9, 10]);

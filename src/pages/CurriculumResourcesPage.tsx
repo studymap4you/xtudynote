@@ -7,7 +7,6 @@ import {
   FileQuestion,
   FileText,
   GraduationCap,
-  ListChecks,
   LoaderCircle,
   School,
   Target,
@@ -16,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
+import { MockExamWorkbookBuilder } from "@/components/curriculum/MockExamWorkbookBuilder";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import {
@@ -34,7 +34,6 @@ import {
 } from "@/lib/officialExamResources";
 import {
   ENGLISH_MOCK_EXAM_QUESTION_NUMBERS,
-  MOCK_EXAM_VARIANT_TYPES,
   createMockExamPlaceholderSessions,
   formatMockExamSession,
   sortMockExamSessionsNewestFirst,
@@ -215,8 +214,6 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
   const [deletingId, setDeletingId] = useState("");
   const [downloadingId, setDownloadingId] = useState("");
   const [selectedExamId, setSelectedExamId] = useState("");
-  const [selectedQuestionNumber, setSelectedQuestionNumber] = useState(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS[0]);
-  const [selectedVariantType, setSelectedVariantType] = useState("purpose");
 
   useEffect(() => {
     setManualLoading(true);
@@ -275,14 +272,9 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
     () => sortedOfficialRows.find((exam) => exam.id === selectedExamId) ?? null,
     [selectedExamId, sortedOfficialRows],
   );
-  const selectedVariant = MOCK_EXAM_VARIANT_TYPES.find((item) => item.id === selectedVariantType)
-    ?? MOCK_EXAM_VARIANT_TYPES[0];
-
   useEffect(() => {
     if (!officialGrade) {
       setSelectedExamId("");
-      setSelectedQuestionNumber(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS[0]);
-      setSelectedVariantType("purpose");
       return;
     }
     setSelectedExamId((current) => (
@@ -291,11 +283,6 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
         : sortedOfficialRows[0]?.id ?? ""
     ));
   }, [officialGrade, sortedOfficialRows]);
-
-  useEffect(() => {
-    setSelectedQuestionNumber(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS[0]);
-    setSelectedVariantType("purpose");
-  }, [selectedExamId]);
 
   const visibleResources = useMemo(
     () => buildCurriculumResourceFeed(visibleManualRows, officialRows),
@@ -547,69 +534,7 @@ export function CurriculumResourcesPage({ catalogId }: { catalogId: CurriculumCa
                       </div>
                     </header>
 
-                    <div className={styles.mockExamBrowserGrid}>
-                      <section className={styles.questionPanel} aria-labelledby="mock-exam-question-heading">
-                        <header className={styles.browserPanelHeader}>
-                          <div>
-                            <ListChecks size={19} aria-hidden />
-                            <span>ALL QUESTIONS</span>
-                            <h3 id="mock-exam-question-heading">전체 문항</h3>
-                          </div>
-                          <strong>{ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.length}</strong>
-                        </header>
-                        <div className={styles.questionNumberGrid} aria-label="문항 번호">
-                          {ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.map((questionNumber) => (
-                            <button
-                              key={questionNumber}
-                              type="button"
-                              className={questionNumber === selectedQuestionNumber ? styles.questionNumberActive : styles.questionNumberButton}
-                              onClick={() => setSelectedQuestionNumber(questionNumber)}
-                              aria-pressed={questionNumber === selectedQuestionNumber}
-                              aria-label={`${questionNumber}번 문항`}
-                            >
-                              {String(questionNumber).padStart(2, "0")}
-                            </button>
-                          ))}
-                        </div>
-                      </section>
-
-                      <section className={styles.variantPanel} aria-labelledby="mock-exam-variant-heading">
-                        <header className={styles.browserPanelHeader}>
-                          <div>
-                            <FileQuestion size={19} aria-hidden />
-                            <span>VARIANT TYPES</span>
-                            <h3 id="mock-exam-variant-heading">{selectedQuestionNumber}번 변형 문제</h3>
-                          </div>
-                          <strong>17</strong>
-                        </header>
-                        <ol className={styles.variantTypeList}>
-                          {MOCK_EXAM_VARIANT_TYPES.map((variant, index) => (
-                            <li key={variant.id}>
-                              <button
-                                type="button"
-                                className={variant.id === selectedVariantType ? styles.variantTypeActive : styles.variantTypeButton}
-                                onClick={() => setSelectedVariantType(variant.id)}
-                                aria-pressed={variant.id === selectedVariantType}
-                              >
-                                <span className={styles.variantIndex}>{String(index + 1).padStart(2, "0")}</span>
-                                <span className={styles.variantLabel}>
-                                  <strong>{variant.label}</strong>
-                                  <small>{variant.labelEn}</small>
-                                </span>
-                                <span className={styles.variantStatus}>미등록</span>
-                              </button>
-                            </li>
-                          ))}
-                        </ol>
-                        <div className={styles.variantEmptyPreview} aria-live="polite">
-                          <FileQuestion size={21} aria-hidden />
-                          <span>
-                            <strong>{selectedQuestionNumber}번 · {selectedVariant.label}</strong>
-                            <small>변형 문제 등록 대기</small>
-                          </span>
-                        </div>
-                      </section>
-                    </div>
+                    <MockExamWorkbookBuilder exam={selectedExam} />
                   </section>
                 ) : (
                   <div className={styles.mockExamEmpty}>

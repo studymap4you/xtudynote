@@ -88,7 +88,7 @@ test("manual and official resources share one newest-first feed", () => {
   );
 });
 
-test("mock exam navigation exposes the selectable English question ranges and 17 empty variant slots", () => {
+test("mock exam navigation exposes the selectable English question ranges and 11 output types", () => {
   const expectedQuestionNumbers = [
     ...Array.from({ length: 7 }, (_, index) => index + 18),
     ...Array.from({ length: 17 }, (_, index) => index + 29),
@@ -99,8 +99,12 @@ test("mock exam navigation exposes the selectable English question ranges and 17
   assert.equal(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.includes(17), false);
   assert.equal(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.includes(25), false);
   assert.equal(ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.includes(28), false);
-  assert.equal(MOCK_EXAM_VARIANT_TYPES.length, 17);
-  assert.equal(new Set(MOCK_EXAM_VARIANT_TYPES.map((item) => item.id)).size, 17);
+  assert.equal(MOCK_EXAM_VARIANT_TYPES.length, 11);
+  assert.equal(new Set(MOCK_EXAM_VARIANT_TYPES.map((item) => item.id)).size, 11);
+  assert.deepEqual(MOCK_EXAM_VARIANT_TYPES.map((item) => item.label), [
+    "어법", "주제", "제목", "어휘", "함축 의미추론", "요약문 완성", "빈칸추론",
+    "문장의 순서", "문장삽입", "글의 흐름", "내용일치",
+  ]);
 });
 
 test("mock exam sessions are displayed from the latest year and month", () => {
