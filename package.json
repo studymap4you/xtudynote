@@ -28,6 +28,7 @@
     "test:official-exam-resources": "node --experimental-strip-types --test scripts/test-official-exam-resources.mjs",
     "prepare:variant-problem-bank": "node scripts/import-variant-problem-banks.mjs --prepare",
     "import:variant-problem-bank": "node scripts/import-variant-problem-banks.mjs --import --verify",
+    "import:mock-exam-variants": "node scripts/import-mock-exam-variant-pdfs.mjs --import --verify",
     "publish:variant-workbooks": "node scripts/import-variant-problem-banks.mjs --publish-main",
     "replace:variant-workbooks": "node scripts/import-variant-problem-banks.mjs --replace-main-workbooks",
     "verify:variant-workbooks": "node scripts/import-variant-problem-banks.mjs --verify-main",

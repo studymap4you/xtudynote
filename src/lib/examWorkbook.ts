@@ -9,6 +9,7 @@ export type ExamWorkbookItem = {
   kind: ExamWorkbookItemKind;
   variantType: string | null;
   label: string;
+  variantIndex?: number;
 };
 
 export type ExamWorkbookBuildResult = {

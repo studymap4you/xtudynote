@@ -14,10 +14,6 @@ const OUTPUT_COUNTS = [10, 20, 30, 40, 50, 60, 80, 100] as const;
 const CSATBookletPreview = lazy(() => import("@/components/renderEngine/CSATBookletPreview").then((module) => ({ default: module.CSATBookletPreview })));
 const CSATTemplatePicker = lazy(() => import("@/components/renderEngine/CSATTemplatePicker").then((module) => ({ default: module.CSATTemplatePicker })));
 
-function itemKey(questionNumber: number, type: string) {
-  return `${questionNumber}:${type}`;
-}
-
 export function MockExamWorkbookBuilder({ exam }: { exam: OfficialExamResource }) {
   const { firebaseUser } = useAuth();
   const { entitled, loading: subscriptionLoading } = useSubscription();
@@ -63,10 +59,9 @@ export function MockExamWorkbookBuilder({ exam }: { exam: OfficialExamResource }
   };
 
   const setQuestionSelection = (questionNumber: number, includeOriginal: boolean) => {
-    const candidateKeys = [
-      ...(includeOriginal ? [itemKey(questionNumber, "original")] : []),
-      ...MOCK_EXAM_VARIANT_TYPES.map((variant) => itemKey(questionNumber, variant.id)),
-    ].filter((key) => availableKeys.has(key));
+    const candidateKeys = availableItems
+      .filter((item) => item.questionNumber === questionNumber && (includeOriginal || item.kind !== "original"))
+      .map((item) => item.key);
     setSelected((current) => {
       const next = new Set(current);
       candidateKeys.forEach((key) => next.add(key));
@@ -131,7 +126,8 @@ export function MockExamWorkbookBuilder({ exam }: { exam: OfficialExamResource }
 
       <div className={styles.questionList}>
         {ENGLISH_MOCK_EXAM_QUESTION_NUMBERS.map((questionNumber) => {
-          const originalKey = itemKey(questionNumber, "original");
+          const itemsForQuestion = availableItems.filter((item) => item.questionNumber === questionNumber);
+          const originalItems = itemsForQuestion.filter((item) => item.kind === "original");
           const availableCount = [...availableKeys].filter((key) => key.startsWith(`${questionNumber}:`)).length;
           const selectedForQuestion = [...selected].filter((key) => key.startsWith(`${questionNumber}:`)).length;
           return (
@@ -145,17 +141,28 @@ export function MockExamWorkbookBuilder({ exam }: { exam: OfficialExamResource }
                 </div>
               </header>
               <div className={styles.checkboxGrid}>
-                <label data-disabled={!availableKeys.has(originalKey) || undefined}>
-                  <input type="checkbox" checked={selected.has(originalKey)} disabled={!availableKeys.has(originalKey)} onChange={() => toggle(originalKey)} />
-                  <span>원형 문제</span><small>{availableKeys.has(originalKey) ? "등록" : "미등록"}</small>
-                </label>
+                {originalItems.length ? originalItems.map((item) => (
+                  <label key={item.key}>
+                    <input type="checkbox" checked={selected.has(item.key)} onChange={() => toggle(item.key)} />
+                    <span>원형 문제{originalItems.length > 1 ? ` ${item.variantIndex || 1}` : ""}</span><small>등록</small>
+                  </label>
+                )) : (
+                  <label data-disabled>
+                    <input type="checkbox" disabled />
+                    <span>원형 문제</span><small>미등록</small>
+                  </label>
+                )}
                 {MOCK_EXAM_VARIANT_TYPES.map((variant) => {
-                  const key = itemKey(questionNumber, variant.id);
-                  const available = availableKeys.has(key);
-                  return (
-                    <label key={variant.id} data-disabled={!available || undefined}>
-                      <input type="checkbox" checked={selected.has(key)} disabled={!available} onChange={() => toggle(key)} />
-                      <span>{variant.label}</span><small>{available ? "등록" : "미등록"}</small>
+                  const variantItems = itemsForQuestion.filter((item) => item.variantType === variant.id);
+                  return variantItems.length ? variantItems.map((item) => (
+                    <label key={item.key}>
+                      <input type="checkbox" checked={selected.has(item.key)} onChange={() => toggle(item.key)} />
+                      <span>{variant.label}{variantItems.length > 1 ? ` ${item.variantIndex || 1}` : ""}</span><small>등록</small>
+                    </label>
+                  )) : (
+                    <label key={variant.id} data-disabled>
+                      <input type="checkbox" disabled />
+                      <span>{variant.label}</span><small>미등록</small>
                     </label>
                   );
                 })}

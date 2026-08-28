@@ -43,8 +43,8 @@ function typeFrom(problem) {
   return TYPE_ALIASES.get(raw) || "";
 }
 
-function keyFor(questionNumber, type) {
-  return `${questionNumber}:${type}`;
+function keyFor(questionNumber, type, questionId) {
+  return `${questionNumber}:${type}:${encodeURIComponent(questionId)}`;
 }
 
 function serialized(snapshot) {
@@ -83,24 +83,29 @@ function indexedProblems(problems) {
     const questionNumber = numberFrom(problem);
     const type = typeFrom(problem);
     if (!questionNumber || !type) continue;
-    const key = keyFor(questionNumber, type);
-    const current = index.get(key);
-    if (!current || Number(problem.qualityScore) > Number(current.qualityScore)) index.set(key, problem);
+    const key = keyFor(questionNumber, type, problem.questionId);
+    index.set(key, problem);
   }
   return index;
 }
 
 function availability(index) {
+  const counts = new Map();
   return [...index.keys()].map((key) => {
-    const [questionNumber, variantType] = key.split(":");
+    const [questionNumber, variantType] = key.split(":", 2);
+    const typeKey = `${questionNumber}:${variantType}`;
+    const variantIndex = (counts.get(typeKey) || 0) + 1;
+    counts.set(typeKey, variantIndex);
     return {
       key,
       questionNumber: Number(questionNumber),
       kind: variantType === "original" ? "original" : "variant",
       variantType: variantType === "original" ? null : variantType,
       label: TYPE_LABELS[variantType] || variantType,
+      variantIndex,
     };
-  }).sort((left, right) => left.questionNumber - right.questionNumber || left.key.localeCompare(right.key));
+  }).sort((left, right) => left.questionNumber - right.questionNumber
+    || left.label.localeCompare(right.label, "ko") || left.key.localeCompare(right.key));
 }
 
 function shuffled(values) {
