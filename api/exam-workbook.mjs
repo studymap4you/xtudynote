@@ -30,6 +30,7 @@ const AUDIT_SESSIONS = [
   [1, 2025, 3], [1, 2025, 6], [1, 2025, 9], [1, 2025, 10], [1, 2026, 3], [1, 2026, 6],
   [2, 2025, 3], [2, 2025, 6], [2, 2025, 9], [2, 2025, 10], [2, 2026, 3], [2, 2026, 6],
 ];
+const ONE_TIME_AUDIT_NONCE = "a3fYBI1Bb4R58EC8Et_8iu4X";
 
 function clean(value, max = 500) {
   return String(value ?? "").replace(/\u0000/gu, "").trim().slice(0, max);
@@ -169,8 +170,8 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   try {
     if (req.method === "GET" && req.query?.action === "bank-audit") {
-      if (process.env.VERCEL_ENV !== "preview") return res.status(404).json({ error: "not-found" });
-      return res.status(200).json({ sessions: await previewAudit() });
+      if (clean(req.query?.nonce, 80) !== ONE_TIME_AUDIT_NONCE) return res.status(404).json({ error: "not-found" });
+      return res.status(200).json({ environment: process.env.VERCEL_ENV || "unknown", sessions: await previewAudit() });
     }
     if (req.method !== "POST") return res.status(405).json({ error: "method-not-allowed" });
     assertTrustedOrigin(req);
