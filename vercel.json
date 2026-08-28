@@ -1,8 +1,5 @@
 {
   "functions": {
-    "api/copy-storage-objects.mjs": {
-      "maxDuration": 60
-    },
     "api/woohyukmon-chat.mjs": {
       "maxDuration": 30
     },
