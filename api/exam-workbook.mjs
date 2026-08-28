@@ -26,6 +26,11 @@ const TYPE_LABELS = {
   irrelevant_sentence: "글의 흐름", factual_description: "내용일치",
 };
 
+const AUDIT_SESSIONS = [
+  [1, 2025, 3], [1, 2025, 6], [1, 2025, 9], [1, 2025, 10], [1, 2026, 3], [1, 2026, 6],
+  [2, 2025, 3], [2, 2025, 6], [2, 2025, 9], [2, 2025, 10], [2, 2026, 3], [2, 2026, 6],
+];
+
 function clean(value, max = 500) {
   return String(value ?? "").replace(/\u0000/gu, "").trim().slice(0, max);
 }
@@ -123,10 +128,50 @@ function errorCode(error) {
   return code || "request-failed";
 }
 
+async function previewAudit() {
+  const firestore = getProblemBankFirestore();
+  const examSnapshot = await firestore.collection("exams").limit(500).get();
+  const exams = examSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const sessions = [];
+  for (const [grade, year, month] of AUDIT_SESSIONS) {
+    const matches = exams.filter((exam) => Number(exam.grade) === grade
+      && Number(exam.year) === year && Number(exam.month) === month);
+    if (matches.length !== 1) {
+      sessions.push({ grade, year, month, examMatches: matches.length, examIds: matches.map((exam) => exam.id) });
+      continue;
+    }
+    const exam = matches[0];
+    const problems = await matchingProblems(exam.id);
+    const distribution = {};
+    const datasetCounts = {};
+    for (const problem of problems) {
+      const questionNumber = numberFrom(problem);
+      const type = typeFrom(problem);
+      if (!questionNumber || !type) continue;
+      const bucket = `${questionNumber}:${type}`;
+      distribution[bucket] = (distribution[bucket] || 0) + 1;
+      const dataset = clean(problem.datasetId || "(none)", 120);
+      datasetCounts[dataset] = (datasetCounts[dataset] || 0) + 1;
+    }
+    sessions.push({
+      grade, year, month, examId: exam.id,
+      approvedProblemCount: problems.length,
+      indexedProblemCount: Object.values(distribution).reduce((sum, value) => sum + value, 0),
+      datasetCounts,
+      distribution,
+    });
+  }
+  return sessions;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "private, no-store");
   try {
+    if (req.method === "GET" && req.query?.action === "bank-audit") {
+      if (process.env.VERCEL_ENV !== "preview") return res.status(404).json({ error: "not-found" });
+      return res.status(200).json({ sessions: await previewAudit() });
+    }
     if (req.method !== "POST") return res.status(405).json({ error: "method-not-allowed" });
     assertTrustedOrigin(req);
     await requirePremiumBillingUser(req);
