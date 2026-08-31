@@ -2,6 +2,11 @@ import type { CSATQuestionRenderUnit, ResolvedCSATRenderOptions } from "@/lib/re
 import styles from "@/components/renderEngine/csatRender.module.css";
 
 const CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤"];
+const IMPORTED_PAGE_LABEL = /\s*Xtudy Universe\s*\|\s*고[1-3]\s+\d{4}년\s+0?\d{1,2}월\s+11유형\s+변형문제(?:\s+\d+)?\s*$/iu;
+
+function withoutImportedPageLabel(value: string): string {
+  return value.replace(IMPORTED_PAGE_LABEL, "").trimEnd();
+}
 
 function questionTypeLabel(value: string): string {
   const labels: Record<string, string> = {
@@ -41,7 +46,7 @@ export function CSATQuestionBlock({
   sameQuestionAsNext?: boolean;
 }) {
   const { question } = unit;
-  const stem = unit.showStem ? <h3 className={styles.questionStem}>{question.stem}</h3> : null;
+  const stem = unit.showStem ? <h3 className={styles.questionStem}>{withoutImportedPageLabel(question.stem)}</h3> : null;
   return (
     <section className={`${styles.questionBlock}${unit.continuation ? ` ${styles.continuationBlock}` : ""}${sameQuestionAsPrevious ? ` ${styles.samePageContinuation}` : ""}${sameQuestionAsNext ? ` ${styles.samePageBeforeContinuation}` : ""}`}>
       {unit.showQuestionHeader ? (
@@ -57,14 +62,14 @@ export function CSATQuestionBlock({
         <div className={styles.continuationLabel}>Q{String(question.studentNumber).padStart(2, "0")} · CONTINUED</div>
       )}
       {unit.stemBeforePassage ? stem : null}
-      {unit.passage ? <p className={styles.passage}>{unit.passage}</p> : null}
+      {unit.passage ? <p className={styles.passage}>{withoutImportedPageLabel(unit.passage)}</p> : null}
       {!unit.stemBeforePassage ? stem : null}
       {unit.choices.length > 0 ? (
         <ol className={styles.choiceList} start={unit.choices[0]?.index ?? 1}>
           {unit.choices.map((choice) => (
             <li key={choice.index}>
               <span aria-hidden="true">{CIRCLED_NUMBERS[choice.index - 1] || choice.index}</span>
-              <p>{choice.text}</p>
+              <p>{withoutImportedPageLabel(choice.text)}</p>
             </li>
           ))}
         </ol>
