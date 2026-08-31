@@ -6,9 +6,19 @@ export type { CSATRenderTemplateId, CSATTemplateId } from "@/lib/renderEngine/te
 export type CSATRenderMode = "student" | "review";
 export type CSATRenderingStatus = "idle" | "preparing" | "rendering" | "ready" | "failed";
 
+export type CSATEmphasisRange = {
+  target: "passage" | "stem" | "choice";
+  start: number;
+  end: number;
+  style: "bold" | "underline";
+  choiceIndex?: number;
+  source?: string;
+};
+
 export type RenderableGeneratedCsatQuestion = GeneratedCsatQuestion & {
   groupId?: string;
   sharedPassage?: string;
+  emphasisRanges?: CSATEmphasisRange[];
 };
 
 export type CSATRenderOptions = {
@@ -56,6 +66,7 @@ export type NormalizedCSATQuestion = {
   referenceQuestionIds: string[];
   evidence: GeneratedCsatQuestion["evidence"];
   qualityMetadata: GeneratedCsatQuestion["qualityMetadata"];
+  emphasisRanges: CSATEmphasisRange[];
   groupId?: string;
   sharedPassage?: string;
 };
