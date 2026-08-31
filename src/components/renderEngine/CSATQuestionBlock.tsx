@@ -61,7 +61,7 @@ function emphasizeInlineCandidates(value: string, candidates: string[]): string 
 }
 
 function impliedMeaningTarget(explanation: string): string {
-  const match = explanation.match(/(?:굵게\s*표시된|굵은\s*글씨로\s*강조된|밑줄\s*친|밑줄\s*표시된)\s*[“\"']([^”\"']{2,180})[”\"']/u);
+  const match = explanation.match(/(?:굵게\s*표시된|굵은\s*글씨로\s*강조된|밑줄\s*친|밑줄\s*표시된)\s*[“"']([^”"']{2,180})[”"']/u);
   return match?.[1]?.trim() || "";
 }
 
