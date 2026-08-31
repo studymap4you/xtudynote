@@ -41,6 +41,24 @@ function clean(value, max = 500) {
   return String(value ?? "").replace(/\u0000/gu, "").trim().slice(0, max);
 }
 
+function emphasisRangesFrom(problem) {
+  if (!Array.isArray(problem?.emphasisRanges)) return [];
+  return problem.emphasisRanges.flatMap((range) => {
+    if (!range || typeof range !== "object") return [];
+    const target = clean(range.target, 20);
+    const style = clean(range.style, 20);
+    const start = Number(range.start);
+    const end = Number(range.end);
+    const choiceIndex = range.choiceIndex === undefined ? undefined : Number(range.choiceIndex);
+    const source = clean(range.source, 80) || undefined;
+    if (!["passage", "stem", "choice"].includes(target)) return [];
+    if (!["bold", "underline"].includes(style)) return [];
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return [];
+    if (target === "choice" && (!Number.isInteger(choiceIndex) || choiceIndex < 1 || choiceIndex > 5)) return [];
+    return [{ target, start, end, style, choiceIndex, source }];
+  });
+}
+
 function numberFrom(problem) {
   const values = [
     problem.examQuestionNumber, problem.originalQuestionNumber, problem.questionNumber,
@@ -230,6 +248,9 @@ async function syncStagedSession(req) {
           choices: Array.isArray(problem.choices) ? problem.choices.map(String) : [],
           answer: Number(problem.answer),
           explanation: String(problem.explanation || ""),
+          emphasisRanges: emphasisRangesFrom(problem),
+          formattingVersion: clean(problem.formattingVersion, 80) || undefined,
+          formattingFingerprint: clean(problem.formattingFingerprint, 100) || undefined,
           conceptTags: [type, `grade-${config.grade}`, "high-school-english"],
           skillTags: [type, "mock-exam-variant", `${config.year}-${String(config.month).padStart(2, "0")}`],
           qualityScore: 95,
@@ -342,10 +363,14 @@ export default async function handler(req, res) {
       const [rightNumber] = right.split(":").map(Number);
       return leftNumber - rightNumber || left.localeCompare(right);
     });
-    const questions = chosen.map((key, indexValue) => ({
-      ...problemBankProblemToLocalQuestion(index.get(key), indexValue + 1),
-      sequence: indexValue + 1,
-    }));
+    const questions = chosen.map((key, indexValue) => {
+      const problem = index.get(key);
+      return {
+        ...problemBankProblemToLocalQuestion(problem, indexValue + 1),
+        emphasisRanges: emphasisRangesFrom(problem),
+        sequence: indexValue + 1,
+      };
+    });
     return res.status(200).json({
       questions,
       selectedCount: selections.length,
