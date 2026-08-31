@@ -1,4 +1,5 @@
 import type {
+  CSATEmphasisRange,
   CSATNormalizationIssue,
   NormalizedCSATQuestion,
   RenderableGeneratedCsatQuestion,
@@ -11,6 +12,32 @@ export type NormalizedQuestionResult = {
 
 function requiredText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeEmphasisRanges(value: unknown): CSATEmphasisRange[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((range) => {
+    if (!range || typeof range !== "object") return [];
+    const target = (range as { target?: unknown }).target;
+    const style = (range as { style?: unknown }).style;
+    const start = Number((range as { start?: unknown }).start);
+    const end = Number((range as { end?: unknown }).end);
+    const choiceIndexValue = (range as { choiceIndex?: unknown }).choiceIndex;
+    const choiceIndex = choiceIndexValue === undefined ? undefined : Number(choiceIndexValue);
+    const source = requiredText((range as { source?: unknown }).source) || undefined;
+    if (!["passage", "stem", "choice"].includes(String(target))) return [];
+    if (!["bold", "underline"].includes(String(style))) return [];
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return [];
+    if (target === "choice" && (!Number.isInteger(choiceIndex) || Number(choiceIndex) < 1 || Number(choiceIndex) > 5)) return [];
+    return [{
+      target: target as CSATEmphasisRange["target"],
+      style: style as CSATEmphasisRange["style"],
+      start,
+      end,
+      choiceIndex,
+      source,
+    }];
+  });
 }
 
 export function normalizeCSATQuestions(questions: RenderableGeneratedCsatQuestion[]): NormalizedQuestionResult {
@@ -62,6 +89,7 @@ export function normalizeCSATQuestions(questions: RenderableGeneratedCsatQuestio
         : [],
       evidence: question.evidence,
       qualityMetadata: question.qualityMetadata,
+      emphasisRanges: normalizeEmphasisRanges(question.emphasisRanges),
       groupId: requiredText(question.groupId) || undefined,
       sharedPassage: requiredText(question.sharedPassage) || undefined,
     });
