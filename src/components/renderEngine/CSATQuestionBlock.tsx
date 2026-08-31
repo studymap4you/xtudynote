@@ -1,5 +1,9 @@
 import { Fragment, type ReactNode } from "react";
-import type { CSATQuestionRenderUnit, ResolvedCSATRenderOptions } from "@/lib/renderEngine/types";
+import type {
+  CSATEmphasisRange,
+  CSATQuestionRenderUnit,
+  ResolvedCSATRenderOptions,
+} from "@/lib/renderEngine/types";
 import styles from "@/components/renderEngine/csatRender.module.css";
 
 const CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤"];
@@ -42,27 +46,61 @@ function extractTrailingCandidateEcho(value: string): { passage: string; candida
   return { passage, candidates };
 }
 
-function emphasizeExactCandidate(value: string, candidate: string, marker?: string): string {
-  if (!candidate || value.includes(`**${candidate}**`)) return value;
-  const searchStart = marker ? value.indexOf(marker) : -1;
-  const candidateIndex = value.indexOf(candidate, Math.max(0, searchStart));
-  if (candidateIndex < 0) return value;
-  if (marker && searchStart >= 0) {
-    const between = value.slice(searchStart + marker.length, candidateIndex);
-    if (!/^\s*$/u.test(between) || between.length > 4) return value;
-  }
-  return `${value.slice(0, candidateIndex)}**${candidate}**${value.slice(candidateIndex + candidate.length)}`;
-}
-
-function emphasizeInlineCandidates(value: string, candidates: string[]): string {
-  return candidates.reduce((current, candidate, index) => (
-    emphasizeExactCandidate(current, candidate, CIRCLED_NUMBERS[index])
-  ), value);
-}
-
 function impliedMeaningTarget(explanation: string): string {
   const match = explanation.match(/(?:굵게\s*표시된|굵은\s*글씨로\s*강조된|밑줄\s*친|밑줄\s*표시된)\s*[“"']([^”"']{2,180})[”"']/u);
   return match?.[1]?.trim() || "";
+}
+
+function explicitRanges(
+  ranges: CSATEmphasisRange[],
+  target: CSATEmphasisRange["target"],
+  textLength: number,
+  choiceIndex?: number,
+): CSATEmphasisRange[] {
+  return ranges
+    .filter((range) => range.target === target)
+    .filter((range) => target !== "choice" || range.choiceIndex === choiceIndex)
+    .filter((range) => range.start >= 0 && range.end > range.start && range.end <= textLength)
+    .sort((left, right) => left.start - right.start || left.end - right.end);
+}
+
+function inferCandidateRanges(value: string, candidates: string[]): CSATEmphasisRange[] {
+  const ranges: CSATEmphasisRange[] = [];
+  let cursor = 0;
+  candidates.forEach((candidate, index) => {
+    const marker = CIRCLED_NUMBERS[index];
+    const markerIndex = marker ? value.indexOf(marker, cursor) : -1;
+    const searchFrom = markerIndex >= 0 ? markerIndex + marker.length : cursor;
+    const candidateIndex = value.indexOf(candidate, Math.max(0, searchFrom));
+    if (candidateIndex < 0) return;
+    if (markerIndex >= 0) {
+      const between = value.slice(markerIndex + marker.length, candidateIndex);
+      if (!/^\s*$/u.test(between) || between.length > 4) return;
+    }
+    ranges.push({
+      target: "passage",
+      start: candidateIndex,
+      end: candidateIndex + candidate.length,
+      style: "bold",
+      source: "legacy-inline-candidate",
+    });
+    cursor = candidateIndex + candidate.length;
+  });
+  return ranges;
+}
+
+function inferImpliedMeaningRange(value: string, explanation: string): CSATEmphasisRange[] {
+  const target = impliedMeaningTarget(explanation);
+  if (!target) return [];
+  const start = value.indexOf(target);
+  if (start < 0) return [];
+  return [{
+    target: "passage",
+    start,
+    end: start + target.length,
+    style: "bold",
+    source: "legacy-explanation-target",
+  }];
 }
 
 function preparePassage(
@@ -70,15 +108,22 @@ function preparePassage(
   rawPassage: string,
   choices: CSATQuestionRenderUnit["choices"],
   explanation: string,
-): string {
+  ranges: CSATEmphasisRange[],
+): { text: string; ranges: CSATEmphasisRange[] } {
   const type = questionType.toUpperCase();
   let passage = withoutImportedPageLabel(rawPassage);
 
-  if (POSITION_SELECTION_TYPES.has(type)) return stripTrailingPositionEcho(passage);
+  if (POSITION_SELECTION_TYPES.has(type)) {
+    passage = stripTrailingPositionEcho(passage);
+    return { text: passage, ranges: explicitRanges(ranges, "passage", passage.length) };
+  }
 
   if (INLINE_CANDIDATE_TYPES.has(type)) {
     const echoed = extractTrailingCandidateEcho(passage);
     if (echoed) passage = echoed.passage;
+
+    const storedRanges = explicitRanges(ranges, "passage", passage.length);
+    if (storedRanges.length > 0) return { text: passage, ranges: storedRanges };
 
     const choiceCandidates = choices
       .map((choice) => stripChoicePrefix(choice.text, choice.index))
@@ -86,15 +131,18 @@ function preparePassage(
     const candidates = echoed?.candidates?.length === 5
       ? echoed.candidates
       : choiceCandidates.length === 5 ? choiceCandidates : [];
-    if (candidates.length === 5) passage = emphasizeInlineCandidates(passage, candidates);
-    return passage;
+    return {
+      text: passage,
+      ranges: candidates.length === 5 ? inferCandidateRanges(passage, candidates) : [],
+    };
   }
 
-  if (type === "IMPLIED_MEANING" && !/(?:\*\*|__|<(?:strong|b|u)>)/iu.test(passage)) {
-    const target = impliedMeaningTarget(explanation);
-    if (target) passage = emphasizeExactCandidate(passage, target);
+  const storedRanges = explicitRanges(ranges, "passage", passage.length);
+  if (storedRanges.length > 0) return { text: passage, ranges: storedRanges };
+  if (type === "IMPLIED_MEANING") {
+    return { text: passage, ranges: inferImpliedMeaningRange(passage, explanation) };
   }
-  return passage;
+  return { text: passage, ranges: [] };
 }
 
 function renderInlineMarkup(value: string): ReactNode {
@@ -107,6 +155,34 @@ function renderInlineMarkup(value: string): ReactNode {
     if (!markdownBold && !markdownUnderlineAlias) return <Fragment key={`${index}-${part.slice(0, 12)}`}>{part}</Fragment>;
     return <strong key={`${index}-${part.slice(0, 12)}`}>{part.slice(2, -2)}</strong>;
   });
+}
+
+function renderTextWithRanges(value: string, ranges: CSATEmphasisRange[]): ReactNode {
+  if (!ranges.length) return renderInlineMarkup(value);
+  const usable: CSATEmphasisRange[] = [];
+  let lastEnd = 0;
+  ranges
+    .filter((range) => range.start >= 0 && range.end <= value.length && range.end > range.start)
+    .sort((left, right) => left.start - right.start || left.end - right.end)
+    .forEach((range) => {
+      if (range.start < lastEnd) return;
+      usable.push(range);
+      lastEnd = range.end;
+    });
+  if (!usable.length) return renderInlineMarkup(value);
+
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  usable.forEach((range, index) => {
+    if (range.start > cursor) nodes.push(<Fragment key={`plain-${index}`}>{value.slice(cursor, range.start)}</Fragment>);
+    const emphasized = value.slice(range.start, range.end);
+    nodes.push(range.style === "underline"
+      ? <u key={`em-${index}`}>{emphasized}</u>
+      : <strong key={`em-${index}`}>{emphasized}</strong>);
+    cursor = range.end;
+  });
+  if (cursor < value.length) nodes.push(<Fragment key="plain-tail">{value.slice(cursor)}</Fragment>);
+  return nodes;
 }
 
 function questionTypeLabel(value: string): string {
@@ -148,12 +224,14 @@ export function CSATQuestionBlock({
 }) {
   const { question } = unit;
   const questionType = question.questionType.toUpperCase();
+  const stemText = withoutImportedPageLabel(question.stem);
+  const stemRanges = explicitRanges(question.emphasisRanges, "stem", stemText.length);
   const stem = unit.showStem
-    ? <h3 className={styles.questionStem}>{renderInlineMarkup(withoutImportedPageLabel(question.stem))}</h3>
+    ? <h3 className={styles.questionStem}>{renderTextWithRanges(stemText, stemRanges)}</h3>
     : null;
-  const passage = unit.passage
-    ? preparePassage(questionType, unit.passage, unit.choices, question.explanation || "")
-    : "";
+  const preparedPassage = unit.passage
+    ? preparePassage(questionType, unit.passage, unit.choices, question.explanation || "", question.emphasisRanges)
+    : { text: "", ranges: [] };
   const showExternalChoices = unit.choices.length > 0 && !INLINE_ONLY_TYPES.has(questionType);
 
   return (
@@ -171,17 +249,18 @@ export function CSATQuestionBlock({
         <div className={styles.continuationLabel}>Q{String(question.studentNumber).padStart(2, "0")} · CONTINUED</div>
       )}
       {unit.stemBeforePassage ? stem : null}
-      {passage ? <p className={styles.passage}>{renderInlineMarkup(passage)}</p> : null}
+      {preparedPassage.text ? <p className={styles.passage}>{renderTextWithRanges(preparedPassage.text, preparedPassage.ranges)}</p> : null}
       {!unit.stemBeforePassage ? stem : null}
       {showExternalChoices ? (
         <ol className={styles.choiceList} start={unit.choices[0]?.index ?? 1}>
           {unit.choices.map((choice) => {
             const stripped = stripChoicePrefix(choice.text, choice.index);
             const displayText = stripped || withoutImportedPageLabel(choice.text);
+            const choiceRanges = explicitRanges(question.emphasisRanges, "choice", displayText.length, choice.index);
             return (
               <li key={choice.index}>
                 <span aria-hidden="true">{CIRCLED_NUMBERS[choice.index - 1] || choice.index}</span>
-                <p>{renderInlineMarkup(displayText)}</p>
+                <p>{renderTextWithRanges(displayText, choiceRanges)}</p>
               </li>
             );
           })}
