@@ -5,6 +5,7 @@ import type {
   ResolvedCSATRenderOptions,
 } from "@/lib/renderEngine/types";
 import styles from "@/components/renderEngine/csatRender.module.css";
+import emphasisStyles from "@/components/renderEngine/csatEmphasis.module.css";
 
 const CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤"];
 const IMPORTED_PAGE_LABEL = /\s*Xtudy Universe\s*\|\s*고[1-3]\s+\d{4}년\s+0?\d{1,2}월\s+11유형\s+변형문제(?:\s+\d+)?\s*$/iu;
@@ -153,7 +154,7 @@ function renderInlineMarkup(value: string): ReactNode {
     const markdownBold = part.startsWith("**") && part.endsWith("**");
     const markdownUnderlineAlias = part.startsWith("__") && part.endsWith("__");
     if (!markdownBold && !markdownUnderlineAlias) return <Fragment key={`${index}-${part.slice(0, 12)}`}>{part}</Fragment>;
-    return <strong key={`${index}-${part.slice(0, 12)}`}>{part.slice(2, -2)}</strong>;
+    return <strong className={emphasisStyles.bold} key={`${index}-${part.slice(0, 12)}`}>{part.slice(2, -2)}</strong>;
   });
 }
 
@@ -177,8 +178,8 @@ function renderTextWithRanges(value: string, ranges: CSATEmphasisRange[]): React
     if (range.start > cursor) nodes.push(<Fragment key={`plain-${index}`}>{value.slice(cursor, range.start)}</Fragment>);
     const emphasized = value.slice(range.start, range.end);
     nodes.push(range.style === "underline"
-      ? <u key={`em-${index}`}>{emphasized}</u>
-      : <strong key={`em-${index}`}>{emphasized}</strong>);
+      ? <u className={emphasisStyles.underline} key={`em-${index}`}>{emphasized}</u>
+      : <strong className={emphasisStyles.bold} key={`em-${index}`}>{emphasized}</strong>);
     cursor = range.end;
   });
   if (cursor < value.length) nodes.push(<Fragment key="plain-tail">{value.slice(cursor)}</Fragment>);
