@@ -3,6 +3,7 @@
 import { createRequire } from "node:module";
 
 const PROJECT_ID = process.env.PROBLEM_BANK_PROJECT_ID || "xstudy-problem-bank";
+const READY = process.argv.includes("--ready");
 
 const SESSIONS = Object.freeze([
   { year: 2025, month: 3, title: "2025년 3월 고3 전국연합학력평가", organizer: "서울특별시교육청", examKind: "national_mock" },
@@ -52,7 +53,8 @@ function writeFor(session) {
     title: session.title,
     organizer: session.organizer,
     examKind: session.examKind,
-    problemBankReady: true,
+    problemBankReady: READY,
+    variantBankExpected: true,
   };
   return {
     update: {
@@ -74,7 +76,14 @@ async function main() {
     },
   );
   if (!response.ok) throw new Error(`exam slot registration failed (${response.status}): ${(await response.text()).slice(0, 800)}`);
-  console.log(JSON.stringify({ ok: true, projectId: PROJECT_ID, grade: 3, sessionCount: SESSIONS.length, examIds: SESSIONS.map((s) => examId(s.year, s.month)) }, null, 2));
+  console.log(JSON.stringify({
+    ok: true,
+    projectId: PROJECT_ID,
+    grade: 3,
+    problemBankReady: READY,
+    sessionCount: SESSIONS.length,
+    examIds: SESSIONS.map((s) => examId(s.year, s.month)),
+  }, null, 2));
 }
 
 await main();
