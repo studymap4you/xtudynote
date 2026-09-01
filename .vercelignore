@@ -2,3 +2,5 @@ tmp/
 **/__pycache__/
 **/*.pyc
 api/copy-storage-objects.mjs
+api/_temporary-emphasis-backfill.mjs
+api/concept-assembly.mjs
