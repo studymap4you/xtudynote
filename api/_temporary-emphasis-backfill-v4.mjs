@@ -3,7 +3,7 @@ import { getProblemBankFirestore } from "./_lib/problem-bank/admin.mjs";
 
 const TOKEN = "xubf3_20260901_F7kQ2r9Lm4";
 const DATASET_ID = "xtudy-mock-exam-11-variants-v1";
-const FORMATTING_VERSION = "emphasis-backfill-v4-exact";
+const FORMATTING_VERSION = "emphasis-backfill-v5-source-exact";
 const TARGET_TYPES = new Set(["grammar", "vocabulary", "implied_meaning"]);
 const SESSIONS = [
   [1, 2025, 3], [1, 2025, 6], [1, 2025, 9], [1, 2025, 10], [1, 2026, 3], [1, 2026, 6],
@@ -39,7 +39,7 @@ function normalizedRanges(ranges, length) {
     const start = Number(range?.start), end = Number(range?.end);
     if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end > length) continue;
     const style = range?.style === "underline" ? "underline" : "bold";
-    unique.set(`${start}:${end}:${style}`, { target: "passage", start, end, style, source: compact(range?.source, 100) || "v4" });
+    unique.set(`${start}:${end}:${style}`, { target: "passage", start, end, style, source: compact(range?.source, 100) || "v5" });
   }
   return [...unique.values()].sort((a,b) => a.start-b.start || a.end-b.end);
 }
@@ -95,10 +95,37 @@ function exactInline(problem, raw) {
       if (hit && /^\s*$/u.test(main.slice(markerEnd, hit.start))) hits.push(hit);
     }
     if (hits.length !== 1) return { passage: main, ranges: [], method: "unresolved" };
-    ranges.push({ ...hits[0], style: "bold", source: echo ? "source-echo-exact-v4" : "choice-exact-v4" });
+    ranges.push({ ...hits[0], style: "bold", source: echo ? "source-echo-exact-v5" : "choice-exact-v5" });
   }
-  return { passage: main, ranges: normalizedRanges(ranges, main.length), method: echo ? "source-echo-exact-v4" : "choice-exact-v4" };
+  return { passage: main, ranges: normalizedRanges(ranges, main.length), method: echo ? "source-echo-exact-v5" : "choice-exact-v5" };
 }
+
+// Vocabulary items in these source booklets explicitly mark the tested word by placing ①~⑤ immediately
+// before that lexical item (the stem itself says "낱말"). If a source-echo/choice phrase is unavailable,
+// this recovers exactly that marker-adjacent word and nothing beyond it. It refuses any ambiguous marker set.
+function exactVocabularyMarkerWords(raw) {
+  const main = stripFooter(trailingEcho(raw)?.main ?? raw);
+  const matches = [...main.matchAll(/[①②③④⑤]/gu)];
+  const chosen = [];
+  let cursor = 0;
+  for (let i = 0; i < CIRCLED.length; i += 1) {
+    const marker = CIRCLED[i];
+    const candidates = matches.filter((match) => match[0] === marker && Number(match.index) >= cursor);
+    if (candidates.length !== 1) return { passage: main, ranges: [], method: "unresolved" };
+    const markerMatch = candidates[0];
+    const markerEnd = Number(markerMatch.index) + marker.length;
+    const tail = main.slice(markerEnd);
+    const lexical = /^\s*([\p{L}\p{N}]+(?:[-’'][\p{L}\p{N}]+)*)/u.exec(tail);
+    if (!lexical || lexical.index === undefined) return { passage: main, ranges: [], method: "unresolved" };
+    const leading = lexical[0].length - lexical[1].length;
+    const start = markerEnd + leading;
+    const end = start + lexical[1].length;
+    chosen.push({ start, end, style: "bold", source: "marker-word-exact-v5" });
+    cursor = end;
+  }
+  return { passage: main, ranges: normalizedRanges(chosen, main.length), method: "marker-word-exact-v5" };
+}
+
 function impliedTarget(explanation) {
   const src = text(explanation, 12000);
   const quoted = [
@@ -128,27 +155,34 @@ function exactImplied(problem, raw) {
   if(!candidate) return {passage:main,ranges:[],method:"unresolved"};
   const hit=findRange(main,candidate);
   if(!hit) return {passage:main,ranges:[],method:"unresolved"};
-  return {passage:main,ranges:normalizedRanges([{...hit,style:"bold",source:"source-explanation-exact-v4"}],main.length),method:"source-explanation-exact-v4"};
+  return {passage:main,ranges:normalizedRanges([{...hit,style:"bold",source:"source-explanation-exact-v5"}],main.length),method:"source-explanation-exact-v5"};
 }
 function derive(problem){
   const raw=text(problem.passage,30000), type=compact(problem.questionType,80).toLowerCase();
   if(!TARGET_TYPES.has(type)||!raw) return {passage:raw,ranges:[],method:"not-target"};
   const stored=existing(problem,raw); if(stored.length) return {passage:raw,ranges:stored,method:"existing"};
-  return type==="implied_meaning" ? exactImplied(problem,raw) : exactInline(problem,raw);
+  if(type==="implied_meaning") return exactImplied(problem,raw);
+  const inline = exactInline(problem,raw);
+  if(inline.ranges.length) return inline;
+  if(type==="vocabulary") return exactVocabularyMarkerWords(raw);
+  return inline;
 }
 async function session(firestore,grade,year,month,execute){
   const examId=`exam_english_g${grade}_${year}_${String(month).padStart(2,"0")}`;
   const snap=await firestore.collection("problems").where("examId","==",examId).limit(600).get();
   const docs=snap.docs.filter((d)=>{const p=d.data()||{};return p.datasetId===DATASET_ID&&TARGET_TYPES.has(compact(p.questionType,80).toLowerCase());});
-  const stats={grade,year,month,examId,total:docs.length,existing:0,sourceEchoExact:0,choiceExact:0,explanationExact:0,unresolved:0,updated:0};
+  const stats={grade,year,month,examId,total:docs.length,existing:0,sourceEchoExact:0,choiceExact:0,markerWordExact:0,explanationExact:0,unresolved:0,updated:0,byType:{grammar:{total:0,resolved:0,unresolved:0},vocabulary:{total:0,resolved:0,unresolved:0},implied_meaning:{total:0,resolved:0,unresolved:0}}};
   const unresolved=[],writes=[];
   for(const doc of docs){
-    const p=doc.data()||{}, d=derive(p);
+    const p=doc.data()||{}, type=compact(p.questionType,80).toLowerCase(), d=derive(p);
+    if(stats.byType[type]) stats.byType[type].total+=1;
     if(d.method==="existing") stats.existing+=1;
-    else if(d.method==="source-echo-exact-v4") stats.sourceEchoExact+=1;
-    else if(d.method==="choice-exact-v4") stats.choiceExact+=1;
-    else if(d.method==="source-explanation-exact-v4") stats.explanationExact+=1;
-    else {stats.unresolved+=1; unresolved.push({id:p.questionId||doc.id,type:p.questionType,sourcePageNumber:p.sourcePageNumber??null,sourcePassageLabel:p.sourcePassageLabel??null}); continue;}
+    else if(d.method==="source-echo-exact-v5") stats.sourceEchoExact+=1;
+    else if(d.method==="choice-exact-v5") stats.choiceExact+=1;
+    else if(d.method==="marker-word-exact-v5") stats.markerWordExact+=1;
+    else if(d.method==="source-explanation-exact-v5") stats.explanationExact+=1;
+    else {stats.unresolved+=1;if(stats.byType[type])stats.byType[type].unresolved+=1; unresolved.push({id:p.questionId||doc.id,type:p.questionType,sourcePageNumber:p.sourcePageNumber??null,sourcePassageLabel:p.sourcePassageLabel??null}); continue;}
+    if(stats.byType[type]) stats.byType[type].resolved+=1;
     if(d.method!=="existing"&&d.ranges.length){
       writes.push({ref:doc.ref,data:{emphasisRanges:d.ranges,formattingVersion:FORMATTING_VERSION,formattingFingerprint:hash(JSON.stringify({passage:d.passage,ranges:d.ranges})),formattingBackfilledAt:new Date(),formattingBackfillMethod:d.method}});
     }
@@ -162,7 +196,7 @@ export default async function handler(req,res){
   if(compact(req.query?.token,100)!==TOKEN)return res.status(404).json({error:"not-found"});
   const execute=req.query?.execute==="1";
   try{const firestore=getProblemBankFirestore(),sessions=[];for(const args of SESSIONS)sessions.push(await session(firestore,...args,execute));
-    const totals=sessions.reduce((a,s)=>{for(const k of ["total","existing","sourceEchoExact","choiceExact","explanationExact","unresolved","updated"])a[k]+=s[k];return a;},{total:0,existing:0,sourceEchoExact:0,choiceExact:0,explanationExact:0,unresolved:0,updated:0});
+    const totals=sessions.reduce((a,s)=>{for(const k of ["total","existing","sourceEchoExact","choiceExact","markerWordExact","explanationExact","unresolved","updated"])a[k]+=s[k];for(const type of Object.keys(a.byType)){a.byType[type].total+=s.byType[type].total;a.byType[type].resolved+=s.byType[type].resolved;a.byType[type].unresolved+=s.byType[type].unresolved;}return a;},{total:0,existing:0,sourceEchoExact:0,choiceExact:0,markerWordExact:0,explanationExact:0,unresolved:0,updated:0,byType:{grammar:{total:0,resolved:0,unresolved:0},vocabulary:{total:0,resolved:0,unresolved:0},implied_meaning:{total:0,resolved:0,unresolved:0}}});
     return res.status(200).json({execute,datasetId:DATASET_ID,formattingVersion:FORMATTING_VERSION,totals,sessions});
-  }catch(error){console.error("[emphasis-v4]",error);return res.status(500).json({error:compact(error instanceof Error?error.message:error,500)});}
+  }catch(error){console.error("[emphasis-v5]",error);return res.status(500).json({error:compact(error instanceof Error?error.message:error,500)});}
 }
