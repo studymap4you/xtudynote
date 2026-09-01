@@ -2,3 +2,4 @@ tmp/
 **/__pycache__/
 **/*.pyc
 api/copy-storage-objects.mjs
+api/concept-assembly.mjs
