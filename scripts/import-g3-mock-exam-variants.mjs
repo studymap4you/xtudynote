@@ -138,10 +138,12 @@ try {
   await run(process.execPath, [TEMP_IMPORTER, `--source-root=${sourceRoot}`, `--output=${OUTPUT}`]);
   await normalizeSpecialMetadata();
   if (!prepareOnly) {
-    // Register all 11 high3 exam positions first. The update is merge-safe and does not
-    // remove existing official-file metadata from an exam document.
+    // Create/normalize all 11 high3 exam slots first, but keep them non-ready until
+    // the exact final PDF set is imported and the importer verification succeeds.
     await run(process.execPath, [EXAM_SLOT_REGISTER]);
     await run(process.execPath, [EMPHASIS_IMPORTER, `--input=${OUTPUT}`, "--import", "--verify"]);
+    // Only after successful DB verification expose the high3 variant bank as ready.
+    await run(process.execPath, [EXAM_SLOT_REGISTER, "--ready"]);
   }
   console.log(JSON.stringify({
     ok: true,
