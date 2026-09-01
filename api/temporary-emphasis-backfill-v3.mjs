@@ -38,6 +38,10 @@ export default async function handler(req, res) {
     explanation: clean(problem.explanation, 12000),
     emphasisRanges: Array.isArray(problem.emphasisRanges) ? problem.emphasisRanges : [],
     formattingVersion: problem.formattingVersion || null,
+    fields: Object.keys(problem).sort(),
+    sourceMetadata: problem.sourceMetadata ?? null,
+    provenance: problem.provenance ?? null,
+    raw: problem.raw ?? null,
   }));
   return res.status(200).json({ examId, type: type || null, number: Number.isInteger(number) ? number : null, count: results.length, results });
 }
