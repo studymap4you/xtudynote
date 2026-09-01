@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
+import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const ROOT = process.cwd();
@@ -9,6 +10,7 @@ const BASE_IMPORTER = path.join(ROOT, "scripts/import-mock-exam-variant-pdfs.mjs
 const EMPHASIS_IMPORTER = path.join(ROOT, "scripts/import-mock-exam-variant-emphasis.mjs");
 const EXAM_SLOT_REGISTER = path.join(ROOT, "scripts/register-g3-exam-slots.mjs");
 const TEMP_IMPORTER = path.join(ROOT, "tmp/import-g3-mock-exam-variant-pdfs.generated.mjs");
+const STAGED_SOURCE_ROOT = path.join(ROOT, "tmp/g3-final-source-pdfs");
 const OUTPUT = path.join(ROOT, "tmp/g3-mock-exam-variant-import.json");
 const DEFAULT_SOURCE_ROOT = path.join(process.env.HOME || "", "Downloads");
 const EXPECTED_SOURCE_COUNT = 11;
@@ -45,6 +47,54 @@ function run(command, args) {
       else reject(new Error(`${path.basename(command)} exited with code ${code}`));
     });
   });
+}
+
+function canonicalPdfName(value) {
+  return String(value || "")
+    .normalize("NFC")
+    .replace(/\s*\(\d+\)(?=\.pdf$)/iu, "");
+}
+
+async function fingerprint(filePath) {
+  const bytes = await readFile(filePath);
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+async function stageFinalSources(sourceRoot) {
+  const entries = (await readdir(sourceRoot, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && /\.pdf$/iu.test(entry.name))
+    .map((entry) => entry.name);
+
+  await rm(STAGED_SOURCE_ROOT, { recursive: true, force: true });
+  await mkdir(STAGED_SOURCE_ROOT, { recursive: true });
+
+  const selected = [];
+  for (const [, year, month, canonicalName] of SOURCES) {
+    const canonical = canonicalName.normalize("NFC");
+    const matches = entries.filter((name) => canonicalPdfName(name) === canonical);
+    if (!matches.length) {
+      throw new Error(`최종 PDF 누락: ${canonicalName}`);
+    }
+
+    const exact = matches.find((name) => name.normalize("NFC") === canonical);
+    let chosen = exact || matches[0];
+    if (!exact && matches.length > 1) {
+      const fingerprints = new Map();
+      for (const name of matches) {
+        const hash = await fingerprint(path.join(sourceRoot, name));
+        if (!fingerprints.has(hash)) fingerprints.set(hash, []);
+        fingerprints.get(hash).push(name);
+      }
+      if (fingerprints.size !== 1) {
+        throw new Error(`동일 최종본 이름의 서로 다른 PDF가 여러 개 있습니다: ${canonicalName} -> ${matches.join(", ")}`);
+      }
+      chosen = [...fingerprints.values()][0][0];
+    }
+
+    await symlink(path.resolve(sourceRoot, chosen), path.join(STAGED_SOURCE_ROOT, canonicalName));
+    selected.push({ year, month, canonicalName, selectedFile: chosen });
+  }
+  return selected;
 }
 
 function sourceBlock() {
@@ -131,11 +181,12 @@ const sourceRoot = path.resolve(argumentValue("--source-root", DEFAULT_SOURCE_RO
 const prepareOnly = process.argv.includes("--prepare-only");
 
 await mkdir(path.dirname(TEMP_IMPORTER), { recursive: true });
+const selectedSources = await stageFinalSources(sourceRoot);
 const base = await readFile(BASE_IMPORTER, "utf8");
 await writeFile(TEMP_IMPORTER, patchBaseImporter(base), "utf8");
 
 try {
-  await run(process.execPath, [TEMP_IMPORTER, `--source-root=${sourceRoot}`, `--output=${OUTPUT}`]);
+  await run(process.execPath, [TEMP_IMPORTER, `--source-root=${STAGED_SOURCE_ROOT}`, `--output=${OUTPUT}`]);
   await normalizeSpecialMetadata();
   if (!prepareOnly) {
     // Create/normalize all 11 high3 exam slots first, but keep them non-ready until
@@ -148,6 +199,7 @@ try {
   console.log(JSON.stringify({
     ok: true,
     sourceRoot,
+    selectedSources,
     output: OUTPUT,
     sourceCount: EXPECTED_SOURCE_COUNT,
     passageCount: EXPECTED_PASSAGE_COUNT,
@@ -158,4 +210,5 @@ try {
   }, null, 2));
 } finally {
   await rm(TEMP_IMPORTER, { force: true });
+  await rm(STAGED_SOURCE_ROOT, { recursive: true, force: true });
 }
