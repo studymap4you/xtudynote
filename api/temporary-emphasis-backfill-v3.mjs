@@ -1,4 +1,4 @@
-import backfillHandler from "./_temporary-emphasis-backfill-v3.mjs";
+import backfillHandler from "./_temporary-emphasis-backfill-v4.mjs";
 import { getProblemBankFirestore } from "./_lib/problem-bank/admin.mjs";
 
 const TOKEN = "xubf3_20260901_F7kQ2r9Lm4";
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   if (clean(req.query?.token, 100) !== TOKEN) return res.status(404).json({ error: "not-found" });
   const match = /^g([12])-(2025|2026)-(03|06|09|10)$/u.exec(clean(req.query?.session, 40));
   if (!match) return res.status(400).json({ error: "invalid-session" });
-  const [_, grade, year, month] = match;
+  const [, grade, year, month] = match;
   const examId = `exam_english_g${grade}_${year}_${month}`;
   const type = clean(req.query?.type, 80).toLowerCase();
   const number = Number(req.query?.number);
