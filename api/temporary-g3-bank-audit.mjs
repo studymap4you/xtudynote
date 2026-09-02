@@ -2,6 +2,7 @@ import { getProblemBankFirestore } from "./_lib/problem-bank/admin.mjs";
 
 const TOKEN = "g3audit_20260902_Vm4pQ8tN";
 const DATASET_ID = "xtudy-mock-exam-11-variants-v1";
+const PROBE_FILE_ID = "file_0000000096ec8211a41c8d0fa3886b3c";
 const SESSIONS = [
   [2025,3],[2025,5],[2025,6],[2025,7],[2025,9],[2025,10],[2025,11],
   [2026,3],[2026,5],[2026,6],[2026,7],
@@ -9,11 +10,19 @@ const SESSIONS = [
 const TYPES = ["grammar","topic","title","vocabulary","implied_meaning","summary","blank_inference","paragraph_order","sentence_insertion","irrelevant_sentence","factual_description"];
 function clean(v,max=120){return String(v??"").replace(/\u0000/gu,"").trim().slice(0,max);}
 function numberFrom(p){return Number(p.examQuestionNumber||p.originalQuestionNumber||p.sourceQuestionNumber||p.metadata?.questionNumber)||0;}
+async function probeFile(){
+  const key=process.env.OPENAI_API_KEY||"";
+  if(!key)return {hasOpenAIKey:false,status:null};
+  const response=await fetch(`https://api.openai.com/v1/files/${PROBE_FILE_ID}/content`,{headers:{Authorization:`Bearer ${key}`}});
+  const bytes=await response.arrayBuffer().catch(()=>new ArrayBuffer(0));
+  return {hasOpenAIKey:true,status:response.status,ok:response.ok,contentType:response.headers.get("content-type"),contentLength:response.headers.get("content-length"),receivedBytes:bytes.byteLength,bodyPrefix:response.ok?null:new TextDecoder().decode(bytes.slice(0,400))};
+}
 export default async function handler(req,res){
   res.setHeader("Content-Type","application/json; charset=utf-8");
   res.setHeader("Cache-Control","private, no-store");
   if(req.method!=="GET"||clean(req.query?.token,100)!==TOKEN)return res.status(404).json({error:"not-found"});
   try{
+    if(req.query?.action==="probe-file")return res.status(200).json(await probeFile());
     const db=getProblemBankFirestore();
     const sessions=[];
     let totalApproved=0,totalDataset=0,totalIndexed=0;
