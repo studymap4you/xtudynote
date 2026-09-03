@@ -8,6 +8,7 @@ import { canRenderCSATReviewContent, resolveCSATRenderOptions } from "../src/lib
 import { CSAT_TEMPLATE_IDS, DEFAULT_CSAT_TEMPLATE_ID } from "../src/lib/renderEngine/templateIds.ts";
 import { CSAT_TEMPLATE_TOKENS } from "../src/lib/renderEngine/templates/templateTokens.ts";
 import { CSAT_TEMPLATE_STORAGE_KEY, getSavedCSATTemplateId, saveCSATTemplateId } from "../src/lib/renderEngine/templateStorage.ts";
+import { cleanImportedQuestionText, stripLegacyInlineEmphasis } from "../src/lib/renderEngine/questionText.ts";
 
 function mockQuestion(index, overrides = {}) {
   const words = Array.from({ length: 115 }, (_, wordIndex) => `reading${index}_${wordIndex}`);
@@ -169,7 +170,7 @@ test("40·50문항의 정답과 해설은 별도 페이지 단위로 순서와 �
 test("문제 페이지는 해설을 출력하지 않고 해설지는 문제 뒤에 렌더링한다", async () => {
   const questionBlock = await readFile(new URL("../src/components/renderEngine/CSATQuestionBlock.tsx", import.meta.url), "utf8");
   const bookletTemplate = await readFile(new URL("../src/components/renderEngine/templates/CSATTemplateBooklet.tsx", import.meta.url), "utf8");
-  assert.doesNotMatch(questionBlock, /question\.explanation/);
+  assert.doesNotMatch(questionBlock, />\s*\{question\.explanation\}\s*</);
   assert.match(bookletTemplate, /\{pages\.map[\s\S]+<AnswerKeyPage[\s\S]+explanationPages\.map/);
 });
 
@@ -179,6 +180,39 @@ test("malformed 문항은 임의 보강 없이 제외하고 오류로 보고한�
   assert.equal(result.questions.length, 0);
   assert.equal(result.issues.length, 1);
   assert.match(result.issues[0]?.message || "", /passage|five-valid-choices/);
+});
+
+test("가져온 PDF 꼬리 문구와 의도하지 않은 굵은 글씨를 최종 출력에서 제거한다", () => {
+  const trailer = "Choice five. Xtudy Universe | 고1 2026년 6월 11유형 변형문제 28 2026년 6월 고1 19번 정답 및 해설";
+  assert.equal(cleanImportedQuestionText(trailer), "Choice five.");
+  assert.equal(stripLegacyInlineEmphasis("Normal **unexpected bold** and <b>legacy 𝐛𝐨𝐥𝐝</b>."), "Normal unexpected bold and legacy bold.");
+});
+
+test("무작위 30문항을 반복 구성해도 문항·선지와 정리된 출력 텍스트를 보존한다", () => {
+  const pool = Array.from({ length: 60 }, (_, index) => mockQuestion(index + 1, {
+    passage: `Passage ${index + 1} with ① 𝐤𝐞𝐲 evidence and enough context for rendering.`,
+    choices: Array.from({ length: 5 }, (_, choiceIndex) => ({
+      index: choiceIndex + 1,
+      text: `Choice ${choiceIndex + 1} for question ${index + 1}.${choiceIndex === 4 ? ` Xtudy Universe | 고${index % 2 + 1} 2026년 6월 11유형 변형문제 ${index + 2} 정답 및 해설` : ""}`,
+      isCorrect: choiceIndex === 2,
+      distractorPattern: choiceIndex === 2 ? undefined : "SCOPE_SHIFT",
+      rationale: "범위가 다르다.",
+    })),
+  }));
+
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const selected = [...pool].sort(() => Math.random() - 0.5).slice(0, 30);
+    const normalized = normalizeCSATQuestions(selected);
+    assert.equal(normalized.issues.length, 0);
+    assert.equal(normalized.questions.length, 30);
+    assert.equal(new Set(normalized.questions.map((question) => question.id)).size, 30);
+    normalized.questions.forEach((question) => {
+      assert.equal(question.choices.length, 5);
+      const outputText = [question.passage, question.stem, ...question.choices.map((choice) => choice.text)].join(" ");
+      assert.doesNotMatch(outputText, /Xtudy[\s-]*Universe|11유형\s+변형문제/iu);
+      assert.doesNotMatch(stripLegacyInlineEmphasis(outputText), /[\u{1D400}-\u{1D7FF}]/u);
+    });
+  }
 });
 
 test("student mode는 잘못 전달된 정답표 옵션도 강제로 차단한다", () => {

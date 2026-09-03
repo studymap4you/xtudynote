@@ -4,6 +4,7 @@ import type {
   NormalizedCSATQuestion,
   RenderableGeneratedCsatQuestion,
 } from "@/lib/renderEngine/types";
+import { cleanImportedQuestionText } from "./questionText.ts";
 
 export type NormalizedQuestionResult = {
   questions: NormalizedCSATQuestion[];
@@ -46,8 +47,8 @@ export function normalizeCSATQuestions(questions: RenderableGeneratedCsatQuestio
 
   questions.forEach((question, inputIndex) => {
     const questionId = requiredText(question?.id) || `input-${inputIndex + 1}`;
-    const passage = requiredText(question?.passage);
-    const stem = requiredText(question?.stem);
+    const passage = cleanImportedQuestionText(requiredText(question?.passage));
+    const stem = cleanImportedQuestionText(requiredText(question?.stem));
     const questionType = requiredText(question?.questionType);
     const choices = Array.isArray(question?.choices) ? question.choices : [];
     const choiceIndexes = choices.map((choice) => Number(choice?.index));
@@ -76,7 +77,7 @@ export function normalizeCSATQuestions(questions: RenderableGeneratedCsatQuestio
       stem,
       choices: choices.map((choice) => ({
         index: choice.index,
-        text: choice.text.trim(),
+        text: cleanImportedQuestionText(choice.text.trim()),
         isCorrect: choice.isCorrect,
         distractorPattern: requiredText(choice.distractorPattern) || undefined,
         rationale: requiredText(choice.rationale),
@@ -91,7 +92,7 @@ export function normalizeCSATQuestions(questions: RenderableGeneratedCsatQuestio
       qualityMetadata: question.qualityMetadata,
       emphasisRanges: normalizeEmphasisRanges(question.emphasisRanges),
       groupId: requiredText(question.groupId) || undefined,
-      sharedPassage: requiredText(question.sharedPassage) || undefined,
+      sharedPassage: cleanImportedQuestionText(requiredText(question.sharedPassage)) || undefined,
     });
   });
 

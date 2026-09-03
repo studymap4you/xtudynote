@@ -4,17 +4,17 @@ import type {
   CSATQuestionRenderUnit,
   ResolvedCSATRenderOptions,
 } from "@/lib/renderEngine/types";
+import { cleanImportedQuestionText, stripLegacyInlineEmphasis } from "@/lib/renderEngine/questionText";
 import styles from "@/components/renderEngine/csatRender.module.css";
 import emphasisStyles from "@/components/renderEngine/csatEmphasis.module.css";
 
 const CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤"];
-const IMPORTED_PAGE_LABEL = /\s*Xtudy Universe\s*\|\s*고[1-3]\s+\d{4}년\s+0?\d{1,2}월\s+11유형\s+변형문제(?:\s+\d+)?\s*$/iu;
 const INLINE_CANDIDATE_TYPES = new Set(["GRAMMAR", "VOCABULARY"]);
 const POSITION_SELECTION_TYPES = new Set(["SENTENCE_INSERTION", "IRRELEVANT_SENTENCE"]);
 const INLINE_ONLY_TYPES = new Set([...INLINE_CANDIDATE_TYPES, ...POSITION_SELECTION_TYPES]);
 
 function withoutImportedPageLabel(value: string): string {
-  return value.replace(IMPORTED_PAGE_LABEL, "").trimEnd();
+  return cleanImportedQuestionText(value);
 }
 
 function stripChoicePrefix(value: string, index: number): string {
@@ -147,15 +147,7 @@ function preparePassage(
 }
 
 function renderInlineMarkup(value: string): ReactNode {
-  const normalized = value.replace(/<(?:strong|b|u)>([\s\S]*?)<\/(?:strong|b|u)>/giu, "**$1**");
-  const parts = normalized.split(/(\*\*[^*]+\*\*|__[^_]+__)/gu).filter(Boolean);
-  if (parts.length === 1) return normalized;
-  return parts.map((part, index) => {
-    const markdownBold = part.startsWith("**") && part.endsWith("**");
-    const markdownUnderlineAlias = part.startsWith("__") && part.endsWith("__");
-    if (!markdownBold && !markdownUnderlineAlias) return <Fragment key={`${index}-${part.slice(0, 12)}`}>{part}</Fragment>;
-    return <strong className={emphasisStyles.bold} key={`${index}-${part.slice(0, 12)}`}>{part.slice(2, -2)}</strong>;
-  });
+  return stripLegacyInlineEmphasis(value);
 }
 
 function renderTextWithRanges(value: string, ranges: CSATEmphasisRange[]): ReactNode {
@@ -175,14 +167,14 @@ function renderTextWithRanges(value: string, ranges: CSATEmphasisRange[]): React
   const nodes: ReactNode[] = [];
   let cursor = 0;
   usable.forEach((range, index) => {
-    if (range.start > cursor) nodes.push(<Fragment key={`plain-${index}`}>{value.slice(cursor, range.start)}</Fragment>);
-    const emphasized = value.slice(range.start, range.end);
+    if (range.start > cursor) nodes.push(<Fragment key={`plain-${index}`}>{stripLegacyInlineEmphasis(value.slice(cursor, range.start))}</Fragment>);
+    const emphasized = stripLegacyInlineEmphasis(value.slice(range.start, range.end));
     nodes.push(range.style === "underline"
       ? <u className={emphasisStyles.underline} key={`em-${index}`}>{emphasized}</u>
       : <strong className={emphasisStyles.bold} key={`em-${index}`}>{emphasized}</strong>);
     cursor = range.end;
   });
-  if (cursor < value.length) nodes.push(<Fragment key="plain-tail">{value.slice(cursor)}</Fragment>);
+  if (cursor < value.length) nodes.push(<Fragment key="plain-tail">{stripLegacyInlineEmphasis(value.slice(cursor))}</Fragment>);
   return nodes;
 }
 
@@ -234,7 +226,6 @@ export function CSATQuestionBlock({
     ? preparePassage(questionType, unit.passage, unit.choices, question.explanation || "", question.emphasisRanges)
     : { text: "", ranges: [] };
   const showExternalChoices = unit.choices.length > 0 && !INLINE_ONLY_TYPES.has(questionType);
-
   return (
     <section className={`${styles.questionBlock}${unit.continuation ? ` ${styles.continuationBlock}` : ""}${sameQuestionAsPrevious ? ` ${styles.samePageContinuation}` : ""}${sameQuestionAsNext ? ` ${styles.samePageBeforeContinuation}` : ""}`}>
       {unit.showQuestionHeader ? (
