@@ -1,8 +1,7 @@
 import crypto from "node:crypto";
-import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { getProblemBankFirestore, problemBankSettings } from "./_lib/problem-bank/admin.mjs";
 
-const TOKEN = "g3final_20260902_K7mQ4pV9";
+const TOKEN = "grade3-final-sync";
 const DATASET_ID = "xtudy-g3-final-11-variants-v1";
 const DATASET_VERSION = "2026-09-02.2";
 const VALID_NUMBERS = new Set([...Array.from({ length: 7 }, (_, i) => i + 18), ...Array.from({ length: 17 }, (_, i) => i + 29)]);
@@ -89,7 +88,27 @@ async function driveToken(){
   const response=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion})}); if(!response.ok)throw new Error(`drive-token-${response.status}`); return (await response.json()).access_token;
 }
 async function drivePdf(fileId){ const token=await driveToken(); const response=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,{headers:{Authorization:`Bearer ${token}`}}); if(!response.ok)throw new Error(`drive-fetch-${response.status}`); return new Uint8Array(await response.arrayBuffer()); }
-async function extractText(bytes){ const pdf=await pdfjs.getDocument({data:bytes}).promise; const pages=[]; for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i),content=await page.getTextContent(),raw=content.items.map((item)=>item&&"str" in item?item.str:"").join("\n"); pages.push(`\n[[PAGE_${i}]]\n${stripPage(raw)}`);} return {text:pages.join("\n"),pageCount:pdf.numPages}; }
+async function loadPdfjs(){
+  if(typeof globalThis.DOMMatrix==="undefined"){
+    class MinimalDOMMatrix{
+      constructor(init){this.a=1;this.b=0;this.c=0;this.d=1;this.e=0;this.f=0;if(Array.isArray(init)&&init.length>=6){[this.a,this.b,this.c,this.d,this.e,this.f]=init.slice(0,6).map(Number);}}
+      multiplySelf(other){const o=other||new MinimalDOMMatrix();const a=this.a*o.a+this.c*o.b,b=this.b*o.a+this.d*o.b,c=this.a*o.c+this.c*o.d,d=this.b*o.c+this.d*o.d,e=this.a*o.e+this.c*o.f+this.e,f=this.b*o.e+this.d*o.f+this.f;Object.assign(this,{a,b,c,d,e,f});return this;}
+      preMultiplySelf(other){const o=new MinimalDOMMatrix([other?.a??1,other?.b??0,other?.c??0,other?.d??1,other?.e??0,other?.f??0]);o.multiplySelf(this);Object.assign(this,o);return this;}
+      translateSelf(tx=0,ty=0){return this.multiplySelf(new MinimalDOMMatrix([1,0,0,1,Number(tx),Number(ty)]));}
+      scaleSelf(sx=1,sy=sx){return this.multiplySelf(new MinimalDOMMatrix([Number(sx),0,0,Number(sy),0,0]));}
+      rotateSelf(angle=0){const r=Number(angle)*Math.PI/180,cos=Math.cos(r),sin=Math.sin(r);return this.multiplySelf(new MinimalDOMMatrix([cos,sin,-sin,cos,0,0]));}
+      inverse(){const det=this.a*this.d-this.b*this.c;if(!det)return new MinimalDOMMatrix();return new MinimalDOMMatrix([this.d/det,-this.b/det,-this.c/det,this.a/det,(this.c*this.f-this.d*this.e)/det,(this.b*this.e-this.a*this.f)/det]);}
+      invertSelf(){Object.assign(this,this.inverse());return this;}
+      transformPoint(p={x:0,y:0}){return {x:this.a*Number(p.x||0)+this.c*Number(p.y||0)+this.e,y:this.b*Number(p.x||0)+this.d*Number(p.y||0)+this.f};}
+    }
+    globalThis.DOMMatrix=MinimalDOMMatrix;
+  }
+  if(typeof globalThis.ImageData==="undefined")globalThis.ImageData=class ImageData{};
+  if(typeof globalThis.Path2D==="undefined")globalThis.Path2D=class Path2D{addPath(){} moveTo(){} lineTo(){} bezierCurveTo(){} closePath(){}};
+  return import("pdfjs-dist/legacy/build/pdf.mjs");
+}
+
+async function extractText(bytes){ const pdfjs=await loadPdfjs(); const pdf=await pdfjs.getDocument({data:bytes}).promise; const pages=[]; for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i),content=await page.getTextContent(),raw=content.items.map((item)=>item&&"str" in item?item.str:"").join("\n"); pages.push(`\n[[PAGE_${i}]]\n${stripPage(raw)}`);} return {text:pages.join("\n"),pageCount:pdf.numPages}; }
 function parseSegment(segment,label,config){
   let boundary=segment.indexOf("정답 및 상세 해설"); if(boundary<0)boundary=segment.indexOf("정답 및 해설"); const qpart=boundary>=0?segment.slice(0,boundary):segment,apart=boundary>=0?segment.slice(boundary):"";
   const qms=[...qpart.matchAll(QUESTION_RE)].filter((m)=>Number(m.groups?.seq)>=1&&Number(m.groups?.seq)<=11); const unique=[];const seen=new Set();for(const m of qms){const n=Number(m.groups.seq);if(!seen.has(n)){seen.add(n);unique.push(m);}}
