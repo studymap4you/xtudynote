@@ -3,7 +3,7 @@ import { getProblemBankFirestore } from "./_lib/problem-bank/admin.mjs";
 
 const TOKEN = "grade3-final-repair";
 const DATASET_ID = "xtudy-g3-final-11-variants-v2";
-const REPAIR_VERSION = "2026-09-11.render-repair.2";
+const REPAIR_VERSION = "2026-09-11.render-repair.3";
 const CIRCLED = ["①", "②", "③", "④", "⑤"];
 const TYPE_KEYS = ["grammar","topic","title","vocabulary","implied_meaning","summary","blank_inference","paragraph_order","sentence_insertion","irrelevant_sentence","factual_description"];
 const SESSIONS = [
@@ -17,6 +17,12 @@ const BARE_TAIL_RE = /\s*①\s*②\s*③\s*④\s*⑤\s*$/u;
 function clean(value,max=100000){return String(value??"").normalize("NFC").replace(/\u0000/gu," ").replace(/[\t\r\n]+/gu," ").replace(/\s+/gu," ").trim().slice(0,max)}
 function sha(value){return crypto.createHash("sha256").update(String(value)).digest("hex")}
 function stripTail(value){let text=clean(value,30000);text=text.replace(GENERIC_TAIL_RE,"").replace(BARE_TAIL_RE,"").trim();return text}
+function normalizeInlineMarkers(passage,type){
+  if(!["grammar","vocabulary"].includes(type))return passage;
+  const matches=[...passage.matchAll(/[①②③④⑤]/gu)];if(matches.length!==5)return passage;
+  let out="",cursor=0;for(let i=0;i<5;i++){const at=Number(matches[i].index);out+=passage.slice(cursor,at)+CIRCLED[i];cursor=at+matches[i][0].length;}return out+passage.slice(cursor);
+}
+function markerSequenceValid(passage,type){if(!["grammar","vocabulary"].includes(type))return true;const symbols=[...passage.matchAll(/[①②③④⑤]/gu)].map(m=>m[0]);return symbols.length===5&&symbols.join("")===CIRCLED.join("")}
 function impliedTarget(explanation){const m=clean(explanation,12000).match(/(?:굵은\s*표현|굵게\s*표시된|굵은\s*글씨로\s*강조된|강조된|밑줄\s*친|밑줄\s*표시된)\s*[‘'“"]([^’'”"]{2,220})[’'”"]/u);return m?.[1]?.trim()||""}
 function normalizeExisting(ranges,textLength){if(!Array.isArray(ranges))return[];return ranges.flatMap((r)=>{const start=Number(r?.start),end=Number(r?.end),target=clean(r?.target,20),style=clean(r?.style,20),source=clean(r?.source,80)||undefined;if(target!=="passage"||!["bold","underline"].includes(style)||!Number.isInteger(start)||!Number.isInteger(end)||start<0||end<=start||end>textLength)return[];return[{target,start,end,style,source}]})}
 function firstCandidate(tail,type){
@@ -43,8 +49,8 @@ function hasTailArtifact(passage){return GENERIC_TAIL_RE.test(clean(passage,3000
 async function sessionDocs(db,examId){const snap=await db.collection("problems").where("examId","==",examId).limit(600).get();return snap.docs.filter(doc=>{const p=doc.data()||{};return p.datasetId===DATASET_ID&&p.status==="approved"})}
 
 async function repairSession(db,session){
-  const docs=await sessionDocs(db,session.examId);let changed=0,tailRemoved=0,emphasisRebuilt=0;const writes=[];
-  for(const doc of docs){const p=doc.data()||{},type=clean(p.questionType,80),before=clean(p.passage,30000),after=stripTail(before);if(after!==before)tailRemoved++;
+  const docs=await sessionDocs(db,session.examId);let changed=0,tailRemoved=0,markersRenumbered=0,emphasisRebuilt=0;const writes=[];
+  for(const doc of docs){const p=doc.data()||{},type=clean(p.questionType,80),before=clean(p.passage,30000),stripped=stripTail(before);if(stripped!==before)tailRemoved++;const after=normalizeInlineMarkers(stripped,type);if(after!==stripped)markersRenumbered++;
     const computed=computedRanges(after,type,p.explanation||""),existing=normalizeExisting(p.emphasisRanges,after.length);let ranges=existing;
     if(["grammar","vocabulary"].includes(type))ranges=computed.length===5?computed:(existing.length>=5?existing:computed);
     else if(computed.length)ranges=computed;
@@ -52,19 +58,19 @@ async function repairSession(db,session){
     if(after!==before||JSON.stringify(ranges)!==JSON.stringify(existing)||p.formattingVersion!==REPAIR_VERSION||p.formattingFingerprint!==nextFingerprint){writes.push({ref:doc.ref,data:{passage:after,emphasisRanges:ranges,formattingVersion:REPAIR_VERSION,formattingFingerprint:nextFingerprint,updatedAt:new Date()}});changed++;if(computed.length===5||type==="implied_meaning"&&computed.length)emphasisRebuilt++;}
   }
   for(let i=0;i<writes.length;i+=400){const batch=db.batch();for(const item of writes.slice(i,i+400))batch.set(item.ref,item.data,{merge:true});await batch.commit()}
-  return{session:`g3-${session.year}-${String(session.month).padStart(2,"0")}`,examId:session.examId,documents:docs.length,changed,tailRemoved,emphasisRebuilt};
+  return{session:`g3-${session.year}-${String(session.month).padStart(2,"0")}`,examId:session.examId,documents:docs.length,changed,tailRemoved,markersRenumbered,emphasisRebuilt};
 }
 
 async function auditSession(db,session){
-  const exam=await db.collection("exams").doc(session.examId).get(),docs=await sessionDocs(db,session.examId),counts=new Map();let tailArtifacts=0,grammarVocabularyIncompleteEmphasis=0;
-  for(const doc of docs){const p=doc.data()||{},number=Number(p.examQuestionNumber),type=clean(p.questionType,80),key=`${number}:${type}`;counts.set(key,(counts.get(key)||0)+1);if(hasTailArtifact(p.passage))tailArtifacts++;
-    if(["grammar","vocabulary"].includes(type)){const ranges=normalizeExisting(p.emphasisRanges,clean(p.passage,30000).length).filter(r=>r.style==="bold");if(ranges.length!==5)grammarVocabularyIncompleteEmphasis++;}
+  const exam=await db.collection("exams").doc(session.examId).get(),docs=await sessionDocs(db,session.examId),counts=new Map();let tailArtifacts=0,invalidInlineMarkerSequence=0,grammarVocabularyIncompleteEmphasis=0;
+  for(const doc of docs){const p=doc.data()||{},number=Number(p.examQuestionNumber),type=clean(p.questionType,80),passage=clean(p.passage,30000),key=`${number}:${type}`;counts.set(key,(counts.get(key)||0)+1);if(hasTailArtifact(passage))tailArtifacts++;
+    if(["grammar","vocabulary"].includes(type)){if(!markerSequenceValid(passage,type))invalidInlineMarkerSequence++;const ranges=normalizeExisting(p.emphasisRanges,passage.length).filter(r=>r.style==="bold");if(ranges.length!==5)grammarVocabularyIncompleteEmphasis++;}
   }
   const expectedNumbers=VALID_NUMBERS.filter(n=>!(session.year===2025&&session.month===10&&n===20)),missing=[];
   for(const n of expectedNumbers)for(const type of TYPE_KEYS){const count=counts.get(`${n}:${type}`)||0;if(count!==1)missing.push(`${n}:${type}:${count}`)}
   const ready=exam.exists?Boolean(exam.data()?.problemBankReady):false;
-  const valid=docs.length===session.expected&&missing.length===0&&tailArtifacts===0&&grammarVocabularyIncompleteEmphasis===0&&ready;
-  return{session:`g3-${session.year}-${String(session.month).padStart(2,"0")}`,examId:session.examId,documents:docs.length,expected:session.expected,problemBankReady:ready,missing,tailArtifacts,grammarVocabularyIncompleteEmphasis,valid};
+  const valid=docs.length===session.expected&&missing.length===0&&tailArtifacts===0&&invalidInlineMarkerSequence===0&&grammarVocabularyIncompleteEmphasis===0&&ready;
+  return{session:`g3-${session.year}-${String(session.month).padStart(2,"0")}`,examId:session.examId,documents:docs.length,expected:session.expected,problemBankReady:ready,missing,tailArtifacts,invalidInlineMarkerSequence,grammarVocabularyIncompleteEmphasis,valid};
 }
 
 export default async function handler(req,res){
