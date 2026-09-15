@@ -55,7 +55,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 async function request<T>(user: User, body: Record<string, unknown>): Promise<T> {
   const token = await user.getIdToken();
-  const response = await fetch("/api/curriculum-variant-workbook", {
+  const response = await fetch("/api/internal-library?mode=curriculum-variant", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
