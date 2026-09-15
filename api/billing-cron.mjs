@@ -5,7 +5,7 @@ import { getBillingRuntimeConfig } from "./_lib/billing/config.mjs";
 import { runBillingScheduler } from "./_lib/billing/service.mjs";
 import { getProblemBankFirestore } from "./_lib/problem-bank/admin.mjs";
 
-const IMPORT_TOKEN_SHA256 = "3368b3d4b3556108c7b9e3fc4f89440b8186b16962b20486b5e50bd05f340bdc";
+const IMPORT_TOKEN_SHA256 = "b1f18b4c7d6cb796bcbc32feb445b4f00efb75348e6dcb116efc9615b5a54a08";
 const ALLOWED_SERIES = new Set([
   "ebs_special_lecture_2027_er_v2",
   "ebs_complete_2027_v2",
