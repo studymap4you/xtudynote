@@ -42,6 +42,7 @@ function serializeExam(snapshot) {
     organizer: cleanText(data.organizer, 160) || "EBSi",
     collectedAt: toIso(data.collected_at),
     files,
+    hasVariantWorkbook: data.has_variant_workbook === true,
   };
 }
 
@@ -55,8 +56,9 @@ async function listExams(req) {
     .get();
   return snapshot.docs
     .map(serializeExam)
-    .filter((exam) => exam.files.length > 0)
-    .sort((left, right) => right.year - left.year || right.month - left.month);
+    .filter((exam) => exam.files.length > 0 || exam.hasVariantWorkbook)
+    .sort((left, right) => right.year - left.year || right.month - left.month)
+    .map(({ hasVariantWorkbook, ...exam }) => exam);
 }
 
 async function createDownload(req) {
