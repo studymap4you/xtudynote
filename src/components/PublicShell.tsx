@@ -1,5 +1,9 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { BrandLockup } from "@/components/BrandLockup";
+import {
+  CurriculumVariantRouteContent,
+  curriculumVariantSeriesFromPath,
+} from "@/components/curriculum/CurriculumVariantRouteContent";
 import { TopNavMainLinks } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import "@/pages/pages.css";
@@ -13,6 +17,8 @@ export function PublicShell({
   light?: boolean;
 }) {
   const { firebaseUser, logOut } = useAuth();
+  const { pathname } = useLocation();
+  const curriculumVariantSeries = curriculumVariantSeriesFromPath(pathname);
 
   return (
     <div className={light ? "app-shell app-shell--light" : "app-shell"}>
@@ -50,7 +56,9 @@ export function PublicShell({
           )}
         </div>
       </header>
-      {children}
+      {curriculumVariantSeries ? (
+        <CurriculumVariantRouteContent seriesId={curriculumVariantSeries} />
+      ) : children}
     </div>
   );
 }
